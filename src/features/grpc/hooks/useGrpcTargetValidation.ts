@@ -1,35 +1,35 @@
 import { useMemo } from 'react';
-import type { GrpcTlsMode } from '../../../shared/grpc/contracts';
+import type { GrpcTlsMode } from '@shared/grpc/contracts';
 import {
   getGrpcInterpolationTemplateState,
   hasUnresolvedGrpcInterpolationTokens,
-} from '../../../shared/grpc/grpcInterpolationGrammar';
-import { createGrpcInterpolationTemplateResolver } from '../../../shared/grpc/grpcInterpolationResolver';
-import { mergeGrpcTabInterpolationEnv } from '../../../shared/grpc/grpcInterpolationPrecedence';
+} from '@shared/grpc/grpcInterpolationGrammar';
+import { createGrpcInterpolationTemplateResolver } from '@shared/grpc/grpcInterpolationResolver';
+import { mergeGrpcTabInterpolationEnv } from '@shared/grpc/grpcInterpolationPrecedence';
 import type { GrpcConnectionProfile, GrpcTabConnectionPageDefaults } from '../utils/resolveGrpcTabConnection';
 import {
   resolveGrpcConnectionTargetTemplate,
   validateGrpcCanonicalEnvTokensForConnection,
   validateGrpcCanonicalEnvTokensForTarget,
-} from '../../../shared/grpc/grpcCanonicalEnvValidation';
+} from '@shared/grpc/grpcCanonicalEnvValidation';
 import {
   detectGrpcInterpolationEnvCycle,
   validateGrpcInterpolationEnvCycles,
-} from '../../../shared/grpc/grpcInterpolationCycleDetector';
+} from '@shared/grpc/grpcInterpolationCycleDetector';
 import {
   buildSafeGrpcInterpolationDiagnosticPayload,
   sanitizeGrpcInterpolationDiagnosticMessage,
   type GrpcInterpolationDiagnosticPayload,
-} from '../../../shared/grpc/grpcInterpolationDiagnostics';
-import { GRPC_INTERPOLATION_ERROR_CODES } from '../../../shared/grpc/grpcInterpolationConstants';
-import type { GrpcInterpolationValidationIssue } from '../../../shared/grpc/grpcInterpolationConstants';
+} from '@shared/grpc/grpcInterpolationDiagnostics';
+import { GRPC_INTERPOLATION_ERROR_CODES } from '@shared/grpc/grpcInterpolationConstants';
+import type { GrpcInterpolationValidationIssue } from '@shared/grpc/grpcInterpolationConstants';
 import {
   validateGrpcTargetAddress,
   validateResolvedGrpcTargetAddress,
   withGrpcTargetValidationMessage,
   grpcTargetValidationMessage,
-} from '../../../shared/grpc/targetValidation';
-import { buildUnresolvedGrpcTargetFailure } from '../../../shared/grpc/grpcTargetValidationCatalog';
+} from '@shared/grpc/targetValidation';
+import { buildUnresolvedGrpcTargetFailure } from '@shared/grpc/grpcTargetValidationCatalog';
 
 function buildReadyMessage(
   usingFallback: boolean,

@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import type React from 'react';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import type { GraphqlAuth, GraphqlEnvironment, SubscriptionState } from '../../../shared/types/graphql';
-import type { GlobalAuthProfile } from '../../../shared/types';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import type { GraphqlAuth, GraphqlEnvironment, SubscriptionState } from '@shared/types/graphql';
+import type { GlobalAuthProfile } from '@shared/types';
 import type { ConnectionProfile } from '../hooks/useGraphqlConnectionProfiles';
 import { useGqlPollingPopover } from '../hooks/useGqlPollingPopover';
 import { authBadgeLabel, isAuthConfigured, type GqlAuthBadgePresentation } from '../utils/authUtils';
@@ -12,7 +12,7 @@ import { GqlEndpointInput } from './connection-bar/GqlEndpointInput';
 import { GqlSubscriptionControls } from './connection-bar/GqlSubscriptionControls';
 import { GraphqlTlsPanel } from './GraphqlTlsPanel';
 import type { EndpointRowStatus } from '../../environments/utils/protocolEndpointUtils';
-import { ProtocolEndpointPreview } from '../../../shared/components/ProtocolEndpointPreview';
+import { ProtocolEndpointPreview } from '@shared/components/ProtocolEndpointPreview';
 
 const MAX_ENV_NAME_LEN = 18;
 

@@ -3,8 +3,8 @@
  * Coverage gaps — grpcStudioTabLifecycle.ts (Phase 7E/7H).
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import * as grpcTransportFacade from '../../../shared/grpc/grpcTransportFacade';
-import { isTauri } from '../../../shared/utils/platform';
+import * as grpcTransportFacade from '@shared/grpc/grpcTransportFacade';
+import { isTauri } from '@shared/utils/platform';
 import {
   bindTauriWindowCloseRequested,
   registerGrpcStudioAppLifecycle,

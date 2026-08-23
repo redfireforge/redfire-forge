@@ -9,7 +9,7 @@ import {
   createRequiredFieldsAssertions,
 } from './presets';
 import { assertionPresetCatalog, ASSERTION_PRESET_CATEGORIES } from './index';
-import type { Assertion } from '../../../shared/types';
+import type { Assertion } from '@shared/types';
 
 // ─── Factory output helpers ──────────────────────────────────────────────────
 

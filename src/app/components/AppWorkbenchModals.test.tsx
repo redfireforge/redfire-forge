@@ -6,7 +6,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { Dispatch, SetStateAction } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { FeatureGroup } from '../../shared/types';
+import { FeatureGroup } from '@shared/types';
 import { CatalogEndpoint, CatalogEntry } from '../../features/catalog/types/catalog';
 import { Tab } from '../utils/appTabUtils';
 import { UseRequestsReturn } from '../../features/requests/hooks/useRequests';

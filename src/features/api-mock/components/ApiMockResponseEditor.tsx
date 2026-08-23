@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { ApiMockRouteV1, ApiMockResponseCookieV1, ApiMockResponseVariantV1, ApiMockVariableV1, ApiMockPredicateV1 } from '../../../shared/api-mock/contracts';
-import { previewResponseBody } from '../../../shared/api-mock/templatePreview';
-import { createDefaultResponse } from '../../../shared/api-mock/defaults';
-import { isPredicateGroup } from '../../../shared/api-mock/predicateTree';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import type { ApiMockRouteV1, ApiMockResponseCookieV1, ApiMockResponseVariantV1, ApiMockVariableV1, ApiMockPredicateV1 } from '@shared/api-mock/contracts';
+import { previewResponseBody } from '@shared/api-mock/templatePreview';
+import { createDefaultResponse } from '@shared/api-mock/defaults';
+import { isPredicateGroup } from '@shared/api-mock/predicateTree';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import { ApiMockVariantOutboundPanel } from './ApiMockVariantOutboundPanel';
 import { ApiMockBodyEditor } from './ApiMockBodyEditor';
-import DataMapperModal from '../../../shared/components/data-mapper/DataMapperModal';
-import { createApiMockBodyAdapter } from '../../../shared/components/data-mapper/adapters/apiMockBodyAdapter';
-import { parseBodyJson } from '../../../shared/components/data-mapper/adapters/requestBodyAdapter';
+import DataMapperModal from '@shared/components/data-mapper/DataMapperModal';
+import { createApiMockBodyAdapter } from '@shared/components/data-mapper/adapters/apiMockBodyAdapter';
+import { parseBodyJson } from '@shared/components/data-mapper/adapters/requestBodyAdapter';
 import {
   CONTENT_TYPE_PRESETS,
   COOKIE_FLAG_HELP,
@@ -23,7 +23,7 @@ import { ApiMockResponseFaultsPanel } from './ApiMockResponseFaultsPanel';
 import { ApiMockResponseSelectionPanel } from './ApiMockResponseSelectionPanel';
 import { ApiMockResponseTimingPanel } from './ApiMockResponseTimingPanel';
 import { ApiMockTemplateHelperModal } from './ApiMockTemplateHelperModal';
-import { insertTemplateSnippet } from '../../../shared/api-mock/templateHelperCatalog';
+import { insertTemplateSnippet } from '@shared/api-mock/templateHelperCatalog';
 
 interface Props {
   route: ApiMockRouteV1;

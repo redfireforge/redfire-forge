@@ -4,7 +4,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { getCustomSelectValue, selectOption } from '../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import { GrpcAuthPanel } from './GrpcAuthPanel';
 import type { GrpcAuthPreviewResult } from '../utils/grpcAuthPreview';
 
@@ -17,7 +17,7 @@ const emptyPreview: GrpcAuthPreviewResult = {
 
 describe('GrpcAuthPanel coverage gaps', () => {
   it('switches to none and clears auth config', async () => {
-    const user = userEvent.setup();
+    const _user = userEvent.setup();
     const onChange = vi.fn();
     render(
       <GrpcAuthPanel
@@ -31,7 +31,7 @@ describe('GrpcAuthPanel coverage gaps', () => {
   });
 
   it('ignores clicking the already-active auth type pill', async () => {
-    const user = userEvent.setup();
+    const _user = userEvent.setup();
     const onChange = vi.fn();
     render(
       <GrpcAuthPanel
@@ -217,7 +217,7 @@ describe('GrpcAuthPanel coverage gaps', () => {
   });
 
   it('ignores auth type pill clicks for the active type', async () => {
-    const user = userEvent.setup();
+    const _user = userEvent.setup();
     const onChange = vi.fn();
     render(
       <GrpcAuthPanel
@@ -304,7 +304,7 @@ describe('GrpcAuthPanel coverage gaps', () => {
   });
 
   it('clears auth config when switching to none', async () => {
-    const user = userEvent.setup();
+    const _user = userEvent.setup();
     const onChange = vi.fn();
     render(
       <GrpcAuthPanel
@@ -332,7 +332,7 @@ describe('GrpcAuthPanel coverage gaps', () => {
   });
 
   it('switches auth type to bearer and edits bearer token', async () => {
-    const user = userEvent.setup();
+    const _user = userEvent.setup();
     const onChange = vi.fn();
     render(
       <GrpcAuthPanel
@@ -407,7 +407,7 @@ describe('GrpcAuthPanel coverage gaps', () => {
   });
 
   it('switches auth type to api_key and basic from none', async () => {
-    const user = userEvent.setup();
+    const _user = userEvent.setup();
     const onChange = vi.fn();
     render(
       <GrpcAuthPanel
@@ -423,7 +423,7 @@ describe('GrpcAuthPanel coverage gaps', () => {
   });
 
   it('switches auth type to oauth2 from bearer', async () => {
-    const user = userEvent.setup();
+    const _user = userEvent.setup();
     const onChange = vi.fn();
     render(
       <GrpcAuthPanel

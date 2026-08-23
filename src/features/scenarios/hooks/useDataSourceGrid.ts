@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import type { DataSource } from '../../../shared/types';
+import type { DataSource } from '@shared/types';
 
 /**
  * Hook for data source grid interactions: column resize, cell keyboard navigation,

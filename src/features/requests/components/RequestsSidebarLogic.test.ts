@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it, vi } from 'vitest';
-import type { RequestCollection } from '../../../shared/types';
+import type { RequestCollection } from '@shared/types';
 import {
   addCollectionRequestsToSelection,
   authLabel,

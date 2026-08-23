@@ -9,13 +9,13 @@ import {
   FIXTURE_REFLECT_SUCCESS_ENVELOPE,
   FIXTURE_HAPPY_CALL_ENVELOPE,
   FIXTURE_CANCEL_SUCCESS_ENVELOPE,
-} from '../../shared/grpc/contractFixtures';
-import { setGrpcClientTransport } from '../../shared/grpc/grpcApiClient';
+} from '@shared/grpc/contractFixtures';
+import { setGrpcClientTransport } from '@shared/grpc/grpcApiClient';
 import {
   setGrpcStreamEventsOpener,
   setGrpcStreamTransport,
-} from '../../shared/grpc/grpcStreamClient';
-import { createGrpcSuccessEnvelope } from '../../shared/grpc/contracts';
+} from '@shared/grpc/grpcStreamClient';
+import { createGrpcSuccessEnvelope } from '@shared/grpc/contracts';
 import { GrpcStudioPage, buildLegacyGrpcEnvVarMap } from './GrpcStudioPage';
 import { resetGrpcTabCounterForTests } from './grpcStudioTypes';
 import type { UseGrpcCollectionsResult } from './hooks/useGrpcCollections';

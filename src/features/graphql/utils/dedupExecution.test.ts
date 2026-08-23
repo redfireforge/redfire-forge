@@ -19,7 +19,7 @@ import {
   _clearInFlightMap,
   _inFlightCount,
 } from './dedupExecution';
-import type { GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlResponse } from '@shared/types/graphql';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

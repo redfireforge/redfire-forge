@@ -1,10 +1,10 @@
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import JsonPreview, { buildJTree, collectMatchNodes, collectJTreePaths } from '../../../requests/components/JsonTreePreview';
-import { useDebounce } from '../../../../shared/hooks/useDebounce';
-import { escapeRegExp } from '../../../../shared/utils/helpers';
-import { SearchMatchBar } from '../../../../shared/components/SearchMatchBar';
-import { useSearchMatchNavigation } from '../../../../shared/hooks/useSearchMatchNavigation';
-import { useJsonTreeCollapseState } from '../../../../shared/hooks/useJsonTreeCollapseState';
+import { useDebounce } from '@shared/hooks/useDebounce';
+import { escapeRegExp } from '@shared/utils/helpers';
+import { SearchMatchBar } from '@shared/components/SearchMatchBar';
+import { useSearchMatchNavigation } from '@shared/hooks/useSearchMatchNavigation';
+import { useJsonTreeCollapseState } from '@shared/hooks/useJsonTreeCollapseState';
 
 /** Best-effort pretty-format for JSON-like text that may be truncated / invalid. */
 function prettyFormatRawJson(raw: string): string {

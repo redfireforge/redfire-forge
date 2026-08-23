@@ -5,7 +5,7 @@ import {
   isWideIntegralScalarField,
 } from '../../utils/grpcProtoFormFieldLabels';
 import type { GrpcProtoFieldRowProps } from './grpcProtoFormBuilderTypes';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 export function GrpcProtoScalarFieldControl({
   field,

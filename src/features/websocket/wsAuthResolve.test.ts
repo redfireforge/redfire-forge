@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { AuthConfig, GlobalAuthProfile } from '../../shared/types';
+import type { AuthConfig, GlobalAuthProfile } from '@shared/types';
 
 vi.mock('../../engine/tokenManager', () => ({
   acquireOAuth2Token: vi.fn(),
 }));
 
-import { acquireOAuth2Token } from '../../engine/tokenManager';
+import { acquireOAuth2Token } from '@engine/core/tokenManager';
 import {
   resolveAuthForConnect,
   resolveEffectiveAuth,

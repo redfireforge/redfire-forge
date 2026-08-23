@@ -1,9 +1,9 @@
 import { useMemo, useEffect } from 'react';
-import type { GrpcSchemaDiffChange } from '../../../../shared/grpc/grpcSchemaDiffContracts';
-import type { GrpcDescriptor } from '../../../../shared/grpc/contracts';
+import type { GrpcSchemaDiffChange } from '@shared/grpc/grpcSchemaDiffContracts';
+import type { GrpcDescriptor } from '@shared/grpc/contracts';
 import { schemaDiffSeverityBadgeClass } from '../../utils/grpcStudioAdvancedModel';
 import { grpcSchemaDiffChangeId } from '../../utils/grpcSchemaDiffAck';
-import StandardProfessionalModal from '../../../../shared/components/StandardProfessionalModal';
+import StandardProfessionalModal from '@shared/components/StandardProfessionalModal';
 import {
   SEVERITY_ORDER,
   buildChangeDrivenProtoText,

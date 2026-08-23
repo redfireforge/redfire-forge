@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { applyFilters } from './wsProtocolHelpers';
 import { FILTER_TICK_INTERVAL_MS } from './useWebSocketStudioTypes';
-import type { WsFrame } from '../../shared/websocket/types';
+import type { WsFrame } from '@shared/websocket/types';
 import type {
   WsDirectionFilter,
   WsSearchMode,

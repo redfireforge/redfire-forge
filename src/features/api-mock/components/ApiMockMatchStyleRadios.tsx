@@ -1,4 +1,4 @@
-import type { ApiMockPredicateV1 } from '../../../shared/api-mock/contracts';
+import type { ApiMockPredicateV1 } from '@shared/api-mock/contracts';
 
 interface Props {
   predicate: ApiMockPredicateV1;

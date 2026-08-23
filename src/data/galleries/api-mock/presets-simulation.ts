@@ -1,8 +1,8 @@
 /**
  * Simulation-suite API Mock gallery factory.
  */
-import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
-import { DEFAULT_SETTINGS, createDefaultResponse } from '../../../shared/api-mock/defaults';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
+import { DEFAULT_SETTINGS, createDefaultResponse } from '@shared/api-mock/defaults';
 import { TS, emptyGroup, jsonBody, jsonHeader } from './presets-helpers';
 
 /**

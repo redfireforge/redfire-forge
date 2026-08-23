@@ -11,9 +11,9 @@ import {
   sequenceCursorLabel,
   writeJsonPathCondition,
 } from './ApiMockResponseSelectionPanel';
-import { createDefaultResponse } from '../../../shared/api-mock/defaults';
-import type { ApiMockRouteV1, ApiMockResponseVariantV1 } from '../../../shared/api-mock/contracts';
-import { CUSTOM_SELECT_SET_VALUE_EVENT } from '../../../shared/components/CustomSelect';
+import { createDefaultResponse } from '@shared/api-mock/defaults';
+import type { ApiMockRouteV1, ApiMockResponseVariantV1 } from '@shared/api-mock/contracts';
+import { CUSTOM_SELECT_SET_VALUE_EVENT } from '@shared/components/CustomSelect';
 
 const ts = '2026-08-12T00:00:00.000Z';
 

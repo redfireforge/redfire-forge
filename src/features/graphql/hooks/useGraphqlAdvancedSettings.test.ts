@@ -12,7 +12,7 @@ vi.mock('../../../shared/utils/storage', () => ({
 }));
 
 import { useGraphqlAdvancedSettings } from './useGraphqlAdvancedSettings';
-import { readKey, writeKey } from '../../../shared/utils/storage';
+import { readKey, writeKey } from '@shared/utils/storage';
 
 const flushPromises = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 

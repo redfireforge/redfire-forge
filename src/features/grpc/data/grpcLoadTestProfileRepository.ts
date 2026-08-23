@@ -1,12 +1,12 @@
 /**
  * Phase 11J — load-test profile persistence (config only, no secrets).
  */
-import type { GrpcLoadTestConfig } from '../../../shared/grpc/grpcAdvancedFeatureContracts';
-import { assertGrpcLoadTestConfig } from '../../../shared/grpc/grpcAdvancedFeatureContracts';
-import { isTauri } from '../../../shared/utils/platform';
-import { readKey, removeKey, writeKey } from '../../../shared/utils/storage';
-import { idbAvailable, txComplete, wrap } from '../../../shared/utils/idbHelpers';
-import { openDB } from '../../../shared/utils/idbOpen';
+import type { GrpcLoadTestConfig } from '@shared/grpc/grpcAdvancedFeatureContracts';
+import { assertGrpcLoadTestConfig } from '@shared/grpc/grpcAdvancedFeatureContracts';
+import { isTauri } from '@shared/utils/platform';
+import { readKey, removeKey, writeKey } from '@shared/utils/storage';
+import { idbAvailable, txComplete, wrap } from '@shared/utils/idbHelpers';
+import { openDB } from '@shared/utils/idbOpen';
 
 export const GRPC_LOAD_TEST_PROFILES_STORAGE_KEY = 'grpc_load_test_profiles_v1';
 export const GRPC_LOAD_TEST_PROFILES_IDB_STORE = 'grpc-load-test-profiles';

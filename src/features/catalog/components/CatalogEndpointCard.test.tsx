@@ -5,11 +5,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import { selectOption, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
+import { selectOption, getCustomSelectValue } from '@test-utils/customSelectHelper';
 import CatalogEndpointCard from './CatalogEndpointCard';
 import { resolveBaseUrl } from '../utils/catalogCurlGenerator';
 import { makeEndpoint, makeServer, makeParam, makeResponse, makeHostConfig } from './catalogTestFactories';
-import type { AuthConfig } from '../../../shared/types';
+import type { AuthConfig } from '@shared/types';
 import type { EndpointCoverage } from '../utils/coverageChecker';
 
 const httpFetchMock = vi.hoisted(() => vi.fn());

@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { RequestTab, RequestCollection, RequestItem } from '../../../shared/types';
+import type { RequestTab, RequestCollection, RequestItem } from '@shared/types';
 import {
   scheduleSave,
   flushSave,

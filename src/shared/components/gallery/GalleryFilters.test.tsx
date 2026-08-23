@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { useState } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption } from '../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import { GalleryFilters } from './GalleryFilters';
 import { defaultFilterState, apiHostname, type GalleryFilterState } from './galleryFiltersUtils';
 import { GalleryDomainConfig } from '../../../data/galleries/registry';

@@ -4,7 +4,7 @@
 import '@testing-library/jest-dom/vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { selectOption } from '../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 
 vi.mock('../utils/monacoGraphqlSetup', () => ({
   buildModelUri: (id: string) => `inmemory://graphql/${id}`,

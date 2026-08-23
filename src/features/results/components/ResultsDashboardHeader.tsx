@@ -1,8 +1,8 @@
 import { useRef } from 'react';
-import type { TestRun } from '../../../shared/types';
-import type { WorkflowExecutionTrace } from '../../../shared/types';
-import { exportJson, exportCsv } from '../../../shared/utils/export';
-import { hasExecutionTrace } from '../../../shared/utils/traceCompression';
+import type { TestRun } from '@shared/types';
+import type { WorkflowExecutionTrace } from '@shared/types';
+import { exportJson, exportCsv } from '@shared/utils/export';
+import { hasExecutionTrace } from '@shared/utils/traceCompression';
 import { ResultsContextTags } from './ResultsContextTags';
 
 type RunTypeFilter = 'all' | 'test' | 'workflow';

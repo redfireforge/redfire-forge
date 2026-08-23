@@ -13,16 +13,16 @@
  * the /api/graphql/upload proxy route.
  */
 
-import { isTauri } from '../../../shared/utils/platform';
-import { httpFetch } from '../../../shared/utils/httpClient';
-import type { HttpResponse } from '../../../shared/utils/httpClient';
+import { isTauri } from '@shared/utils/platform';
+import { httpFetch } from '@shared/utils/httpClient';
+import type { HttpResponse } from '@shared/utils/httpClient';
 import {
   gqlRequiresTlsProxy,
   normalizeGqlFetchTls,
   serializeGqlTlsForProxy,
   type GqlTlsSettings,
-} from '../../../shared/types/gqlTls';
-import { isLoopbackUrl } from '../../../shared/utils/loopbackUrl';
+} from '@shared/types/gqlTls';
+import { isLoopbackUrl } from '@shared/utils/loopbackUrl';
 import { isGraphqlMockEndpoint } from './graphqlEndpointUtils';
 import { getProxyBase } from './graphqlProxyTransports';
 import { tauriGqlNativeFetch } from './tauriGqlNativeFetch';

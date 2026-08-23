@@ -3,7 +3,7 @@ import {
   buildPivotedRulesFromExpectedFields,
   trailingBracketArrayIndex,
 } from './testEditorValidationPivot';
-import type { ExpectedField } from '../../../shared/types';
+import type { ExpectedField } from '@shared/types';
 
 function field(jsonPath: string, expectedValue = 'x'): ExpectedField {
   return { jsonPath, expectedValue };

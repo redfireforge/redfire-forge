@@ -1,4 +1,4 @@
-import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
 import { ApiMockServerTabs, type ApiMockRuntimeStatus } from './ApiMockServerTabs';
 
 interface Props {

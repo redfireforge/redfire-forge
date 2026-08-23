@@ -13,7 +13,7 @@ import {
 } from './__test-utils__/workflowRunnerSplitTestSetup';
 import { defaultLoadProfile } from './hooks/runnerConfigDefaults';
 import type { PersistedProgress } from './utils/runnerProgressStorage';
-import type { TestSummary } from '../../../shared/types';
+import type { TestSummary } from '@shared/types';
 import { saveWorkflowRunConfig } from './utils/workflowRunConfigStorage';
 
 const runnerProgressMocks = vi.hoisted(() => ({

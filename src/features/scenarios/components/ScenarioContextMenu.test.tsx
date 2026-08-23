@@ -5,8 +5,8 @@ import '@testing-library/jest-dom';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import ScenarioContextMenu from './ScenarioContextMenu';
-import type { TestScenario } from '../../../shared/types';
-import { makeTestScenario as _makeTestScenario } from '../../../test-utils/factories';
+import type { TestScenario } from '@shared/types';
+import { makeTestScenario as _makeTestScenario } from '@test-utils/factories';
 
 const makeScenario = (overrides: Partial<TestScenario> = {}): TestScenario =>
   _makeTestScenario({ id: 'sc-1', name: 'Test Scenario', tests: [], ...overrides });

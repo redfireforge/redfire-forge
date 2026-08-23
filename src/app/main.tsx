@@ -3,12 +3,12 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import '../index.css'
 import App from './App'
-import WorkflowToastProvider from '../features/workflow/components/WorkflowToastProvider'
-import { isTauri } from '../shared/utils/platform'
-import { setKafkaClientTransport } from '../shared/kafka/kafkaClient'
-import { kafkaNativeTauriTransport } from '../shared/kafka/kafkaNativeTauriTransport'
-import { setWsClientTransport } from '../shared/websocket/websocketClient'
-import { wsNativeTauriTransport } from '../shared/websocket/websocketNativeTauriTransport'
+import WorkflowToastProvider from '@workflow/components/WorkflowToastProvider'
+import { isTauri } from '@shared/utils/platform'
+import { setKafkaClientTransport } from '@shared/kafka/kafkaClient'
+import { kafkaNativeTauriTransport } from '@shared/kafka/kafkaNativeTauriTransport'
+import { setWsClientTransport } from '@shared/websocket/websocketClient'
+import { wsNativeTauriTransport } from '@shared/websocket/websocketNativeTauriTransport'
 
 // Wire native Tauri transports at module level — before createRoot —
 // so the correct transport is active from the very first call.

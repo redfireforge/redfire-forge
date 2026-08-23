@@ -1,17 +1,17 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { KeyValue, Scenario, ScenarioActionType } from '../../../shared/types';
-import { isWsActionType } from '../../../shared/types';
+import type { KeyValue, Scenario, ScenarioActionType } from '@shared/types';
+import { isWsActionType } from '@shared/types';
 import {
   getBaseUrl as getBaseUrlShared,
   parseQueryParamsPreserveTemplates,
   rebuildUrl as rebuildUrlShared,
-} from '../../../shared/utils/queryParams';
+} from '@shared/utils/queryParams';
 import {
   createDefaultWsConnectAction,
   createDefaultWsSendAction,
   createDefaultWsReceiveAction,
-} from '../../../shared/utils/wsScenarioDefaults';
-import { makeDefaultGrpcHarnessCallAction } from '../../../shared/utils/grpcHarnessScenarioContracts';
+} from '@shared/utils/wsScenarioDefaults';
+import { makeDefaultGrpcHarnessCallAction } from '@shared/utils/grpcHarnessScenarioContracts';
 
 export const emptyTest = (actionType?: ScenarioActionType): Scenario => {
   const base: Scenario = {
@@ -53,7 +53,7 @@ export const emptyTest = (actionType?: ScenarioActionType): Scenario => {
   return base;
 };
 
-import { canonicalize } from '../../../shared/utils/canonicalize';
+import { canonicalize } from '@shared/utils/canonicalize';
 export { canonicalize };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

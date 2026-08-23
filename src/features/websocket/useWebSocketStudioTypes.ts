@@ -10,9 +10,9 @@ import type {
   WsTlsConfig,
   WsCloseDetail,
   WsBackoffMultiplier,
-} from '../../shared/websocket/types';
-import { getCloseCodeLabel } from '../../shared/websocket/types';
-import type { WsProtocolMode, WsProtocolDetectionResult } from '../../shared/websocket/protocols/protocolTypes';
+} from '@shared/websocket/types';
+import { getCloseCodeLabel } from '@shared/websocket/types';
+import type { WsProtocolMode, WsProtocolDetectionResult } from '@shared/websocket/protocols/protocolTypes';
 import type { SioServerParams } from './wsProtocolHelpers';
 
 // ── Constants ──────────────────────────────────────────────────────────────────

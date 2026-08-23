@@ -1,5 +1,5 @@
-import type { GrpcInterpolationDiagnosticPayload } from '../../../shared/grpc/grpcInterpolationDiagnostics';
-import { GRPC_INTERPOLATION_ERROR_CODES } from '../../../shared/grpc/grpcInterpolationConstants';
+import type { GrpcInterpolationDiagnosticPayload } from '@shared/grpc/grpcInterpolationDiagnostics';
+import { GRPC_INTERPOLATION_ERROR_CODES } from '@shared/grpc/grpcInterpolationConstants';
 
 export interface GrpcInterpolationErrorBannerProps {
   diagnostic: GrpcInterpolationDiagnosticPayload;

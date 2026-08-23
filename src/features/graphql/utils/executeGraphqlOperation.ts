@@ -10,8 +10,8 @@
  */
 
 import { gqlFetch } from './gqlFetch';
-import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
-import type { GraphqlError, GraphqlResponse } from '../../../shared/types/graphql';
+import type { GqlTlsSettings } from '@shared/types/gqlTls';
+import type { GraphqlError, GraphqlResponse } from '@shared/types/graphql';
 
 export interface ExecuteOperationParams {
   endpoint: string;

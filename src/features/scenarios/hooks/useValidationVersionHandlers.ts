@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import type { MutableRefObject } from 'react';
-import type { Scenario } from '../../../shared/types';
+import type { Scenario } from '@shared/types';
 import { createResponseVersion, createRulesVersion } from '../utils/versionFactory';
 import { hasValidationConfig } from '../utils/validationHelpers';
 

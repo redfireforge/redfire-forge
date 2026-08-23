@@ -3,7 +3,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import type { GraphqlAuth } from '../../../shared/types/graphql';
+import type { GraphqlAuth } from '@shared/types/graphql';
 import { useGqlActiveTabConnection } from './useGqlActiveTabConnection';
 import type { GqlStudioTab } from '../utils/tabPersistence';
 

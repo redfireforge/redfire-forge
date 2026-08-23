@@ -1,8 +1,8 @@
 /**
  * Phase 5D — structured call history filter helpers.
  */
-import type { GrpcCallType } from '../../../shared/grpc/contracts';
-import type { GrpcCallHistoryEntryV1 } from '../../../shared/grpc/grpcPersistenceSchema';
+import type { GrpcCallType } from '@shared/grpc/contracts';
+import type { GrpcCallHistoryEntryV1 } from '@shared/grpc/grpcPersistenceSchema';
 
 export interface GrpcCallHistoryFilters {
   service?: string;

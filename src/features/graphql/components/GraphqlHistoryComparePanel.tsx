@@ -1,6 +1,6 @@
 /** Side-by-side field comparison for two marked history entries. */
 import { useEffect } from 'react';
-import type { GraphqlHistoryItem } from '../../../shared/types/graphql';
+import type { GraphqlHistoryItem } from '@shared/types/graphql';
 import { compareHistoryItems, type HistoryCompareFieldRow } from '../utils/historyCompare';
 
 export interface GraphqlHistoryComparePanelProps {

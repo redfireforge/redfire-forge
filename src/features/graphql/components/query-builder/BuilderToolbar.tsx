@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { GraphqlSchemaInfo } from '../../../../shared/types/graphql';
+import type { GraphqlSchemaInfo } from '@shared/types/graphql';
 import type { BuilderState } from '../../hooks/useGraphqlQueryBuilder';
 
 export interface BuilderToolbarProps {

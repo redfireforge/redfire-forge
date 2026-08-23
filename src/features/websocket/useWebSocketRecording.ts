@@ -6,8 +6,8 @@ import type {
   WsRecordingMessageEvent,
   WsReplayProgress,
   WsReplaySpeed,
-} from '../../shared/websocket/types';
-import { saveJsonFile } from '../../shared/utils/fileSaver';
+} from '@shared/websocket/types';
+import { saveJsonFile } from '@shared/utils/fileSaver';
 
 export type RecordingState = 'idle' | 'recording' | 'replaying' | 'paused';
 

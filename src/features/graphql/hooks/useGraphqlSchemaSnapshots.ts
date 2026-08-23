@@ -7,7 +7,7 @@
  * Extracted from GraphqlStudioPage.tsx to reduce its line count.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { GraphqlSchemaSnapshot, GraphqlSchemaDiffResult, GraphqlOperation } from '../../../shared/types/graphql';
+import type { GraphqlSchemaSnapshot, GraphqlSchemaDiffResult, GraphqlOperation } from '@shared/types/graphql';
 import type { DeprecatedFieldUsage } from '../utils/deprecatedFieldScanner';
 import { scanDeprecatedFieldUsages } from '../utils/deprecatedFieldScanner';
 import { computeSchemaDiff } from '../utils/schemaDiff';

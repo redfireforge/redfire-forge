@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import type { Scenario } from '../../../../shared/types';
+import type { Scenario } from '@shared/types';
 import type { HttpNodeData } from '../../types/workflow';
 import { ReactFlowProvider } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
@@ -69,7 +69,7 @@ import HttpStepNode from './HttpStepNode';
 import WebhookTriggerNode from './WebhookTriggerNode';
 import ScheduleTriggerNode from './ScheduleTriggerNode';
 import WaitForConditionNode from './WaitForConditionNode';
-import { stubScrollIntoView } from '../../../../test-utils/domMocks';
+import { stubScrollIntoView } from '@test-utils/domMocks';
 
 beforeAll(() => {
   stubScrollIntoView();

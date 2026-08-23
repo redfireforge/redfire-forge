@@ -3,10 +3,10 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, fireEvent, screen, act } from '@testing-library/react';
-import { selectOption } from '../../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import WorkflowConsolePanel from './WorkflowConsolePanel';
 import { ConsoleLine } from '../../../requests/hooks/useResponseCache';
-import { stubScrollIntoView } from '../../../../test-utils/domMocks';
+import { stubScrollIntoView } from '@test-utils/domMocks';
 
 const makeLine = (text: string, prefix = '*', ts?: number): ConsoleLine => ({ text, prefix, ts });
 

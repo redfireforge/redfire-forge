@@ -4,7 +4,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { GrpcMessageSchema } from '../../../../shared/grpc/contracts';
+import type { GrpcMessageSchema } from '@shared/grpc/contracts';
 import { GrpcProtoJsonObjectEditor } from './GrpcProtoJsonObjectEditor';
 
 const PAYLOAD_SCHEMA: GrpcMessageSchema = {

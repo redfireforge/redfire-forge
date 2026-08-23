@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWebSocketFilters } from './useWebSocketFilters';
-import type { WsFrame } from '../../shared/websocket/types';
+import type { WsFrame } from '@shared/websocket/types';
 
 const makeFrame = (overrides: Partial<WsFrame> = {}): WsFrame => ({
   id: Math.random().toString(),

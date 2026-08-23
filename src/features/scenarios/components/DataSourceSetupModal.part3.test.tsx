@@ -10,7 +10,7 @@ import {
   scenarioWithExtraValidateColumn,
   ensurePathVariableChecked,
 } from './__test-utils__/dataSourceSetupModalTestHelpers';
-import type { FeatureGroup } from '../../../shared/types';
+import type { FeatureGroup } from '@shared/types';
 import { TestEditingContext } from './TestEditorModal';
 import { extractJsonPath } from '../utils/dataSourceImport';
 

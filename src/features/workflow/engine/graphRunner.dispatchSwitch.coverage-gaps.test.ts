@@ -8,7 +8,7 @@ vi.mock('../../../shared/utils/httpClient', () => ({
 }));
 
 import { runGraph } from './graphRunner';
-import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
+import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
 import { makeNode, startNode, endNode } from './graphRunnerNodeHandlers.test-utils';
 
 describe('graphRunner dispatch switch coverage gaps', () => {

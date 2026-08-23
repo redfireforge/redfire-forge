@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
 
 const h = vi.hoisted(() => {
   const call = (p: Record<string, unknown>, k: string, ...args: unknown[]) => {

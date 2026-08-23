@@ -17,7 +17,7 @@ import type {
   KafkaNodeOperations,
   KafkaConsumedMessage,
   KafkaProduceResult,
-} from '../../features/workflow/engine/graphRunnerNodeHandlerContext';
+} from '@workflow/engine/graphRunnerNodeHandlerContext';
 import { dispatchKafkaOperation } from './kafkaClient';
 
 // ── Inline server response shapes (mirrors src-server/kafka/contracts.ts) ──

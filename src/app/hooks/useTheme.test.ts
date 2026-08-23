@@ -18,7 +18,7 @@ vi.mock('../themeCustomizerUtils', () => ({
   clearCustomOverrides: vi.fn(),
 }));
 
-import { saveTheme } from '../../shared/utils/storage';
+import { saveTheme } from '@shared/utils/storage';
 import { loadSavedThemes, isCustomThemeId, findSavedTheme, applyCustomTheme, clearCustomOverrides } from '../themeCustomizerUtils';
 
 const mockSaveTheme = vi.mocked(saveTheme);

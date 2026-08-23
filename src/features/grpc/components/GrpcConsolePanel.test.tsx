@@ -3,8 +3,8 @@
  */
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { selectOption } from '../../../test-utils/customSelectHelper';
-import { prepareGrpcCallHistoryEntryForPersist } from '../../../shared/grpc/grpcPersistenceSchema';
+import { selectOption } from '@test-utils/customSelectHelper';
+import { prepareGrpcCallHistoryEntryForPersist } from '@shared/grpc/grpcPersistenceSchema';
 import type { UseGrpcCallHistoryResult } from '../hooks/useGrpcCallHistory';
 import { GrpcConsolePanel } from './GrpcConsolePanel';
 

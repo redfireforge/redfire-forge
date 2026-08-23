@@ -1,4 +1,4 @@
-import type { GraphqlEnvironment } from '../../../shared/types/graphql';
+import type { GraphqlEnvironment } from '@shared/types/graphql';
 import type { ConnectionProfile } from './connectionProfileStorage';
 import type { GqlStudioTab } from './tabPersistence';
 import { resolveVars } from './envUtils';

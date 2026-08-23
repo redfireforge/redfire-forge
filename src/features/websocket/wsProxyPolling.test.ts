@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createFrame, type WsConnectionSnapshot } from '../../shared/websocket/types';
+import { createFrame, type WsConnectionSnapshot } from '@shared/websocket/types';
 import { startWsProxyPolling } from './wsProxyPolling';
-import { dispatchWsOperation } from '../../shared/websocket/websocketClient';
+import { dispatchWsOperation } from '@shared/websocket/websocketClient';
 import { processReceivedMessage } from './wsMessageProcessing';
-import type { WsProtocolMode, WsProtocolDetectionResult } from '../../shared/websocket/protocols/protocolTypes';
+import type { WsProtocolMode, WsProtocolDetectionResult } from '@shared/websocket/protocols/protocolTypes';
 import type { SioServerParams } from './wsProtocolHelpers';
-import type { WsEnvelope } from '../../shared/websocket/websocketClient';
+import type { WsEnvelope } from '@shared/websocket/websocketClient';
 
 vi.mock('../../shared/websocket/websocketClient', () => ({
   dispatchWsOperation: vi.fn(),

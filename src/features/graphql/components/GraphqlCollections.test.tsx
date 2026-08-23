@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import type { UseGraphqlCollectionsResult, CollectionTree } from '../hooks/useGraphqlCollections';
-import type { GraphqlCollection, GraphqlCollectionItem, GraphqlOperation } from '../../../shared/types/graphql';
+import type { GraphqlCollection, GraphqlCollectionItem, GraphqlOperation } from '@shared/types/graphql';
 
 // Mock heavy sub-components that bring in Monaco, etc.
 vi.mock('./GraphqlScriptEditorModal', () => ({

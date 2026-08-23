@@ -4,7 +4,7 @@
  * Execution handlers, config panels, and palette entries ship in Phase 6C–6G.
  * Types and validators are frozen here for graph-time validation and Phase 6B snapshot builder.
  */
-import type { GrpcAuthConfig, GrpcTlsConfig, GrpcTlsMode } from '../../../../shared/grpc/contracts';
+import type { GrpcAuthConfig, GrpcTlsConfig, GrpcTlsMode } from '@shared/grpc/contracts';
 
 export type GrpcWorkflowOnErrorPolicy = 'fail' | 'continue';
 

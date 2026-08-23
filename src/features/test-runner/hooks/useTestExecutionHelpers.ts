@@ -1,4 +1,4 @@
-import type { RequestResult, TestSummary } from '../../../shared/types';
+import type { RequestResult, TestSummary } from '@shared/types';
 import type { TimeSeriesPoint } from './useTestExecution';
 
 const MAX_LIVE_RESULTS = 500;

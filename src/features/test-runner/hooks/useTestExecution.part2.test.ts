@@ -12,7 +12,7 @@ import {
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useTestExecution } from './useTestExecution';
-import type { RequestResult } from '../../../shared/types';
+import type { RequestResult } from '@shared/types';
 
 vi.mock('../../../engine/executor', async () => {
   const { mockRunTest } = await import('./__test-utils__/useTestExecutionTestSetup');

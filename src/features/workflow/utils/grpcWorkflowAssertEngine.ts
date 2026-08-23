@@ -5,7 +5,7 @@ import type {
   GrpcWorkflowAssertion,
   GrpcWorkflowStepResult,
 } from '../types/workflow/node-grpc';
-import { resolveGrpcHarnessTrailerValue } from '../../../shared/grpc/grpcHarnessTrailerNormalize';
+import { resolveGrpcHarnessTrailerValue } from '@shared/grpc/grpcHarnessTrailerNormalize';
 import { resolveGrpcAssertFieldValue } from './grpcWorkflowAssertPath';
 
 export interface GrpcWorkflowAssertOutcome {

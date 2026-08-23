@@ -2,9 +2,9 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import * as grpcCompressionPolicy from '../../../shared/grpc/grpcCompressionPolicy';
-import * as rpcSessionStats from '../../../shared/grpc/grpcRpcSessionStats';
-import { FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
+import * as grpcCompressionPolicy from '@shared/grpc/grpcCompressionPolicy';
+import * as rpcSessionStats from '@shared/grpc/grpcRpcSessionStats';
+import { FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
 
 const appendMock = vi.fn().mockResolvedValue(undefined);
 

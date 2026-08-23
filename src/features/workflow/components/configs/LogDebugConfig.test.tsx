@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
-import { selectOption } from '../../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import LogDebugConfig from './LogDebugConfig';
 import type { LogDebugNodeData } from '../../types/workflow';
 

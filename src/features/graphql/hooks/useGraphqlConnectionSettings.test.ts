@@ -63,7 +63,7 @@ vi.mock('../utils/gqlDemoWorkspace', () => ({
 }));
 
 import { useGraphqlConnectionSettings } from './useGraphqlConnectionSettings';
-import { readKey, writeKey } from '../../../shared/utils/storage';
+import { readKey, writeKey } from '@shared/utils/storage';
 import { loadAuth, loadTlsCerts, saveTlsCerts } from '../utils/tabPersistence';
 import { GQL_PAGE_AUTH_RELOAD_EVENT, loadDemoSession } from '../utils/gqlDemoWorkspace';
 

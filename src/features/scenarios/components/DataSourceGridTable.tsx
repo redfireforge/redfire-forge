@@ -1,6 +1,6 @@
 import type { DragEvent, KeyboardEvent, MouseEvent, RefObject } from 'react';
-import type { DataSource, DataSourceColumn, DataSourceRow, SharedDataSource } from '../../../shared/types';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import type { DataSource, DataSourceColumn, DataSourceRow, SharedDataSource } from '@shared/types';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import { COLUMN_TYPES } from '../utils/dataSourceEditorUtils';
 
 export interface DataSourceGridTableProps {

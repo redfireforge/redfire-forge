@@ -7,11 +7,11 @@ import type {
   GrpcCompressionConfig,
   GrpcDescriptor,
   GrpcTlsConfig,
-} from '../../../shared/grpc/contracts';
-import { GrpcApiClientError, postGrpcCall } from '../../../shared/grpc/grpcApiClient';
-import { prepareGrpcCallMetadata } from '../../../shared/grpc/grpcCompressionPolicy';
-import { validateGrpcAuthForExecute } from '../../../shared/grpc/grpcAuthPolicy';
-import { validateGrpcTlsConfigContract } from '../../../shared/grpc/grpcTlsPolicy';
+} from '@shared/grpc/contracts';
+import { GrpcApiClientError, postGrpcCall } from '@shared/grpc/grpcApiClient';
+import { prepareGrpcCallMetadata } from '@shared/grpc/grpcCompressionPolicy';
+import { validateGrpcAuthForExecute } from '@shared/grpc/grpcAuthPolicy';
+import { validateGrpcTlsConfigContract } from '@shared/grpc/grpcTlsPolicy';
 import { releaseCompletedGrpcCall } from '../hooks/grpcStudioSessionHelpers';
 import { metadataEntriesFromRecord, validateGrpcMetadataEntries } from '../utils/grpcMetadataEditor';
 import { resolutionToGrpcTarget, type GrpcTabConnectionResolution } from './resolveGrpcTabConnection';

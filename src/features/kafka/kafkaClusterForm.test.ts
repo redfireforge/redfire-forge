@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { KafkaClusterConfig } from '../../shared/kafka/kafkaConfig';
+import type { KafkaClusterConfig } from '@shared/kafka/kafkaConfig';
 import {
   clusterIdFromName,
   defaultClusterDraft,

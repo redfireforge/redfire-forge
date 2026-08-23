@@ -12,8 +12,8 @@
  */
 
 import { useCallback, useState } from 'react';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import type { GraphqlSubscriptionAssertion } from '../../../shared/types/graphql';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import type { GraphqlSubscriptionAssertion } from '@shared/types/graphql';
 import { ASSERTION_OPERATORS, isNoValueOperator } from '../utils/subscriptionAssertions';
 
 // ─── Types ─────────────────────────────────────────────────────────────────

@@ -10,7 +10,7 @@ import InsertVarField from '../expression/InsertVarField';
 import ExpressionInput from '../expression/ExpressionInput';
 import { MSG_TYPE_FILTER_OPTIONS, createWsExtractionRule } from './wsConfigFactories';
 import { KafkaAddButton, KafkaCard, KafkaEmptyState, KafkaFormRow } from './KafkaConfigUi';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 // ── Key-Value Row Section (Headers / Query Parameters) ─────────────────────
 

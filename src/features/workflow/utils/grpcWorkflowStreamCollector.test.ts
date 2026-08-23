@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { collectGrpcWorkflowServerStream } from './grpcWorkflowStreamCollector';
-import type { GrpcStreamStartRequest } from '../../../shared/grpc/contracts';
+import type { GrpcStreamStartRequest } from '@shared/grpc/contracts';
 
 function sseBody(frames: Array<{ event: string; data: string }>): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();

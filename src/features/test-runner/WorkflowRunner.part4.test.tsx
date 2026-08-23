@@ -12,7 +12,7 @@ import {
   cleanupWorkflowRunnerSplitTestGlobals,
   resetWorkflowRunnerSplitTestState,
 } from './__test-utils__/workflowRunnerSplitTestSetup';
-import type { TestSummary } from '../../../shared/types';
+import type { TestSummary } from '@shared/types';
 import { saveWorkflowRunConfig } from './utils/workflowRunConfigStorage';
 
 const runnerProgressMocks = vi.hoisted(() => ({

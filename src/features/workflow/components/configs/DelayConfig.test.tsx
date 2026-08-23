@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
+import { selectOption, getCustomSelectValue } from '@test-utils/customSelectHelper';
 import DelayConfig from './DelayConfig';
 import type { DelayNodeData } from '../../types/workflow';
 

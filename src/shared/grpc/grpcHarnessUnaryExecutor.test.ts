@@ -4,7 +4,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { GrpcApiClientError } from './grpcApiClient';
 import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from './contractFixtures';
-import { makeScenario as _makeScenario } from '../../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 import type { Scenario } from '../types';
 import { buildGrpcHarnessExecuteSnapshot } from './grpcHarnessSnapshotBuilder';
 import { executeGrpcHarnessUnary } from './grpcHarnessUnaryExecutor';

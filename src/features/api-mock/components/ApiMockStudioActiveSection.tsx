@@ -3,7 +3,7 @@ import type {
   ApiMockSimulationSampleV1,
   ApiMockServerDefinitionV1,
   ApiMockTransactionV1,
-} from '../../../shared/api-mock/contracts';
+} from '@shared/api-mock/contracts';
 import type { ScenarioStateSnapshot } from '../apiMockControlClient';
 import type { ApiMockDockTab } from './ApiMockDock';
 import { ApiMockWorkspaceNav, type ApiMockExportRequest, type ApiMockMainView } from './ApiMockWorkspaceNav';

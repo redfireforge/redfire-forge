@@ -4,7 +4,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
 import type { ApiMockExportResult } from '../apiMockExportActions';
 
 vi.mock('./ApiMockServerSettingsModal', () => ({

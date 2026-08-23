@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildSelectedTests } from '../utils/buildSelectedTests';
 import { mockFeatureGroups } from './ScenarioSelector.test.utils';
-import type { FeatureGroup } from '../../../shared/types';
+import type { FeatureGroup } from '@shared/types';
 
 describe('buildSelectedTests', () => {
   it('returns empty array when no scenarios selected', () => {

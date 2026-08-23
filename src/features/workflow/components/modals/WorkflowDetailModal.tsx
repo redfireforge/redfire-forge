@@ -1,5 +1,5 @@
 import { useCallback, useState, useEffect } from 'react';
-import { prettyJson, isValidJson } from '../../../../shared/utils/helpers';
+import { prettyJson, isValidJson } from '@shared/utils/helpers';
 import WorkflowResponseBody from '../panels/WorkflowResponseBody';
 import WorkflowQuickTestFailurePanel from '../panels/WorkflowQuickTestFailurePanel';
 import WorkflowEditorModalFrame from './WorkflowEditorModalFrame';

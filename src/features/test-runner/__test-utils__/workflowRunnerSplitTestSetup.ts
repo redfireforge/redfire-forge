@@ -1,5 +1,5 @@
 import { vi, type Mock } from 'vitest';
-import type { RequestResult, TestSummary } from '../../../shared/types';
+import type { RequestResult, TestSummary } from '@shared/types';
 
 type TestExecutionState = {
   execute: Mock;

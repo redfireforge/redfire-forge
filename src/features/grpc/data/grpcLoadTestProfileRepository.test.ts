@@ -7,7 +7,7 @@ import {
   assertGrpcLoadTestConfig,
   GRPC_LOAD_TEST_STREAM_SAFETY_LIMITS,
   validateGrpcLoadTestConfig,
-} from '../../../shared/grpc/grpcAdvancedFeatureContracts';
+} from '@shared/grpc/grpcAdvancedFeatureContracts';
 import {
   deleteGrpcLoadTestProfile,
   getGrpcLoadTestProfileById,

@@ -7,7 +7,7 @@ import type {
   Scenario,
   SharedDataSource,
   TestScenario,
-} from '../../../shared/types';
+} from '@shared/types';
 import AuthConfigPanel from '../../requests/components/AuthConfigPanel';
 import type { AuthVerifyResult } from '../../requests/hooks/useAuthVerify';
 import ExportOptionsPopover from './ExportOptionsPopover';

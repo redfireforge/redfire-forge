@@ -4,10 +4,10 @@ import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_DESCRIPTOR_KEY,
   FIXTURE_SERVER_STREAM_START_REQUEST,
-} from '../../../shared/grpc/contractFixtures';
-import { createGrpcInterpolationEnvSnapshotFromMap } from '../../../shared/grpc/grpcInterpolationEnvSnapshot';
-import { setGrpcClientTransport } from '../../../shared/grpc/grpcApiClient';
-import { setGrpcStreamTransport } from '../../../shared/grpc/grpcStreamClient';
+} from '@shared/grpc/contractFixtures';
+import { createGrpcInterpolationEnvSnapshotFromMap } from '@shared/grpc/grpcInterpolationEnvSnapshot';
+import { setGrpcClientTransport } from '@shared/grpc/grpcApiClient';
+import { setGrpcStreamTransport } from '@shared/grpc/grpcStreamClient';
 import { resetGrpcTabCounterForTests } from '../grpcStudioTypes';
 import type { useGrpcStudio } from './useGrpcStudio';
 

@@ -1,5 +1,5 @@
 /** Field-level comparison of two GraphQL history entries (variables + response data). */
-import type { GraphqlHistoryItem } from '../../../shared/types/graphql';
+import type { GraphqlHistoryItem } from '@shared/types/graphql';
 import {
   extractHistoryDataObject,
   parseHistoryResponseJson,

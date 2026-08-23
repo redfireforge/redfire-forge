@@ -20,9 +20,9 @@ import {
   idbLoadHistory,
   idbDeleteHistoryItem,
   idbClearHistory,
-} from '../../../shared/utils/idbGraphqlHistory';
+} from '@shared/utils/idbGraphqlHistory';
 import { useGraphqlHistory } from './useGraphqlHistory';
-import type { GraphqlOperation, GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlOperation, GraphqlResponse } from '@shared/types/graphql';
 
 const op: GraphqlOperation = { id: 'op-1', query: 'query { hello }', variables: '{}', operationType: 'query', name: 'Hello' };
 const resp: GraphqlResponse = { httpStatus: 200, httpHeaders: {}, latencyMs: 50, timestamp: Date.now(), data: { hello: 'world' } };

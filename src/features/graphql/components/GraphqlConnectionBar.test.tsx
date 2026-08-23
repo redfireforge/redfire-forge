@@ -13,7 +13,7 @@ import {
   getCustomSelectValue,
   getCustomSelectOptionLabels,
   isCustomSelectDisabled,
-} from '../../../test-utils/customSelectHelper';
+} from '@test-utils/customSelectHelper';
 import { GraphqlConnectionBar } from './GraphqlConnectionBar';
 
 // Prevent Monaco from loading in test environment

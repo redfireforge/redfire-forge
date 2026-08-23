@@ -3,7 +3,7 @@ import {
   beginDemoAppSidebarSession,
   endDemoAppSidebarSession,
   isDemoAppSidebarPinned,
-} from '../../shared/demoAppSidebarSession';
+} from '@shared/demoAppSidebarSession';
 
 export {
   beginDemoAppSidebarSession,
@@ -13,7 +13,7 @@ export {
   isDemoLiveSessionActive,
   markDemoAppSidebarUserCollapsed,
   markDemoAppSidebarUserExpanded,
-} from '../../shared/demoAppSidebarSession';
+} from '@shared/demoAppSidebarSession';
 
 /**
  * Demo-player bridge for the app-level list sidebar.

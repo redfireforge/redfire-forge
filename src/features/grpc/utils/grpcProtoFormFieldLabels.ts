@@ -1,4 +1,4 @@
-import type { GrpcFieldSchema } from '../../../shared/grpc/contracts';
+import type { GrpcFieldSchema } from '@shared/grpc/contracts';
 import { isGrpcWellKnownFieldType, isWideIntegralFieldType, wktFieldBadgeLabel } from './grpcProtoFormValues';
 
 export const GRPC_ANY_TYPE_URL_PREFIX = 'type.googleapis.com/';

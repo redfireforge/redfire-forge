@@ -1,14 +1,14 @@
 /**
  * Shared read/write helpers for GraphQL connection profiles (gql_profiles_v1).
  */
-import type { GraphqlAuth } from '../../../shared/types/graphql';
+import type { GraphqlAuth } from '@shared/types/graphql';
 import {
   idbLoadConnectionProfiles,
   idbMigrateConnectionProfilesFromLocalStorage,
   idbSaveConnectionProfiles,
-} from '../../../shared/utils/idbGraphqlStudio';
-import { readKey, writeKey } from '../../../shared/utils/storage';
-import { isTauri } from '../../../shared/utils/platform';
+} from '@shared/utils/idbGraphqlStudio';
+import { readKey, writeKey } from '@shared/utils/storage';
+import { isTauri } from '@shared/utils/platform';
 
 export const GQL_PROFILES_STORAGE_KEY = 'gql_profiles_v1';
 

@@ -3,10 +3,10 @@
 import '@testing-library/jest-dom';
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { selectOption, getCustomSelectOptionLabels } from '../../../test-utils/customSelectHelper';
+import { selectOption, getCustomSelectOptionLabels } from '@test-utils/customSelectHelper';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { RequestItem } from '../../../shared/types';
+import type { RequestItem } from '@shared/types';
 import * as versionMerge from '../../catalog/utils/versionMerge';
 import { SpecVersionSwitcher } from './SpecVersionSwitcher';
 

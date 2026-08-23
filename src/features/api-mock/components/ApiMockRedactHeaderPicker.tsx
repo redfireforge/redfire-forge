@@ -4,7 +4,7 @@ import {
   isRedactHeaderSelected,
   toggleRedactHeader,
   type RedactHeaderCatalogEntry,
-} from '../../../shared/api-mock/redactHeaderCatalog';
+} from '@shared/api-mock/redactHeaderCatalog';
 
 interface Props {
   value: string;
@@ -12,6 +12,7 @@ interface Props {
   testId?: string;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function redactHeaderChipTestId(name: string): string {
   return `api-mock-redact-header-chip-${name}`;
 }

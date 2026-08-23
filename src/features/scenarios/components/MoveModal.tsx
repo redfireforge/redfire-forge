@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
-import type { FeatureGroup, ScenarioKind } from '../../../shared/types';
-import PopupModal from '../../../shared/components/PopupModal';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import type { FeatureGroup, ScenarioKind } from '@shared/types';
+import PopupModal from '@shared/components/PopupModal';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 export type MoveType = 'scenario' | 'test';
 

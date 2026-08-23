@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import WorkflowDebugBar from './WorkflowDebugBar';
-import { DebugController } from '../engine/debugController';
+import { DebugController } from '@workflow/engine/debugController';
 
 function makeController(): DebugController {
   return new DebugController();

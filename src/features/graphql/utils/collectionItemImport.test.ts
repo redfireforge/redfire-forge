@@ -6,7 +6,7 @@ import {
   filterImportEntriesBySearch,
   resolveImportPatchForItem,
 } from './collectionItemImport';
-import type { GraphqlCollectionItem } from '../../../shared/types/graphql';
+import type { GraphqlCollectionItem } from '@shared/types/graphql';
 import type { ConnectionProfile } from './connectionProfileStorage';
 
 function makeItem(

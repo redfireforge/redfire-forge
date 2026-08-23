@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useModalFrame } from '../../../shared/hooks/useModalFrame';
+import { useModalFrame } from '@shared/hooks/useModalFrame';
 
 export interface PublishRequest {
   method: string;

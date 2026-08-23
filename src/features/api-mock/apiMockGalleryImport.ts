@@ -7,9 +7,9 @@
 import type {
   ApiMockPredicateGroupV1,
   ApiMockServerDefinitionV1,
-} from '../../shared/api-mock/contracts';
-import { gallerySampleHash } from '../../shared/utils/gallerySampleHash';
-import { readKey, writeKey } from '../../shared/utils/storage';
+} from '@shared/api-mock/contracts';
+import { gallerySampleHash } from '@shared/utils/gallerySampleHash';
+import { readKey, writeKey } from '@shared/utils/storage';
 import { apiMockControlClient } from './apiMockControlClient';
 import { API_MOCK_MAX_TABS, pickNextAutoPort } from './apiMockPageHelpers';
 import { resolveOpenTabIds } from './apiMockServerLibrary';

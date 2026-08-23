@@ -2,9 +2,9 @@
  * Shared factories for GrpcLoadTestPanel coverage-gap tests.
  */
 import { createInitialGrpcTabAdvancedFeaturesUiState } from '../../grpcStudioAdvancedTypes';
-import { buildGrpcAdvancedFeatureSourceMetadata } from '../../../../shared/grpc/grpcAdvancedFeatureExport';
-import { captureGrpcLoadTestExecuteSnapshot } from '../../../../shared/grpc/grpcAdvancedFeatureContracts';
-import { FIXTURE_DESCRIPTOR_KEY } from '../../../../shared/grpc/contractFixtures';
+import { buildGrpcAdvancedFeatureSourceMetadata } from '@shared/grpc/grpcAdvancedFeatureExport';
+import { captureGrpcLoadTestExecuteSnapshot } from '@shared/grpc/grpcAdvancedFeatureContracts';
+import { FIXTURE_DESCRIPTOR_KEY } from '@shared/grpc/contractFixtures';
 import { makeLoadTestSummary } from '../../test-helpers/grpcAdvancedPanel.testHelpers';
 
 export function makeSummaryWithAttempts(runId: string, attemptOverrides: Partial<{

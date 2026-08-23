@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import type { GrpcSavedRequest } from '../../../shared/grpc/grpcSavedRequest';
+import type { GrpcSavedRequest } from '@shared/grpc/grpcSavedRequest';
 import type { UseGrpcCollectionsResult } from '../hooks/useGrpcCollections';
 import type { UseGrpcStudioReturn } from '../hooks/useGrpcStudio';
 import type { GrpcTabConnectionPageDefaults } from '../utils/resolveGrpcTabConnection';

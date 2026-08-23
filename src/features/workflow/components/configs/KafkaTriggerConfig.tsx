@@ -4,13 +4,13 @@ import type {
   KafkaTriggerOffsetPolicy,
 } from '../../types/workflow';
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
-import { useListCrud } from '../../../../shared/hooks/useListCrud';
+import { useListCrud } from '@shared/hooks/useListCrud';
 import InsertVarField from '../expression/InsertVarField';
 import ExpressionInput from '../expression/ExpressionInput';
 import AvailableVariables from '../expression/AvailableVariables';
 import { createHeaderFilter, createJsonPathFilter, createExtractVariable } from './kafkaConfigFactories';
 import { KafkaAddButton, KafkaCard, KafkaEmptyState, KafkaFormRow } from './KafkaConfigUi';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 const OFFSET_OPTIONS: { value: KafkaTriggerOffsetPolicy; label: string }[] = [
   { value: 'latest', label: 'Latest (no replay)' },

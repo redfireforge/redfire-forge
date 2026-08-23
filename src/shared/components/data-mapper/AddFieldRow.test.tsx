@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption } from '../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import AddFieldRow from './AddFieldRow';
 
 function renderRow(overrides?: Partial<Parameters<typeof AddFieldRow>[0]>) {

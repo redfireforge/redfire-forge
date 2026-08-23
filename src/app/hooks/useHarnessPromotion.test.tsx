@@ -5,7 +5,7 @@ import '@testing-library/jest-dom';
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { Environment, FeatureGroup, Microservice, RequestCollection, Scenario } from '../../shared/types';
+import type { Environment, FeatureGroup, Microservice, RequestCollection, Scenario } from '@shared/types';
 import type { SendToHarnessPayload } from '../../features/requests/components/SendToHarnessModal';
 import { useHarnessPromotion } from './useHarnessPromotion';
 

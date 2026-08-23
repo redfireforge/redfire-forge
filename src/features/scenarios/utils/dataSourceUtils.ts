@@ -2,7 +2,7 @@
  * Data Source utilities — auto-column detection and helpers for the inline data source editor.
  */
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, DataSourceColumn, DataSource, DataSourceRow } from '../../../shared/types';
+import type { Scenario, DataSourceColumn, DataSource, DataSourceRow } from '@shared/types';
 import { parseUrl } from './csvTemplateUrl';
 import { extractTemplateVariables } from './dataSourceContract';
 

@@ -7,7 +7,7 @@
  * @example
  * ```ts
  * import { vi } from 'vitest';
- * import { mockUuidFixed } from '../../test-utils/uuidMock';
+ * import { mockUuidFixed } from '@test-utils/uuidMock';
  *
  * const uuidMock = vi.hoisted(() =>
  *   require('../../test-utils/uuidMock.ts').hoistedUuidFixed('test-uuid'),

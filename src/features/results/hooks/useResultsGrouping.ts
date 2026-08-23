@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import type { RequestResult } from '../../../shared/types';
+import type { RequestResult } from '@shared/types';
 import { buildGroups, type GroupByLevel, type GroupNode } from '../../test-runner/utils/resultsGrouping';
 
 export function useResultsGrouping(filteredResults: RequestResult[], _isWorkflowRun: boolean) {

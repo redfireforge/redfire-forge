@@ -20,7 +20,7 @@ import {
   saveKafkaPublishTemplates,
   loadKafkaConsumeTemplates,
   saveKafkaConsumeTemplates,
-} from '../../shared/kafka/kafkaStorage';
+} from '@shared/kafka/kafkaStorage';
 
 const mockLoadPub = loadKafkaPublishTemplates as ReturnType<typeof vi.fn>;
 const mockSavePub = saveKafkaPublishTemplates as ReturnType<typeof vi.fn>;

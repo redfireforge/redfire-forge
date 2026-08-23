@@ -8,7 +8,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { resolveGrpcTlsBadgePresentation } from '../../features/grpc/utils/grpcConnectionBarUtils';
+import { resolveGrpcTlsBadgePresentation } from '@grpc/utils/grpcConnectionBarUtils';
 import { mergeGrpcCompressionMetadata } from './grpcCompressionPolicy';
 
 const ROOT = join(__dirname, '../../..');

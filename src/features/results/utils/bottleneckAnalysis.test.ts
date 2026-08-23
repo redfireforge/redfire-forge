@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { computeNodeStats, identifyBottlenecks, getBottleneckNodeIds } from './bottleneckAnalysis';
-import type { WorkflowExecutionTrace, WorkflowIterationTrace, ExecutionEvent } from '../../../shared/types';
+import type { WorkflowExecutionTrace, WorkflowIterationTrace, ExecutionEvent } from '@shared/types';
 
 function makeEvent(nodeId: string, durationMs: number, state: 'pass' | 'fail' = 'pass', nodeType: ExecutionEvent['nodeType'] = 'http', nodeLabel?: string): ExecutionEvent {
   return {

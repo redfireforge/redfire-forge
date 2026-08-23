@@ -5,8 +5,8 @@
  * No React dependency — safe to call from any context.
  */
 
-import type { GlobalAuthProfile } from '../../../shared/types';
-import type { GraphqlAuth } from '../../../shared/types/graphql';
+import type { GlobalAuthProfile } from '@shared/types';
+import type { GraphqlAuth } from '@shared/types/graphql';
 import type { ConnectionProfile } from './connectionProfileStorage';
 import type { GqlStudioTab } from './tabPersistence';
 import {

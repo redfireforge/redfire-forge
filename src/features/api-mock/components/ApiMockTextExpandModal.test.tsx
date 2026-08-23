@@ -4,7 +4,7 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { stubScrollIntoView } from '../../../test-utils/domMocks';
+import { stubScrollIntoView } from '@test-utils/domMocks';
 
 vi.mock('./apiMockTextExpand', () => ({
   findTextExpandMatches: (draft: string, query: string) => (query ? [0] : []),

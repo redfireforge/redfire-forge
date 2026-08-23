@@ -1,6 +1,6 @@
-import type { RequestDefinitionVersion, RequestDefinitionSnapshot } from '../../../shared/types';
-import { formatTimestamp } from '../../../shared/utils/formatRelativeTime';
-import { VersionHistoryPanel } from '../../../shared/components/version-diff';
+import type { RequestDefinitionVersion, RequestDefinitionSnapshot } from '@shared/types';
+import { formatTimestamp } from '@shared/utils/formatRelativeTime';
+import { VersionHistoryPanel } from '@shared/components/version-diff';
 
 interface Props {
   versions: RequestDefinitionVersion[];

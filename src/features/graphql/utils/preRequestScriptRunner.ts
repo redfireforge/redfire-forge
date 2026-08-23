@@ -19,8 +19,8 @@
  * Default timeout: 10s (increased from original 5s to handle real OAuth flows).
  */
 
-import type { RfContext, RfResponseContext, CollectionRunTestResult, ScriptLogEntry } from '../../../shared/types/graphql';
-import { ScriptAbortError, ScriptSkipError, GraphqlAssertionError } from '../../../shared/types/graphql';
+import type { RfContext, RfResponseContext, CollectionRunTestResult, ScriptLogEntry } from '@shared/types/graphql';
+import { ScriptAbortError, ScriptSkipError, GraphqlAssertionError } from '@shared/types/graphql';
 
 // Re-export types that callers need without re-importing from types
 export type { ScriptLogEntry };

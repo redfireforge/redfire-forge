@@ -1,5 +1,5 @@
 /** History list rows with optional compare-mode marking. */
-import type { GraphqlHistoryItem } from '../../../shared/types/graphql';
+import type { GraphqlHistoryItem } from '@shared/types/graphql';
 
 export interface HistoryGroupProps {
   label: string;

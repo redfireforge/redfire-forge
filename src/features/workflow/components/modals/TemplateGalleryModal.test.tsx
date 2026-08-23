@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
-import { selectOption } from '../../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import '@testing-library/jest-dom';
 import type { SampleWorkflowEntry } from '../../../../data/galleries/workflows';
 

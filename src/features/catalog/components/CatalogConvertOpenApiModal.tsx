@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import FullPanelModal from '../../../shared/components/FullPanelModal';
-import { SearchMatchBar } from '../../../shared/components/SearchMatchBar';
-import { useSearchMatchNavigation } from '../../../shared/hooks/useSearchMatchNavigation';
-import { useCopyToClipboard } from '../../../shared/hooks/useCopyToClipboard';
-import { saveFile } from '../../../shared/utils/fileSaver';
+import FullPanelModal from '@shared/components/FullPanelModal';
+import { SearchMatchBar } from '@shared/components/SearchMatchBar';
+import { useSearchMatchNavigation } from '@shared/hooks/useSearchMatchNavigation';
+import { useCopyToClipboard } from '@shared/hooks/useCopyToClipboard';
+import { saveFile } from '@shared/utils/fileSaver';
 import {
   convertSwaggerToOpenApiYaml,
   upgradeOpenApi3Yaml,
@@ -17,7 +17,7 @@ import {
 import { loadConvertPref, saveConvertPref, loadPrettyPref, savePrettyPref } from '../utils/convertPrefs';
 import { prettifyOpenApiYaml } from '../utils/prettyYaml';
 import { lintOpenApi, type LintResult } from '../utils/openApiLint';
-import type { ToastType } from '../../workflow/components/WorkflowToastProvider';
+import type { ToastType } from '@workflow/components/WorkflowToastProvider';
 import {
   countOperations,
   escapeHtml,

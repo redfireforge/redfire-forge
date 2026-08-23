@@ -1,4 +1,4 @@
-import type { GraphqlBatchResult, GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlBatchResult, GraphqlResponse } from '@shared/types/graphql';
 import type { GqlStudioTab } from './tabPersistence';
 
 export type GraphqlOperationOutcome = 'success' | 'error';

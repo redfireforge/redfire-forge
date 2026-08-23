@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import type { CatalogEntry, CatalogEndpoint, SavedEndpointValues } from '../types/catalog';
-import type { AuthConfig, GlobalAuthProfile, Environment, Microservice } from '../../../shared/types';
+import type { AuthConfig, GlobalAuthProfile, Environment, Microservice } from '@shared/types';
 import type { EndpointCoverage } from '../utils/coverageChecker';
 import { getEndpointCoverage } from '../utils/coverageChecker';
 import { isPublicationStale } from '../utils/publicationDrift';
@@ -9,7 +9,7 @@ import type { PublishPermission } from '../hooks/usePublishPermission';
 import CatalogEndpointCard from './CatalogEndpointCard';
 import CatalogAuthPanel from './CatalogAuthPanel';
 import { resolveBaseUrl } from '../utils/catalogCurlGenerator';
-import { loadCatalogEndpointValues, saveCatalogEndpointValues } from '../../../shared/utils/storage';
+import { loadCatalogEndpointValues, saveCatalogEndpointValues } from '@shared/utils/storage';
 
 function resolveExposureMode(ep: CatalogEndpoint, previewIds?: Set<string>): 'preview' | 'published' | undefined {
   if (ep.workflowPublication || ep.workflowExposure === 'published') return 'published';

@@ -1,4 +1,4 @@
-import type { KeyValue } from '../../../shared/types';
+import type { KeyValue } from '@shared/types';
 import type { PathSegmentChoice } from './csvTemplateTypes';
 
 export function parseUrl(url: string): { origin: string; pathname: string; params: KeyValue[] } {

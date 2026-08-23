@@ -1,10 +1,10 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import type { ApiMockServerDefinitionV1, ApiMockServerSettingsV1 } from '../../../shared/api-mock/contracts';
-import { DEFAULT_PROXY_SETTINGS } from '../../../shared/api-mock/proxyContracts';
-import { DEFAULT_CALLBACK_SETTINGS } from '../../../shared/api-mock/callbackContracts';
-import { HARD_CEILINGS } from '../../../shared/api-mock/defaults';
+import AppModalFrame from '@shared/components/AppModalFrame';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import type { ApiMockServerDefinitionV1, ApiMockServerSettingsV1 } from '@shared/api-mock/contracts';
+import { DEFAULT_PROXY_SETTINGS } from '@shared/api-mock/proxyContracts';
+import { DEFAULT_CALLBACK_SETTINGS } from '@shared/api-mock/callbackContracts';
+import { HARD_CEILINGS } from '@shared/api-mock/defaults';
 import { apiMockControlClient } from '../apiMockControlClient';
 import { findPortOwner, formatPortTakenMessage } from '../apiMockPageHelpers';
 import { ApiMockRedactHeaderPicker } from './ApiMockRedactHeaderPicker';

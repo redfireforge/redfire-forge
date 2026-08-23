@@ -1,11 +1,11 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { ParsedSpec, CatalogEntry } from '../types/catalog';
 import { parseOpenApiSpec, getSpecFormatLabel, countEndpoints } from '../utils/openApiParser';
-import { isTauri } from '../../../shared/utils/platform';
-import { httpFetch } from '../../../shared/utils/httpClient';
-import FullPanelModal from '../../../shared/components/FullPanelModal';
+import { isTauri } from '@shared/utils/platform';
+import { httpFetch } from '@shared/utils/httpClient';
+import FullPanelModal from '@shared/components/FullPanelModal';
 import { catalogSpecCatalog, CATALOG_SPEC_CATEGORIES, type CatalogSpecCategory } from '../../../data/galleries/catalog-specs';
-import { toErrorMessage } from '../../../shared/utils/helpers';
+import { toErrorMessage } from '@shared/utils/helpers';
 
 interface Props {
   existingEntries: CatalogEntry[];

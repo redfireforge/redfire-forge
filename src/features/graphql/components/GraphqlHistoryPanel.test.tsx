@@ -6,7 +6,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GraphqlHistoryPanel } from './GraphqlHistoryPanel';
 import type { GraphqlHistoryPanelProps } from './GraphqlHistoryPanel';
-import type { GraphqlHistoryItem } from '../../../shared/types/graphql';
+import type { GraphqlHistoryItem } from '@shared/types/graphql';
 import type { UseGraphqlHistoryResult } from '../hooks/useGraphqlHistory';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

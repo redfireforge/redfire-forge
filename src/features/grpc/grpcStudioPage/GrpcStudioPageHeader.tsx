@@ -1,5 +1,5 @@
-import { ProtocolEndpointPreview } from '../../../shared/components/ProtocolEndpointPreview';
-import { computeGrpcStudioTargetPreview } from '../../../shared/grpc/grpcStudioTargetPreview';
+import { ProtocolEndpointPreview } from '@shared/components/ProtocolEndpointPreview';
+import { computeGrpcStudioTargetPreview } from '@shared/grpc/grpcStudioTargetPreview';
 import { GrpcStudioSubNav } from '../components/GrpcStudioSubNav';
 import type { GrpcStudioPanelView } from '../hooks/useGrpcStudioReplayActions';
 import type { GrpcStudioDensityMode } from './grpcStudioPageTypes';

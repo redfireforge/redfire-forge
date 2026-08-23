@@ -1,4 +1,4 @@
-import type { AuthConfig, GlobalAuthProfile, Microservice } from '../../../shared/types';
+import type { AuthConfig, GlobalAuthProfile, Microservice } from '@shared/types';
 import type { HttpNodeData, WorkflowHostProfile, WorkflowService, ServiceEndpoint } from '../types/workflow';
 
 /** Normalize a base URL: trim whitespace and strip trailing slash. */

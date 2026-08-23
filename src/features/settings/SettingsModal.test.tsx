@@ -2,9 +2,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import React, { useState } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { selectOption } from '../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import SettingsPage from './SettingsModal';
-import type { GlobalAuthProfile, AuthType } from '../../shared/types';
+import type { GlobalAuthProfile, AuthType } from '@shared/types';
 
 // ── Mock storage ──
 vi.mock('../../shared/utils/storage', () => ({

@@ -5,8 +5,8 @@ import {
   serializeGrpcLoadTestRunSummaryExportSafeJson,
   serializeGrpcSchemaDiffReportExportSafeJson,
   serializeGrpcSchemaDiffReportExportSafeMarkdown,
-} from '../../../shared/grpc/grpcAdvancedFeatureExport';
-import { serializeGrpcMockRuleSetExportSafeJson } from '../../../shared/grpc/grpcMockRuleSetExport';
+} from '@shared/grpc/grpcAdvancedFeatureExport';
+import { serializeGrpcMockRuleSetExportSafeJson } from '@shared/grpc/grpcMockRuleSetExport';
 import { parseGrpcMockRuleSetJson } from '../utils/grpcStudioAdvancedModel';
 
 export function useGrpcAdvancedExportCallbacks(

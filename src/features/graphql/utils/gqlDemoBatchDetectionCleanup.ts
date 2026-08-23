@@ -2,7 +2,7 @@
  * Clears stale "batch unsupported" detection flags for the GraphQL demo server (4010).
  * Used by Demo Hub setup so GQL-15 always attempts true JSON-array batching.
  */
-import { readKey, writeKey } from '../../../shared/utils/storage';
+import { readKey, writeKey } from '@shared/utils/storage';
 import { normalizeGraphqlEndpoint } from './graphqlEndpointUtils';
 
 const DEMO_BATCH_ENDPOINTS = [

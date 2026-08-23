@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SettingsExportImportTab from './SettingsExportImportTab';
-import type { Environment, Microservice, FeatureGroup, GlobalAuthProfile } from '../../shared/types';
+import type { Environment, Microservice, FeatureGroup, GlobalAuthProfile } from '@shared/types';
 
 // ── Mock platform ──
 let mockIsTauri = false;
@@ -30,7 +30,7 @@ vi.mock('../scenarios/utils/scenarioImportExport', () => ({
   stripVersions: vi.fn((data: unknown) => data),
 }));
 
-import { saveJsonFile, buildExportFilename, openJsonFile } from '../../shared/utils/fileSaver';
+import { saveJsonFile, buildExportFilename, openJsonFile } from '@shared/utils/fileSaver';
 import { countVersions, stripVersions } from '../scenarios/utils/scenarioImportExport';
 
 const mSave = vi.mocked(saveJsonFile);

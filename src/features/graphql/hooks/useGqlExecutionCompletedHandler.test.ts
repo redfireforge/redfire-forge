@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useGqlExecutionCompletedHandler } from './useGqlExecutionCompletedHandler';
 import type { GqlStudioTab } from '../utils/tabPersistence';
-import type { GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlResponse } from '@shared/types/graphql';
 
 function makeTab(overrides: Partial<GqlStudioTab> = {}): GqlStudioTab {
   return {

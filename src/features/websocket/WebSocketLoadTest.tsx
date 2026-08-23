@@ -1,10 +1,10 @@
 import { useCallback, useMemo, useRef, useState, type RefObject } from 'react';
 import type { ReactNode } from 'react';
-import type { WsLoadTestResult, WsLoadProfile } from '../../shared/websocket/types';
+import type { WsLoadTestResult, WsLoadProfile } from '@shared/websocket/types';
 import type { UseWebSocketLoadTestReturn } from './useWebSocketLoadTest';
 import { computeExpectedTotal, createDefaultLoadTestConfig } from './wsLoadTestMetrics';
-import { round2 } from '../../shared/utils/percentiles';
-import { saveJsonFile } from '../../shared/utils/fileSaver';
+import { round2 } from '@shared/utils/percentiles';
+import { saveJsonFile } from '@shared/utils/fileSaver';
 
 interface WebSocketLoadTestProps {
   loadTest: UseWebSocketLoadTestReturn;

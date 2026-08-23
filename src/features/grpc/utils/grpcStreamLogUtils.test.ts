@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GRPC_STREAM_MESSAGE_CAP } from '../../../shared/grpc/contracts';
+import { GRPC_STREAM_MESSAGE_CAP } from '@shared/grpc/contracts';
 import { appendGrpcStreamLogEntry, countGrpcStreamDirections, grpcStreamEventToLogEntry } from './grpcStreamLogUtils';
 
 describe('grpcStreamLogUtils', () => {
