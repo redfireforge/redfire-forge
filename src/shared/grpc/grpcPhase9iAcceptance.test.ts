@@ -5,18 +5,18 @@
  * Tests use mocked transport — no live Docker/gRPC server required.
  */
 import { describe, expect, it } from 'vitest';
-import { makeScenario as _makeScenario } from '../../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 import type { Scenario } from '../types';
-import { createGrpcStudioTab, captureGrpcTabExecuteSnapshotFromResolution } from '../../features/grpc/grpcStudioTypes';
+import { createGrpcStudioTab, captureGrpcTabExecuteSnapshotFromResolution } from '@grpc/grpcStudioTypes';
 import {
   bindTabInterpolationEnvForExecute,
   resolveTabConnectionWithEnv,
-} from '../../features/grpc/hooks/grpcStudioSessionHelpers';
+} from '@grpc/hooks/grpcStudioSessionHelpers';
 import { buildGrpcHarnessExecuteSnapshot } from './grpcHarnessSnapshotBuilder';
 import { resolveGrpcHarnessSendMessages } from './grpcHarnessTemplateResolver';
 import { createGrpcInterpolationTemplateResolver } from './grpcInterpolationResolver';
-import { buildGrpcWorkflowExecuteSnapshot } from '../../features/workflow/utils/grpcWorkflowSnapshotBuilder';
-import type { GrpcUnaryNodeData } from '../../features/workflow/types/workflow/node-grpc';
+import { buildGrpcWorkflowExecuteSnapshot } from '@workflow/utils/grpcWorkflowSnapshotBuilder';
+import type { GrpcUnaryNodeData } from '@workflow/types/workflow/node-grpc';
 import { createGrpcSavedRequestFromSnapshot } from './grpcSavedRequest';
 import { buildGrpcSavedRequestTemplateSource } from './grpcReplayTemplateCompatibility';
 import { sanitizeGrpcSavedRequestForTemplatePersist } from './grpcInterpolationPersistGuard';

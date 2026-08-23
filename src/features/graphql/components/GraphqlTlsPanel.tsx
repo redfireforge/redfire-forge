@@ -6,9 +6,9 @@
  */
 
 import { useCallback, useRef, useState } from 'react';
-import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
-import { isTauri } from '../../../shared/utils/platform';
-import { TlsConfigModal } from '../../../shared/components/TlsConfigModal';
+import type { GqlTlsSettings } from '@shared/types/gqlTls';
+import { isTauri } from '@shared/utils/platform';
+import { TlsConfigModal } from '@shared/components/TlsConfigModal';
 
 export interface GraphqlTlsPanelProps {
   skipTlsVerify: boolean;

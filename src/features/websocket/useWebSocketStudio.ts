@@ -11,22 +11,22 @@ import {
   hasCustomHeaders,
   hasTlsOverrides,
   getCloseCodeLabel,
-} from '../../shared/websocket/types';
-import { dispatchWsOperation } from '../../shared/websocket/websocketClient';
+} from '@shared/websocket/types';
+import { dispatchWsOperation } from '@shared/websocket/websocketClient';
 import {
   listenWsMessage,
   listenWsConnectionClosed,
   type WsMessagePayload,
   type WsConnectionClosedPayload,
-} from '../../shared/websocket/websocketNativeTauriTransport';
-import { isTauri } from '../../shared/utils/platform';
+} from '@shared/websocket/websocketNativeTauriTransport';
+import { isTauri } from '@shared/utils/platform';
 import { resolveEnvVars, buildResolvedEffectiveUrl, decodeBase64ToBytesStrict } from './wsMessageUtils';
 import { parseSubprotocolList, encodeWsMessageData, createSystemConnectFrame, runEarlyProtocolDetection, buildConnectHeadersMap } from './wsConnectionHelpers';
 import { resolveAuthForConnect, appendAuthQueryParams, resolveEffectiveAuth, type ResolvedAuth } from './wsAuthResolve';
-import type { GlobalAuthProfile } from '../../shared/types';
-import { toErrorMessage } from '../../shared/utils/helpers';
-import type { WsProtocolMode, WsProtocolDetectionResult } from '../../shared/websocket/protocols/protocolTypes';
-import { resolveEffectiveProtocol } from '../../shared/websocket/protocols/protocolDetector';
+import type { GlobalAuthProfile } from '@shared/types';
+import { toErrorMessage } from '@shared/utils/helpers';
+import type { WsProtocolMode, WsProtocolDetectionResult } from '@shared/websocket/protocols/protocolTypes';
+import { resolveEffectiveProtocol } from '@shared/websocket/protocols/protocolDetector';
 import {
   annotateSentFrame,
   buildGqlWsInitAction,

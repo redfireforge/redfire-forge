@@ -2,8 +2,8 @@
  * SSE (Server-Sent Events) types for connection state, events, and configuration.
  */
 
-import type { WsKeyValueEntry } from '../../shared/websocket/types';
-import type { AuthConfig } from '../../shared/types';
+import type { WsKeyValueEntry } from '@shared/websocket/types';
+import type { AuthConfig } from '@shared/types';
 
 export type SseConnectionState = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error';
 

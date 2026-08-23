@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import type { RequestResult, TestRun } from '../../../shared/types';
-import { percentile } from '../../../shared/utils/percentiles';
+import type { RequestResult, TestRun } from '@shared/types';
+import { percentile } from '@shared/utils/percentiles';
 import {
   hasWorkflowData,
   computeWorkflowStepSummaries,

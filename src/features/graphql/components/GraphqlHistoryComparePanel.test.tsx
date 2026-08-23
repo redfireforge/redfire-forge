@@ -5,7 +5,7 @@ import '@testing-library/jest-dom/vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { GraphqlHistoryComparePanel } from './GraphqlHistoryComparePanel';
-import type { GraphqlHistoryItem } from '../../../shared/types/graphql';
+import type { GraphqlHistoryItem } from '@shared/types/graphql';
 
 function makeItem(id: string, name: string, vars: string, userName: string): GraphqlHistoryItem {
   return {

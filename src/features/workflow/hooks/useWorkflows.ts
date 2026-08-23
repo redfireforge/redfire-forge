@@ -7,7 +7,7 @@ import {
   loadSelectedWorkflowId,
   saveSelectedWorkflowId,
   compactWorkflowStorage,
-} from '../../../shared/utils/storage';
+} from '@shared/utils/storage';
 import { migrateWorkflowSchema } from '../utils/workflowMigrations';
 import { WORKFLOW_SCHEMA_VERSION } from './useWorkflowPersistence';
 import { moveWorkflow } from '../utils/workflowFolderTree';

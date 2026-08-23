@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import type { WsFrame } from '../../shared/websocket/types';
+import type { WsFrame } from '@shared/websocket/types';
 
 export interface UseWebSocketBookmarksReturn {
   bookmarkedIds: ReadonlySet<string>;

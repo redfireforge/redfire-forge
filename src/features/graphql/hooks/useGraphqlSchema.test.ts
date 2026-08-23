@@ -26,7 +26,7 @@ import {
   loadCachedSchemaEntry,
   saveCachedSchemaEntry,
 } from '../utils/graphqlSchemaCache';
-import type { GraphqlSchemaInfo } from '../../../shared/types/graphql';
+import type { GraphqlSchemaInfo } from '@shared/types/graphql';
 
 const mockGqlFetch = vi.mocked(gqlFetch);
 const mockParseIntrospection = vi.mocked(parseIntrospectionResult);

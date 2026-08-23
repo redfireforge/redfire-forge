@@ -6,7 +6,7 @@
  * at run time by WorkflowRunner, so Results shows them as read-only "📋 Workflow".
  */
 import { useState } from 'react';
-import type { SlaTarget } from '../../../shared/types';
+import type { SlaTarget } from '@shared/types';
 import { SlaTargetEditor } from '../../results/components/SlaTargetEditor';
 
 interface WorkflowSlaPanelProps {

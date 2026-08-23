@@ -5,7 +5,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import type { ScriptLibrary, ScriptLibraryVersion, ScriptLibrarySnapshot } from './scriptLibraries';
-import { canonicalize } from '../../../shared/utils/canonicalize';
+import { canonicalize } from '@shared/utils/canonicalize';
 
 export const MAX_VERSIONS = 15;
 

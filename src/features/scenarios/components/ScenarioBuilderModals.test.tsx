@@ -6,7 +6,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ScenarioBuilderModals from './ScenarioBuilderModals';
 import type { ScenarioBuilderModalsProps } from './ScenarioBuilderModals';
-import type { Scenario, FeatureGroup } from '../../../shared/types';
+import type { Scenario, FeatureGroup } from '@shared/types';
 import type { TestEditorInputMode, TestEditorTab } from './TestEditorModal';
 import type { UseTrashReturn } from '../hooks/useTrash';
 

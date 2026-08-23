@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import { validateSchemaDraft } from '../../../shared/api-mock/schemaDraftValidation';
-import { matchPath } from '../../../shared/api-mock/pathMatcher';
-import { formatJsonPathValue, jsonPathFromSelection } from '../../../shared/api-mock/jsonPathFromCursor';
-import { evaluateOperator, resolveSimpleJsonPath } from '../../../shared/api-mock/predicateEvaluatorHelpers';
-import type { ApiMockPathMatcherV1, ApiMockPathMatcherKind, ApiMockPredicateV1 } from '../../../shared/api-mock/contracts';
+import AppModalFrame from '@shared/components/AppModalFrame';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import { validateSchemaDraft } from '@shared/api-mock/schemaDraftValidation';
+import { matchPath } from '@shared/api-mock/pathMatcher';
+import { formatJsonPathValue, jsonPathFromSelection } from '@shared/api-mock/jsonPathFromCursor';
+import { evaluateOperator, resolveSimpleJsonPath } from '@shared/api-mock/predicateEvaluatorHelpers';
+import type { ApiMockPathMatcherV1, ApiMockPathMatcherKind, ApiMockPredicateV1 } from '@shared/api-mock/contracts';
 import {
   KIND_OPTIONS,
   PATH_PRESETS,

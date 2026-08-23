@@ -3,7 +3,7 @@
  * to keep file sizes manageable.
  */
 import type { WorkflowNode, NodeRunStatus } from '../types/workflow';
-import type { RequestResult, WorkflowIterationTrace, WorkflowExecutionTrace } from '../../../shared/types';
+import type { RequestResult, WorkflowIterationTrace, WorkflowExecutionTrace } from '@shared/types';
 import type { NodeHandlerContext, PassedFlag } from './graphRunnerNodeHandlers';
 import type { GraphRunCallbacks } from './graphRunner';
 

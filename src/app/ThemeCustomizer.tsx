@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useModalDrag } from '../shared/hooks/useModalDrag';
-import { CustomSelect } from '../shared/components/CustomSelect';
+import { useModalDrag } from '@shared/hooks/useModalDrag';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import {
   EDITABLE_VARS,
   isCustomThemeId,

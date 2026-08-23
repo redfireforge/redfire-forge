@@ -2,16 +2,16 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it, vi } from 'vitest';
-import { captureGrpcLoadTestExecuteSnapshot } from '../../../shared/grpc/grpcAdvancedFeatureContracts';
-import { FIXTURE_DESCRIPTOR_KEY } from '../../../shared/grpc/contractFixtures';
-import { buildGrpcLoadTestRunSummaryExport } from '../../../shared/grpc/grpcLoadTestMetrics';
-import * as rpcSessionStats from '../../../shared/grpc/grpcRpcSessionStats';
+import { captureGrpcLoadTestExecuteSnapshot } from '@shared/grpc/grpcAdvancedFeatureContracts';
+import { FIXTURE_DESCRIPTOR_KEY } from '@shared/grpc/contractFixtures';
+import { buildGrpcLoadTestRunSummaryExport } from '@shared/grpc/grpcLoadTestMetrics';
+import * as rpcSessionStats from '@shared/grpc/grpcRpcSessionStats';
 import { captureGrpcRpcStatsFromLoadTestSummary, buildGrpcRpcStatsEventFromOutcome, captureGrpcRpcStatsFromOutcome, captureGrpcRpcStatsFromStreamTerminal } from './grpcStudioRpcStatsCapture';
 import {
   clearGrpcRpcSessionStatsForTests,
   getGrpcRpcSessionStats,
   GRPC_RPC_STATS_UPDATED_EVENT,
-} from '../../../shared/grpc/grpcRpcSessionStats';
+} from '@shared/grpc/grpcRpcSessionStats';
 
 describe('grpcStudioRpcStatsCapture', () => {
   it('folds non-warmup load-test attempts into session stats', () => {

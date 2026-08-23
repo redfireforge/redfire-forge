@@ -28,7 +28,7 @@ import { useGrpcStudioPageDemoBridges } from './useGrpcStudioPageDemoBridges';
 import { useGrpcStudioPageDensity } from './useGrpcStudioPageDensity';
 import { useGrpcStudioPageEnvContext } from './useGrpcStudioPageEnvContext';
 import { useGrpcStudioPageHistoryActions } from './useGrpcStudioPageHistoryActions';
-import { peekDemoInitialSurface } from '../../../shared/demoInitialSurface';
+import { peekDemoInitialSurface } from '@shared/demoInitialSurface';
 
 export type { GrpcStudioPageProps } from './grpcStudioPageTypes';
 

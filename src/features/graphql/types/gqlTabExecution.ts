@@ -1,4 +1,4 @@
-import type { GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlResponse } from '@shared/types/graphql';
 import type {
   ApqInfo,
   ExecuteParams,

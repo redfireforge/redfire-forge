@@ -8,8 +8,8 @@ vi.mock('../../../shared/utils/platform', () => ({
   isTauri: vi.fn(() => false),
 }));
 
-import * as platform from '../../../shared/utils/platform';
-import * as storage from '../../../shared/utils/storage';
+import * as platform from '@shared/utils/platform';
+import * as storage from '@shared/utils/storage';
 import {
   deleteGrpcLoadTestProfile,
   getGrpcLoadTestProfileById,

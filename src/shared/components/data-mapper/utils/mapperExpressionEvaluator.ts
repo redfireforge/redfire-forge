@@ -10,15 +10,15 @@
  * Does NOT duplicate any evaluator, tokenizer, parser, or function registry logic.
  */
 
-import { evaluateExpression, formatExpressionResult } from '../../../../features/workflow/utils/expressionEvaluator';
-import type { EvalContext } from '../../../../features/workflow/utils/expressionEvaluator';
-import { EXPRESSION_FUNCTION_MAP } from '../../../../features/workflow/utils/expressionFunctions';
-import type { ExpressionFunction } from '../../../../features/workflow/utils/expressionFunctions/types';
+import { evaluateExpression, formatExpressionResult } from '@workflow/utils/expressionEvaluator';
+import type { EvalContext } from '@workflow/utils/expressionEvaluator';
+import { EXPRESSION_FUNCTION_MAP } from '@workflow/utils/expressionFunctions';
+import type { ExpressionFunction } from '@workflow/utils/expressionFunctions/types';
 import { getByPath } from '../../../utils/jsonPath';
 import type { MapperSource } from '../types';
 import { coerceSampleData, toJsonPathRef } from './mapperParsing';
 
-export { formatExpressionResult } from '../../../../features/workflow/utils/expressionEvaluator';
+export { formatExpressionResult } from '@workflow/utils/expressionEvaluator';
 
 export interface MapperEvalResult {
   value: unknown;

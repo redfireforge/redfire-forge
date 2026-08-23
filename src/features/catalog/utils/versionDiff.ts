@@ -1,4 +1,4 @@
-import type { SpecVersion } from '../../../shared/types';
+import type { SpecVersion } from '@shared/types';
 
 export interface VersionChange {
   type: 'added' | 'removed' | 'modified';

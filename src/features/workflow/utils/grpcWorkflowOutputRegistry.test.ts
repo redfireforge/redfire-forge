@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { VariableContext } from '../engine/variableContext';
+import { VariableContext } from '@workflow/engine/variableContext';
 import {
   GrpcWorkflowOutputNamespaceError,
   GrpcWorkflowOutputRegistry,

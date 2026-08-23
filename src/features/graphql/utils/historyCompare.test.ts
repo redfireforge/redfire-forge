@@ -3,7 +3,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { compareHistoryItems, filterHistoryItems } from './historyCompare';
-import type { GraphqlHistoryItem } from '../../../shared/types/graphql';
+import type { GraphqlHistoryItem } from '@shared/types/graphql';
 
 function makeItem(overrides: Partial<GraphqlHistoryItem> = {}): GraphqlHistoryItem {
   return {

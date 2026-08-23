@@ -12,7 +12,7 @@
  */
 
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { useModalDrag } from '../../../shared/hooks/useModalDrag';
+import { useModalDrag } from '@shared/hooks/useModalDrag';
 import { buildCollectionImportPreview } from '../utils/collectionImportPreview';
 import { GraphqlImportPreviewPanel } from './GraphqlImportPreviewPanel';
 import type {
@@ -21,9 +21,9 @@ import type {
   GraphqlOperation,
   GraphqlScriptConfig,
   RfResponseContext,
-} from '../../../shared/types/graphql';
+} from '@shared/types/graphql';
 import type { CollectionTree, UseGraphqlCollectionsResult } from '../hooks/useGraphqlCollections';
-import type { CollectionExportData } from '../../../shared/utils/idbGraphqlCollections';
+import type { CollectionExportData } from '@shared/utils/idbGraphqlCollections';
 import { GraphqlScriptEditorModal, type ScriptEditorSavePayload } from './GraphqlScriptEditorModal';
 import type { ContextMenuState } from './graphqlCollectionsTypes';
 import { ChevronIcon, PlusIcon, ExportIcon, ImportIcon } from './GraphqlCollectionsIcons';

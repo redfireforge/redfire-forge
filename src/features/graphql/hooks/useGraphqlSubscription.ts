@@ -22,7 +22,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { selectTransport } from '../utils/graphqlClient';
-import type { GraphqlAuth, GraphqlError, GraphqlSubscriptionMessage, SubscriptionState, SubscriptionStats } from '../../../shared/types/graphql';
+import type { GraphqlAuth, GraphqlError, GraphqlSubscriptionMessage, SubscriptionState, SubscriptionStats } from '@shared/types/graphql';
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 

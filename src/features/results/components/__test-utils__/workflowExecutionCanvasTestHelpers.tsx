@@ -18,7 +18,7 @@ import { expect, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import type * as XyflowReact from '@xyflow/react';
 import type { Edge, Node, NodeChange, ReactFlowInstance } from '@xyflow/react';
-import type { WorkflowExecutionTrace } from '../../../../shared/types';
+import type { WorkflowExecutionTrace } from '@shared/types';
 
 // ─── Mock @xyflow/react render builders ──────────────────────────────
 

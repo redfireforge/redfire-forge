@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { DerivedVarsPanel } from './DerivedVarsPanel';
-import type { Microservice } from '../../../shared/types';
+import type { Microservice } from '@shared/types';
 
 const svc: Microservice = {
   id: 'svc-1',

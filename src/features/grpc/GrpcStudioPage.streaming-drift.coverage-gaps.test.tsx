@@ -3,18 +3,18 @@
  */
 import { fireEvent, render, screen, waitFor, act } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { selectOption } from '../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_CANCEL_SUCCESS_ENVELOPE,
   FIXTURE_HAPPY_CALL_ENVELOPE,
   FIXTURE_REFLECT_SUCCESS_ENVELOPE,
-} from '../../shared/grpc/contractFixtures';
-import { GRPC_ERROR_CODES } from '../../shared/grpc/contracts';
-import { GrpcApiClientError, setGrpcClientTransport } from '../../shared/grpc/grpcApiClient';
-import { createGrpcSuccessEnvelope } from '../../shared/grpc/contracts';
-import * as grpcStreamClient from '../../shared/grpc/grpcStreamClient';
-import { setGrpcStreamTransport } from '../../shared/grpc/grpcStreamClient';
+} from '@shared/grpc/contractFixtures';
+import { GRPC_ERROR_CODES } from '@shared/grpc/contracts';
+import { GrpcApiClientError, setGrpcClientTransport } from '@shared/grpc/grpcApiClient';
+import { createGrpcSuccessEnvelope } from '@shared/grpc/contracts';
+import * as grpcStreamClient from '@shared/grpc/grpcStreamClient';
+import { setGrpcStreamTransport } from '@shared/grpc/grpcStreamClient';
 const downloadProtosetFileMock = vi.hoisted(() => vi.fn());
 vi.mock('./utils/downloadProtoset', () => ({
   downloadProtosetFile: (...args: unknown[]) => downloadProtosetFileMock(...args),

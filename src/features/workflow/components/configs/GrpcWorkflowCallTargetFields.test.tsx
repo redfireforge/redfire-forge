@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { selectOptionByTestId, getCustomSelectOptionLabels } from '../../../../test-utils/customSelectHelper';
+import { selectOptionByTestId, getCustomSelectOptionLabels } from '@test-utils/customSelectHelper';
 import GrpcWorkflowCallTargetFields from './GrpcWorkflowCallTargetFields';
 
 const reflectNow = vi.fn(async () => {});

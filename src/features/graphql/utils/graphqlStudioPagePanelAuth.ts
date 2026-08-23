@@ -1,7 +1,7 @@
 /**
  * Auth panel scope helpers for GraphqlStudioPage — page-default vs tab/profile auth.
  */
-import type { GraphqlAuth } from '../../../shared/types/graphql';
+import type { GraphqlAuth } from '@shared/types/graphql';
 
 export function resolveUsesPageDefaultAuth(
   tabsLength: number,

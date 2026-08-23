@@ -3,7 +3,7 @@
  * Each returns a ready-to-run Scenario hitting a real public API.
  */
 
-import type { Scenario } from '../../../shared/types';
+import type { Scenario } from '@shared/types';
 
 const noAuth = { type: 'none' as const };
 const noValidation = { mode: 'none' as const };

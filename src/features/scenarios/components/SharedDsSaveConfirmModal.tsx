@@ -7,8 +7,8 @@
  * - Which tests will be affected
  * - Summary of changes (rows added/removed, columns changed, cells modified)
  */
-import PopupModal from '../../../shared/components/PopupModal';
-import type { SharedDataSource, FeatureGroup } from '../../../shared/types';
+import PopupModal from '@shared/components/PopupModal';
+import type { SharedDataSource, FeatureGroup } from '@shared/types';
 import { detectChanges, summarizeChanges, getAffectedDsIds } from '../utils/sharedDsChangeDetection';
 import { useMemo } from 'react';
 

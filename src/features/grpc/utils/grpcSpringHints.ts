@@ -1,7 +1,7 @@
 /**
  * Phase 4G — Spring Boot guidance hint rules and copy.
  */
-import type { GrpcErrorBody } from '../../../shared/grpc/contracts';
+import type { GrpcErrorBody } from '@shared/grpc/contracts';
 
 export const GRPC_STUDIO_HINTS_STORAGE_KEY = 'grpc_studio_hints_dismissed_v1';
 

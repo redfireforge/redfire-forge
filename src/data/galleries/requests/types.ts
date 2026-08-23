@@ -1,4 +1,4 @@
-import type { Scenario } from '../../../shared/types';
+import type { Scenario } from '@shared/types';
 import type { GalleryEntry } from '../types';
 
 export type RequestCategory = 'crud' | 'search' | 'auth' | 'pagination';

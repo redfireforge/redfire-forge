@@ -5,28 +5,28 @@ import {
   normalizeGrpcMetadata,
   type GrpcDescriptorSourceFingerprint,
   type GrpcTlsConfig,
-} from '../../../shared/grpc/contracts';
-import { validateGrpcAuthForExecute } from '../../../shared/grpc/grpcAuthPolicy';
-import { validateGrpcTlsConfigContract } from '../../../shared/grpc/grpcTlsPolicy';
-import { validateGrpcMetadataRecord } from '../../../shared/grpc/metadataValidation';
-import { validateResolvedGrpcTargetAddress, withGrpcTargetValidationMessage } from '../../../shared/grpc/targetValidation';
-import { assertGrpcCanonicalEnvTokensValidForConnection } from '../../../shared/grpc/grpcCanonicalEnvValidation';
-import { captureGrpcTabExecuteSnapshotFromResolution } from '../../grpc/grpcStudioTypes';
+} from '@shared/grpc/contracts';
+import { validateGrpcAuthForExecute } from '@shared/grpc/grpcAuthPolicy';
+import { validateGrpcTlsConfigContract } from '@shared/grpc/grpcTlsPolicy';
+import { validateGrpcMetadataRecord } from '@shared/grpc/metadataValidation';
+import { validateResolvedGrpcTargetAddress, withGrpcTargetValidationMessage } from '@shared/grpc/targetValidation';
+import { assertGrpcCanonicalEnvTokensValidForConnection } from '@shared/grpc/grpcCanonicalEnvValidation';
+import { captureGrpcTabExecuteSnapshotFromResolution } from '@grpc/grpcStudioTypes';
 import {
   resolveGrpcTabConnection,
   resolutionToGrpcTarget,
   type GrpcConnectionProfile,
   type GrpcTabConnectionPageDefaults,
-} from '../../grpc/utils/resolveGrpcTabConnection';
+} from '@grpc/utils/resolveGrpcTabConnection';
 import {
   resolveGrpcTabInterpolationEnvLayers,
-} from '../../../shared/grpc/grpcInterpolationPrecedence';
+} from '@shared/grpc/grpcInterpolationPrecedence';
 import {
   createGrpcInterpolationEnvSnapshot,
   type GrpcInterpolationEnvSnapshot,
-} from '../../../shared/grpc/grpcInterpolationEnvSnapshot';
-import { createGrpcWorkflowInterpolationResolver } from '../../../shared/grpc/grpcWorkflowInterpolationResolver';
-import { createGrpcInterpolationTemplateResolver } from '../../../shared/grpc/grpcInterpolationResolver';
+} from '@shared/grpc/grpcInterpolationEnvSnapshot';
+import { createGrpcWorkflowInterpolationResolver } from '@shared/grpc/grpcWorkflowInterpolationResolver';
+import { createGrpcInterpolationTemplateResolver } from '@shared/grpc/grpcInterpolationResolver';
 import type { GrpcWorkflowExecuteSnapshot } from '../types/workflow/grpcWorkflowSnapshot';
 import type {
   GrpcServerStreamNodeData,
@@ -44,8 +44,8 @@ import {
   resolveGrpcWorkflowMetadata,
   type GrpcWorkflowTemplateResolver,
 } from './grpcWorkflowTemplateResolver';
-import { resolveEffectiveGrpcAuth } from '../../grpc/utils/grpcAuthProfileResolve';
-import type { GlobalAuthProfile } from '../../../shared/types';
+import { resolveEffectiveGrpcAuth } from '@grpc/utils/grpcAuthProfileResolve';
+import type { GlobalAuthProfile } from '@shared/types';
 
 export interface GrpcWorkflowSnapshotBuildInput {
   nodeId: string;

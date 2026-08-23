@@ -5,8 +5,8 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ResultsMetricsCards } from './ResultsMetricsCards';
-import { makeSummary } from '../../../test-utils/factories';
-import type { TestRun, TestSummary } from '../../../shared/types';
+import { makeSummary } from '@test-utils/factories';
+import type { TestRun, TestSummary } from '@shared/types';
 
 function makeTestRun(overrides: Partial<TestRun> = {}): TestRun {
   return {

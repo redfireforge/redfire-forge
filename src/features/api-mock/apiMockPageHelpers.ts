@@ -1,6 +1,6 @@
-import type { ApiMockRouteV1, ApiMockServerDefinitionV1, ApiMockSimulationSampleV1 } from '../../shared/api-mock/contracts';
-import { AUTO_PORT_RANGE, HARD_CEILINGS } from '../../shared/api-mock/defaults';
-import { stripCapturedRequestSecrets } from '../../shared/api-mock/harExport';
+import type { ApiMockRouteV1, ApiMockServerDefinitionV1, ApiMockSimulationSampleV1 } from '@shared/api-mock/contracts';
+import { AUTO_PORT_RANGE, HARD_CEILINGS } from '@shared/api-mock/defaults';
+import { stripCapturedRequestSecrets } from '@shared/api-mock/harExport';
 import { resolveActiveTabId, resolveOpenTabIds } from './apiMockServerLibrary';
 import type { ApiMockRuntimeStatus } from './components/ApiMockServerTabs';
 

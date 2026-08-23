@@ -1,4 +1,4 @@
-import type { KafkaConnectionSnapshot } from '../../shared/kafka/kafkaConfig';
+import type { KafkaConnectionSnapshot } from '@shared/kafka/kafkaConfig';
 
 export type KafkaIndicatorStatus = 'disconnected' | 'connected' | 'connecting' | 'error' | 'hidden';
 

@@ -4,23 +4,23 @@
  * Binds a persisted saved request to the active tab runtime without mutating
  * the source tab. Secrets (TLS PEM, auth tokens) come from tab vault state.
  */
-import type { GrpcCallType, GrpcDescriptorSourceFingerprint, GrpcTabExecuteSnapshot } from '../../../shared/grpc/contracts';
-import type { GrpcSavedRequest } from '../../../shared/grpc/grpcSavedRequest';
+import type { GrpcCallType, GrpcDescriptorSourceFingerprint, GrpcTabExecuteSnapshot } from '@shared/grpc/contracts';
+import type { GrpcSavedRequest } from '@shared/grpc/grpcSavedRequest';
 import {
   isGrpcRedactedPersistValue,
   mergeAuthForReplay,
   mergeTlsConfigForReplay,
-} from '../../../shared/grpc/grpcSavedRequest';
-import { getGrpcAuthMetadataKeys, prepareGrpcExecuteRequestMetadata } from '../../../shared/grpc/grpcAuthPolicy';
-import { isGrpcSecretMetadataKey } from '../../../shared/grpc/grpcSecretPolicy';
+} from '@shared/grpc/grpcSavedRequest';
+import { getGrpcAuthMetadataKeys, prepareGrpcExecuteRequestMetadata } from '@shared/grpc/grpcAuthPolicy';
+import { isGrpcSecretMetadataKey } from '@shared/grpc/grpcSecretPolicy';
 import {
   captureGrpcTabExecuteSnapshotFromResolution,
   type GrpcStudioTabState,
 } from '../grpcStudioTypes';
 import {
   assertGrpcReplayUsesFreshInterpolationEnv,
-} from '../../../shared/grpc/grpcReplayTemplateCompatibility';
-import { resolveGrpcStudioTabFieldsForExecute } from '../../../shared/grpc/grpcStudioExecuteInterpolation';
+} from '@shared/grpc/grpcReplayTemplateCompatibility';
+import { resolveGrpcStudioTabFieldsForExecute } from '@shared/grpc/grpcStudioExecuteInterpolation';
 import {
   resolveTabConnectionWithEnv,
   bindTabInterpolationEnvForExecute,

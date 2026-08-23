@@ -1,6 +1,6 @@
 import type { ScriptNodeData, ScriptMode } from '../types/workflow';
 import { validateOutputSize } from './scriptAnalysis';
-import { toErrorMessage } from '../../../shared/utils/helpers';
+import { toErrorMessage } from '@shared/utils/helpers';
 
 export interface ScriptResult {
   success: boolean;

@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { computeQueryComplexity } from './complexityEstimator';
-import type { GraphqlSchemaInfo, GraphqlTypeNode } from '../../../shared/types/graphql';
+import type { GraphqlSchemaInfo, GraphqlTypeNode } from '@shared/types/graphql';
 
 // ─── Test schema ─────────────────────────────────────────────────────────────
 

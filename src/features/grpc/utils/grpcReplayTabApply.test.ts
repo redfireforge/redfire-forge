@@ -6,8 +6,8 @@ import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_DESCRIPTOR_KEY,
   FIXTURE_UNARY_CALL_REQUEST,
-} from '../../../shared/grpc/contractFixtures';
-import { createGrpcSavedRequestFromSnapshot } from '../../../shared/grpc/grpcSavedRequest';
+} from '@shared/grpc/contractFixtures';
+import { createGrpcSavedRequestFromSnapshot } from '@shared/grpc/grpcSavedRequest';
 import { createGrpcStudioTab, createEmptyTabDescriptorState } from '../grpcStudioTypes';
 import {
   analyzeGrpcurlImportSchemaDrift,

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { prepareImportedRoutes } from './apiMockImportRoutes';
-import type { ApiMockServerDefinitionV1, ApiMockRouteV1 } from '../../shared/api-mock/contracts';
+import type { ApiMockServerDefinitionV1, ApiMockRouteV1 } from '@shared/api-mock/contracts';
 
 // Minimal mock for crypto.randomUUID used inside the module
 let uuidCounter = 0;

@@ -4,8 +4,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ScriptLibraryManager from './ScriptLibraryManager';
-import type { ScriptLibrary } from '../../engine/scriptLibraries';
-import * as scriptLibraryVersioning from '../../engine/scriptLibraryVersioning';
+import type { ScriptLibrary } from '@workflow/engine/scriptLibraries';
+import * as scriptLibraryVersioning from '@workflow/engine/scriptLibraryVersioning';
 const uuidMock = vi.hoisted(() =>
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('../../../../test-utils/uuidMock.ts').hoistedUuidFixed('new-lib-id'),

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
-import type { Workflow, WorkflowNodeData } from '../../features/workflow/types/workflow';
-import type { WorkflowRFNode } from '../../features/workflow/utils/workflowNodeFactory';
+import type { Workflow, WorkflowNodeData } from '@workflow/types/workflow';
+import type { WorkflowRFNode } from '@workflow/utils/workflowNodeFactory';
 
 /**
  * Registers `__wfSyncLiveWorkflowFromPatch` so demo lessons can patch the workflow

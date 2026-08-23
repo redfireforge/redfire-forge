@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { apiMockSampleCatalog } from './index';
-import { analyzeConflicts } from '../../../shared/api-mock/conflictAnalyzer';
-import { matchPath } from '../../../shared/api-mock/pathMatcher';
-import { evaluateOperator } from '../../../shared/api-mock/predicateEvaluatorHelpers';
+import { analyzeConflicts } from '@shared/api-mock/conflictAnalyzer';
+import { matchPath } from '@shared/api-mock/pathMatcher';
+import { evaluateOperator } from '@shared/api-mock/predicateEvaluatorHelpers';
 import {
   createHealthCheckMock,
   createStoreLibraryMock,

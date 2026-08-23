@@ -1,7 +1,7 @@
 import type { LogDebugNodeData, LogLevel } from '../../types/workflow';
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import MessageTemplateEditor from '../expression/MessageTemplateEditor';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 const LEVEL_OPTIONS: { value: LogLevel; label: string; desc: string }[] = [
   { value: 'info', label: 'Info', desc: 'General tracing during a run' },

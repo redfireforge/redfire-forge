@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import VerifyRowCard from './VerifyRowCard';
 import type { VerifyResult } from '../hooks/useVerifyEngine';
-import type { DataSourceColumn, DataSourceRow } from '../../../shared/types';
+import type { DataSourceColumn, DataSourceRow } from '@shared/types';
 
 // ─── Helpers ──────────────────────────────────────────────────
 

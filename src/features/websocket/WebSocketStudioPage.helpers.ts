@@ -1,6 +1,6 @@
 import type { WsConnectionTabInfo } from './WsConnectionTabBar';
-import { peekDemoInitialSurface } from '../../shared/demoInitialSurface';
-import type { WsStudioLocation } from '../../shared/websocket/types';
+import { peekDemoInitialSurface } from '@shared/demoInitialSurface';
+import type { WsStudioLocation } from '@shared/websocket/types';
 
 export const MAX_TABS = 8;
 export const MOCK_PORT_BASE = 9876;

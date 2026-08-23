@@ -13,7 +13,7 @@ import type {
   FeatureGroup,
   Scenario,
   TestDefinitionVersion,
-} from '../../../shared/types';
+} from '@shared/types';
 
 vi.mock('../utils/structureChangeLog', () => ({
   logScenarioAdded: vi.fn((fg: FeatureGroup) => fg),

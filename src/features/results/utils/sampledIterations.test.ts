@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { isSampledIteration, filterSampledIterations } from './sampledIterations';
-import type { WorkflowIterationTrace } from '../../../shared/types';
+import type { WorkflowIterationTrace } from '@shared/types';
 
 function makeIter(overrides?: Partial<WorkflowIterationTrace>): WorkflowIterationTrace {
   return {

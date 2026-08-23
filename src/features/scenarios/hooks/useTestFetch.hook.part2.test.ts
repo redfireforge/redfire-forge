@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useTestFetch } from './useTestFetch';
-import type { Scenario, FeatureGroup, GlobalAuthProfile } from '../../../shared/types';
+import type { Scenario, FeatureGroup, GlobalAuthProfile } from '@shared/types';
 
 const mockProxyFetch = vi.fn();
 vi.mock('../../../engine/executor', () => ({

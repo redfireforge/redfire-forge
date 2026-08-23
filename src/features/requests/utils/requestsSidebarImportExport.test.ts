@@ -23,8 +23,8 @@ vi.mock('./requestTree', () => ({
   collectGroupIds: vi.fn(),
 }));
 
-import { saveJsonFile, openJsonFile } from '../../../shared/utils/fileSaver';
-import { isTauri } from '../../../shared/utils/platform';
+import { saveJsonFile, openJsonFile } from '@shared/utils/fileSaver';
+import { isTauri } from '@shared/utils/platform';
 import { findFolderDeep, collectGroupIds } from './requestTree';
 import {
   handleExportAll,

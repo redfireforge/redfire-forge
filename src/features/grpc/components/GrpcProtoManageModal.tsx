@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
-import type { GrpcDescriptor, GrpcProtoRootInput } from '../../../shared/grpc/contracts';
+import type { GrpcDescriptor, GrpcProtoRootInput } from '@shared/grpc/contracts';
 import type { GrpcDescriptorLoadState, GrpcTabProtoIngestState } from '../grpcStudioTypes';
-import { useModalDrag } from '../../../shared/hooks/useModalDrag';
-import { useModalResize } from '../../../shared/hooks/useModalResize';
+import { useModalDrag } from '@shared/hooks/useModalDrag';
+import { useModalResize } from '@shared/hooks/useModalResize';
 import { GRPC } from '@shared/selectors';
 import {
   DEFAULT_PROTO_ROOT_ID,

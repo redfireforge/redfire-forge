@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { KeyValueEditor } from './KeyValueEditor';
-import type { WsKeyValueEntry } from '../../shared/websocket/types';
+import type { WsKeyValueEntry } from '@shared/websocket/types';
 
 function makeEntries(...keys: string[]): WsKeyValueEntry[] {
   return keys.map((key) => ({ key, value: `val-${key}`, enabled: true }));

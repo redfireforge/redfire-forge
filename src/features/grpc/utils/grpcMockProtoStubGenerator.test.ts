@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { GrpcDescriptor } from '../../../shared/grpc/contracts';
+import type { GrpcDescriptor } from '@shared/grpc/contracts';
 import { generateMockRuleStubsFromDescriptor } from './grpcMockProtoStubGenerator';
 
 function buildDescriptorWithStatusEnum(enumValues: Array<{ name: string; number: number }>): GrpcDescriptor {

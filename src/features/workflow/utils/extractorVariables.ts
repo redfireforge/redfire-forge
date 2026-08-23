@@ -1,6 +1,6 @@
-import type { Extraction } from '../../../shared/types';
-import type { VariableContext } from '../engine/variableContext';
-import { getByPath } from '../../../shared/utils/jsonPath';
+import type { Extraction } from '@shared/types';
+import type { VariableContext } from '@workflow/engine/variableContext';
+import { getByPath } from '@shared/utils/jsonPath';
 
 export interface ResponseData {
   status: number;

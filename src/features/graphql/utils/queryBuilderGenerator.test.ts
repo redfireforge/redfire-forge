@@ -13,7 +13,7 @@ import {
   searchFields,
   getAncestorPaths,
 } from './queryBuilderGenerator';
-import type { GraphqlSchemaInfo, GraphqlTypeNode } from '../../../shared/types/graphql';
+import type { GraphqlSchemaInfo, GraphqlTypeNode } from '@shared/types/graphql';
 
 // ─── Test schema fixture ──────────────────────────────────────────────────────
 

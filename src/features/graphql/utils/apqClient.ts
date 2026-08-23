@@ -20,7 +20,7 @@
  */
 
 import { parse, print } from 'graphql';
-import type { GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlResponse } from '@shared/types/graphql';
 
 // ─── Hash cache (module-level FIFO, max 500 entries) ─────────────────────────
 

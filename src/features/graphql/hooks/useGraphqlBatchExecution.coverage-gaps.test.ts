@@ -24,7 +24,7 @@ vi.mock('../utils/envUtils', () => ({
 
 import { useGraphqlBatchExecution } from './useGraphqlBatchExecution';
 import { saveBatchResultsToHistory } from '../utils/saveBatchResultsToHistory';
-import { readKey, writeKey } from '../../../shared/utils/storage';
+import { readKey, writeKey } from '@shared/utils/storage';
 import type { GqlStudioTab } from '../utils/tabPersistence';
 
 const makeTab = (id: string): GqlStudioTab => ({

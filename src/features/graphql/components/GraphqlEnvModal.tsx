@@ -17,9 +17,9 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useModalEscapeClose } from '../../../shared/hooks/useModalEscapeClose';
-import { useModalDrag } from '../../../shared/hooks/useModalDrag';
-import type { GraphqlEnvironment, GraphqlEnvironmentVariable } from '../../../shared/types/graphql';
+import { useModalEscapeClose } from '@shared/hooks/useModalEscapeClose';
+import { useModalDrag } from '@shared/hooks/useModalDrag';
+import type { GraphqlEnvironment, GraphqlEnvironmentVariable } from '@shared/types/graphql';
 import { generateVarId } from '../hooks/useGraphqlEnvironments';
 import { GraphqlEnvModalVarRow } from './GraphqlEnvModalVarRow';
 

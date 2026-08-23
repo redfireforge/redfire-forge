@@ -13,7 +13,7 @@ vi.mock('../../../../config/features', () => ({
 import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_MULTI_SERVICE_DESCRIPTOR,
-} from '../../../../shared/grpc/contractFixtures';
+} from '@shared/grpc/contractFixtures';
 import { createGrpcStudioTab } from '../../grpcStudioTypes';
 import * as grpcStreamLogExport from '../../utils/grpcStreamLogExport';
 import { GrpcCallPanel } from '../GrpcCallPanel';

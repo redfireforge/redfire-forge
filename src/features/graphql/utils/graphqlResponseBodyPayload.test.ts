@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlResponse } from '@shared/types/graphql';
 import {
   buildGraphqlResponseBodyPayload,
   serializeGraphqlResponseBody,

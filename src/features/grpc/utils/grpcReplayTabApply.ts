@@ -1,8 +1,8 @@
 /**
  * Phase 5H — apply saved request / grpcurl import patches to active tab state.
  */
-import type { GrpcDescriptor } from '../../../shared/grpc/contracts';
-import type { GrpcSavedRequest } from '../../../shared/grpc/grpcSavedRequest';
+import type { GrpcDescriptor } from '@shared/grpc/contracts';
+import type { GrpcSavedRequest } from '@shared/grpc/grpcSavedRequest';
 import {
   clearedGrpcStreamSessionPatch,
   createDefaultProtoIngestState,

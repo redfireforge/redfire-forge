@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { AuthConfig, Environment, GlobalAuthProfile, Microservice } from '../../../../shared/types';
+import type { AuthConfig, Environment, GlobalAuthProfile, Microservice } from '@shared/types';
 import type { HttpNodeData, Workflow, WorkflowNode } from '../../types/workflow';
 import { resolveHttpNodeBaseUrl } from '../../utils/workflowHostResolve';
 import WorkflowEditorModalFrame from './WorkflowEditorModalFrame';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 interface Props {
   open: boolean;

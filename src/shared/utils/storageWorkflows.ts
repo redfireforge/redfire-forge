@@ -1,4 +1,4 @@
-import type { Workflow, WorkflowFolder } from '../../features/workflow/types/workflow';
+import type { Workflow, WorkflowFolder } from '@workflow/types/workflow';
 import {
   idbLoadWorkflows, idbSaveWorkflows, idbMigrateWorkflows,
   idbLoadWorkflowFolders, idbSaveWorkflowFolders, idbMigrateWorkflowFolders,

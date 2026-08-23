@@ -10,7 +10,7 @@
  *   • Unresolved references are left as-is (the literal "{{key}}" string remains)
  */
 
-import type { GraphqlEnvironment } from '../../../shared/types/graphql';
+import type { GraphqlEnvironment } from '@shared/types/graphql';
 
 /**
  * Builds a lookup map from an environment's enabled variables.

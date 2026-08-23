@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWebSocketStudio } from './useWebSocketStudio';
-import { resetFrameIdCounter } from '../../shared/websocket/types';
+import { resetFrameIdCounter } from '@shared/websocket/types';
 
 vi.mock('../../shared/websocket/websocketClient', () => ({
   dispatchWsOperation: vi.fn(),
@@ -19,9 +19,9 @@ vi.mock('../../shared/utils/platform', () => ({
   isTauri: vi.fn(() => false),
 }));
 
-import { dispatchWsOperation } from '../../shared/websocket/websocketClient';
-import { listenWsMessage, listenWsConnectionClosed } from '../../shared/websocket/websocketNativeTauriTransport';
-import { isTauri } from '../../shared/utils/platform';
+import { dispatchWsOperation } from '@shared/websocket/websocketClient';
+import { listenWsMessage, listenWsConnectionClosed } from '@shared/websocket/websocketNativeTauriTransport';
+import { isTauri } from '@shared/utils/platform';
 import * as wsAuthResolveModule from './wsAuthResolve';
 const mockDispatch = vi.mocked(dispatchWsOperation);
 const mockIsTauri = vi.mocked(isTauri);

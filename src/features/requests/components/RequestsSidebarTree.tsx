@@ -1,7 +1,7 @@
 import type { Dispatch, MutableRefObject, ReactNode, SetStateAction } from 'react';
-import type { CatalogRequestMeta, RequestCollection, RequestFolder } from '../../../shared/types';
+import type { CatalogRequestMeta, RequestCollection, RequestFolder } from '@shared/types';
 import { countFolderReqs, countGroupRequests } from '../utils/requestTree';
-import { METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
+import { METHOD_COLORS } from '@shared/constants/httpMethodColors';
 
 export interface RequestsSidebarTreeProps {
   collections: RequestCollection[];

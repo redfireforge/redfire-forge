@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react';
-import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
-import type { GlobalAuthProfile } from '../../../shared/types';
-import type { GraphqlAuth, GraphqlEnvironment } from '../../../shared/types/graphql';
+import type { GqlTlsSettings } from '@shared/types/gqlTls';
+import type { GlobalAuthProfile } from '@shared/types';
+import type { GraphqlAuth, GraphqlEnvironment } from '@shared/types/graphql';
 import type { GqlStudioTab } from '../utils/tabPersistence';
 import type { AdvancedSettingsValues } from '../components/GraphqlAdvancedSettings';
 import type { FileEntry } from '../utils/multipartBuilder';

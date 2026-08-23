@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { GraphqlEnvironment, GraphqlEnvironmentVariable } from '../../../shared/types/graphql';
+import type { GraphqlEnvironment, GraphqlEnvironmentVariable } from '@shared/types/graphql';
 import {
   GQL_ENVS_RELOAD_EVENT,
   readGqlStudioEnvironments,

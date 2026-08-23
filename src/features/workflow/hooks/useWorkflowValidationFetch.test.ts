@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useWorkflowValidationFetch } from './useWorkflowValidationFetch';
-import type { Scenario } from '../../../shared/types';
+import type { Scenario } from '@shared/types';
 const uuidMock = vi.hoisted(() =>
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('../../../test-utils/uuidMock.ts').hoistedUuidFixed('test-uuid-123'),
@@ -21,8 +21,8 @@ vi.mock('../../../engine/validator', () => ({
 
 vi.mock('uuid', () => uuidMock);
 
-import { fetchScenarioSample } from '../engine/fetchScenarioSample';
-import { validate, evaluateAssertions } from '../../../engine/validator';
+import { fetchScenarioSample } from '@workflow/engine/fetchScenarioSample';
+import { validate, evaluateAssertions } from '@engine/core/validator';
 
 const mockFetch = fetchScenarioSample as ReturnType<typeof vi.fn>;
 const mockValidate = validate as ReturnType<typeof vi.fn>;

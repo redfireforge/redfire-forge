@@ -1,8 +1,8 @@
 /**
  * Conflict-track API Mock gallery factories.
  */
-import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
-import { DEFAULT_SETTINGS } from '../../../shared/api-mock/defaults';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
+import { DEFAULT_SETTINGS } from '@shared/api-mock/defaults';
 import { TS, emptyGroup, jsonBody, jsonHeader, storeRoute } from './presets-helpers';
 
 /**

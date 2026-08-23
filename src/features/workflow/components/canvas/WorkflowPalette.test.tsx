@@ -4,9 +4,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import WorkflowPalette from './WorkflowPalette';
-import type { RequestCollection } from '../../../../shared/types';
+import type { RequestCollection } from '@shared/types';
 import type { CatalogEntry } from '../../../catalog/types/catalog';
-import type { WorkflowPreviewEntry } from '../../../../shared/utils/workflowPreviewStorage';
+import type { WorkflowPreviewEntry } from '@shared/utils/workflowPreviewStorage';
 
 vi.mock('../nodes/NodeIcon', () => ({ NodeIcon: ({ type }: { type: string }) => <span data-testid={`icon-${type}`} /> }));
 

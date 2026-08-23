@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { UseGrpcStudioAdvancedFeaturesReturn } from '../../hooks/useGrpcStudioAdvancedFeatures';
-import StandardProfessionalModal from '../../../../shared/components/StandardProfessionalModal';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import StandardProfessionalModal from '@shared/components/StandardProfessionalModal';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import { parseGrpcMockRuleSetJsonForBuilder, summarizeMockRulePredicate } from '../../utils/grpcStudioAdvancedModel';
 import {
   createDefaultGrpcMockBuilderRuleRow,

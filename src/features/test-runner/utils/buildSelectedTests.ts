@@ -1,7 +1,7 @@
-import type { FeatureGroup, Scenario, GlobalAuthProfile, AuthConfig } from '../../../shared/types';
+import type { FeatureGroup, Scenario, GlobalAuthProfile, AuthConfig } from '@shared/types';
 import type { RunnerConfig, UnorderedOverride } from '../hooks/runnerConfigDefaults';
 import { resolveAuth } from '../../requests/utils/authResolver';
-import { replaceHost } from '../../../shared/utils/urlUtils';
+import { replaceHost } from '@shared/utils/urlUtils';
 
 export interface SelectedTest extends Scenario {
   featureGroupName: string;

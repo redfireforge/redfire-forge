@@ -1,12 +1,12 @@
 import { useCallback } from 'react';
-import type { Workflow } from '../../features/workflow/types/workflow';
-import type { WorkflowFolder } from '../../features/workflow/types/workflow';
-import type { WorkflowHook } from '../../features/workflow/hooks/useWorkflows';
-import { stripWorkflowVersions, countWorkflowVersions } from '../../features/workflow/utils/workflowVersioning';
-import { getWorkflowsInFolderRecursive } from '../../features/workflow/utils/workflowFolderTree';
-import { saveJsonFile, buildExportFilename, openJsonFile } from '../../shared/utils/fileSaver';
+import type { Workflow } from '@workflow/types/workflow';
+import type { WorkflowFolder } from '@workflow/types/workflow';
+import type { WorkflowHook } from '@workflow/hooks/useWorkflows';
+import { stripWorkflowVersions, countWorkflowVersions } from '@workflow/utils/workflowVersioning';
+import { getWorkflowsInFolderRecursive } from '@workflow/utils/workflowFolderTree';
+import { saveJsonFile, buildExportFilename, openJsonFile } from '@shared/utils/fileSaver';
 import { pickJsonFile } from '../../features/scenarios/utils/scenarioImportExport';
-import { isTauri } from '../../shared/utils/platform';
+import { isTauri } from '@shared/utils/platform';
 
 interface UseWorkflowImportExportOpts {
   wfHook: WorkflowHook;

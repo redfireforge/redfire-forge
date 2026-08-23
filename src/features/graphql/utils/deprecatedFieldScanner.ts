@@ -20,7 +20,7 @@ import {
   type IntrospectionQuery,
   type OperationDefinitionNode,
 } from 'graphql';
-import type { GraphqlCollectionItem } from '../../../shared/types/graphql';
+import type { GraphqlCollectionItem } from '@shared/types/graphql';
 
 export interface DeprecatedFieldUsage {
   /** Collection item id */

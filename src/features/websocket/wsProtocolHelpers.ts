@@ -3,8 +3,8 @@
  * Extracted from useWebSocketStudio.ts to reduce its line count.
  */
 
-import type { WsFrame, WsFrameProtocolMeta } from '../../shared/websocket/types';
-import { createFrame } from '../../shared/websocket/types';
+import type { WsFrame, WsFrameProtocolMeta } from '@shared/websocket/types';
+import { createFrame } from '@shared/websocket/types';
 import type {
   WsSearchMode,
   WsSizeFilter,
@@ -12,9 +12,9 @@ import type {
   WsContentTypeFilter,
   WsDirectionFilter,
 } from './useWebSocketStudioTypes';
-import { getByPath } from '../../shared/utils/jsonPath';
-import type { WsProtocolMode, WsProtocolDetectionResult } from '../../shared/websocket/protocols/protocolTypes';
-import { resolveEffectiveProtocol } from '../../shared/websocket/protocols/protocolDetector';
+import { getByPath } from '@shared/utils/jsonPath';
+import type { WsProtocolMode, WsProtocolDetectionResult } from '@shared/websocket/protocols/protocolTypes';
+import { resolveEffectiveProtocol } from '@shared/websocket/protocols/protocolDetector';
 import {
   decodeSioPacket,
   getSioPacketSummary,
@@ -24,20 +24,20 @@ import {
   isSioOpen,
   ENGINE_TYPES,
   SOCKET_TYPES,
-} from '../../shared/websocket/protocols/socketIoCodec';
+} from '@shared/websocket/protocols/socketIoCodec';
 import {
   decodeStompFrame,
   getStompFrameSummary,
   isStompHeartbeat,
   encodeStompHeartbeat,
-} from '../../shared/websocket/protocols/stompCodec';
+} from '@shared/websocket/protocols/stompCodec';
 import {
   decodeGqlWsMessage,
   getGqlWsMessageSummary,
   encodeGqlWsConnectionInit,
   encodeGqlWsPong,
   isGqlWsPing,
-} from '../../shared/websocket/protocols/graphqlWsCodec';
+} from '@shared/websocket/protocols/graphqlWsCodec';
 
 // ── Protocol Meta Builders ────────────────────────────────────────────────────
 

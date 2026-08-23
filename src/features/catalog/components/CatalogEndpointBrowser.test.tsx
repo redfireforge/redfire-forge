@@ -5,10 +5,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import { selectOption } from '../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import CatalogEndpointBrowser from './CatalogEndpointBrowser';
 import { makeEntry, makeEndpoint, makeFolder, makeServer, makeHostConfig, makeVersion } from './catalogTestFactories';
-import type { AuthConfig, Microservice } from '../../../shared/types';
+import type { AuthConfig, Microservice } from '@shared/types';
 
 const endpointCardPropsSpy = vi.hoisted(() => vi.fn());
 

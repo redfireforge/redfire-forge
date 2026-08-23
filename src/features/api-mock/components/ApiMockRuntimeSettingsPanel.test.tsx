@@ -4,9 +4,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { DEFAULT_SETTINGS, HARD_CEILINGS } from '../../../shared/api-mock/defaults';
-import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
-import { selectOptionByTestId } from '../../../test-utils/customSelectHelper';
+import { DEFAULT_SETTINGS, HARD_CEILINGS } from '@shared/api-mock/defaults';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
+import { selectOptionByTestId } from '@test-utils/customSelectHelper';
 import { ApiMockRuntimeSettingsPanel } from './ApiMockRuntimeSettingsPanel';
 
 function makeServer(overrides: Partial<ApiMockServerDefinitionV1> = {}): ApiMockServerDefinitionV1 {

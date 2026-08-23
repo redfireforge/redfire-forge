@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeResult, makeTestRun } from '../../../test-utils/factories';
+import { makeResult, makeTestRun } from '@test-utils/factories';
 import { computeFilteredResults, computeRunCounts, filterVisibleRuns } from './resultsFiltering';
 
 describe('resultsFiltering utils', () => {

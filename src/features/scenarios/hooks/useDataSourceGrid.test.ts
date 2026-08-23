@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useDataSourceGrid } from './useDataSourceGrid';
-import type { DataSource } from '../../../shared/types';
+import type { DataSource } from '@shared/types';
 
 function makeDataSource(overrides: Partial<DataSource> = {}): DataSource {
   return {

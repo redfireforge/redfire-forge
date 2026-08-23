@@ -10,7 +10,7 @@
  * are read-only historical audits and do not write acknowledgements.
  */
 
-import { openDB } from '../../../shared/utils/idbOpen';
+import { openDB } from '@shared/utils/idbOpen';
 
 const STORE = 'graphql-diff-acknowledgements';
 

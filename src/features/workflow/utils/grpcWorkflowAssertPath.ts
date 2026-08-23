@@ -1,7 +1,7 @@
 /**
  * Phase 6E — JSONPath resolution for grpcField assertions against step results.
  */
-import { getByPath, stripJsonPathPrefix } from '../../../shared/utils/jsonPath';
+import { getByPath, stripJsonPathPrefix } from '@shared/utils/jsonPath';
 import type { GrpcWorkflowStepResult } from '../types/workflow/node-grpc';
 
 /** Resolve a grpcField path against a frozen step result payload. */

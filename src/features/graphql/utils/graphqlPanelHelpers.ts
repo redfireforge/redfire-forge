@@ -10,7 +10,7 @@ import type {
   GraphqlIntrospectNodeData,
   GraphqlAssertNodeData,
   GraphqlExtractionRule,
-} from '../../workflow/types/workflow';
+} from '@workflow/types/workflow';
 
 export function isValidIdentifier(name: string): boolean {
   return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);

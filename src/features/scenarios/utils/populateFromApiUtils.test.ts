@@ -14,7 +14,7 @@ import {
   formatCellValue,
   stringifyValue,
 } from './populateFromApiUtils';
-import type { DataSourceColumn } from '../../../shared/types';
+import type { DataSourceColumn } from '@shared/types';
 
 describe('populateFromApiUtils', () => {
   describe('detectArrays', () => {

@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import type { GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlResponse } from '@shared/types/graphql';
 import type { ApqInfo, ExecutionStatus } from './useGraphqlExecution';
 
 export interface TabExecutionSnapshot {

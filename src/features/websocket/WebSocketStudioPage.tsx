@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useWebSocketProfiles } from '../../app/hooks/useWebSocketProfiles';
-import { useWebSocketTemplates } from '../../app/hooks/useWebSocketTemplates';
-import { useWebSocketHistory } from '../../app/hooks/useWebSocketHistory';
+import { useWebSocketProfiles } from '@app/hooks/useWebSocketProfiles';
+import { useWebSocketTemplates } from '@app/hooks/useWebSocketTemplates';
+import { useWebSocketHistory } from '@app/hooks/useWebSocketHistory';
 import {
   WsConnectionTabBar,
   type ConnectionStateHint,
@@ -10,7 +10,7 @@ import {
 import { WsConnectionTabContent } from './WsConnectionTabContent';
 import type { WsConnectionTabContentHandle } from './WsConnectionTabContent.types';
 import { buildWsEnvVarMap } from './wsMessageUtils';
-import { buildEnvVarMap } from '../../shared/utils/envVarUtils';
+import { buildEnvVarMap } from '@shared/utils/envVarUtils';
 import { getRowStatus } from '../environments/utils/protocolEndpointUtils';
 import type {
   WsConnectionDraft,
@@ -18,17 +18,17 @@ import type {
   WsProtocolMode,
   WsViewTab,
   WsStudioLocation,
-} from '../../shared/websocket/types';
+} from '@shared/websocket/types';
 import {
   mapViewTabToStudioLocation,
   deriveViewTabFromStudio,
-} from '../../shared/websocket/types';
-import { loadWsTabState, saveWsTabState } from '../../shared/websocket/websocketStorage';
-import ConfirmModal from '../../shared/components/ConfirmModal';
+} from '@shared/websocket/types';
+import { loadWsTabState, saveWsTabState } from '@shared/websocket/websocketStorage';
+import ConfirmModal from '@shared/components/ConfirmModal';
 import {
   DEMO_INITIAL_SURFACE_EVENT,
   peekDemoInitialSurface,
-} from '../../shared/demoInitialSurface';
+} from '@shared/demoInitialSurface';
 import {
   MAX_TABS,
   MOCK_PORT_BASE,

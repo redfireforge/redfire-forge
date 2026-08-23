@@ -1,4 +1,4 @@
-import type { ApiMockRouteV1, ApiMockServerSettingsV1 } from '../../../shared/api-mock/contracts';
+import type { ApiMockRouteV1, ApiMockServerSettingsV1 } from '@shared/api-mock/contracts';
 
 interface Props {
   routes: ApiMockRouteV1[];

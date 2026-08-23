@@ -1,4 +1,4 @@
-import type { Scenario, KeyValue } from '../../../shared/types';
+import type { Scenario, KeyValue } from '@shared/types';
 import type { VariableContext } from './variableContext';
 
 /**

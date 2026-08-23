@@ -1,6 +1,6 @@
-import type { ProtocolKey } from '../../../shared/types';
-import { buildEnvVarMap } from '../../../shared/utils/envVarUtils';
-import type { Microservice } from '../../../shared/types';
+import type { ProtocolKey } from '@shared/types';
+import { buildEnvVarMap } from '@shared/utils/envVarUtils';
+import type { Microservice } from '@shared/types';
 import {
   PROTOCOL_TABS,
   derivedVarSourceLabel,

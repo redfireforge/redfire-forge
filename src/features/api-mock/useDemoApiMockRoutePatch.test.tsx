@@ -3,8 +3,8 @@
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import type { ApiMockPredicateGroupV1, ApiMockServerDefinitionV1 } from '../../shared/api-mock/contracts';
-import { DEFAULT_SETTINGS, createDefaultResponse } from '../../shared/api-mock/defaults';
+import type { ApiMockPredicateGroupV1, ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
+import { DEFAULT_SETTINGS, createDefaultResponse } from '@shared/api-mock/defaults';
 import { createRoute } from './apiMockStudioFactory';
 import { useDemoApiMockRoutePatch } from './useDemoApiMockRoutePatch';
 

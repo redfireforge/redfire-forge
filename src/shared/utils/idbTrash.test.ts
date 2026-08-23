@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { makeTrashItem } from '../../test-utils/factories';
+import { makeTrashItem } from '@test-utils/factories';
 
 import 'fake-indexeddb/auto';
 

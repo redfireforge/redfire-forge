@@ -31,7 +31,7 @@ import {
 import { bumpGrpcTargetProbeGeneration } from '../utils/grpcTargetProbeGeneration';
 import { resetTargetConnectionSession } from '../utils/grpcTargetConnection';
 import { tabHasActiveStream } from './grpcStreamSessionHelpers';
-import { isGrpcStreamLifecycleTerminal } from '../../../shared/grpc/streamLifecycle';
+import { isGrpcStreamLifecycleTerminal } from '@shared/grpc/streamLifecycle';
 
 export interface UseGrpcStudioSessionCoreOptions {
   envVarMap: Record<string, string>;

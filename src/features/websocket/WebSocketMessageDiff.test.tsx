@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { WebSocketMessageDiff } from './WebSocketMessageDiff';
-import type { WsFrame } from '../../shared/websocket/types';
+import type { WsFrame } from '@shared/websocket/types';
 
 function makeFrame(overrides: Partial<WsFrame> = {}): WsFrame {
   return {

@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ParamsEditor, toParamEntries, fromParamEntries } from './ParamsEditor';
 import type { ParamEntry } from './ParamsEditor';
-import type { WorkflowVariableHint } from '../../workflow/utils/workflowVariableHints';
+import type { WorkflowVariableHint } from '@workflow/utils/workflowVariableHints';
 
 function makeParams(overrides?: Partial<ParamEntry>[]): ParamEntry[] {
   const defaults: ParamEntry[] = [

@@ -6,9 +6,9 @@
 
 import { getByPath } from '../../../utils/jsonPath';
 import { evaluateMapperExpression, formatExpressionResult } from './mapperExpressionEvaluator';
-import { isLambda } from '../../../../features/workflow/utils/lambdaUtils';
+import { isLambda } from '@workflow/utils/lambdaUtils';
 import type { Mapping, MapperSource } from '../types';
-import type { ExpressionFunction } from '../../../../features/workflow/utils/expressionFunctions/types';
+import type { ExpressionFunction } from '@workflow/utils/expressionFunctions/types';
 import { coerceSampleData, toJsonPathRef } from './mapperParsing';
 
 export interface PreviewField {

@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { GqlRightPane } from './GqlRightPane';
-import type { GraphqlSchemaInfo, GraphqlTypeNode, SubscriptionStats } from '../../../shared/types/graphql';
+import type { GraphqlSchemaInfo, GraphqlTypeNode, SubscriptionStats } from '@shared/types/graphql';
 import type { SubscriptionLogProps } from './GqlRightPane';
 
 vi.mock('../utils/monacoGraphqlSetup', () => ({

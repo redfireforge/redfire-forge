@@ -1,7 +1,7 @@
 /**
  * gRPC Studio — timing breakdown display helpers (Phase 1 mockup 01).
  */
-import type { GrpcCallTimingBreakdown } from '../../../shared/grpc/contracts';
+import type { GrpcCallTimingBreakdown } from '@shared/grpc/contracts';
 import { formatGrpcDurationMs } from './grpcResponseUtils';
 
 export interface GrpcTimingBreakdownRow {

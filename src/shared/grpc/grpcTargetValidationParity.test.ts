@@ -4,11 +4,11 @@
  */
 import { describe, expect, it } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import { useGrpcTargetValidation } from '../../features/grpc/hooks/useGrpcTargetValidation';
+import { useGrpcTargetValidation } from '@grpc/hooks/useGrpcTargetValidation';
 import { validateGrpcStatusAddress } from './requestValidation';
 import { validatePhase1UnaryCallRequest } from './requestValidation';
 import { FIXTURE_UNARY_CALL_REQUEST } from './contractFixtures';
-import { resolveTabConnectionWithEnv } from '../../features/grpc/hooks/grpcStudioSessionHelpers';
+import { resolveTabConnectionWithEnv } from '@grpc/hooks/grpcStudioSessionHelpers';
 
 describe('grpcTargetValidation UI/server parity (Phase 9D)', () => {
   it('missing grpcHost produces identical messages in UI and status validation', () => {

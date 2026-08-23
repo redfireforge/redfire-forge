@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { resolveEffectiveAuthFromHierarchy, buildResponseVersion, buildRulesVersion, buildAuthedRequest, } from './useTestFetch';
-import { Scenario, FeatureGroup, GlobalAuthProfile, AuthConfig } from '../../../shared/types';
+import { Scenario, FeatureGroup, GlobalAuthProfile, AuthConfig } from '@shared/types';
 
 // Mock dependencies
 vi.mock('../../../engine/tokenManager', () => ({

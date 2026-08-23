@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act, waitFor, cleanup, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import CorrelationWaitConfigPanel from './CorrelationWaitConfig';
-import type { Workflow, CorrelationWaitNodeData } from '../../workflow/types/workflow';
+import type { Workflow, CorrelationWaitNodeData } from '@workflow/types/workflow';
 
 // Mock fetch for polling tests
 const mockFetch = vi.fn();

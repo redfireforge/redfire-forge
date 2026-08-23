@@ -7,7 +7,7 @@
  */
 import { vi } from 'vitest';
 import type { HttpNodeData } from '../../../types/workflow';
-import type { Scenario } from '../../../../../shared/types';
+import type { Scenario } from '@shared/types';
 
 export function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
   return {

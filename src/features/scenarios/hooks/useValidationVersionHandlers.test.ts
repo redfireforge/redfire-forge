@@ -4,8 +4,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useValidationVersionHandlers } from './useValidationVersionHandlers';
-import type { Scenario } from '../../../shared/types';
-import { makeScenario as _makeScenario } from '../../../test-utils/factories';
+import type { Scenario } from '@shared/types';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 function makeDraft(overrides: Partial<Scenario> = {}): Scenario {
   return _makeScenario({

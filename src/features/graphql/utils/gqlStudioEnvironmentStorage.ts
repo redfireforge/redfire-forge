@@ -2,14 +2,14 @@
  * Storage helpers for GraphQL Studio named environments (gql_environments_v1).
  * Used by useGraphqlEnvironments and demo-lesson cleanup (works when Studio is unmounted).
  */
-import type { GraphqlEnvironment } from '../../../shared/types/graphql';
+import type { GraphqlEnvironment } from '@shared/types/graphql';
 import {
   idbLoadStudioEnvironments,
   idbMigrateStudioEnvironmentsFromLocalStorage,
   idbSaveStudioEnvironments,
-} from '../../../shared/utils/idbGraphqlStudio';
-import { readKey, writeKey } from '../../../shared/utils/storage';
-import { isTauri } from '../../../shared/utils/platform';
+} from '@shared/utils/idbGraphqlStudio';
+import { readKey, writeKey } from '@shared/utils/storage';
+import { isTauri } from '@shared/utils/platform';
 
 export const GQL_ENVS_STORAGE_KEY = 'gql_environments_v1';
 export const GQL_ENVS_RELOAD_EVENT = 'gql-environments-reload';

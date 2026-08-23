@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { buildAuthHeaders, authBadgeLabel, isAuthConfigured, buildConnectionParams, stampAuthHeaders, resolveGqlAuthBadgePresentation, resolveTabAuthDotKind } from './authUtils';
-import type { GraphqlAuth } from '../../../shared/types/graphql';
+import type { GraphqlAuth } from '@shared/types/graphql';
 import type { GqlStudioTab } from './tabPersistence';
 
 // ─── buildAuthHeaders ─────────────────────────────────────────────────────────

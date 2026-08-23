@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
-import type { WsMockRule, WsMockFallbackMode } from '../../shared/websocket/types';
+import type { WsMockRule, WsMockFallbackMode } from '@shared/websocket/types';
 import { evaluateRules } from './wsMockRuleEngine';
 import type { UseWebSocketMockServerReturn, MockServerConfig } from './useWebSocketMockServer';
 

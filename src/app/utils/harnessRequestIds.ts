@@ -1,4 +1,4 @@
-import type { FeatureGroup } from '../../shared/types';
+import type { FeatureGroup } from '@shared/types';
 
 export function collectHarnessRequestIds(featureGroups: FeatureGroup[]): Set<string> {
   const ids = new Set<string>();

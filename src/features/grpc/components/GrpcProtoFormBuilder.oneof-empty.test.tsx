@@ -3,7 +3,7 @@
  */
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { GrpcFieldSchema } from '../../../shared/grpc/contracts';
+import type { GrpcFieldSchema } from '@shared/grpc/contracts';
 import { GrpcProtoFormBuilder } from './GrpcProtoFormBuilder';
 
 vi.mock('../utils/grpcProtoFormValues', async (importOriginal) => {

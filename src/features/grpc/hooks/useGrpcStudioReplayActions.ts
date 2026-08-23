@@ -2,8 +2,8 @@
  * Phase 5H — open saved requests / history / grpcurl import in the active tab.
  */
 import { useCallback, useState } from 'react';
-import type { GrpcCallHistoryEntryV1 } from '../../../shared/grpc/grpcPersistenceSchema';
-import type { GrpcSavedRequest } from '../../../shared/grpc/grpcSavedRequest';
+import type { GrpcCallHistoryEntryV1 } from '@shared/grpc/grpcPersistenceSchema';
+import type { GrpcSavedRequest } from '@shared/grpc/grpcSavedRequest';
 import type { UseGrpcStudioReturn } from './useGrpcStudio';
 import type { GrpcTabConnectionPageDefaults, GrpcConnectionProfile } from '../utils/resolveGrpcTabConnection';
 import {

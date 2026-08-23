@@ -10,7 +10,7 @@ import {
   createDefaultLoadTestConfig,
 } from './wsLoadTestMetrics';
 import { embedNonce, extractNonce } from './useWebSocketLoadTest';
-import type { WsLoadTestConfig } from '../../shared/websocket/types';
+import type { WsLoadTestConfig } from '@shared/websocket/types';
 
 describe('createLatencyTracker', () => {
   it('records and returns sorted latencies', () => {

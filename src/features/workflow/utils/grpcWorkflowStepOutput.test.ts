@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { VariableContext } from '../engine/variableContext';
+import { VariableContext } from '@workflow/engine/variableContext';
 import { publishGrpcWorkflowStepOutput } from './grpcWorkflowStepOutput';
 import { GrpcWorkflowOutputRegistry } from './grpcWorkflowOutputRegistry';
 import { GrpcWorkflowStepResultStore } from './grpcWorkflowStepResultStore';

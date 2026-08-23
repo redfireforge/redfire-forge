@@ -1,4 +1,4 @@
-import type { GrpcMessageSchema } from '../../../../shared/grpc/contracts';
+import type { GrpcMessageSchema } from '@shared/grpc/contracts';
 
 export const REPEATED_MESSAGE_SCHEMA: GrpcMessageSchema = {
   typeName: 'demo.RepeatedNestedRequest',

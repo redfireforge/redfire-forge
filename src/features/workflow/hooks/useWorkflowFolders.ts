@@ -4,7 +4,7 @@ import type { WorkflowFolder } from '../types/workflow';
 import {
   loadWorkflowFolders,
   saveWorkflowFolders,
-} from '../../../shared/utils/storage';
+} from '@shared/utils/storage';
 import {
   isDescendant,
   moveFolder as moveFolderUtil,

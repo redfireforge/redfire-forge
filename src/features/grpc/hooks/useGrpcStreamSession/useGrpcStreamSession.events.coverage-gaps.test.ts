@@ -3,10 +3,10 @@
  */
 import { act} from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { GRPC_ERROR_CODES, type GrpcStreamEvent } from '../../../../shared/grpc/contracts';
-import { GrpcApiClientError } from '../../../../shared/grpc/grpcApiClient';
-import * as grpcStreamClient from '../../../../shared/grpc/grpcStreamClient';
-import { FIXTURE_DESCRIPTOR, FIXTURE_SERVER_STREAM_START_REQUEST } from '../../../../shared/grpc/contractFixtures';
+import { GRPC_ERROR_CODES, type GrpcStreamEvent } from '@shared/grpc/contracts';
+import { GrpcApiClientError } from '@shared/grpc/grpcApiClient';
+import * as grpcStreamClient from '@shared/grpc/grpcStreamClient';
+import { FIXTURE_DESCRIPTOR, FIXTURE_SERVER_STREAM_START_REQUEST } from '@shared/grpc/contractFixtures';
 import {
   makeHarness,
   minimalStreamExecuteSnapshot,

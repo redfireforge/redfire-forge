@@ -18,7 +18,7 @@
 import type { JSX, ReactNode } from 'react';
 import { fireEvent, screen } from '@testing-library/react';
 import { vi } from 'vitest';
-import type { Scenario } from '../../../../shared/types';
+import type { Scenario } from '@shared/types';
 
 // ─── Mock factories ──────────────────────────────────────────────────
 

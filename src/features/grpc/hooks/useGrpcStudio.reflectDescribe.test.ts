@@ -10,8 +10,8 @@ import {
   FIXTURE_DESCRIBE_SUCCESS_ENVELOPE,
   FIXTURE_ECHO_PROTO,
   FIXTURE_DESCRIBE_PROTOSET_REQUEST,
-} from '../../../shared/grpc/contractFixtures';
-import { setGrpcClientTransport } from '../../../shared/grpc/grpcApiClient';
+} from '@shared/grpc/contractFixtures';
+import { setGrpcClientTransport } from '@shared/grpc/grpcApiClient';
 import * as grpcStudioSessionHelpers from './grpcStudioSessionHelpers';
 import { useGrpcStudio } from './useGrpcStudio';
 import { PAGE_DEFAULTS, setupUseGrpcStudioHookTest } from './useGrpcStudio.testHelpers';

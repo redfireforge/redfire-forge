@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import type { ApiMockRouteFolderV1, ApiMockRouteV1, ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
+import AppModalFrame from '@shared/components/AppModalFrame';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import type { ApiMockRouteFolderV1, ApiMockRouteV1, ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
 import { loadApiMockWorkspace, saveApiMockWorkspace } from '../apiMockPersistence';
 import { dispatchApiMockWorkspaceChanged } from '../apiMockGalleryImport';
-import { batchToRoutes, requestItemsToSources, catalogEndpointsToSources } from '../../../shared/api-mock/importParsers';
+import { batchToRoutes, requestItemsToSources, catalogEndpointsToSources } from '@shared/api-mock/importParsers';
 
 export interface ExportToApiMockItem {
   method: string;

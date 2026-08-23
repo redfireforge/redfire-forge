@@ -1,4 +1,4 @@
-import type { RequestItem, RequestDefinitionVersion, RequestDefinitionSnapshot } from '../../../shared/types';
+import type { RequestItem, RequestDefinitionVersion, RequestDefinitionSnapshot } from '@shared/types';
 import {
   computeSnapshotFingerprint,
   generateHttpChangeSummary,
@@ -7,9 +7,9 @@ import {
   addVersionToList as addVersionToListGeneric,
   deleteVersionById,
   renameVersionById,
-} from '../../../shared/utils/definitionVersioning';
+} from '@shared/utils/definitionVersioning';
 
-export type { HttpSnapshotDiffBase as SnapshotDiffResult } from '../../../shared/utils/definitionVersioning';
+export type { HttpSnapshotDiffBase as SnapshotDiffResult } from '@shared/utils/definitionVersioning';
 
 const MAX_VERSIONS = 15;
 

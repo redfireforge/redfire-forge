@@ -12,7 +12,7 @@ import {
   stripDefinitionVersions,
   hasDefinitionVersions,
 } from './testDefinitionVersioning';
-import type { Scenario, TestDefinitionVersion } from '../../../shared/types';
+import type { Scenario, TestDefinitionVersion } from '@shared/types';
 
 const baseScenario: Scenario = {
   id: 'test-1',

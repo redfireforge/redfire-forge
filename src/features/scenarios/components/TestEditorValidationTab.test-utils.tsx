@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { vi } from 'vitest';
 import type { TestEditorValidationTabProps } from './TestEditorValidationTab';
-import type { Scenario } from '../../../shared/types';
+import type { Scenario } from '@shared/types';
 import { createRef } from 'react';
 
 export function makeDraft(overrides: Partial<Scenario> = {}): Scenario {

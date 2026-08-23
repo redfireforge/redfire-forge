@@ -1,4 +1,4 @@
-import type { AuthConfig, FeatureGroup, GlobalAuthProfile } from '../../../shared/types';
+import type { AuthConfig, FeatureGroup, GlobalAuthProfile } from '@shared/types';
 
 const AUTH_LABEL: Record<string, string> = {
   basic: 'Basic Auth', bearer: 'Bearer Token', apikey: 'API Key',

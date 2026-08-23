@@ -4,8 +4,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWebSocketProfiles } from './useWebSocketProfiles';
-import * as wsStorage from '../../shared/websocket/websocketStorage';
-import type { WsConnectionProfile } from '../../shared/websocket/types';
+import * as wsStorage from '@shared/websocket/websocketStorage';
+import type { WsConnectionProfile } from '@shared/websocket/types';
 
 vi.mock('../../shared/websocket/websocketStorage', () => ({
   loadWsProfiles: vi.fn(),

@@ -4,10 +4,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { selectOption } from '../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import TestEditorValidationTab from './TestEditorValidationTab';
 import { makeDraft, makeProps } from './TestEditorValidationTab.test-utils';
-import type { Assertion, Scenario } from '../../../shared/types';
+import type { Assertion, Scenario } from '@shared/types';
 
 vi.mock('../../requests/components/ResponseVersionPanel', () => ({
   default: ({ onSaveVersion, onRestore, onDeleteVersion, onRenameVersion, versions }: {

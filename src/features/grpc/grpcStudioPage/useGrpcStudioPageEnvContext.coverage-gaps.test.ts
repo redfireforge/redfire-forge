@@ -3,7 +3,7 @@
  */
 import { renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Microservice } from '../../../shared/types';
+import type { Microservice } from '@shared/types';
 import { useGrpcStudioPageEnvContext } from './useGrpcStudioPageEnvContext';
 
 const selectedSvc: Microservice = {

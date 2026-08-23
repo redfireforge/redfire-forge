@@ -4,7 +4,7 @@
  * Extracted from DataSourceEditor to enable reuse in SharedDataSourceModal.
  */
 import { useState, useCallback } from 'react';
-import type { DataSource, DataSourceColumn } from '../../../shared/types';
+import type { DataSource, DataSourceColumn } from '@shared/types';
 import { createEmptyColumn } from '../utils/dataSourceUtils';
 
 export interface UseDataSourceColumnsOptions {

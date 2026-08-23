@@ -4,10 +4,10 @@
  * graphRunnerNodeHandlerContext.ts.
  */
 import type { NodeRunStatus } from '../types/workflow';
-import type { RequestResult } from '../../../shared/types';
+import type { RequestResult } from '@shared/types';
 
 // Re-export from canonical location to avoid duplication
-export type { CorrelationWaitRunnerConfig } from '../../../shared/types';
+export type { CorrelationWaitRunnerConfig } from '@shared/types';
 
 export interface SubWorkflowRunSummary {
   /** Parent node ID that triggered the sub-workflow. */

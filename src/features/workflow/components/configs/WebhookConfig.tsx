@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
 import type { WebhookTriggerNodeData } from '../../types/workflow';
-import { DataMapperModal, createWebhookExtractionAdapter } from '../../../../shared/components/data-mapper';
-import type { WebhookExtractionOutput } from '../../../../shared/components/data-mapper';
-import { useCopyToClipboard } from '../../../../shared/hooks/useCopyToClipboard';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { DataMapperModal, createWebhookExtractionAdapter } from '@shared/components/data-mapper';
+import type { WebhookExtractionOutput } from '@shared/components/data-mapper';
+import { useCopyToClipboard } from '@shared/hooks/useCopyToClipboard';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import { KafkaAddButton, KafkaCard, KafkaEmptyState, KafkaFormRow } from './KafkaConfigUi';
 
 interface Props {

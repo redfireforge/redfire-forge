@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { toErrorMessage } from '../../shared/utils/helpers';
+import { toErrorMessage } from '@shared/utils/helpers';
 import type {
   WsMockRule,
   WsMockFallbackMode,
   WsMockLogEntry,
   WsMockStatus,
-} from '../../shared/websocket/types';
-import { loadMockRules, saveMockRules, loadMockConfig, saveMockConfig } from '../../shared/websocket/websocketStorage';
+} from '@shared/websocket/types';
+import { loadMockRules, saveMockRules, loadMockConfig, saveMockConfig } from '@shared/websocket/websocketStorage';
 
 export interface MockServerConfig {
   port: number;

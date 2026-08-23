@@ -4,9 +4,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { usePopulateFromApi } from './usePopulateFromApi';
-import type { Scenario, DataSource } from '../../../shared/types';
-import { proxyFetch } from '../../../engine/executor';
-import { resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
+import type { Scenario, DataSource } from '@shared/types';
+import { proxyFetch } from '@engine/core/executor';
+import { resolveScenarioFromDataRow } from '@engine/core/dataSourceExpander';
 
 vi.mock('../../../engine/executor', () => ({
   proxyFetch: vi.fn(),

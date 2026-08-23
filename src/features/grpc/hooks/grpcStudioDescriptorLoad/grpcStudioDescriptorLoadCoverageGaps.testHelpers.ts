@@ -1,5 +1,5 @@
 import { vi, beforeEach } from 'vitest';
-import { FIXTURE_DESCRIPTOR } from '../../../../shared/grpc/contractFixtures';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
 import { createEmptyTabDescriptorState } from '../../grpcStudioTypes';
 import { createInitialSessionState } from '../grpcStudioSessionHelpers';
 import type { GrpcStudioRuntimeContext } from '../grpcStudioRuntimeContext';

@@ -5,7 +5,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ResultsExplorerDetailPanel from './ResultsExplorerDetailPanel';
-import type { ExecutionEvent } from '../../../shared/types';
+import type { ExecutionEvent } from '@shared/types';
 import { mockEvents, mockIterations } from './__test-utils__/resultsExplorerDetailPanelTestHelpers';
 
 describe('ResultsExplorerDetailPanel — part2', () => {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
-import type { DataSource, Scenario } from '../../../shared/types';
-import type { HttpResponse } from '../../../shared/utils/httpClient';
+import AppModalFrame from '@shared/components/AppModalFrame';
+import type { DataSource, Scenario } from '@shared/types';
+import type { HttpResponse } from '@shared/utils/httpClient';
 import { useVerifyEngine } from '../hooks/useVerifyEngine';
 import VerifyRowCard from './VerifyRowCard';
 

@@ -1,11 +1,11 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
-import type { Environment } from '../../../../shared/types';
+import type { Environment } from '@shared/types';
 import type { Workflow, WorkflowFolder, WorkflowService } from '../../types/workflow';
 import { checkAllEnvReadiness } from '../../utils/workflowEnvReadiness';
 import { buildFolderTree, getFolderPath, getUnfiledWorkflows, countNodeWorkflows } from '../../utils/workflowFolderTree';
 import type { FolderTreeNode } from '../../utils/workflowFolderTree';
-import { highlightSearchMatch } from '../../../../shared/utils/consoleLogUtils';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { highlightSearchMatch } from '@shared/utils/consoleLogUtils';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 export interface RunProgress {
   completed: number;

@@ -1,8 +1,8 @@
 import type { CatalogEndpoint, HostConfig, CatalogServer, CatalogEnvironment } from '../types/catalog';
-import type { AuthConfig, Microservice, Environment } from '../../../shared/types';
+import type { AuthConfig, Microservice, Environment } from '@shared/types';
 import { generateStubJson } from './schemaStubGenerator';
-import { acquireOAuth2Token } from '../../../engine/tokenManager';
-import { resolveAuthHeaders } from '../../../shared/utils/authHeaders';
+import { acquireOAuth2Token } from '@engine/core/tokenManager';
+import { resolveAuthHeaders } from '@shared/utils/authHeaders';
 
 interface CurlParams {
   endpoint: CatalogEndpoint;
