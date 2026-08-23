@@ -3,7 +3,7 @@ import { testSampleCatalog } from './index';
 
 describe('testSampleCatalog', () => {
   it('has 29 entries', () => {
-    expect(testSampleCatalog).toHaveLength(29);
+    expect(testSampleCatalog).toHaveLength(30);
   });
 
   it('every entry has a unique id', () => {
