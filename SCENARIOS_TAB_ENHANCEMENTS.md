@@ -1,5 +1,7 @@
 # Scenarios Tab UI/UX Enhancements
 
+> Status: ✅ Complete — delivered and merged to master (2026-08-22)
+
 ## Overview
 Enhanced the GraphQL Mock Server's Scenarios tab with modern, polished UI styling and improved UX patterns. The improvements focus on visual hierarchy, spacing, interactive feedback, and overall aesthetic appeal.
 
