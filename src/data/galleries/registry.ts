@@ -57,6 +57,18 @@ export const galleryDomains: GalleryDomainConfig[] = [
     icon: '🧪',
     description: 'Local HTTP mock-server samples for API Mock Studio (Start, match, conflicts)',
   },
+  {
+    key: 'grpc',
+    label: 'gRPC',
+    icon: '🔌',
+    description: 'Standalone gRPC protocol samples — unary, streaming, health check, and CRUD patterns',
+  },
+  {
+    key: 'websocket',
+    label: 'WebSocket',
+    icon: '⚡',
+    description: 'Standalone WebSocket protocol samples — connect, send/receive, and JSON subscription patterns',
+  },
 ];
 
 export const galleryDomainMap = new Map(
