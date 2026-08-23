@@ -407,11 +407,11 @@ All existing test gallery entries use HTTP transport. The following protocol tes
 
 ### 3a. GraphQL Test Scenarios (new section in `galleries/tests/presets.ts` or new file `presets-graphql.ts`)
 
-**2 planned entries:**
+**2 planned entries (✅ implemented):**
 
 ---
 
-#### TG-GQL-01 · GraphQL Health Check Test (Easy)
+#### TG-GQL-01 · GraphQL Health Check Test (Easy) ✅
 - **ID:** `test-graphql-health`
 - **Name:** `GraphQL Health Check`
 - **Category:** graphql
@@ -426,72 +426,76 @@ All existing test gallery entries use HTTP transport. The following protocol tes
 
 ---
 
-#### TG-GQL-02 · GraphQL Query + Mutation Flow (Medium)
+#### TG-GQL-02 · GraphQL Query + Mutation Flow (Medium) ✅
 - **ID:** `test-graphql-crud`
 - **Name:** `GraphQL: Query & Mutation`
 - **Category:** graphql
 - **Difficulty:** medium
 - **Description:** Two scenarios — one queries a list of items, the second runs a mutation.
 - **Scenarios:**
-  - `sc-gql-query`: `query { users { id name } }` — assert array length ≥ 1
-  - `sc-gql-mutation`: `mutation CreateUser` — assert `$.data.createUser.id` is numeric
+  - `sc-gql-query`: `query { posts { data { id title } } }` — assert arrayLength ≥ 1 on `$.data.posts.data`
+  - `sc-gql-mutation`: `mutation createPost` — assert `$.data.createPost.id` exists
 - **Tags:** `graphql`, `query`, `mutation`, `crud`
-- **liveApis:** `dummyjson.com/graphql` or equivalent
+- **liveApis:** `graphqlzero.almansi.me` (plan said dummyjson.com/graphql but GraphQLZero has a stable public mutation API)
+- **Correction:** Plan listed `dummyjson.com/graphql` — actual implementation uses `graphqlzero.almansi.me/api` (consistent with RQ-GQL-03)
 
 ---
 
-### 3b. gRPC Test Scenarios (new file `galleries/tests/presets-grpc.ts`)
+### 3b. gRPC Test Scenarios (new file `galleries/tests/presets-grpc.ts`) ✅
 
-**2 planned entries:**
+**2 implemented entries:**
 
 ---
 
-#### TG-GRPC-01 · gRPC Unary Smoke Test (Easy)
+#### TG-GRPC-01 · gRPC Unary Smoke Test (Easy) ✅
 - **ID:** `test-grpc-health`
 - **Name:** `gRPC: Unary Smoke Test`
-- **Category:** grpc
+- **Category:** grpc (added to `TestCategory` union)
 - **Difficulty:** easy
-- **Description:** Single scenario: call `grpc.health.v1.Health/Check`, assert `status === "SERVING"`.
-- **Notes:** Uses `transport: 'grpcUnary'` in the test step config. Requires the new `'grpc'` domain to be added to `GalleryDomain`.
+- **Description:** Single scenario: call `grpc.health.v1.Health/Check`, assert gRPC status 0 and `$.status === "SERVING"`.
+- **Correction:** Plan said `transport: 'grpcUnary'` — actual type is `actionType: 'grpcCall'` with `grpcCallAction.callType: 'unary'`. Plan said `GalleryDomain` needs 'grpc' — incorrect, test gallery entries all use `domain: 'tests'`. TestCategory extended with `'grpc'`.
 - **Tags:** `grpc`, `health`, `unary`, `smoke`
-- **liveApis:** `grpc.postman.co`
+- **liveApis:** `grpcb.in` (plan said `grpc.postman.co` but grpcb.in is the correct reflection-enabled public test server)
 
 ---
 
-#### TG-GRPC-02 · gRPC CRUD Scenario (Medium)
+#### TG-GRPC-02 · gRPC CRUD Scenario (Medium) ✅
 - **ID:** `test-grpc-crud`
 - **Name:** `gRPC: CRUD Scenarios`
 - **Category:** grpc
 - **Difficulty:** medium
-- **Description:** Three scenarios covering `GetUser`, `CreateUser`, `DeleteUser` — each as a separate scenario with assertions on response fields and variable extraction.
+- **Description:** Three scenarios demonstrating Get/Create/Delete patterns using `grpcb.in:443` helloworld.Greeter and Health services as proxies (replace with your own service). Variable extraction on GetUser.
 - **Tags:** `grpc`, `crud`, `unary`, `variables`
 
 ---
 
-### 3c. WebSocket Test Scenarios (new file `galleries/tests/presets-websocket.ts`)
+### 3c. WebSocket Test Scenarios (new file `galleries/tests/presets-websocket.ts`) ✅
 
-**2 planned entries:**
+**2 implemented entries:**
 
 ---
 
-#### TG-WS-01 · WebSocket Echo Test (Easy)
+#### TG-WS-01 · WebSocket Echo Test (Easy) ✅
 - **ID:** `test-ws-echo`
 - **Name:** `WebSocket: Echo Smoke Test`
-- **Category:** websocket
+- **Category:** websocket (added to `TestCategory` union)
 - **Difficulty:** easy
-- **Description:** Connect to echo endpoint, send "ping", assert received message matches "ping". Uses `transport: 'wsConnect'` / `wsSend` / `wsReceive` in scenario steps.
-- **Tags:** `websocket`, `echo`, `smoke`, `easy`
+- **Description:** Three-scenario test: wsConnect → wsSend "ping" → wsReceive assert `ws.body === "ping"`. `method: 'WEBSOCKET'`, `actionType: 'wsConnect'`/`wsSend`/`wsReceive`.
+- **Correction:** `transport` field does not exist on Scenario; correct fields are `actionType` + dedicated action config (`wsConnectAction`, etc.). URL validation in `tests.test.ts` updated to allow `wss://`.
+- **Tags:** `websocket`, `echo`, `smoke`
 - **liveApis:** `echo.websocket.org`
 
 ---
 
-#### TG-WS-02 · WebSocket JSON Subscribe (Medium)
+#### TG-WS-02 · WebSocket JSON Subscribe (Medium) ✅
 - **ID:** `test-ws-subscribe`
 - **Name:** `WebSocket: JSON Subscribe & Assert`
 - **Category:** websocket
 - **Difficulty:** medium
-- **Description:** Subscribe to a JSON feed, assert first message has expected shape (`$.type`, `$.data`).
-- **Tags:** `websocket`, `json`, `subscribe`, `medium`
+- **Description:** Two-scenario test: wsConnect + wsReceive first message from Binance BTC/USDT trade stream. Assert `ws.$.e` exists and `ws.$.s === "BTCUSDT"`. Extracts `tradePrice` and `tradeEventType`.
+- **Correction:** Plan said assert `$.type` and `$.data` — Binance messages have `$.e` (event) and `$.s` (symbol), not `$.type`/`$.data`.
+- **Tags:** `websocket`, `json`, `subscribe`, `binance`
+- **liveApis:** `stream.binance.com`
 
 ---
 
@@ -625,11 +629,11 @@ Phase B — Workflow Samples (3-4 days)
   B6. ✅ Added 'grpc' + 'websocket' to SampleCategory + TemplateGalleryModal CATEGORIES filter tabs
 
 Phase C — Test Gallery Samples (2-3 days)
-  C1. Add GraphQL entries to galleries/tests/presets.ts (TG-GQL-01, TG-GQL-02)
-  C2. Create galleries/tests/presets-grpc.ts (TG-GRPC-01, TG-GRPC-02)
-  C3. Create galleries/tests/presets-websocket.ts (TG-WS-01, TG-WS-02)
-  C4. Register all new files in galleries/tests/index.ts
-  C5. Write unit tests for each new preset file
+  C1. ✅ Create galleries/tests/presets-graphql.ts (TG-GQL-01, TG-GQL-02) — separate file, not added to existing presets.ts
+  C2. ✅ Create galleries/tests/presets-grpc.ts (TG-GRPC-01, TG-GRPC-02)
+  C3. ✅ Create galleries/tests/presets-websocket.ts (TG-WS-01, TG-WS-02)
+  C4. ✅ Register all new files in galleries/tests/index.ts (23 → 29 entries)
+  C5. ✅ Write unit tests: presets-graphql.test.ts, presets-grpc.test.ts, presets-websocket.test.ts
 
 Phase D — Requests + Assertions + API Mock Samples (2-3 days)
   D1. ✅ Add GraphQL request entries to galleries/requests/presets.ts (RQ-GQL-01 → RQ-GQL-03)
