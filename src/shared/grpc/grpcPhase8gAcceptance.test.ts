@@ -23,7 +23,7 @@ describe('Phase 8G acceptance checklist', () => {
 
   it('grpcExecution wires buildGrpcHarnessResult and publishes harnessResult', async () => {
     const source = await import('fs/promises').then((fs) =>
-      fs.readFile(new URL('../../engine/grpcExecution.ts', import.meta.url), 'utf8'),
+      fs.readFile(new URL('../../engine/grpc/grpcExecution.ts', import.meta.url), 'utf8'),
     );
     expect(source).toContain('buildGrpcHarnessResult');
     expect(source).toContain('evaluateGrpcHarnessAssertionsDetailed');
@@ -38,7 +38,7 @@ describe('Phase 8G acceptance checklist', () => {
   });
 
   it('publishes harnessResult on successful unary execution', async () => {
-    const { executeGrpcAction } = await import('../../engine/grpcExecution');
+    const { executeGrpcAction } = await import('../../engine/grpc/grpcExecution');
     const { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } = await import('./contractFixtures');
     const scenario = {
       id: 'grpc-1',
@@ -98,7 +98,7 @@ describe('Phase 8G acceptance checklist', () => {
   });
 
   it('publishes assertion category on harness assertion failure', async () => {
-    const { executeGrpcAction } = await import('../../engine/grpcExecution');
+    const { executeGrpcAction } = await import('../../engine/grpc/grpcExecution');
     const { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } = await import('./contractFixtures');
     const scenario = {
       id: 'grpc-1',
@@ -157,7 +157,7 @@ describe('Phase 8G acceptance checklist', () => {
   });
 
   it('publishes serialization error harness result on snapshot failure', async () => {
-    const { executeGrpcAction } = await import('../../engine/grpcExecution');
+    const { executeGrpcAction } = await import('../../engine/grpc/grpcExecution');
     const { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } = await import('./contractFixtures');
     const scenario = {
       id: 'grpc-1',
@@ -215,7 +215,7 @@ describe('Phase 8G acceptance checklist', () => {
 
   it('always publishes harnessResult including skipAssertions runs', async () => {
     const { buildSelectedTests } = await import('../../features/test-runner/utils/buildSelectedTests');
-    const { executeGrpcAction } = await import('../../engine/grpcExecution');
+    const { executeGrpcAction } = await import('../../engine/grpc/grpcExecution');
     const { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } = await import('./contractFixtures');
     const { makeScenario: makeTestScenario } = await import('../../test-utils/factories');
     const fg = {
@@ -287,7 +287,7 @@ describe('Phase 8G acceptance checklist', () => {
   });
 
   it('maps DEADLINE_EXCEEDED to timeout harness result end-to-end', async () => {
-    const { executeGrpcAction } = await import('../../engine/grpcExecution');
+    const { executeGrpcAction } = await import('../../engine/grpc/grpcExecution');
     const { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } = await import('./contractFixtures');
     const scenario = {
       id: 'grpc-1',
@@ -344,7 +344,7 @@ describe('Phase 8G acceptance checklist', () => {
   });
 
   it('keeps assertionFailures aligned with failed harness assertionResults messages', async () => {
-    const { executeGrpcAction } = await import('../../engine/grpcExecution');
+    const { executeGrpcAction } = await import('../../engine/grpc/grpcExecution');
     const { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } = await import('./contractFixtures');
     const scenario = {
       id: 'grpc-1',
@@ -425,8 +425,8 @@ describe('Phase 8G acceptance checklist', () => {
   }
 
   it('publishes dataRowId on harnessResult for expanded parameterized rows', async () => {
-    const { expandDataSource } = await import('../../engine/dataSourceExpander');
-    const { executeGrpcAction } = await import('../../engine/grpcExecution');
+    const { expandDataSource } = await import('../../engine/core/dataSourceExpander');
+    const { executeGrpcAction } = await import('../../engine/grpc/grpcExecution');
     const { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } = await import('./contractFixtures');
     const scenario = {
       id: 'sc-grpc',

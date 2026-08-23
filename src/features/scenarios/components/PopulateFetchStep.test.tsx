@@ -7,7 +7,7 @@ import '@testing-library/jest-dom';
 import PopulateFetchStep from './PopulateFetchStep';
 import type { Scenario, DataSource } from '@shared/types';
 
-vi.mock('../../../engine/dataSourceExpander', () => ({
+vi.mock('@engine/core/dataSourceExpander', () => ({
   resolveScenarioFromDataRow: vi.fn((draft) => draft),
 }));
 

@@ -1,16 +1,12 @@
 /**
  * Shared test helpers for DataSourceSetupModal test splits.
  *
- * The hoisted vi.mock() calls must stay in each test file for Vitest to set
- * up module-level interception. This helper provides the FACTORY BODIES so
- * each test file only needs ~3 lines per mock instead of 100+.
+ * Vitest mock registrations must stay in each test file for proper hoisting.
+ * This helper provides the FACTORY BODIES so each test file only needs
+ * a few lines per mock instead of 100+.
  *
- * Usage pattern in test files:
- *
- *   vi.mock('./FullPanelModal', async () => {
- *     const h = await import('./__test-utils__/dataSourceSetupModalTestHelpers');
- *     return h.makeFullPanelModalMock();
- *   });
+ * Usage: in each test file, register the module via the Vitest mock API and
+ * call the corresponding factory function from this helper inside the factory.
  *
  * IMPORTANT: This module must NOT import `../DataSourceSetupModal` (avoid
  * circular mock-resolution hangs).

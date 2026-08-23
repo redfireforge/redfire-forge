@@ -97,7 +97,7 @@ vi.mock('../../results/utils/reportGenerator', () => ({
   downloadReport: (...args: unknown[]) => mockDownloadReport(...args),
 }));
 
-vi.mock('../../../engine/dataSourceExpander', () => ({
+vi.mock('@engine/core/dataSourceExpander', () => ({
   resolveSharedDataSources: (tests: unknown[]) => tests,
   collectAllScenarioTags: () => [],
   countScenariosByTag: () => ({}),

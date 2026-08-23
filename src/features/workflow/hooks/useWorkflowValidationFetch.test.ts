@@ -14,7 +14,7 @@ vi.mock('../engine/fetchScenarioSample', () => ({
   fetchScenarioSample: vi.fn(),
 }));
 
-vi.mock('../../../engine/validator', () => ({
+vi.mock('@engine/core/validator', () => ({
   validate: vi.fn(() => []),
   evaluateAssertions: vi.fn(() => ({ failures: [], statusAsserted: false })),
 }));
