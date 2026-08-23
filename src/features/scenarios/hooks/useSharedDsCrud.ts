@@ -3,7 +3,7 @@
  */
 import { useState, useCallback, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { SharedDataSource, DataSource, FeatureGroup, Scenario } from '../../../shared/types';
+import type { SharedDataSource, DataSource, FeatureGroup, Scenario } from '@shared/types';
 import { createEmptyRow, createEmptyColumn } from '../utils/dataSourceUtils';
 import type { MoveToTrashFn } from './useTrash';
 

@@ -8,7 +8,7 @@ import '@testing-library/jest-dom';
 import { selectOption, selectOptionByIndex, getCustomSelectOptionLabels } from '../../../test-utils/customSelectHelper';
 import CatalogAuthPanel from './CatalogAuthPanel';
 import { makeScheme } from './catalogTestFactories';
-import type { AuthConfig, GlobalAuthProfile } from '../../../shared/types';
+import type { AuthConfig, GlobalAuthProfile } from '@shared/types';
 import type { CatalogSecurityScheme } from '../types/catalog';
 
 const verifyState = vi.hoisted(() => ({

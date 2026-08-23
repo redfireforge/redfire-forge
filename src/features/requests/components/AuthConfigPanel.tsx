@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
-import type { AuthConfig, AuthType, GlobalAuthProfile } from '../../../shared/types';
+import type { AuthConfig, AuthType, GlobalAuthProfile } from '@shared/types';
 import type { AuthVerifyResult } from '../hooks/useAuthVerify';
 
 export interface AuthConfigPanelProps {

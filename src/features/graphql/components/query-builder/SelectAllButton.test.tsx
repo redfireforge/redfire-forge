@@ -7,7 +7,7 @@ import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SelectAllButton } from './SelectAllButton';
-import type { GraphqlTypeNode } from '../../../../shared/types/graphql';
+import type { GraphqlTypeNode } from '@shared/types/graphql';
 import type { BuilderState } from '../../hooks/useGraphqlQueryBuilder';
 
 vi.mock('../../utils/queryBuilderGenerator', () => ({

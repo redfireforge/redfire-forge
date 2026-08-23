@@ -1,4 +1,4 @@
-import type { AuthConfig, RequestCollection, GlobalAuthProfile } from '../../../shared/types';
+import type { AuthConfig, RequestCollection, GlobalAuthProfile } from '@shared/types';
 import { AuthTypeSelect } from './AuthTypeSelect';
 import WfDarkSelect from '../../workflow/components/modals/WfDarkSelect';
 

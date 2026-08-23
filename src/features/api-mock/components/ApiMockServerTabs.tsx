@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent, type KeyboardEvent as RKeyboardEvent } from 'react';
-import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
-import { computeDropIndex } from '../../../shared/components/studio-tabs/computeDropIndex';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
+import { computeDropIndex } from '@shared/components/studio-tabs/computeDropIndex';
 import {
   buildContextMenuItems,
   useTabContextMenu,
-} from '../../../shared/components/studio-tabs/TabContextMenu';
-import { handleTabListArrowKeys } from '../../../shared/utils/tabListKeyboard';
+} from '@shared/components/studio-tabs/TabContextMenu';
+import { handleTabListArrowKeys } from '@shared/utils/tabListKeyboard';
 import { API_MOCK_MAX_TABS } from '../apiMockPageHelpers';
 import { PlusIcon, XIcon } from './ApiMockIcons';
 

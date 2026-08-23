@@ -4,8 +4,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWebSocketRecording } from './useWebSocketRecording';
-import type { WsFrame, WsRecording } from '../../shared/websocket/types';
-import { createFrame } from '../../shared/websocket/types';
+import type { WsFrame, WsRecording } from '@shared/websocket/types';
+import { createFrame } from '@shared/websocket/types';
 
 vi.mock('../../shared/utils/fileSaver', () => ({
   saveJsonFile: vi.fn().mockResolvedValue(undefined),

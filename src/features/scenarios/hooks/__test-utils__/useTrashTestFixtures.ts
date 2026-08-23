@@ -11,7 +11,7 @@ import type {
   Scenario,
   SharedDataSource,
   TestScenario,
-} from '../../../../shared/types';
+} from '@shared/types';
 
 export function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
   return {

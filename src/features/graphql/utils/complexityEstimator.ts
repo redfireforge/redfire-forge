@@ -29,7 +29,7 @@ import type {
   FragmentSpreadNode,
   FragmentDefinitionNode,
 } from 'graphql';
-import type { GraphqlSchemaInfo, GraphqlTypeNode } from '../../../shared/types/graphql';
+import type { GraphqlSchemaInfo, GraphqlTypeNode } from '@shared/types/graphql';
 
 // ─── Options / defaults ────────────────────────────────────────────────────────
 

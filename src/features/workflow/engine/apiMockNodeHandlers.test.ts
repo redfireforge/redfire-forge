@@ -4,8 +4,8 @@ import {
   handleApiMockResetState, handleApiMockAssertCalls,
   type ApiMockNodeContext,
 } from './apiMockNodeHandlers';
-import type { ApiMockServerDefinitionV1, ApiMockTransactionV1 } from '../../../shared/api-mock/contracts';
-import { DEFAULT_SETTINGS, createDefaultResponse } from '../../../shared/api-mock/defaults';
+import type { ApiMockServerDefinitionV1, ApiMockTransactionV1 } from '@shared/api-mock/contracts';
+import { DEFAULT_SETTINGS, createDefaultResponse } from '@shared/api-mock/defaults';
 
 const ts = '2026-08-11T00:00:00.000Z';
 

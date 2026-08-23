@@ -23,7 +23,7 @@ vi.mock('../../../shared/utils/platform', () => ({
   isTauri: vi.fn(() => true),
 }));
 
-import { readKey, writeKey, removeKey } from '../../../shared/utils/storage';
+import { readKey, writeKey, removeKey } from '@shared/utils/storage';
 import {
   closeDemoWorkspace,
   countUserTabsInStorage,

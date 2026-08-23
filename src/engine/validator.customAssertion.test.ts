@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { evaluateAssertions, wrapCustomExprDollarPaths } from './validator';
-import type { Assertion } from '../shared/types';
+import type { Assertion } from '@shared/types';
 
 const ctx = {
   httpStatus: 200,

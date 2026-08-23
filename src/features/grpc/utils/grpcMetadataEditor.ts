@@ -1,18 +1,18 @@
 /**
  * gRPC metadata editor helpers — validation and record mapping (Phase 1F).
  */
-import type { WsKeyValueEntry } from '../../../shared/websocket/types';
-import { normalizeGrpcMetadata } from '../../../shared/grpc/contracts';
+import type { WsKeyValueEntry } from '@shared/websocket/types';
+import { normalizeGrpcMetadata } from '@shared/grpc/contracts';
 import {
   validateGrpcMetadataEntry,
-} from '../../../shared/grpc/metadataValidation';
+} from '@shared/grpc/metadataValidation';
 
 export {
   isGrpcBinaryMetadataKey,
   validateGrpcMetadataEntry,
   validateGrpcMetadataKey,
   validateGrpcMetadataValue,
-} from '../../../shared/grpc/metadataValidation';
+} from '@shared/grpc/metadataValidation';
 
 export function metadataEntriesFromRecord(
   record: Record<string, string>,

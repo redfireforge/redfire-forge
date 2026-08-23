@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import type { SharedDataSource } from '../../../shared/types';
-import PopupModal from '../../../shared/components/PopupModal';
+import type { SharedDataSource } from '@shared/types';
+import PopupModal from '@shared/components/PopupModal';
 
 interface Props {
   sharedDataSources: SharedDataSource[];

@@ -3,9 +3,9 @@
  */
 import { describe, expect, it } from 'vitest';
 import { expandDataSource, expandDataSourceForRows, expandQueue, resolveScenarioFromDataRow, resolveSharedDataSource } from './dataSourceExpander';
-import type { DataSourceColumn, DataSourceRow, Scenario } from '../shared/types';
-import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '../shared/grpc/contractFixtures';
-import { buildGrpcHarnessRowTraceKey } from '../shared/grpc/grpcHarnessRowIdentity';
+import type { DataSourceColumn, DataSourceRow, Scenario } from '@shared/types';
+import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
+import { buildGrpcHarnessRowTraceKey } from '@shared/grpc/grpcHarnessRowIdentity';
 
 function makeBodyCol(id: string, mapping: string): DataSourceColumn {
   return { id, name: mapping, type: 'body', mapping };

@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import DataSourceRowDetailModal from './DataSourceRowDetailModal';
-import type { Scenario, DataSource, DataSourceRow } from '../../../shared/types';
+import type { Scenario, DataSource, DataSourceRow } from '@shared/types';
 
 vi.mock('../../workflow/components/modals/WorkflowEditorModalFrame', () => ({
   default: ({ title, children, footer }: { title: string; children: React.ReactNode; footer?: React.ReactNode }) => (

@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
-import type { Environment, Microservice, FeatureGroup, GlobalAuthProfile } from '../../shared/types';
+import type { Environment, Microservice, FeatureGroup, GlobalAuthProfile } from '@shared/types';
 import type { Tab } from '../utils/appTabUtils';
-import { mergeById } from '../../shared/utils/helpers';
-import { normalizeGroupActionTypes } from '../../shared/utils/scenarioMigration';
+import { mergeById } from '@shared/utils/helpers';
+import { normalizeGroupActionTypes } from '@shared/utils/scenarioMigration';
 
 export interface UsePreferencesImportParams {
   setEnvironments: React.Dispatch<React.SetStateAction<Environment[]>>;

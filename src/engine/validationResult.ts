@@ -2,7 +2,7 @@
  * Shared helper for building the validation portion of a RequestResult.
  * Used by both requestExecution.ts (load testing) and graphRunnerHelpers.ts (workflow engine).
  */
-import type { FailureDetail, ValidationConfig, Assertion, TransportType } from '../shared/types';
+import type { FailureDetail, ValidationConfig, Assertion, TransportType } from '@shared/types';
 import { validate, evaluateAssertions } from './validator';
 
 export interface ValidationInput {

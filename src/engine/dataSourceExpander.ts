@@ -3,9 +3,9 @@
  * into N concrete Scenarios, one per enabled data row, with variables substituted
  * into URL path, query params, headers, body, and validation fields.
  */
-import type { Scenario, DataSourceColumn, DataSourceRow, DataSubset, KeyValue, ExpectedField, ValidationConfig, SharedDataSource, TestScenario, FeatureGroup, Assertion } from '../shared/types';
-import { interpolateGrpcHarnessCallAction } from '../shared/grpc/grpcHarnessDataSourceInterpolation';
-import { isTemplateToken, decodeTemplateBraces, substituteBodyColumnTemplateVars } from '../shared/utils/templateHelpers';
+import type { Scenario, DataSourceColumn, DataSourceRow, DataSubset, KeyValue, ExpectedField, ValidationConfig, SharedDataSource, TestScenario, FeatureGroup, Assertion } from '@shared/types';
+import { interpolateGrpcHarnessCallAction } from '@shared/grpc/grpcHarnessDataSourceInterpolation';
+import { isTemplateToken, decodeTemplateBraces, substituteBodyColumnTemplateVars } from '@shared/utils/templateHelpers';
 
 // ─── Shared Data Source Resolution ────────────────────────────
 

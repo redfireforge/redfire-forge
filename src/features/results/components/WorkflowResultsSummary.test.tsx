@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { WorkflowResultsSummary, WorkflowIterationChart } from './WorkflowResultsSummary';
-import type { TestRun, RequestResult } from '../../../shared/types';
+import type { TestRun, RequestResult } from '@shared/types';
 
 // Mock the canvas context
 const mockContext = {

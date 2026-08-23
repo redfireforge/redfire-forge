@@ -43,7 +43,7 @@ vi.mock('../utils/workflowRunErrors', async (importOriginal) => {
 
 import { runGraph } from '../engine/graphRunner';
 import { checkEnvReadiness } from '../utils/workflowEnvReadiness';
-import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
+import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
 
 const mockRunGraph = vi.mocked(runGraph);
 const mockCheckEnvReadiness = vi.mocked(checkEnvReadiness);

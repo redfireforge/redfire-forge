@@ -1,4 +1,4 @@
-import type { GraphqlBatchResponseContext, GraphqlBatchResult, GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlBatchResponseContext, GraphqlBatchResult, GraphqlResponse } from '@shared/types/graphql';
 
 /** Human label for the active operation slot, e.g. "Operation 2 of 2". */
 export function batchOperationSlotLabel(ctx: GraphqlBatchResponseContext): string {

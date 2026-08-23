@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import WebhookDeliveryLogs from './WebhookDeliveryLogs';
-import type { WebhookDelivery } from '../../shared/types/server-api';
+import type { WebhookDelivery } from '@shared/types/server-api';
 
 // ── Mock EventSource (jsdom has none) ──
 class MockEventSource {

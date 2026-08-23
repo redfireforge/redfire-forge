@@ -5,7 +5,7 @@
  * Clicking a row opens the TestSlaModal for that test.
  */
 import { useState, useMemo } from 'react';
-import type { Scenario } from '../../../shared/types';
+import type { Scenario } from '@shared/types';
 import { SLA_METRIC_LABELS, SLA_METRIC_UNITS } from '../../results/utils/slaTargets';
 
 interface ScenarioSlaPanelProps {

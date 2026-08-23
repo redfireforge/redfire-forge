@@ -9,7 +9,7 @@ import { selectOption, getCustomSelectValue } from '../../../test-utils/customSe
 import CatalogEndpointCard from './CatalogEndpointCard';
 import { resolveBaseUrl } from '../utils/catalogCurlGenerator';
 import { makeEndpoint, makeServer, makeParam, makeResponse, makeHostConfig } from './catalogTestFactories';
-import type { AuthConfig } from '../../../shared/types';
+import type { AuthConfig } from '@shared/types';
 import type { EndpointCoverage } from '../utils/coverageChecker';
 
 const httpFetchMock = vi.hoisted(() => vi.fn());

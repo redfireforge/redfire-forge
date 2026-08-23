@@ -3,7 +3,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { GraphqlTypeNode } from '../../../../shared/types/graphql';
+import type { GraphqlTypeNode } from '@shared/types/graphql';
 import { tokenizeSDL } from '../../utils/sdlTokenizer';
 import { KIND_CSS, KIND_LABEL } from '../../utils/schemaExplorerUtils';
 import { FieldTableRow } from './FieldTableRow';

@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx-js-style';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, BodyType, KeyValue, ExpectedField, ValidationMode, SelectiveMode, AuthConfig } from '../../../shared/types';
-import { saveFile } from '../../../shared/utils/fileSaver';
+import type { Scenario, BodyType, KeyValue, ExpectedField, ValidationMode, SelectiveMode, AuthConfig } from '@shared/types';
+import { saveFile } from '@shared/utils/fileSaver';
 import {
   type ColumnDef,
   type CsvParseResult,

@@ -17,8 +17,8 @@ import {
   mapRustResult,
   type RustExecutionResult,
 } from './rustBridge';
-import { isTauri } from '../../../shared/utils/platform';
-import type { Scenario, TestConfig } from '../../../shared/types';
+import { isTauri } from '@shared/utils/platform';
+import type { Scenario, TestConfig } from '@shared/types';
 import { makeScenario as _makeScenario, makeConfig as _makeConfig } from '../../../test-utils/factories';
 
 const mockIsTauri = vi.mocked(isTauri);

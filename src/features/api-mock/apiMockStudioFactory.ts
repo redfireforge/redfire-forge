@@ -1,5 +1,5 @@
-import type { ApiMockServerDefinitionV1 } from '../../shared/api-mock/contracts';
-import { DEFAULT_SETTINGS, createDefaultResponse, EMPTY_PREDICATE_GROUP } from '../../shared/api-mock/defaults';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
+import { DEFAULT_SETTINGS, createDefaultResponse, EMPTY_PREDICATE_GROUP } from '@shared/api-mock/defaults';
 import type { ApiMockRuntimeStatus } from './components/ApiMockServerTabs';
 
 export interface RuntimeInfo {

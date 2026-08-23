@@ -8,7 +8,7 @@ import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { selectOption, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
 import { GraphqlMockPanel, FieldResolverRow } from './GraphqlMockPanel';
 import type { UseGraphqlMockServerResult } from '../hooks/useGraphqlMockServer';
-import type { GraphqlSchemaInfo } from '../../../shared/types/graphql';
+import type { GraphqlSchemaInfo } from '@shared/types/graphql';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -16,7 +16,7 @@ vi.mock('../../../shared/utils/platform', () => ({
   isTauri: vi.fn(() => false),
 }));
 
-import { isTauri } from '../../../shared/utils/platform';
+import { isTauri } from '@shared/utils/platform';
 const mockIsTauri = vi.mocked(isTauri);
 
 // Silence URL.createObjectURL not implemented in jsdom

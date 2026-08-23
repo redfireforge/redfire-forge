@@ -1,15 +1,15 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import { SWAGGER_METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import { SWAGGER_METHOD_COLORS } from '@shared/constants/httpMethodColors';
 import type { CatalogEntry, CatalogEndpoint, CatalogFolder, SavedEndpointValues } from '../types/catalog';
-import type { Environment, Microservice, RequestCollection } from '../../../shared/types';
+import type { Environment, Microservice, RequestCollection } from '@shared/types';
 import { collectAllGroups } from '../../requests/utils/requestTree';
-import { toggleSetItem } from '../../../shared/utils/setToggle';
+import { toggleSetItem } from '@shared/utils/setToggle';
 import { buildVersionInfoMap } from '../utils/versionStatus';
-import { useModalDrag } from '../../../shared/hooks/useModalDrag';
-import { useModalResize } from '../../../shared/hooks/useModalResize';
-import ModalResizeHandles from '../../../shared/components/ModalResizeHandles';
+import { useModalDrag } from '@shared/hooks/useModalDrag';
+import { useModalResize } from '@shared/hooks/useModalResize';
+import ModalResizeHandles from '@shared/components/ModalResizeHandles';
 
 interface EnvOption {
   envId: string;

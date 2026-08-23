@@ -1,4 +1,4 @@
-import type { ExecutionMode, LoadProfileConfig, LoadProfileType, TestSummary, ThinkTimeConfig, ArrivalRateConfig } from '../../../shared/types';
+import type { ExecutionMode, LoadProfileConfig, LoadProfileType, TestSummary, ThinkTimeConfig, ArrivalRateConfig } from '@shared/types';
 import type { TimeSeriesPoint } from '../hooks/useTestExecution';
 import type { ProgressMeta } from '../../../engine/executor';
 

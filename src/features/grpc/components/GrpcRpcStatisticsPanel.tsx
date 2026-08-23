@@ -2,7 +2,7 @@ import type { UseGrpcStudioAdvancedFeaturesReturn } from '../hooks/useGrpcStudio
 import {
   buildGrpcRpcMethodKey,
   listGrpcRpcMethodRows,
-} from '../../../shared/grpc/grpcRpcSessionStats';
+} from '@shared/grpc/grpcRpcSessionStats';
 
 export interface GrpcRpcStatisticsPanelProps {
   advanced: UseGrpcStudioAdvancedFeaturesReturn;

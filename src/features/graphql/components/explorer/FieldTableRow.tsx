@@ -5,7 +5,7 @@
  * can insert a field into the active query editor directly from the schema.
  */
 
-import type { GraphqlFieldNode } from '../../../../shared/types/graphql';
+import type { GraphqlFieldNode } from '@shared/types/graphql';
 import { extractTypeName } from '../../utils/schemaExplorerUtils';
 
 interface FieldTableRowProps {

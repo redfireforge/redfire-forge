@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CustomSelect } from '../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import {
   clusterIdFromName,
   type KafkaClusterDraft,

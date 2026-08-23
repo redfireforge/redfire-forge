@@ -3,13 +3,13 @@
  * Handles fetch config display, tab navigation, and URL/mapping utilities.
  */
 import { useState, useCallback, useMemo, useRef } from 'react';
-import type { SharedDataSource, DataSource, Scenario, SharedDataSourceFetchConfig, GlobalAuthProfile, FeatureGroup } from '../../../shared/types';
-import type { HttpResponse } from '../../../shared/utils/httpClient';
+import type { SharedDataSource, DataSource, Scenario, SharedDataSourceFetchConfig, GlobalAuthProfile, FeatureGroup } from '@shared/types';
+import type { HttpResponse } from '@shared/utils/httpClient';
 import { buildMappingSummary, extractTemplateVariables } from '../utils/dataSourceContract';
-import { parseCurl } from '../../../shared/utils/curlParser';
+import { parseCurl } from '@shared/utils/curlParser';
 import { buildScenarioFromFetchConfig } from '../utils/dataSourceSetupUtils';
 import { proxyFetch } from '../../../engine/executor';
-import { applyAuthHeaders } from '../../../shared/utils/applyAuthHeaders';
+import { applyAuthHeaders } from '@shared/utils/applyAuthHeaders';
 
 export type FetchTabId = 'params' | 'auth' | 'headers' | 'body';
 

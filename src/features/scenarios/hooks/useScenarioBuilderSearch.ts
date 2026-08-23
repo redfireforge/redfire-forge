@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import type { Scenario, TestScenario, FeatureGroup } from '../../../shared/types';
+import type { Scenario, TestScenario, FeatureGroup } from '@shared/types';
 import { buildSearchText, evaluateQuery, parseSearchQuery } from '../utils/scenarioSearch';
 
 export function useScenarioBuilderSearch(featureGroups: FeatureGroup[]) {

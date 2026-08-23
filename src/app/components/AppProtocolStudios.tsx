@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import type { Tab } from '../utils/appTabUtils';
-import type { Microservice, GlobalAuthProfile } from '../../shared/types';
+import type { Microservice, GlobalAuthProfile } from '@shared/types';
 import type { UseKafkaStateReturn } from '../hooks/useKafkaState';
 import { KafkaMessageStudioPage } from '../../features/kafka/KafkaMessageStudioPage';
 import { WebSocketStudioPage } from '../../features/websocket/WebSocketStudioPage';

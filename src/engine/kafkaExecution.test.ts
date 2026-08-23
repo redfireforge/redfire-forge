@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { executeKafkaAction } from './kafkaExecution';
 import { evaluateAssertions, type AssertionContext } from './validator';
-import type { Scenario, Assertion } from '../shared/types';
+import type { Scenario, Assertion } from '@shared/types';
 import type { KafkaNodeOperations } from '../features/workflow/engine/graphRunnerNodeHandlerContext';
 import { makeScenario as _makeScenario } from '../test-utils/factories';
 

@@ -37,7 +37,7 @@ import {
 import { cleanupGrpcStudioTabNativeResources } from './grpcStudioTabLifecycle';
 import {
   clearGrpcStreamTransportBinding,
-} from '../../../shared/grpc/grpcTransportFallback';
+} from '@shared/grpc/grpcTransportFallback';
 import {
   clearGrpcStudioTabTransport,
   syncGrpcStudioTabTransport,
@@ -46,7 +46,7 @@ import { resolveGrpcStudioTabTransportMode } from '../grpcStudioTypes';
 import {
   GRPC_DEFAULT_CALL_TIMEOUT_MS,
   GRPC_DEFAULT_STREAM_CALL_TIMEOUT_MS,
-} from '../../../shared/grpc/contracts';
+} from '@shared/grpc/contracts';
 
 type SessionCore = Pick<
   GrpcStudioSessionCore,

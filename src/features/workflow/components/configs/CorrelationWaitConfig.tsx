@@ -3,11 +3,11 @@ import type { CorrelationWaitNodeData } from '../../types/workflow';
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import InsertVarField from '../expression/InsertVarField';
 import AvailableVariables from '../expression/AvailableVariables';
-import { DataMapperModal, createWebhookExtractionAdapter } from '../../../../shared/components/data-mapper';
-import type { WebhookExtractionOutput } from '../../../../shared/components/data-mapper';
-import { getByPath, setByPath } from '../../../../shared/utils/jsonPath';
-import { toErrorMessage } from '../../../../shared/utils/helpers';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { DataMapperModal, createWebhookExtractionAdapter } from '@shared/components/data-mapper';
+import type { WebhookExtractionOutput } from '@shared/components/data-mapper';
+import { getByPath, setByPath } from '@shared/utils/jsonPath';
+import { toErrorMessage } from '@shared/utils/helpers';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import { KafkaAddButton, KafkaCard, KafkaEmptyState, KafkaFormRow } from './KafkaConfigUi';
 
 const EMPTY_EXTRACT_VARS: WebhookExtractionOutput = [];

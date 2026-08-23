@@ -4,8 +4,8 @@
  * Option D layout: two-tone form rows, inherit banner, reset link, resolved preview footer.
  */
 
-import type { GlobalAuthProfile } from '../../../shared/types';
-import type { GraphqlAuth } from '../../../shared/types/graphql';
+import type { GlobalAuthProfile } from '@shared/types';
+import type { GraphqlAuth } from '@shared/types/graphql';
 import type { GqlAuthPopoverScope } from '../utils/gqlAuthPopoverUtils';
 import { GraphqlAuthForm } from './GraphqlAuthForm';
 

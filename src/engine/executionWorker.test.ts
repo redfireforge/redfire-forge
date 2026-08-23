@@ -4,9 +4,9 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MainToWorkerMessage } from './workerProtocol';
-import { TestConfig, Scenario, RequestResult } from '../shared/types';
+import { TestConfig, Scenario, RequestResult } from '@shared/types';
 import { ProgressMeta } from './executor';
-import { HttpResponse } from '../shared/utils/httpClient';
+import { HttpResponse } from '@shared/utils/httpClient';
 
 const httpMocks = vi.hoisted(() => {
   const proxyFetch = vi.fn(async (): Promise<HttpResponse> => ({

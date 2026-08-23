@@ -1,5 +1,5 @@
-import type { AuthConfig, Scenario } from '../shared/types';
-import { httpFetch } from '../shared/utils/httpClient';
+import type { AuthConfig, Scenario } from '@shared/types';
+import { httpFetch } from '@shared/utils/httpClient';
 
 const TOKEN_EXPIRY_BUFFER_SEC = 30;
 

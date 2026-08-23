@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import type { RequestCollection } from '../../shared/types';
+import type { RequestCollection } from '@shared/types';
 import { useWorkbenchActions } from './useWorkbenchActions';
 import type { useRequests } from '../../features/requests/hooks/useRequests';
 

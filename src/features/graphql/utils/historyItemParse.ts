@@ -1,5 +1,5 @@
 /** Shared parsing/formatting for GraphQL history item payloads (preview + compare). */
-import type { GraphqlHistoryItem } from '../../../shared/types/graphql';
+import type { GraphqlHistoryItem } from '@shared/types/graphql';
 
 export const HISTORY_TRUNCATION_SUFFIX = '\n__TRUNCATED__';
 

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createThinkTimeDelay, applyThinkTime } from './thinkTime';
-import type { ThinkTimeConfig } from '../shared/types';
+import type { ThinkTimeConfig } from '@shared/types';
 
 
 describe('createThinkTimeDelay', () => {

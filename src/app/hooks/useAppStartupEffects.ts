@@ -4,7 +4,7 @@ import {
   cleanupStaleStorageKeys,
   ensureBrowserLargeDataMigrated,
   readKey,
-} from '../../shared/utils/storage';
+} from '@shared/utils/storage';
 import { isProtocolsTab, setLastProtocolsTab, type Tab, LAST_PROTOCOLS_TAB_STORAGE_KEY } from '../utils/appTabUtils';
 import type { UseRequestsReturn } from '../../features/requests/hooks/useRequests';
 import type { ToastApi } from '../../features/workflow/components/WorkflowToastProvider';

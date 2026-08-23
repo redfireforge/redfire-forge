@@ -4,7 +4,7 @@ import type { TraceCollector } from './traceCollector';
 import type { NodeHandlerContext, PassedFlag } from './graphRunnerNodeHandlers';
 import { GrpcWorkflowOutputRegistry } from '../utils/grpcWorkflowOutputRegistry';
 import { GrpcWorkflowStepResultStore } from '../utils/grpcWorkflowStepResultStore';
-import { httpFetch } from '../../../shared/utils/httpClient';
+import { httpFetch } from '@shared/utils/httpClient';
 import { executeScript } from './scriptSandbox';
 import { VariableContext } from './variableContext';
 import { TokenManager } from '../../../engine/tokenManager';

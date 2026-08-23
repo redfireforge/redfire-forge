@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { RequestsData, RequestCollection, RequestItem, RequestFolder, HttpMethod, BodyType } from '../../../shared/types';
-import { loadRequests, saveRequests } from '../../../shared/utils/storage';
+import type { RequestsData, RequestCollection, RequestItem, RequestFolder, HttpMethod, BodyType } from '@shared/types';
+import { loadRequests, saveRequests } from '@shared/utils/storage';
 import {
   findFolderDeep, findRequestInCollection,
   countAllRequests, collectGroupIds, collectGroupChildren,

@@ -10,8 +10,8 @@
  *  - Snapshots are write-once: no update method; delete + re-add instead
  */
 
-import { openDB } from '../../../shared/utils/idbOpen';
-import type { GraphqlSchemaSnapshot } from '../../../shared/types/graphql';
+import { openDB } from '@shared/utils/idbOpen';
+import type { GraphqlSchemaSnapshot } from '@shared/types/graphql';
 import { deleteAcksForSnapshot } from './schemaDiffAck';
 
 const STORE = 'graphql-schema-snapshots';

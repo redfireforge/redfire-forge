@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Scenario } from '../../../shared/types';
+import type { Scenario } from '@shared/types';
 import type { RunOpts } from '../../../engine/requestExecution';
 
 vi.mock('../../../shared/utils/httpClient', () => ({
@@ -7,7 +7,7 @@ vi.mock('../../../shared/utils/httpClient', () => ({
 }));
 
 import { runWorkflow, runWorkflowLoad } from './workflowRunner';
-import { httpFetch } from '../../../shared/utils/httpClient';
+import { httpFetch } from '@shared/utils/httpClient';
 import { VariableContext } from './variableContext';
 import { TokenManager } from '../../../engine/tokenManager';
 import { CircuitBreaker } from '../../../engine/circuitBreaker';

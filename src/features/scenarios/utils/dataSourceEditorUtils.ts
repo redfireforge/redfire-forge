@@ -1,5 +1,5 @@
-import type { DataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
-import { formatJson } from '../../../shared/utils/helpers';
+import type { DataSource, DataSourceColumn, DataSourceRow } from '@shared/types';
+import { formatJson } from '@shared/utils/helpers';
 
 export const COLUMN_TYPES: { value: DataSourceColumn['type']; label: string }[] = [
   { value: 'path', label: 'Path' },

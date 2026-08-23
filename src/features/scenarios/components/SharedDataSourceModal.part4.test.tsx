@@ -9,10 +9,10 @@ import { render, screen, fireEvent, act, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { selectOption } from '../../../test-utils/customSelectHelper';
 import SharedDataSourceModal from './SharedDataSourceModal';
-import { SharedDataSource, FeatureGroup, DataSource, GlobalAuthProfile } from '../../../shared/types';
+import { SharedDataSource, FeatureGroup, DataSource, GlobalAuthProfile } from '@shared/types';
 import { proxyFetch } from '../../../engine/executor';
-import { createSharedDsFetchAdapter } from '../../../shared/components/data-mapper';
-import { MapperFetchError } from '../../../shared/components/data-mapper/types';
+import { createSharedDsFetchAdapter } from '@shared/components/data-mapper';
+import { MapperFetchError } from '@shared/components/data-mapper/types';
 
 // Mock uuid to return predictable IDs
 vi.mock('uuid', () => ({

@@ -5,9 +5,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ApiMockResponseEditor } from './ApiMockResponseEditor';
-import { createDefaultResponse } from '../../../shared/api-mock/defaults';
-import type { ApiMockRouteV1 } from '../../../shared/api-mock/contracts';
-import { CUSTOM_SELECT_SET_VALUE_EVENT } from '../../../shared/components/CustomSelect';
+import { createDefaultResponse } from '@shared/api-mock/defaults';
+import type { ApiMockRouteV1 } from '@shared/api-mock/contracts';
+import { CUSTOM_SELECT_SET_VALUE_EVENT } from '@shared/components/CustomSelect';
 
 vi.mock('./ApiMockBodyEditor', () => ({
   ApiMockBodyEditor: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (

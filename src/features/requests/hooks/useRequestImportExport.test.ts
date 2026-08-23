@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useRequestImportExport } from './useRequestImportExport';
-import type { RequestItem, AuthConfig, Scenario } from '../../../shared/types';
+import type { RequestItem, AuthConfig, Scenario } from '@shared/types';
 
 const mockToastShow = vi.fn();
 vi.mock('../../../shared/hooks/useToast', () => ({
@@ -12,7 +12,7 @@ vi.mock('../../../shared/hooks/useToast', () => ({
 }));
 
 vi.mock('../../../shared/utils/curlParser', () => ({
-  parseCurl: vi.fn((text: string) => ({
+  parseCurl: vi.fn((_text: string) => ({
     id: 'parsed',
     name: 'Parsed',
     url: 'https://api.example.com/v1',

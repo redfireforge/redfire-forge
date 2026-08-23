@@ -3,7 +3,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import type { Microservice } from '../../../shared/types';
+import type { Microservice } from '@shared/types';
 import { useGraphqlStudioEnvMap } from './useGraphqlStudioEnvMap';
 
 const svc: Microservice = {

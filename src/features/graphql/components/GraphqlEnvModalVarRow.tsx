@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { GraphqlEnvironmentVariable } from '../../../shared/types/graphql';
+import type { GraphqlEnvironmentVariable } from '@shared/types/graphql';
 
 function MaskedInput({
   value,

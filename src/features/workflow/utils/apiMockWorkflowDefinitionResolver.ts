@@ -1,8 +1,8 @@
 /**
  * Resolve an API Mock server definition for workflow/test-runner nodes.
  */
-import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
-import { validateServer } from '../../../shared/api-mock/validation';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
+import { validateServer } from '@shared/api-mock/validation';
 import { loadApiMockWorkspace } from '../../api-mock/apiMockPersistence';
 import type { ApiMockStartNodeData } from '../types/workflow/node-api-mock';
 

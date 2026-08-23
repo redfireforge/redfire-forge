@@ -8,7 +8,7 @@ import '@testing-library/jest-dom';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import SharedDataSourceModal from './SharedDataSourceModal';
-import { SharedDataSource, FeatureGroup, DataSource, GlobalAuthProfile } from '../../../shared/types';
+import { SharedDataSource, FeatureGroup, DataSource, GlobalAuthProfile } from '@shared/types';
 import { proxyFetch } from '../../../engine/executor';
 // Mock uuid to return predictable IDs
 vi.mock('uuid', () => ({

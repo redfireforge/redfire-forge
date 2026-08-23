@@ -5,7 +5,7 @@ import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import RulesVersionPanel from './RulesVersionPanel';
-import type { Assertion, RulesVersion, ValidationConfig } from '../../../shared/types';
+import type { Assertion, RulesVersion, ValidationConfig } from '@shared/types';
 import { stubScrollIntoView } from '../../../test-utils/domMocks';
 
 const mocks = vi.hoisted(() => ({

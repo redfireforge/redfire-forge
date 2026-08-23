@@ -1,5 +1,5 @@
-import type { ValidationConfig, FailureDetail, ExpectedField, Assertion } from '../shared/types';
-import { getByPath } from '../shared/utils/jsonPath';
+import type { ValidationConfig, FailureDetail, ExpectedField, Assertion } from '@shared/types';
+import { getByPath } from '@shared/utils/jsonPath';
 import { evaluateFieldOperator } from './fieldOperatorEvaluation';
 import { deepCompare } from './deepCompare';
 import {
@@ -12,7 +12,7 @@ import {
 export type { FieldEvalResult } from './fieldOperatorEvaluation';
 
 // Re-export canonical path engine for backward compatibility
-export { getByPath } from '../shared/utils/jsonPath';
+export { getByPath } from '@shared/utils/jsonPath';
 // Re-export field operator evaluation for backward compatibility
 export { evaluateFieldOperator } from './fieldOperatorEvaluation';
 export { resolveDate, toDayString, truncateToUnit } from './validatorDateHelpers';

@@ -1,4 +1,4 @@
-import type { ExecutionEvent, WorkflowIterationTrace } from '../../../shared/types';
+import type { ExecutionEvent, WorkflowIterationTrace } from '@shared/types';
 import { isSampledIteration } from './sampledIterations';
 
 export interface TimelineBar {

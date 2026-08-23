@@ -4,7 +4,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import type { GrpcFieldSchema, GrpcMessageSchema } from '../../../../shared/grpc/contracts';
+import type { GrpcFieldSchema, GrpcMessageSchema } from '@shared/grpc/contracts';
 import { GRPC_MAP_PENDING_KEY_PREFIX } from '../../utils/grpcProtoFormValues';
 import { GrpcProtoMapFieldRow, GrpcProtoRepeatedFieldRow } from './GrpcProtoRepeatedMapRows';
 

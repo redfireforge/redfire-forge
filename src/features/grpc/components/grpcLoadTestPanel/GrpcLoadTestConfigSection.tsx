@@ -7,7 +7,7 @@ import {
   parsePositiveSecondsToMs,
   presentMsAsSeconds,
 } from './grpcLoadTestPanelUtils';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 export interface GrpcLoadTestConfigSectionProps {
   advanced: UseGrpcStudioAdvancedFeaturesReturn;

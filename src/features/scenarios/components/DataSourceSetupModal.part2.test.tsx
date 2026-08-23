@@ -11,7 +11,7 @@ import {
   ensurePathVariableChecked,
 } from './__test-utils__/dataSourceSetupModalTestHelpers';
 import { proxyFetch } from '../../../engine/executor';
-import { applyAuthHeaders } from '../../../shared/utils/applyAuthHeaders';
+import { applyAuthHeaders } from '@shared/utils/applyAuthHeaders';
 import { downloadExcel, generateExcelTemplate } from '../utils/csvTemplate';
 vi.mock('../../../shared/components/FullPanelModal', async () => {
   const h = await import('./__test-utils__/dataSourceSetupModalTestHelpers');

@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useScenarioDragDrop } from './useScenarioDragDrop';
-import { FeatureGroup } from '../../../shared/types';
+import { FeatureGroup } from '@shared/types';
 
 const fg = (id: string, scenarios: { id: string; name: string; tests: { id: string; name: string }[] }[] = []): FeatureGroup => ({
   id,

@@ -8,10 +8,10 @@ import { SseMessageLog } from './SseMessageLog';
 import { SseStudioShell } from './SseStudioShell';
 import SseAuthPanel from './SseAuthPanel';
 import { KeyValueEditor } from '../websocket/KeyValueEditor';
-import type { WsKeyValueEntry } from '../../shared/websocket/types';
-import type { AuthConfig, GlobalAuthProfile, Microservice } from '../../shared/types';
-import { buildEnvVarMap } from '../../shared/utils/envVarUtils';
-import { ProtocolEndpointPreview } from '../../shared/components/ProtocolEndpointPreview';
+import type { WsKeyValueEntry } from '@shared/websocket/types';
+import type { AuthConfig, GlobalAuthProfile, Microservice } from '@shared/types';
+import { buildEnvVarMap } from '@shared/utils/envVarUtils';
+import { ProtocolEndpointPreview } from '@shared/components/ProtocolEndpointPreview';
 import { getRowStatus } from '../environments/utils/protocolEndpointUtils';
 import type { SseConnectionState, SseConnectionTab, SseLeftTab, SseRightTab } from './sseTypes';
 

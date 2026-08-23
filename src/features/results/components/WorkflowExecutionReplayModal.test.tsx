@@ -11,7 +11,7 @@ import {
   getCustomSelectOptionLabels,
 } from '../../../test-utils/customSelectHelper';
 import WorkflowExecutionReplayModal from './WorkflowExecutionReplayModal';
-import type { WorkflowExecutionTrace, WorkflowIterationTrace } from '../../../shared/types';
+import type { WorkflowExecutionTrace, WorkflowIterationTrace } from '@shared/types';
 
 /** Left column of the modal footer (iteration / duration summary only; excludes nav hint + Close). */
 function getReplayFooterStatusHost(): HTMLElement {
@@ -455,7 +455,7 @@ describe('WorkflowExecutionReplayModal', () => {
       durationMs: undefined as unknown as number,
     };
 
-    const user = userEvent.setup();
+    const _user = userEvent.setup();
     render(<WorkflowExecutionReplayModal trace={trace} onClose={onCloseMock} />);
 
     selectOption(replayIterationSelect(), 'Iteration #2 — ✗ Fail');

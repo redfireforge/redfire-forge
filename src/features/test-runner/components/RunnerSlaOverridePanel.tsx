@@ -9,9 +9,9 @@
  * Targets entered here are NOT persisted — they are discarded when the page unmounts.
  */
 import { useState, useMemo, useCallback } from 'react';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import type { SlaTarget, SlaMetric } from '../../../shared/types';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import type { SlaTarget, SlaMetric } from '@shared/types';
+import AppModalFrame from '@shared/components/AppModalFrame';
 import {
   SLA_METRIC_LABELS,
   SLA_METRIC_UNITS,

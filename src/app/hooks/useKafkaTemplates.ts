@@ -7,7 +7,7 @@ import {
   saveKafkaPublishTemplates,
   type KafkaConsumeTemplate,
   type KafkaPublishTemplate,
-} from '../../shared/kafka/kafkaStorage';
+} from '@shared/kafka/kafkaStorage';
 import type { KafkaConsumeDraft, KafkaPublishDraft } from '../../features/kafka/types';
 
 // ── Public interface ───────────────────────────────────────────────────────

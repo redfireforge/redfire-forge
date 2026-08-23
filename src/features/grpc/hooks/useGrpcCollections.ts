@@ -2,8 +2,8 @@
  * Phase 5H — React hook for gRPC collections CRUD (5B repository).
  */
 import { useCallback, useEffect, useState } from 'react';
-import type { GrpcCollectionsStoreV1, GrpcCollectionV1 } from '../../../shared/grpc/grpcPersistenceSchema';
-import type { GrpcSavedRequest } from '../../../shared/grpc/grpcSavedRequest';
+import type { GrpcCollectionsStoreV1, GrpcCollectionV1 } from '@shared/grpc/grpcPersistenceSchema';
+import type { GrpcSavedRequest } from '@shared/grpc/grpcSavedRequest';
 import {
   addGrpcSavedRequestToStore,
   createGrpcCollectionInStore,
@@ -29,9 +29,9 @@ import {
   type GrpcHistoryDescriptorDriftIntent,
   type GrpcSavedRequestSchemaCompareIntent,
 } from '../utils/grpcCollectionSchemaDiffActions';
-import type { GrpcCallHistoryEntryV1 } from '../../../shared/grpc/grpcPersistenceSchema';
-import type { GrpcSchemaDiffReport } from '../../../shared/grpc/grpcSchemaDiffContracts';
-import { createEmptyGrpcCollectionsStore } from '../../../shared/grpc/grpcPersistenceSchema';
+import type { GrpcCallHistoryEntryV1 } from '@shared/grpc/grpcPersistenceSchema';
+import type { GrpcSchemaDiffReport } from '@shared/grpc/grpcSchemaDiffContracts';
+import { createEmptyGrpcCollectionsStore } from '@shared/grpc/grpcPersistenceSchema';
 
 export interface UseGrpcCollectionsResult {
   store: GrpcCollectionsStoreV1;

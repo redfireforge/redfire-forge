@@ -17,7 +17,7 @@ import {
   collectAllScenarioTags,
   countScenariosByTag,
 } from './dataSourceExpander';
-import { DataSourceRow } from '../shared/types';
+import { DataSourceRow } from '@shared/types';
 import { makeScenario, makeColumns, makeDataSource, makeTestScenario, makeFeatureGroup } from './__test-utils__/dataSourceExpanderHelpers';
 
 // ─── Row-Level Tag Tests ──────────────────────────────────────

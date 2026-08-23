@@ -1,11 +1,11 @@
 import type { WsSendNodeData, WsSendOutputBinding } from '../../types/workflow';
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
-import { useListCrud } from '../../../../shared/hooks/useListCrud';
+import { useListCrud } from '@shared/hooks/useListCrud';
 import InsertVarField from '../expression/InsertVarField';
 import AvailableVariables from '../expression/AvailableVariables';
 import { WsConnectionIdField, WsOutputBindingsSection } from './WsConfigShared';
 import { KafkaCard, KafkaFormRow } from './KafkaConfigUi';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 const MSG_TYPE_OPTIONS: { value: 'text' | 'binary'; label: string }[] = [
   { value: 'text', label: 'Text' },

@@ -1,4 +1,4 @@
-import type { ThinkTimeConfig } from '../shared/types';
+import type { ThinkTimeConfig } from '@shared/types';
 
 function gaussianRandom(mean: number, stdDev: number): number {
   let u = 0, v = 0;

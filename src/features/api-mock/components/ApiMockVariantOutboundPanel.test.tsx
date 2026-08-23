@@ -8,8 +8,8 @@ import {
   ApiMockVariantOutboundPanel,
   formatCallbackBodyJson,
 } from './ApiMockVariantOutboundPanel';
-import { createDefaultResponse } from '../../../shared/api-mock/defaults';
-import type { ApiMockCallbackV1 } from '../../../shared/api-mock/callbackContracts';
+import { createDefaultResponse } from '@shared/api-mock/defaults';
+import type { ApiMockCallbackV1 } from '@shared/api-mock/callbackContracts';
 
 interface SelectOption {
   value: string;

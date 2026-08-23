@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { evaluateAssertions, type AssertionContext } from './validator';
 import { buildValidationResult } from './validationResult';
-import type { Assertion } from '../shared/types';
+import type { Assertion } from '@shared/types';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 

@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
+import { METHOD_COLORS } from '@shared/constants/httpMethodColors';
 
 interface ConfirmDeleteState {
   message: string;

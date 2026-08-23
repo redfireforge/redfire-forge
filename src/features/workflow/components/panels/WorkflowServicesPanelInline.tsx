@@ -1,4 +1,4 @@
-import type { Environment, GlobalAuthProfile, Microservice } from '../../../../shared/types';
+import type { Environment, GlobalAuthProfile, Microservice } from '@shared/types';
 import type { WorkflowService } from '../../types/workflow';
 import { resolveInheritLabel, authSummary } from '../modals/WorkflowServiceRegistryModal';
 import { authToState } from '../../../requests/utils/requestAuthState';

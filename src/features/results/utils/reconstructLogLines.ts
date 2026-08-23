@@ -1,5 +1,5 @@
-import type { WorkflowIterationTrace, ExecutionEvent } from '../../../shared/types';
-import type { LogLine } from '../../../shared/utils/consoleLogUtils';
+import type { WorkflowIterationTrace, ExecutionEvent } from '@shared/types';
+import type { LogLine } from '@shared/utils/consoleLogUtils';
 import { formatNodeTypeConsole as formatNodeType } from './nodeTypeLabels';
 
 /**

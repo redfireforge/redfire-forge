@@ -3,11 +3,11 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import type { RequestItem, RequestCollection, RequestsData } from '../../../shared/types';
+import type { RequestItem, RequestCollection, RequestsData } from '@shared/types';
 import { useRequestTabCoordinator } from './useRequestTabCoordinator';
 import type { UseRequestsReturn } from './useRequests';
 import { _clearPendingSave, _STORAGE_KEY } from './useRequestTabPersistence';
-import { readKey } from '../../../shared/utils/storage';
+import { readKey } from '@shared/utils/storage';
 
 // ─── Mock storage (prevent real readKey/writeKey) ────────────────
 

@@ -1,4 +1,4 @@
-import type { AuthConfig } from '../../../../shared/types';
+import type { AuthConfig } from '@shared/types';
 
 export interface WorkflowHostProfile {
   id: string;

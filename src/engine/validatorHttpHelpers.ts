@@ -1,4 +1,4 @@
-import type { JsonTypeName } from '../shared/types';
+import type { JsonTypeName } from '@shared/types';
 
 export function matchesStatusPattern(httpStatus: number, pattern: string): boolean {
   const p = pattern.trim();

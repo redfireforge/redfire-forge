@@ -16,7 +16,7 @@ import type {
   Scenario,
   TestDefinitionVersion,
   ExpectedField,
-} from '../../../shared/types';
+} from '@shared/types';
 
 vi.mock('../utils/structureChangeLog', () => ({
   logScenarioAdded: vi.fn((fg: FeatureGroup, _scenarioName: string) => fg),

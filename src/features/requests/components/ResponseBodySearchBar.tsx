@@ -1,4 +1,4 @@
-import { SearchMatchBar } from '../../../shared/components/SearchMatchBar';
+import { SearchMatchBar } from '@shared/components/SearchMatchBar';
 
 interface Props {
   value: string;

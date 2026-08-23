@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getByPath } from '../shared/utils/jsonPath';
+import { getByPath } from '@shared/utils/jsonPath';
 
 // ---------------------------------------------------------------------------
 // getByPath

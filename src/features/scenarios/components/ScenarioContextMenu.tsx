@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useLayoutEffect } from 'react';
-import type { TestScenario } from '../../../shared/types';
+import type { TestScenario } from '@shared/types';
 
 interface Props {
   x: number;

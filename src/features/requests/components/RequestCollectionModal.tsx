@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
-import type { RequestCollection, RequestEnv, GlobalAuthProfile, Microservice, Environment, AuthConfig } from '../../../shared/types';
+import type { RequestCollection, RequestEnv, GlobalAuthProfile, Microservice, Environment, AuthConfig } from '@shared/types';
 import type { ModalAuthType, EnvAuthState } from '../utils/requestAuthState';
 import { authToState, stateToAuth, emptyAuthState } from '../utils/requestAuthState';
-import { useToast } from '../../../shared/hooks/useToast';
+import { useToast } from '@shared/hooks/useToast';
 import { useDraggableModal } from '../../environments/components/microserviceProtocolPanel/useDraggableModal';
 import WfDarkSelect from '../../workflow/components/modals/WfDarkSelect';
 

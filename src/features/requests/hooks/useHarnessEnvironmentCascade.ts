@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { Environment, Microservice } from '../../../shared/types';
+import type { Environment, Microservice } from '@shared/types';
 
 /**
  * Shared logic for building environment cascade options and filtering

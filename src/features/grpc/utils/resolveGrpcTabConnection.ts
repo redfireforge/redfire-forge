@@ -1,9 +1,9 @@
 /**
  * Phase 1A — per-tab gRPC connection resolution (tab → profile → page default).
  */
-import type { GrpcTarget, GrpcTlsConfig, GrpcTlsMode } from '../../../shared/grpc/contracts';
-import { prepareGrpcTarget } from '../../../shared/grpc/grpcTlsPolicy';
-import { validateResolvedGrpcTargetAddress } from '../../../shared/grpc/targetValidation';
+import type { GrpcTarget, GrpcTlsConfig, GrpcTlsMode } from '@shared/grpc/contracts';
+import { prepareGrpcTarget } from '@shared/grpc/grpcTlsPolicy';
+import { validateResolvedGrpcTargetAddress } from '@shared/grpc/targetValidation';
 
 export interface GrpcConnectionProfile {
   id: string;

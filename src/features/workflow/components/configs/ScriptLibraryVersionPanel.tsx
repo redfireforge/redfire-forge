@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { formatRelativeTime, formatTimestamp } from '../../../../shared/utils/formatRelativeTime';
+import { formatRelativeTime, formatTimestamp } from '@shared/utils/formatRelativeTime';
 import type { ScriptLibrary, ScriptLibraryVersion } from '../../engine/scriptLibraries';
 import { restoreFromVersion, deleteVersion, renameVersion, computeSnapshotDiff } from '../../engine/scriptLibraryVersioning';
 import type { LibraryUsage } from '../../engine/scriptLibraryVersioning';

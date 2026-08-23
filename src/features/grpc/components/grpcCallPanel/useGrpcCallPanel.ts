@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { isGrpcStreamLifecycleInFlight } from '../../../../shared/grpc/streamLifecycle';
+import { isGrpcStreamLifecycleInFlight } from '@shared/grpc/streamLifecycle';
 import {
   applyJsonTextToSchema,
   serializeGrpcBodyJson,

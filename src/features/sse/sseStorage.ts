@@ -1,9 +1,9 @@
-import { readKey, writeKey } from '../../shared/utils/storage';
+import { readKey, writeKey } from '@shared/utils/storage';
 import {
   clampInt,
   sanitizeAuthConfig,
   sanitizeKeyValueEntries,
-} from '../../shared/utils/persistSanitizers';
+} from '@shared/utils/persistSanitizers';
 import {
   type SseConnectionConfig,
   type SseConnectionTab,

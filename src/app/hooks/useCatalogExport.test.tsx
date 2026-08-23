@@ -14,7 +14,7 @@ vi.mock('../../shared/utils/storage', () => ({
   loadCatalogEndpointValues: vi.fn().mockResolvedValue({}),
 }));
 
-import { loadCatalogEndpointValues } from '../../shared/utils/storage';
+import { loadCatalogEndpointValues } from '@shared/utils/storage';
 import * as catalogExportModule from '../../features/catalog/utils/catalogExport';
 import * as versionMergeModule from '../../features/catalog/utils/versionMerge';
 

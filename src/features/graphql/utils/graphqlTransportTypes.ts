@@ -6,7 +6,7 @@
  *
  * All types are re-exported from graphqlClient.ts for backward compatibility.
  */
-import type { GraphqlResponse, GraphqlAuth } from '../../../shared/types/graphql';
+import type { GraphqlResponse, GraphqlAuth } from '@shared/types/graphql';
 
 // ─── Operation params ─────────────────────────────────────────────────────────
 

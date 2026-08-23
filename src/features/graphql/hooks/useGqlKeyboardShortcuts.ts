@@ -7,9 +7,9 @@
  * Extracted from GraphqlStudioPage.tsx to reduce its line count.
  */
 import { useEffect, useRef } from 'react';
-import { isTauri } from '../../../shared/utils/platform';
+import { isTauri } from '@shared/utils/platform';
 import { findUnresolvedVars } from '../utils/envUtils';
-import type { GraphqlEnvironment, SubscriptionState as SubState } from '../../../shared/types/graphql';
+import type { GraphqlEnvironment, SubscriptionState as SubState } from '@shared/types/graphql';
 
 interface GqlKeyboardShortcutsArgs {
   handleExecute: () => void;

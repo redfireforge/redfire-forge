@@ -6,7 +6,8 @@ import { act, renderHook } from '@testing-library/react';
 import { useAppStartupEffects } from './useAppStartupEffects';
 import type { UseRequestsReturn } from '../../features/requests/hooks/useRequests';
 import type { Tab } from '../utils/appTabUtils';
-import { readKey } from '../../shared/utils/storage';
+import type { ToastApi } from '../../features/workflow/components/WorkflowToastProvider';
+import { readKey } from '@shared/utils/storage';
 import { setLastProtocolsTab } from '../utils/appTabUtils';
 
 let storageFullListener: ((key: string) => void) | null = null;
@@ -62,7 +63,7 @@ describe('useAppStartupEffects', () => {
         environments: [{ id: 'legacy-dev', name: 'Dev' }],
       },
     });
-    const toast = { show: vi.fn() } as any;
+    const toast = { show: vi.fn() } as ToastApi;
     const setTheme = vi.fn();
     const setActiveTab = vi.fn();
 
@@ -98,7 +99,7 @@ describe('useAppStartupEffects', () => {
         environments: [],
       },
     });
-    const toast = { show: vi.fn() } as any;
+    const toast = { show: vi.fn() } as ToastApi;
 
     const { rerender } = renderHook(({ activeTab }) => useAppStartupEffects({
       loading: false,
@@ -128,7 +129,7 @@ describe('useAppStartupEffects', () => {
       loading: false,
       wb,
       environments: [],
-      toast: { show: vi.fn() } as any,
+      toast: { show: vi.fn() } as ToastApi,
       initialTheme: 'light',
       setTheme: vi.fn(),
       activeTab: 'demo-hub' as Tab,
@@ -141,7 +142,7 @@ describe('useAppStartupEffects', () => {
 
   it('registers storage full handling and restores the last protocols tab', async () => {
     const wb = makeWb();
-    const toast = { show: vi.fn() } as any;
+    const toast = { show: vi.fn() } as ToastApi;
 
     renderHook(() => useAppStartupEffects({
       loading: false,

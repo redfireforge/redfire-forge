@@ -12,8 +12,8 @@ import * as hookModule from './useWebSocketStudio';
 import * as profilesModule from '../../app/hooks/useWebSocketProfiles';
 import * as templatesModule from '../../app/hooks/useWebSocketTemplates';
 import * as historyModule from '../../app/hooks/useWebSocketHistory';
-import * as storageModule from '../../shared/websocket/websocketStorage';
-import { createDefaultReconnectState } from '../../shared/websocket/types';
+import * as storageModule from '@shared/websocket/websocketStorage';
+import { createDefaultReconnectState } from '@shared/websocket/types';
 import {
   makeStudioReturn,
   makeProfilesReturn,

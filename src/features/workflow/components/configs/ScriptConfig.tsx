@@ -9,7 +9,7 @@ import ScriptTemplateGallery from './ScriptTemplateGallery';
 import ScriptLibraryManager from './ScriptLibraryManager';
 import ScriptTestResult from './ScriptTestResult';
 import { SCRIPT_MODE_OPTIONS, useScriptTest } from './useScriptTest';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import { saveScriptLibraries } from '../../engine/scriptLibraries';
 import type { ScriptTemplate } from '../../engine/scriptTemplates';
 import type { ScriptLibrary } from '../../engine/scriptLibraries';

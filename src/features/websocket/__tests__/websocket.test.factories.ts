@@ -2,7 +2,7 @@
  * Shared factories & constants for WebSocket test files.
  * Eliminates duplicated makeFrame / makeTemplate / makeProfile across test files.
  */
-import type { WsFrame, WsMessageTemplate, WsConnectionProfile } from '../../../shared/websocket/types';
+import type { WsFrame, WsMessageTemplate, WsConnectionProfile } from '@shared/websocket/types';
 
 // ── Constants ────────────────────────────────────────
 

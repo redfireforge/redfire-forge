@@ -4,8 +4,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { resolveEffectiveAuth, buildRequestHeaders, useRequestSend } from './useRequestSend';
-import type { RequestItem, RequestCollection, AuthConfig, Scenario, GlobalAuthProfile } from '../../../shared/types';
-import type { RequestFolder, Microservice } from '../../../shared/types';
+import type { RequestItem, RequestCollection, AuthConfig, Scenario, GlobalAuthProfile } from '@shared/types';
+import type { RequestFolder, Microservice } from '@shared/types';
 
 vi.mock('../../../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(async () => ({

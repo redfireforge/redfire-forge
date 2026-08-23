@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { evaluateAssertions } from './validator';
-import { Assertion } from '../shared/types';
+import { Assertion } from '@shared/types';
 
 // ---------------------------------------------------------------------------
 // evaluateAssertions – branch coverage for header operators

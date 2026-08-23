@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import type { Environment, Microservice, FeatureGroup, RequestFolder } from '../../shared/types';
+import type { Environment, Microservice, FeatureGroup, RequestFolder } from '@shared/types';
 import type { CatalogEntry, CatalogEndpoint, SavedEndpointValues } from '../../features/catalog/types/catalog';
 import type { Tab } from '../utils/appTabUtils';
 import type { UseCatalogReturn } from '../../features/catalog/hooks/useCatalog';

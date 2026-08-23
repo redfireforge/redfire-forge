@@ -1,4 +1,4 @@
-import type { RequestCollection, RequestItem, RequestFolder, HttpMethod } from '../../../shared/types';
+import type { RequestCollection, RequestItem, RequestFolder, HttpMethod } from '@shared/types';
 
 export interface CoverageLocation {
   collectionId: string;

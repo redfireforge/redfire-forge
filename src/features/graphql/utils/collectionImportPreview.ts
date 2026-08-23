@@ -1,8 +1,8 @@
 import type {
   GraphqlCollectionFolder,
   GraphqlCollectionItem,
-} from '../../../shared/types/graphql';
-import type { CollectionExportData } from '../../../shared/utils/idbGraphqlCollections';
+} from '@shared/types/graphql';
+import type { CollectionExportData } from '@shared/utils/idbGraphqlCollections';
 
 export interface ImportPreviewOperation {
   name: string;

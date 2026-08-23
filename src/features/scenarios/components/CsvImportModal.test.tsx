@@ -2,11 +2,11 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { selectOption, selectOptionByIndex, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
+import { selectOptionByIndex, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
 import CsvImportModal from './CsvImportModal';
-import type { FeatureGroup, Scenario } from '../../../shared/types';
+import type { FeatureGroup, Scenario } from '@shared/types';
 import type { CsvParseResult, ParsedRow } from '../utils/csvTemplateTypes';
 import { makeScenario as _makeScenario } from '../../../test-utils/factories';
 

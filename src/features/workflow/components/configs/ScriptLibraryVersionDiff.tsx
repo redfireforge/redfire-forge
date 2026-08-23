@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Viewer } from 'json-diff-kit';
-import { sharedDiffer } from '../../../../shared/utils/jsonDiffKit';
+import { sharedDiffer } from '@shared/utils/jsonDiffKit';
 import 'json-diff-kit/dist/viewer.css';
 import 'json-diff-kit/dist/viewer-monokai.css';
 import type { ScriptLibraryVersion } from '../../engine/scriptLibraries';
@@ -122,4 +122,4 @@ export default function ScriptLibraryVersionDiff({ older, newer, diff, onClose }
   );
 }
 
-import { formatTimestamp } from '../../../../shared/utils/formatRelativeTime';
+import { formatTimestamp } from '@shared/utils/formatRelativeTime';

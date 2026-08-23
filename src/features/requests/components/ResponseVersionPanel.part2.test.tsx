@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import ResponseVersionPanel from './ResponseVersionPanel';
-import type { ResponseVersion, ValidationConfig } from '../../../shared/types';
+import type { ResponseVersion, ValidationConfig } from '@shared/types';
 import { selectOptionByIndex } from '../../../test-utils/customSelectHelper';
 
 const diffKitCtl = vi.hoisted(() => ({

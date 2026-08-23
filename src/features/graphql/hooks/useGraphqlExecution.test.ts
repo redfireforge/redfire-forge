@@ -2155,7 +2155,7 @@ describe('useGraphqlExecution — dedup "wait" error response (line 711)', () =>
 
 // ─── Imports needed for GraphqlResponse type ─────────────────────────────────
 
-import type { GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlResponse } from '@shared/types/graphql';
 
 // ─── Multipart streaming — error status for final chunk (lines 442-445) ──────
 

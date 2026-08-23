@@ -1,11 +1,11 @@
 /**
  * gRPC Studio — response panel formatting helpers (Phase 1G).
  */
-import type { GrpcAuthConfig, GrpcCallResult, GrpcErrorBody } from '../../../shared/grpc/contracts';
-import type { GrpcTlsFailureCategory } from '../../../shared/grpc/contracts';
-import { formatGrpcTransportFailureMessage } from '../../../shared/grpc/grpcTransportErrors';
-import { formatBrowserTransportFailureHint } from '../../../shared/grpc/grpcBrowserTransportErrorMapper';
-import { redactGrpcCallResultForExport } from '../../../shared/grpc/grpcRedaction';
+import type { GrpcAuthConfig, GrpcCallResult, GrpcErrorBody } from '@shared/grpc/contracts';
+import type { GrpcTlsFailureCategory } from '@shared/grpc/contracts';
+import { formatGrpcTransportFailureMessage } from '@shared/grpc/grpcTransportErrors';
+import { formatBrowserTransportFailureHint } from '@shared/grpc/grpcBrowserTransportErrorMapper';
+import { redactGrpcCallResultForExport } from '@shared/grpc/grpcRedaction';
 
 const GRPC_STATUS_LABELS: Record<number, string> = {
   0: 'OK',

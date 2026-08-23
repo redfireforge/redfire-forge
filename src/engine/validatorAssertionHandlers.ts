@@ -2,9 +2,9 @@
  * Extracted assertion case handlers from evaluateAssertions() in validator.ts.
  * Each handler evaluates a single assertion type and returns failures.
  */
-import type { Assertion, FailureDetail, ComparisonOperator } from '../shared/types';
-import { getByPath } from '../shared/utils/jsonPath';
-import { parseJsonOrRaw } from '../shared/utils/helpers';
+import type { Assertion, FailureDetail, ComparisonOperator } from '@shared/types';
+import { getByPath } from '@shared/utils/jsonPath';
+import { parseJsonOrRaw } from '@shared/utils/helpers';
 import { evaluateFieldOperator } from './fieldOperatorEvaluation';
 import { resolveDate, toDayString, truncateToUnit } from './validatorDateHelpers';
 import { matchesStatusPattern, findHeader, evaluateHeaderOp, getJsonTypeName } from './validatorHttpHelpers';

@@ -2,8 +2,8 @@
  * Demo Hub GraphQL lessons seed named global auth profiles for teaching.
  * Purge them on setup/cleanup so repeated runs do not accumulate duplicates.
  */
-import type { GlobalAuthProfile } from '../../../shared/types';
-import { loadGlobalAuthProfiles, saveGlobalAuthProfiles } from '../../../shared/utils/storage';
+import type { GlobalAuthProfile } from '@shared/types';
+import { loadGlobalAuthProfiles, saveGlobalAuthProfiles } from '@shared/utils/storage';
 
 /** GQL-6 Authentication & Headers — inherit-from-profile catalog entry */
 export const GQL6_DEMO_GLOBAL_AUTH_PROFILE_ID = 'lesson6-gql-profile';

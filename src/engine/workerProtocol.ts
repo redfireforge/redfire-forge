@@ -1,5 +1,5 @@
-import type { TestConfig, Scenario, RequestResult, WorkflowExecutionTrace } from '../shared/types';
-import type { HttpResponse } from '../shared/utils/httpClient';
+import type { TestConfig, Scenario, RequestResult, WorkflowExecutionTrace } from '@shared/types';
+import type { HttpResponse } from '@shared/utils/httpClient';
 import type { ProgressMeta } from './executor';
 import type { Workflow } from '../features/workflow/types/workflow';
 

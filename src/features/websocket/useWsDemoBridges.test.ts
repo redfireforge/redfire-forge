@@ -9,7 +9,7 @@ import { MOCK_PORT_BASE } from './WebSocketStudioPage.helpers';
 import type { WsConnectionTabInfo } from './WsConnectionTabBar';
 import type { WsConnectionTabContentHandle } from './WsConnectionTabContent.types';
 import type { ConnectionStateHint } from './WsConnectionTabBar';
-import type { WsStudioLocation } from '../../shared/websocket/types';
+import type { WsStudioLocation } from '@shared/websocket/types';
 
 function buildTabRef(handle?: WsConnectionTabContentHandle): RefObject<WsConnectionTabContentHandle | null> {
   return { current: handle ?? null } as RefObject<WsConnectionTabContentHandle | null>;

@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import { isTauri } from '../../../shared/utils/platform';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import { isTauri } from '@shared/utils/platform';
 import type {
   GraphqlMockConfig,
   GraphqlSchemaInfo,
   MockScalarFactory,
   MockScalarPreset,
   MockScenario,
-} from '../../../shared/types/graphql';
+} from '@shared/types/graphql';
 import type {
   MockRequestLogEntry,
   MockSchemaSource,

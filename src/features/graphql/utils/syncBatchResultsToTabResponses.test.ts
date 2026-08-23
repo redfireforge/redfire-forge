@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import type { GraphqlBatchResult, GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlBatchResult, GraphqlResponse } from '@shared/types/graphql';
 import type { GqlStudioTab } from './tabPersistence';
 import {
   applyBatchTabResponseSyncs,

@@ -1,5 +1,5 @@
-import type { TestRun, RequestResult } from '../shared/types';
-import { buildGrpcHarnessResultTraceKey } from '../shared/grpc/grpcHarnessRowIdentity';
+import type { TestRun, RequestResult } from '@shared/types';
+import { buildGrpcHarnessResultTraceKey } from '@shared/grpc/grpcHarnessRowIdentity';
 import { computeMetrics } from './metrics';
 
 /**

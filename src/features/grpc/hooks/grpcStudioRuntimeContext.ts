@@ -1,5 +1,5 @@
 import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from 'react';
-import type { GlobalAuthProfile } from '../../../shared/types';
+import type { GlobalAuthProfile } from '@shared/types';
 import type { GrpcStudioTabState, GrpcTabDescriptorState } from '../grpcStudioTypes';
 import type {
   GrpcConnectionProfile,

@@ -26,7 +26,7 @@ import {
   BreakingChangeType,
   DangerousChangeType,
 } from 'graphql';
-import type { GraphqlSchemaDiffChange, GraphqlSchemaDiffResult } from '../../../shared/types/graphql';
+import type { GraphqlSchemaDiffChange, GraphqlSchemaDiffResult } from '@shared/types/graphql';
 import type { DiffAck } from './schemaDiffAck';
 
 // ─── Public API ────────────────────────────────────────────────────────────────

@@ -1,8 +1,8 @@
 /** React hook that manages the GraphQL execution lifecycle. */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { GraphqlResponse } from '../../../shared/types/graphql';
-import { gqlRequiresTlsProxy, serializeGqlTlsForProxy, type GqlTlsSettings } from '../../../shared/types/gqlTls';
+import type { GraphqlResponse } from '@shared/types/graphql';
+import { gqlRequiresTlsProxy, serializeGqlTlsForProxy, type GqlTlsSettings } from '@shared/types/gqlTls';
 import { getProxyBase } from '../utils/graphqlProxyTransports';
 import { gqlFetch, gqlUpload } from '../utils/gqlFetch';
 import { normalizeGraphqlEndpoint } from '../utils/graphqlEndpointUtils';

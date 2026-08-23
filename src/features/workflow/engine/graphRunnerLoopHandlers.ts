@@ -4,7 +4,7 @@
 import type { WorkflowNode, LoopNodeData } from '../types/workflow';
 import type { NodeHandlerContext } from './graphRunnerNodeHandlerContext';
 import { evaluateCondition, collectReachableFromEdges } from './graphRunnerHelpers';
-import { tryParseJsonArray } from '../../../shared/utils/helpers';
+import { tryParseJsonArray } from '@shared/utils/helpers';
 
 export async function handleLoopNode(
   nodeId: string,

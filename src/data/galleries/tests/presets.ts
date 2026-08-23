@@ -5,7 +5,7 @@
 
 import { ts, s } from './presets-helpers';
 import type { FeatureGroup } from './presets-helpers';
-import type { Scenario } from '../../../shared/types';
+import type { Scenario } from '@shared/types';
 
 /** Minimal scenario omitting assertions to exercise presets helper branch (validation mode none). */
 export function presetsBareScenarioProbe(): Scenario {

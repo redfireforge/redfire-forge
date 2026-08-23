@@ -1,4 +1,4 @@
-import type { ExpectedField } from '../../../shared/types';
+import type { ExpectedField } from '@shared/types';
 
 /** Parses trailing `[n]` on JSONPath row keys for stable numeric ordering (exported for unit tests). */
 export function trailingBracketArrayIndex(key: string): number {

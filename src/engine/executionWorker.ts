@@ -1,11 +1,11 @@
 import type { MainToWorkerMessage, WorkerToMainMessage } from './workerProtocol';
-import type { HttpResponse } from '../shared/utils/httpClient';
-import { proxyFetch, setHttpTransport } from '../shared/utils/httpClient';
+import type { HttpResponse } from '@shared/utils/httpClient';
+import { proxyFetch, setHttpTransport } from '@shared/utils/httpClient';
 import { runTest } from './executor';
-import { toErrorMessage } from '../shared/utils/helpers';
-import { buildKafkaNodeOperations } from '../shared/kafka/buildKafkaNodeOperations';
-import { buildWsNodeOperations } from '../shared/websocket/buildWsNodeOperations';
-import { buildGrpcNodeOperations } from '../shared/grpc/buildGrpcNodeOperations';
+import { toErrorMessage } from '@shared/utils/helpers';
+import { buildKafkaNodeOperations } from '@shared/kafka/buildKafkaNodeOperations';
+import { buildWsNodeOperations } from '@shared/websocket/buildWsNodeOperations';
+import { buildGrpcNodeOperations } from '@shared/grpc/buildGrpcNodeOperations';
 
 interface WorkerContext {
   postMessage: (msg: WorkerToMainMessage) => void;

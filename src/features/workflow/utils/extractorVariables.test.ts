@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { extractVariables, type ResponseData } from './extractorVariables';
 import { VariableContext } from '../engine/variableContext';
-import { Extraction } from '../../../shared/types';
+import { Extraction } from '@shared/types';
 
 function makeResponse(overrides: Partial<ResponseData> = {}): ResponseData {
   return {

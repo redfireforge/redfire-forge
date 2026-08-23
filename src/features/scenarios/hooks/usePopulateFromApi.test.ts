@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { usePopulateFromApi } from './usePopulateFromApi';
-import type { Scenario, DataSource } from '../../../shared/types';
+import type { Scenario, DataSource } from '@shared/types';
 import { proxyFetch } from '../../../engine/executor';
 import { resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
 

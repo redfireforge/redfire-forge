@@ -2,14 +2,14 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { ConsoleLine } from '../../../requests/hooks/useResponseCache';
 import type { WorkflowRunStepSummary } from '../../hooks/useWorkflowRunCache';
 import { type ConsoleRunBehavior, saveConsoleRunBehavior } from '../../utils/workflowSessionStorage';
-import ConsoleLogLine from '../../../../shared/components/ConsoleLogLine';
-import { type PanelMode, loadPanelMode, savePanelMode } from '../../../../shared/utils/panelMode';
+import ConsoleLogLine from '@shared/components/ConsoleLogLine';
+import { type PanelMode, loadPanelMode, savePanelMode } from '@shared/utils/panelMode';
 import {
   computeWorkflowConsoleDemoFloatLayout,
   useFloatingPanel,
-} from '../../../../shared/hooks/useFloatingPanel';
-import { useCopyToClipboard } from '../../../../shared/hooks/useCopyToClipboard';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+} from '@shared/hooks/useFloatingPanel';
+import { useCopyToClipboard } from '@shared/hooks/useCopyToClipboard';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 type LogLevel = 'all' | 'error' | 'info' | 'request';
 

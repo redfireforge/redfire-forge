@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { StructureChangeEntry } from '../../../shared/types';
+import type { StructureChangeEntry } from '@shared/types';
 import { actionLabel, actionIcon, actionClass, filterStructureChangeEntries } from '../utils/structureChangeLog';
 
 interface Props {
@@ -94,4 +94,4 @@ export default function StructureChangeLogPanel({ entries, onDelete, onClear }: 
   );
 }
 
-import { formatRelativeTime, formatTimestamp } from '../../../shared/utils/formatRelativeTime';
+import { formatRelativeTime, formatTimestamp } from '@shared/utils/formatRelativeTime';

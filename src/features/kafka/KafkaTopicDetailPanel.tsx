@@ -1,10 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
-import { CustomSelect } from '../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import type { KafkaTopicDetail } from './useTopicExplorer';
 import type { UseTopicMessageBrowserReturn } from './useTopicMessageBrowser';
 import type { TimeWindow } from './useTopicMessageBrowser';
 import { valuePreview, exportResultSet } from './kafkaMessageStudioUtils';
-import type { KafkaUiSafeError } from '../../shared/kafka/kafkaClient';
+import type { KafkaUiSafeError } from '@shared/kafka/kafkaClient';
 import KafkaMessageDetailModal from './KafkaMessageDetailModal';
 
 type DetailTab = 'messages' | 'partitions' | 'groups' | 'config';

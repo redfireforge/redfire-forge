@@ -8,13 +8,13 @@
  * This file must NOT be imported by `requestExecution.ts`.  Executor wires it in
  * via the `RunOpts.executeNonHttp` callback to avoid circular dependencies.
  */
-import type { Scenario, RequestResult, WsResultMeta, WsActionType } from '../shared/types';
+import type { Scenario, RequestResult, WsResultMeta, WsActionType } from '@shared/types';
 import type { WsNodeOperations, WsMessageMatchCriteria } from '../features/workflow/engine/graphRunnerNodeHandlerContext';
 import { nextResultId, buildErrorResult } from './requestExecution';
 import { buildValidationResult } from './validationResult';
-import { toErrorMessage, parseJsonSafe } from '../shared/utils/helpers';
-import { round2 as roundMs } from '../shared/utils/percentiles';
-import { isWsActionType } from '../shared/types';
+import { toErrorMessage, parseJsonSafe } from '@shared/utils/helpers';
+import { round2 as roundMs } from '@shared/utils/percentiles';
+import { isWsActionType } from '@shared/types';
 import { classifyWsFailure } from '../features/workflow/engine/graphRunnerWsNodeHandlers';
 
 // ---------------------------------------------------------------------------

@@ -2,9 +2,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { proxyFetch } from '../../../engine/executor';
-import { applyAuthHeaders } from '../../../shared/utils/applyAuthHeaders';
+import { applyAuthHeaders } from '@shared/utils/applyAuthHeaders';
 import { useSharedDsEditorPanel, defaultFetchConfig, extractPathVariablesFromUrlTemplate } from './useSharedDsEditorPanel';
-import { SharedDataSource, FeatureGroup, GlobalAuthProfile, Scenario } from '../../../shared/types';
+import { SharedDataSource, FeatureGroup, GlobalAuthProfile, Scenario } from '@shared/types';
 
 vi.mock('../../../engine/executor', () => ({
   proxyFetch: vi.fn(),

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Scenario, TestConfig } from '../shared/types';
+import type { Scenario, TestConfig } from '@shared/types';
 import type { Workflow } from '../features/workflow/types/workflow';
 import { buildHeaders, buildUrl, runTest, proxyFetch } from './executor';
 import * as grpcConnectionProfileHydration from './grpcConnectionProfileHydration';

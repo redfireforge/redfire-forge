@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import MappingTraceOverlay from './MappingTraceOverlay';
-import type { MappingTrace } from '../../../shared/components/data-mapper/utils/mappingTrace';
+import type { MappingTrace } from '@shared/components/data-mapper/utils/mappingTrace';
 
 describe('MappingTraceOverlay', () => {
   it('renders pass and fail counts', () => {

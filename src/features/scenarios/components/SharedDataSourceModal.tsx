@@ -8,16 +8,16 @@
  * - useSharedDsFetchConfig: fetch config editing
  */
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import type { SharedDataSource, FeatureGroup, DataSource, Scenario, GlobalAuthProfile } from '../../../shared/types';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
-import ConfirmModal from '../../../shared/components/ConfirmModal';
-import PopupModal from '../../../shared/components/PopupModal';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import type { SharedDataSource, FeatureGroup, DataSource, Scenario, GlobalAuthProfile } from '@shared/types';
+import AppModalFrame from '@shared/components/AppModalFrame';
+import ConfirmModal from '@shared/components/ConfirmModal';
+import PopupModal from '@shared/components/PopupModal';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import SharedDsSaveConfirmModal from './SharedDsSaveConfirmModal';
 import SharedDsFetchPanel from './SharedDsFetchPanel';
 import DataSourceEditor from './DataSourceEditor';
-import { DataMapperModal, createSharedDsFetchAdapter, type SharedDsFetchOutput } from '../../../shared/components/data-mapper';
-import { MapperFetchError } from '../../../shared/components/data-mapper/types';
+import { DataMapperModal, createSharedDsFetchAdapter, type SharedDsFetchOutput } from '@shared/components/data-mapper';
+import { MapperFetchError } from '@shared/components/data-mapper/types';
 import { buildHeaders } from '../../../engine/executor';
 import { resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
 import { findUnresolvedTokens } from '../utils/populateFromApiUtils';
@@ -26,8 +26,8 @@ import { useSharedDsFetchConfig } from '../hooks/useSharedDsFetchConfig';
 import { useSharedDsListPanel } from '../hooks/useSharedDsListPanel';
 import { useSharedDsCrud } from '../hooks/useSharedDsCrud';
 import { useSharedDsEditorPanel, extractPathVariablesFromUrlTemplate, defaultFetchConfig } from '../hooks/useSharedDsEditorPanel';
-import { deepClone } from '../../../shared/utils/helpers';
-import { formatRelativeTime } from '../../../shared/utils/formatRelativeTime';
+import { deepClone } from '@shared/utils/helpers';
+import { formatRelativeTime } from '@shared/utils/formatRelativeTime';
 
 interface SharedDataSourceModalProps {
   sharedDataSources: SharedDataSource[];

@@ -8,9 +8,9 @@ import { selectOption } from '../../../test-utils/customSelectHelper';
 import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_DESCRIPTOR_KEY,
-} from '../../../shared/grpc/contractFixtures';
-import { buildGrpcLoadTestRunSummaryExport } from '../../../shared/grpc/grpcLoadTestMetrics';
-import { captureGrpcLoadTestExecuteSnapshot } from '../../../shared/grpc/grpcAdvancedFeatureContracts';
+} from '@shared/grpc/contractFixtures';
+import { buildGrpcLoadTestRunSummaryExport } from '@shared/grpc/grpcLoadTestMetrics';
+import { captureGrpcLoadTestExecuteSnapshot } from '@shared/grpc/grpcAdvancedFeatureContracts';
 import { computeGrpcStudioSchemaDiffReport } from '../utils/grpcStudioAdvancedCommands';
 import { createInitialGrpcTabAdvancedFeaturesUiState } from '../grpcStudioAdvancedTypes';
 import type { UseGrpcStudioAdvancedFeaturesReturn } from '../hooks/useGrpcStudioAdvancedFeatures';

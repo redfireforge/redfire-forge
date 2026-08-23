@@ -1,4 +1,4 @@
-import type { ProtocolKey } from '../../../../shared/types';
+import type { ProtocolKey } from '@shared/types';
 import type { EndpointRowStatus } from '../../utils/protocolEndpointUtils';
 
 export function statusChipClass(status: EndpointRowStatus): string {

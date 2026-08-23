@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useScenarioTags } from './useScenarioTags';
-import type { FeatureGroup, TestScenario } from '../../../shared/types';
+import type { FeatureGroup, TestScenario } from '@shared/types';
 import { makeTestScenario as _makeTestScenario } from '../../../test-utils/factories';
 
 const makeScenario = (overrides: Partial<TestScenario> = {}): TestScenario =>

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { matchesStatusPattern, evaluateAssertions, type AssertionContext } from './validator';
-import { Assertion } from '../shared/types';
+import { Assertion } from '@shared/types';
 
 function ctx(overrides: Partial<AssertionContext> = {}): AssertionContext {
   return {

@@ -1,10 +1,10 @@
 import { useState, useMemo } from 'react';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
-import ConfirmModal from '../../../shared/components/ConfirmModal';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import type { TrashItem, TrashEntityType, TrashSettings } from '../../../shared/types';
-import { formatRelativeTime, formatTimestamp } from '../../../shared/utils/formatRelativeTime';
-import { TRASH_MS_PER_DAY, TRASH_RETENTION_OPTIONS, TRASH_MAX_ITEMS_OPTIONS } from '../../../shared/utils/trashConstants';
+import AppModalFrame from '@shared/components/AppModalFrame';
+import ConfirmModal from '@shared/components/ConfirmModal';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import type { TrashItem, TrashEntityType, TrashSettings } from '@shared/types';
+import { formatRelativeTime, formatTimestamp } from '@shared/utils/formatRelativeTime';
+import { TRASH_MS_PER_DAY, TRASH_RETENTION_OPTIONS, TRASH_MAX_ITEMS_OPTIONS } from '@shared/utils/trashConstants';
 
 const ENTITY_ICONS: Record<TrashEntityType, string> = {
   featureGroup: '\u{1F4C1}',

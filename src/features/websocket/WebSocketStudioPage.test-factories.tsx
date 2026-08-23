@@ -12,7 +12,7 @@ import type { UseWebSocketTemplatesReturn } from '../../app/hooks/useWebSocketTe
 import type { UseWebSocketHistoryReturn } from '../../app/hooks/useWebSocketHistory';
 import type { UseWebSocketMockServerReturn } from './useWebSocketMockServer';
 import type { UseWebSocketRecordingReturn } from './useWebSocketRecording';
-import { createDefaultDraft, createDefaultReconnectState, createDefaultTlsConfig } from '../../shared/websocket/types';
+import { createDefaultDraft, createDefaultReconnectState, createDefaultTlsConfig } from '@shared/websocket/types';
 
 export function makeStudioReturn(overrides?: Partial<UseWebSocketStudioReturn>): UseWebSocketStudioReturn {
   return {

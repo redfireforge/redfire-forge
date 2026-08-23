@@ -5,8 +5,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { selectOption } from '../../../test-utils/customSelectHelper';
 import { useState } from 'react';
-import { FIXTURE_DESCRIPTOR } from '../../../shared/grpc/contractFixtures';
-import type { GrpcMessageSchema } from '../../../shared/grpc/contracts';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
+import type { GrpcMessageSchema } from '@shared/grpc/contracts';
 import { GrpcProtoFormBuilder } from './GrpcProtoFormBuilder';
 
 const NESTED_SCHEMA: GrpcMessageSchema = {

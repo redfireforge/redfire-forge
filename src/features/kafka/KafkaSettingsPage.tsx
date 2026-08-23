@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useConfirmDialog } from '../../app/hooks/useConfirmDialog';
-import { normalizeKafkaClusterConfig } from '../../shared/kafka/kafkaConfig';
-import { saveJsonFile } from '../../shared/utils/fileSaver';
+import { normalizeKafkaClusterConfig } from '@shared/kafka/kafkaConfig';
+import { saveJsonFile } from '@shared/utils/fileSaver';
 import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
 import {
   defaultClusterDraft,

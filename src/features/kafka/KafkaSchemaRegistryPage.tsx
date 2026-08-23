@@ -10,7 +10,7 @@
  */
 
 import { useCallback, useRef } from 'react';
-import { CustomSelect } from '../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
 
 import {

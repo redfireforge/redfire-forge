@@ -19,7 +19,7 @@ import {
   dispatchKafkaOperation,
   toKafkaUiSafeError,
   type KafkaUiSafeError,
-} from '../../shared/kafka/kafkaClient';
+} from '@shared/kafka/kafkaClient';
 import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
 
 export interface SchemaRegistryConfig {

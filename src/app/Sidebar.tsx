@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Environment, Microservice, FeatureGroup } from '../shared/types';
+import type { Environment, Microservice, FeatureGroup } from '@shared/types';
 
 interface Props {
   environments: Environment[];

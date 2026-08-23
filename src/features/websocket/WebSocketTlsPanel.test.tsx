@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { WebSocketTlsPanel } from './WebSocketTlsPanel';
-import type { WsTlsConfig } from '../../shared/websocket/types';
+import type { WsTlsConfig } from '@shared/websocket/types';
 
 function defaultProps(overrides: Partial<Parameters<typeof WebSocketTlsPanel>[0]> = {}) {
   return {

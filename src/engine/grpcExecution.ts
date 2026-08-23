@@ -4,27 +4,27 @@
  * Maps `GrpcCallActionConfig` scenarios to `GrpcHarnessOperations` and returns
  * `RequestResult` with `transportType: 'grpcCall'` and `grpcResultMeta`.
  */
-import type { Scenario, RequestResult, GrpcResultMeta, FailureDetail } from '../shared/types';
-import type { GrpcHarnessAssertion } from '../shared/types/grpc-harness';
-import type { GrpcHarnessCallOutcome } from '../shared/types/grpc-harness-snapshot';
-import type { GrpcHarnessResult } from '../shared/types/grpc-harness-result';
+import type { Scenario, RequestResult, GrpcResultMeta, FailureDetail } from '@shared/types';
+import type { GrpcHarnessAssertion } from '@shared/types/grpc-harness';
+import type { GrpcHarnessCallOutcome } from '@shared/types/grpc-harness-snapshot';
+import type { GrpcHarnessResult } from '@shared/types/grpc-harness-result';
 import { nextResultId, buildErrorResult } from './requestExecution';
 import { buildValidationResult, type ValidationOutput } from './validationResult';
-import { parseJsonSafe, toErrorMessage } from '../shared/utils/helpers';
-import { round2 as roundMs } from '../shared/utils/percentiles';
+import { parseJsonSafe, toErrorMessage } from '@shared/utils/helpers';
+import { round2 as roundMs } from '@shared/utils/percentiles';
 import {
   buildGrpcHarnessOperations,
   type GrpcHarnessOperations,
-} from '../shared/grpc/buildGrpcHarnessOperations';
-import { createGrpcHarnessSnapshotBuildContext, mergeGrpcHarnessRuntimeContext, resolveGrpcHarnessEnv, type GrpcHarnessRuntimeOverrides } from '../shared/grpc/grpcHarnessRuntimeContext';
+} from '@shared/grpc/buildGrpcHarnessOperations';
+import { createGrpcHarnessSnapshotBuildContext, mergeGrpcHarnessRuntimeContext, resolveGrpcHarnessEnv, type GrpcHarnessRuntimeOverrides } from '@shared/grpc/grpcHarnessRuntimeContext';
 import {
   buildGrpcHarnessSnapshotForScenario,
   executeGrpcHarnessSnapshot,
-} from '../shared/grpc/grpcHarnessExecutor';
-import { evaluateGrpcHarnessAssertionsDetailed } from '../shared/grpc/grpcHarnessAssertEngine';
-import { hasGrpcHarnessTerminalBody } from '../shared/grpc/grpcHarnessAssertPath';
-import { buildGrpcHarnessResult, GRPC_HARNESS_DEFAULT_TRANSPORT_ERROR } from '../shared/grpc/grpcHarnessResultBuilder';
-import { resolveGrpcInterpolationHarnessPreTransportCategory } from '../shared/grpc/grpcInterpolationError';
+} from '@shared/grpc/grpcHarnessExecutor';
+import { evaluateGrpcHarnessAssertionsDetailed } from '@shared/grpc/grpcHarnessAssertEngine';
+import { hasGrpcHarnessTerminalBody } from '@shared/grpc/grpcHarnessAssertPath';
+import { buildGrpcHarnessResult, GRPC_HARNESS_DEFAULT_TRANSPORT_ERROR } from '@shared/grpc/grpcHarnessResultBuilder';
+import { resolveGrpcInterpolationHarnessPreTransportCategory } from '@shared/grpc/grpcInterpolationError';
 
 export interface ExecuteGrpcActionOptions {
   abortSignal?: AbortSignal;

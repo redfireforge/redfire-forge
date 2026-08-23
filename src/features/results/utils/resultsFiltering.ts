@@ -1,4 +1,4 @@
-import type { RequestResult, TestRun } from '../../../shared/types';
+import type { RequestResult, TestRun } from '@shared/types';
 
 export type RunTypeFilter = 'all' | 'test' | 'workflow';
 

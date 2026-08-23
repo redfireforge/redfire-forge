@@ -5,8 +5,8 @@
  * `{ type: 'inherit', globalProfileId }` in tab/page auth state, then resolve
  * to concrete credentials at execution time via GlobalAuthProfile catalog.
  */
-import type { AuthConfig, GlobalAuthProfile } from '../../../shared/types';
-import type { GraphqlAuth } from '../../../shared/types/graphql';
+import type { AuthConfig, GlobalAuthProfile } from '@shared/types';
+import type { GraphqlAuth } from '@shared/types/graphql';
 
 /** Convert a resolved AuthConfig (from a global profile) into GraphqlAuth. */
 export function authConfigToGraphqlAuth(config: AuthConfig): GraphqlAuth | null {

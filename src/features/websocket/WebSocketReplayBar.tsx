@@ -1,5 +1,5 @@
-import type { WsReplaySpeed } from '../../shared/websocket/types';
-import { CustomSelect } from '../../shared/components/CustomSelect';
+import type { WsReplaySpeed } from '@shared/websocket/types';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 interface WebSocketReplayBarProps {
   recordingState: 'idle' | 'recording' | 'replaying' | 'paused';

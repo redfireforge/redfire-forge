@@ -2,7 +2,7 @@
  * Phase 6B — gRPC workflow transport adapter tests.
  */
 import { describe, expect, it } from 'vitest';
-import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
+import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
 import {
   buildGrpcWorkflowExecuteSnapshot,
   grpcWorkflowExecuteSnapshotTransportFingerprint,

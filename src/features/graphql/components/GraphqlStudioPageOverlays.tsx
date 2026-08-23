@@ -10,7 +10,7 @@ import type {
   GraphqlSchemaInfo,
   GraphqlSchemaSnapshot,
   GraphqlStudioActivityTab,
-} from '../../../shared/types/graphql';
+} from '@shared/types/graphql';
 import type { DiffModalState } from '../hooks/useGraphqlSchemaSnapshots';
 import type { CollectionTree } from '../hooks/useGraphqlCollections';
 import { GraphqlBatchResults } from './GraphqlBatchResults';

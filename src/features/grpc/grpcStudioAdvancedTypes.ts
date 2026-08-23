@@ -1,19 +1,19 @@
-import type { GrpcDescriptor } from '../../shared/grpc/contracts';
+import type { GrpcDescriptor } from '@shared/grpc/contracts';
 import type {
   GrpcAdvancedFeatureRuntimeState,
   GrpcLoadTestConfig,
   GrpcLoadTestRunCounts,
-} from '../../shared/grpc/grpcAdvancedFeatureContracts';
-import type { GrpcMockConfigSource } from '../../shared/grpc/grpcMockConfigResolution';
-import type { GrpcAdvancedFeatureSourceMetadata } from '../../shared/grpc/grpcAdvancedFeatureExport';
-import type { GrpcMockLatencyPolicy } from '../../shared/grpc/grpcMockLatencySimulation';
-import type { GrpcMockListenerStatus } from '../../shared/grpc/grpcMockListenerContracts';
-import type { GrpcLoadTestRunSummaryExport } from '../../shared/grpc/grpcLoadTestMetrics';
+} from '@shared/grpc/grpcAdvancedFeatureContracts';
+import type { GrpcMockConfigSource } from '@shared/grpc/grpcMockConfigResolution';
+import type { GrpcAdvancedFeatureSourceMetadata } from '@shared/grpc/grpcAdvancedFeatureExport';
+import type { GrpcMockLatencyPolicy } from '@shared/grpc/grpcMockLatencySimulation';
+import type { GrpcMockListenerStatus } from '@shared/grpc/grpcMockListenerContracts';
+import type { GrpcLoadTestRunSummaryExport } from '@shared/grpc/grpcLoadTestMetrics';
 import type {
   GrpcSchemaDiffReport,
   GrpcSchemaDiffSeverity,
-} from '../../shared/grpc/grpcSchemaDiffContracts';
-import { peekDemoInitialSurface } from '../../shared/demoInitialSurface';
+} from '@shared/grpc/grpcSchemaDiffContracts';
+import { peekDemoInitialSurface } from '@shared/demoInitialSurface';
 
 export const GRPC_ADVANCED_FEATURE_TABS = [
   'load_test',

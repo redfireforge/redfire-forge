@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, within, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { BodyEditor } from './BodyEditor';
-import type { Scenario } from '../../../shared/types';
+import type { Scenario } from '@shared/types';
 
 vi.mock('./CodeTextarea', () => ({
   CodeTextarea: ({

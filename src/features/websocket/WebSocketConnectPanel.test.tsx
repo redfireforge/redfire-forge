@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { selectOption } from '../../test-utils/customSelectHelper';
 import { WebSocketConnectPanel } from './WebSocketConnectPanel';
-import type { WsConnectionDraft, WsConnectionSnapshot } from '../../shared/websocket/types';
+import type { WsConnectionDraft, WsConnectionSnapshot } from '@shared/websocket/types';
 
 function defaultProps(overrides?: {
   draft?: Partial<WsConnectionDraft>;

@@ -6,13 +6,13 @@ import type {
   WsSendActionConfig,
   WsReceiveActionConfig,
   KeyValue,
-} from '../../../shared/types';
+} from '@shared/types';
 import {
   createDefaultWsConnectAction,
   createDefaultWsSendAction,
   createDefaultWsReceiveAction,
-} from '../../../shared/utils/wsScenarioDefaults';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+} from '@shared/utils/wsScenarioDefaults';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 export interface WsScenarioEditorProps {
   draft: Scenario;

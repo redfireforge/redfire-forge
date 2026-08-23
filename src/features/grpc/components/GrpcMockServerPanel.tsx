@@ -11,10 +11,10 @@ import {
   fetchGrpcMockNetworkListenerLogs,
   supportsGrpcMockNetworkListener,
 } from '../utils/grpcMockListenerClient';
-import type { GrpcMockListenerLogEntry } from '../../../shared/grpc/grpcMockListenerContracts';
+import type { GrpcMockListenerLogEntry } from '@shared/grpc/grpcMockListenerContracts';
 import { highlightJsonTokens } from '../utils/grpcMockJsonHighlight';
-import { HighlightedHtmlTextarea } from '../../../shared/components/HighlightedHtmlTextarea';
-import { isTauri } from '../../../shared/utils/platform';
+import { HighlightedHtmlTextarea } from '@shared/components/HighlightedHtmlTextarea';
+import { isTauri } from '@shared/utils/platform';
 import { mergeGrpcMockListenerLogs } from '../utils/grpcMockListenerLogMerge';
 
 export type GrpcMockAuthoringTab = 'builder' | 'json' | 'runtime';

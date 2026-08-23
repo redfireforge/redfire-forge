@@ -5,7 +5,7 @@ import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor} from '@testing-library/react';
 import RulesVersionPanel from './RulesVersionPanel';
-import type { RulesVersion, ValidationConfig } from '../../../shared/types';
+import type { RulesVersion, ValidationConfig } from '@shared/types';
 import { stubScrollIntoView } from '../../../test-utils/domMocks';
 import {
   getCustomSelectOptionLabels,

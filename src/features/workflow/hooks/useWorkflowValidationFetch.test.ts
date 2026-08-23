@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useWorkflowValidationFetch } from './useWorkflowValidationFetch';
-import type { Scenario } from '../../../shared/types';
+import type { Scenario } from '@shared/types';
 const uuidMock = vi.hoisted(() =>
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('../../../test-utils/uuidMock.ts').hoistedUuidFixed('test-uuid-123'),

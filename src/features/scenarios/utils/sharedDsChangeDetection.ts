@@ -1,7 +1,7 @@
 /**
  * Utility functions for detecting changes between shared data source snapshots.
  */
-import type { SharedDataSource, DataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
+import type { SharedDataSource, DataSource, DataSourceColumn, DataSourceRow } from '@shared/types';
 
 export interface ChangeLogEntry {
   type: 'ds_added' | 'ds_removed' | 'ds_renamed' | 'row_added' | 'row_removed' | 'col_added' | 'col_removed' | 'col_renamed' | 'cell_modified';

@@ -5,16 +5,16 @@
  */
 import type { WorkflowNode, WorkflowEdge, HttpNodeData, Workflow } from '../types/workflow';
 import type { ICorrelationStore } from './correlationStore';
-import type { RequestResult, Scenario } from '../../../shared/types';
+import type { RequestResult, Scenario } from '@shared/types';
 import type { VariableContext } from './variableContext';
 import type { TokenManager } from '../../../engine/tokenManager';
 import type { DebugController } from './debugController';
 import type { GraphRunCallbacks } from './graphRunnerInterfaces';
-import type { CorrelationWaitRunnerConfig, ExecutionTraceOptions, CapturedHttpRequest, CapturedHttpResponse, AssertionResult } from '../../../shared/types';
-import type { Semaphore } from '../../../shared/utils/semaphore';
-import type { KafkaSchemaConfig } from '../../../shared/kafka/kafkaClient';
-import type { GrpcCallRequest, GrpcDescriptor, GrpcStreamStartRequest } from '../../../shared/grpc/contracts';
-import type { GrpcLoadTestConfig } from '../../../shared/grpc/grpcAdvancedFeatureContracts';
+import type { CorrelationWaitRunnerConfig, ExecutionTraceOptions, CapturedHttpRequest, CapturedHttpResponse, AssertionResult } from '@shared/types';
+import type { Semaphore } from '@shared/utils/semaphore';
+import type { KafkaSchemaConfig } from '@shared/kafka/kafkaClient';
+import type { GrpcCallRequest, GrpcDescriptor, GrpcStreamStartRequest } from '@shared/grpc/contracts';
+import type { GrpcLoadTestConfig } from '@shared/grpc/grpcAdvancedFeatureContracts';
 import type { GrpcServerStreamCollectConfig } from '../types/workflow/node-grpc';
 import type { GrpcUnaryInvokeResult } from '../utils/grpcWorkflowUnaryExecutor';
 import type { GrpcWorkflowStreamCollectionResult } from '../utils/grpcWorkflowStreamCollector';
@@ -315,7 +315,7 @@ export interface CapturedHttpNodeDetails {
 }
 
 // Re-export so consumers of this file can still access it as one import
-export type { CorrelationWaitRunnerConfig } from '../../../shared/types';
+export type { CorrelationWaitRunnerConfig } from '@shared/types';
 
 /** Mutable flag container so handlers can set allPassed = false */
 export interface PassedFlag {

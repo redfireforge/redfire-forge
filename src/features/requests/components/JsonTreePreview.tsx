@@ -1,8 +1,8 @@
 import { useMemo, useRef, useEffect } from 'react';
 import type { ReactNode, RefObject } from 'react';
-import { ChevronIcon, bestEffortFormat, countTextMatches } from '../../../shared/components/jsonTreeShared';
-import { buildJsonTree } from '../../../shared/utils/jsonTreeModel';
-import type { JsonTreeNode } from '../../../shared/utils/jsonTreeModel';
+import { ChevronIcon, bestEffortFormat, countTextMatches } from '@shared/components/jsonTreeShared';
+import { buildJsonTree } from '@shared/utils/jsonTreeModel';
+import type { JsonTreeNode } from '@shared/utils/jsonTreeModel';
 
 /** @deprecated Use `JsonTreeNode` from `shared/utils/jsonTreeModel` */
 export type JNode = JsonTreeNode;

@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import SidebarContextMenu from './SidebarContextMenu';
-import { RequestCollection, RequestFolder, RequestItem } from '../../../shared/types';
+import { RequestCollection, RequestFolder, RequestItem } from '@shared/types';
 import { CtxMenuData } from './RequestsSidebar';
 
 function req(id: string, name: string): RequestItem {

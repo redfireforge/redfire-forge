@@ -9,7 +9,7 @@ import { describe, it, expect } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import { buildGroups, type GroupByLevel } from '../../test-runner/utils/resultsGrouping';
 import { useResultsGrouping } from './useResultsGrouping';
-import type { RequestResult } from '../../../shared/types';
+import type { RequestResult } from '@shared/types';
 import { makeResult as _makeResult } from '../../../test-utils/factories';
 
 const makeResult = (overrides?: Partial<RequestResult>): RequestResult =>

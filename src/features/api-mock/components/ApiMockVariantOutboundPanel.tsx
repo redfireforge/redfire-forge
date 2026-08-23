@@ -2,10 +2,10 @@
  * Phase 9D — response transforms + outbound callbacks editor (variant-scoped).
  */
 import { useState, type ReactNode } from 'react';
-import type { ApiMockResponseVariantV1 } from '../../../shared/api-mock/contracts';
-import type { ApiMockCallbackV1, ApiMockTransformRuleV1 } from '../../../shared/api-mock/callbackContracts';
-import { DEFAULT_CALLBACK } from '../../../shared/api-mock/callbackContracts';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import type { ApiMockResponseVariantV1 } from '@shared/api-mock/contracts';
+import type { ApiMockCallbackV1, ApiMockTransformRuleV1 } from '@shared/api-mock/callbackContracts';
+import { DEFAULT_CALLBACK } from '@shared/api-mock/callbackContracts';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import { ChevronRightIcon, PlusIcon, TrashIcon, WebhookIcon, WorkflowIcon } from './ApiMockIcons';
 
 interface Props {

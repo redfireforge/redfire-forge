@@ -1,8 +1,8 @@
 import React, { useState, useCallback } from 'react';
-import { setMaxRuns, getStorageUsage, deleteRunsOlderThan, clearAllTestRuns, loadTestRunsLite, cleanupStaleStorageKeys, compactWorkflowStorage } from '../../shared/utils/storage';
+import { setMaxRuns, getStorageUsage, deleteRunsOlderThan, clearAllTestRuns, loadTestRunsLite, cleanupStaleStorageKeys, compactWorkflowStorage } from '@shared/utils/storage';
 import { DEMO_HUB_ENABLED } from '../../config/features';
-import { isTauri } from '../../shared/utils/platform';
-import { formatBytes } from '../../shared/utils/helpers';
+import { isTauri } from '@shared/utils/platform';
+import { formatBytes } from '@shared/utils/helpers';
 
 export interface SettingsStorageTabProps {
   storageUsage: { usedBytes: number; entries: Record<string, number> };

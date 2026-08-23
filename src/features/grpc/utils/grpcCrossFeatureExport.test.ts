@@ -2,9 +2,9 @@
  * Phase 4H — cross-feature export leak-scan tests.
  */
 import { describe, expect, it } from 'vitest';
-import { FIXTURE_UNARY_CALL_RESULT } from '../../../shared/grpc/contractFixtures';
-import { GRPC_REDACTED_PLACEHOLDER } from '../../../shared/grpc/grpcRedaction';
-import { scanForbiddenGrpcPersistTargets } from '../../../shared/grpc/grpcSecretLeakScan';
+import { FIXTURE_UNARY_CALL_RESULT } from '@shared/grpc/contractFixtures';
+import { GRPC_REDACTED_PLACEHOLDER } from '@shared/grpc/grpcRedaction';
+import { scanForbiddenGrpcPersistTargets } from '@shared/grpc/grpcSecretLeakScan';
 import {
   prepareGrpcCallHistoryExport,
   prepareGrpcExportBundle,
@@ -12,8 +12,8 @@ import {
   prepareGrpcHarnessScenarioExport,
   prepareGrpcWorkflowNodeExport,
 } from './grpcCrossFeatureExport';
-import { buildGrpcHarnessExecuteSnapshot } from '../../../shared/grpc/grpcHarnessSnapshotBuilder';
-import { FIXTURE_DESCRIPTOR_KEY } from '../../../shared/grpc/contractFixtures';
+import { buildGrpcHarnessExecuteSnapshot } from '@shared/grpc/grpcHarnessSnapshotBuilder';
+import { FIXTURE_DESCRIPTOR_KEY } from '@shared/grpc/contractFixtures';
 import { makeScenario as _makeScenario } from '../../../test-utils/factories';
 
 const VALID_PEM = `-----BEGIN CERTIFICATE-----
