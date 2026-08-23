@@ -131,41 +131,58 @@ grpc/
 
 **Folder:** `docs/training-manuals/websocket/`
 
-### Scope (from e2e + source)
-- Connect / disconnect (ws:// and wss://)
-- Multi-tab connections (up to 8 independent tabs)
-- Send pane (text, binary, JSON formatting)
-- Message log (filter, bookmark, export)
-- Protocol support: plain WebSocket, Socket.IO, STOMP, GraphQL-over-WS
-- Auth panel (Bearer, API Key, custom headers)
-- TLS panel (rejectUnauthorized, CA cert, proxy vs native)
-- Session recording and replay
-- Stats dashboard (messages/sec, bytes, uptime, errors)
-- Mock server (start server, echo/rule-based responses, broadcast)
-- Schema inference and validation
-- Message diff viewer
-- Console commands (scripted send sequences)
-- Load test mode
-- WS workflow runner (run test scenarios over WebSocket)
+### Scope (from e2e + source — 15+ specs audited)
+- Connect / disconnect (ws:// and wss://) — `connect-btn`, `disconnect-btn`, `status-badge`
+- Multi-tab connections (up to 8 independent tabs) — `conn-tab-bar`, tab add/remove, keyboard nav, drag-reorder
+- Send pane (text, binary, JSON formatting) — `send-btn`, `.ws-compose-input`, format selector
+- Message log (filter, bookmark, export) — `.ws-message-row`, `direction-filter`, `filter-toggle-btn`, `filter-bar`
+- Protocol support: plain WebSocket, Socket.IO (EIO4), STOMP (RabbitMQ), GraphQL-over-WS — `protocol-select`, `protocol-badge`
+- Auth panel (Bearer, API Key, basic, custom headers) — `ws-auth-type-trigger`, `ws-auth-type-opt-{value}`
+- TLS panel (rejectUnauthorized/skip-cert, CA cert, client cert+key, proxy notice) — `tls-panel`, `tls-toggle`, `tls-skip-cert`, `tls-ca-cert`
+- Session recording (`start-recording-btn`, `stop-recording-btn`) and replay (`replay-bar`, `replay-playpause-btn`, `replay-speed-select`, `replay-exit-btn`)
+- Stats dashboard — `right-tab-stats`, `stats-msg-rate`, `stats-bytes-in`, `stats-bytes-out`, `stats-frames`
+- Mock server (start/stop, port config, rules, echo fallback, broadcast, connected-client count) — `mock-start-btn`, `mock-stop-btn`, `mock-status-label`, `mock-port-input`
+- Schema inference and validation — `right-tab-schema`, `ws-schema-panel`, `ws-schema-generate-btn`, `ws-schema-add-btn`, `ws-validation-toggle`
+- Message diff viewer — `diff-modal`, `diff-close`
+- Console commands (scripted send sequences) — `right-tab-console`, `ws-console-cmd-input`, `ws-console-category`
+- Load test mode — `right-tab-loadtest`, `lt-start-btn`, `lt-running`
+- WS workflow runner (wsConnect, wsSend, wsReceive, wsTrigger nodes) — `wf-palette-block-wsConnect`, `ws-connect-config`
 
-### Planned Files
+### Planned Files (13 total)
 
 ```
 websocket/
-  websocket.html                            ← master overview
-  websocket-first-connection-easy.html      ← connect ws://echo + send/receive
-  websocket-multi-tab-easy.html             ← open multiple independent connections
-  websocket-protocols-medium.html           ← Socket.IO, STOMP, GraphQL-WS
-  websocket-auth-medium.html                ← Bearer/API Key/custom header auth
-  websocket-recording-replay-medium.html    ← record session, replay at speed
-  websocket-stats-medium.html               ← live metrics dashboard
-  websocket-tls-medium.html                 ← wss:// with CA cert / proxy TLS
-  websocket-mock-server-advanced.html       ← start mock, define rules, broadcast
-  websocket-schema-validation-advanced.html ← infer schema, validate messages
-  websocket-diff-console-advanced.html      ← diff viewer + console scripting
-  websocket-load-test-advanced.html         ← concurrent connections, throughput
-  websocket-workflow-runner-advanced.html   ← WS scenario in workflow harness
+  websocket.html                            ← master overview                        [✅]
+  websocket-first-connection-easy.html      ← connect ws://echo + send/receive       [✅]
+  websocket-multi-tab-easy.html             ← open multiple independent connections  [✅]
+  websocket-protocols-medium.html           ← Socket.IO, STOMP, GraphQL-WS           [✅]
+  websocket-auth-medium.html                ← Bearer/API Key/custom header auth      [✅]
+  websocket-recording-replay-medium.html    ← record session, replay at speed        [✅]
+  websocket-stats-medium.html               ← live metrics dashboard                 [✅]
+  websocket-tls-medium.html                 ← wss:// with CA cert / proxy TLS        [✅]
+  websocket-mock-server-advanced.html       ← start mock, define rules, broadcast    [✅]
+  websocket-schema-validation-advanced.html ← infer schema, validate messages        [✅]
+  websocket-diff-console-advanced.html      ← diff viewer + console scripting        [✅]
+  websocket-load-test-advanced.html         ← concurrent connections, throughput     [✅]
+  websocket-workflow-runner-advanced.html   ← WS scenario in workflow harness        [✅]
 ```
+
+### Implementation Status
+| # | File | Status | Notes |
+|---|------|--------|-------|
+| 1 | `websocket.html` | ✅ | Overview, mode switcher, testid map |
+| 2 | `websocket-first-connection-easy.html` | ✅ | echo.websocket.org walkthrough |
+| 3 | `websocket-multi-tab-easy.html` | ✅ | Up to 8 tabs, isolation table |
+| 4 | `websocket-protocols-medium.html` | ✅ | Socket.IO + STOMP walkthroughs |
+| 5 | `websocket-auth-medium.html` | ✅ | Bearer, API Key, Basic, custom headers |
+| 6 | `websocket-recording-replay-medium.html` | ✅ | ws-recording-v1 format, replay bar |
+| 7 | `websocket-stats-medium.html` | ✅ | msg-rate, bytes-in/out, frames |
+| 8 | `websocket-tls-medium.html` | ✅ | skip-cert, CA cert, mTLS, proxy |
+| 9 | `websocket-mock-server-advanced.html` | ✅ | Rules engine, broadcast, 2-tab pattern |
+| 10 | `websocket-schema-validation-advanced.html` | ✅ | Generate from traffic, live validation |
+| 11 | `websocket-diff-console-advanced.html` | ✅ | Side-by-side diff, console commands |
+| 12 | `websocket-load-test-advanced.html` | ✅ | Concurrent workers, P50/P95/P99 |
+| 13 | `websocket-workflow-runner-advanced.html` | ✅ | 4 WS nodes, trigger pattern |
 
 ---
 
@@ -345,7 +362,7 @@ gallery/
 |---------|--------|-----------|-------------|--------|
 | GraphQL | `graphql/` | `graphql.html` | 13 | ✅ Done (14 files — overview + 13 tutorials) |
 | gRPC | `grpc/` | `grpc.html` | 10 | ✅ Done (11 files — overview + 10 tutorials) |
-| WebSocket | `websocket/` | `websocket.html` | 12 | 🔲 Not started |
+| WebSocket | `websocket/` | `websocket.html` | 13 | ✅ Done (13 files — overview + 12 tutorials) |
 | Environment Manager | `environments/` | `environments.html` | 5 | 🔲 Not started |
 | Results Dashboard | `results/` | `results.html` | 7 | 🔲 Not started |
 | API Mock (HTTP) | `api-mock/` | `api-mock.html` | 12 | 🔲 Not started |
