@@ -3,6 +3,7 @@ import { trainingPaths } from './index';
 import { corePaths } from './corePaths';
 import { contentPaths } from './contentPaths';
 import { workflowPaths } from './workflowPaths';
+import { protocolPaths } from './protocolPaths';
 import type { TrainingPath, TrainingManual } from './types';
 
 /* ── Structural Integrity ── */
@@ -13,12 +14,12 @@ describe('trainingPaths barrel export', () => {
     expect(trainingPaths.length).toBeGreaterThan(0);
   });
 
-  it('is the union of corePaths + contentPaths + workflowPaths', () => {
-    expect(trainingPaths).toEqual([...corePaths, ...contentPaths, ...workflowPaths]);
+  it('is the union of corePaths + contentPaths + workflowPaths + protocolPaths', () => {
+    expect(trainingPaths).toEqual([...corePaths, ...contentPaths, ...workflowPaths, ...protocolPaths]);
   });
 
-  it('has exactly 19 paths', () => {
-    expect(trainingPaths).toHaveLength(19);
+  it('has exactly 22 paths', () => {
+    expect(trainingPaths).toHaveLength(22);
   });
 });
 
@@ -41,6 +42,17 @@ describe('contentPaths module', () => {
   it('has expected path IDs', () => {
     const ids = contentPaths.map(p => p.id);
     expect(ids).toEqual(['requests', 'tests', 'catalog', 'data-mapper', 'kafka-protocols']);
+  });
+});
+
+describe('protocolPaths module', () => {
+  it('contains 3 paths', () => {
+    expect(protocolPaths).toHaveLength(3);
+  });
+
+  it('has expected path IDs', () => {
+    const ids = protocolPaths.map(p => p.id);
+    expect(ids).toEqual(['graphql', 'grpc', 'websocket']);
   });
 });
 
