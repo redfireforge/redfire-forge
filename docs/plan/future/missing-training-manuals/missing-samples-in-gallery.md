@@ -82,11 +82,18 @@ The gallery has 7 registered domains (in `src/data/galleries/types.ts` + `regist
 
 ### 1a. gRPC Workflow Samples (new file: `galleries/workflows/grpc.ts`)
 
-**6 planned entries:**
+**6 planned entries (✅ implemented):**
+
+**Implementation Notes (added before coding):**
+- `SampleCategory` in `galleries/workflows/types.ts` did not include `'grpc'` — added it (additive only; no exhaustive switches on SampleCategory exist). `TemplateGalleryModal.tsx` CATEGORIES array also updated to add a `gRPC` filter tab.
+- `grpc.postman.co` is a Postman commercial endpoint; changed to `grpcb.in` — a well-known free public gRPC echo + health service.
+- `GrpcAssertFieldAssertion` has no `<=` / `>=` numeric operators (only `equals`, `contains`, `exists`). WF-GRPC-06 uses a `condition` node for p95/error-rate numeric gate instead of asserting in `grpcAssert`.
+- `saveAs` on gRPC nodes creates `{{grpc.aliasName.field.path}}` bindings for downstream expressions.
+- `grpcAssert.source` must match `saveAs` alias (or node id) of the upstream gRPC call node.
 
 ---
 
-#### WF-GRPC-01 · gRPC Health Check (Easy)
+#### WF-GRPC-01 · gRPC Health Check (Easy) ✅
 - **ID:** `sample-grpc-health-check`
 - **Name:** `gRPC: Health Check`
 - **Category:** grpc
@@ -94,16 +101,16 @@ The gallery has 7 registered domains (in `src/data/galleries/types.ts` + `regist
 - **Description:** Call the `grpc.health.v1.Health/Check` unary method, verify `status` is `SERVING`.
 - **Nodes:**
   1. `start`
-  2. `grpcUnary` — `target: "grpc.health.v1.Health/Check"`, service: demo gRPC reflect endpoint
-  3. `grpcAssert` — assert `$.status === "SERVING"`
+  2. `grpcUnary` — service: `grpc.health.v1.Health`, method: `Check`, target: `grpcb.in:443`, `saveAs: 'healthResult'`
+  3. `grpcAssert` — source: `'healthResult'`, assert `$.grpcStatus === 0` + `$.status === 'SERVING'`
   4. `end`
 - **Tags:** `grpc`, `health`, `unary`, `easy`
-- **liveApis:** `grpc.postman.co` (public gRPC reflect endpoint)
+- **liveApis:** `grpcb.in` (free public gRPC reflect endpoint — changed from `grpc.postman.co` which is commercial)
 - **Purpose:** Teaches the basics: upload proto / use reflection, configure endpoint, run unary call, assert.
 
 ---
 
-#### WF-GRPC-02 · gRPC User Lookup (Easy)
+#### WF-GRPC-02 · gRPC User Lookup (Easy) ✅
 - **ID:** `sample-grpc-user-lookup`
 - **Name:** `gRPC: User Lookup`
 - **Category:** grpc
@@ -111,16 +118,16 @@ The gallery has 7 registered domains (in `src/data/galleries/types.ts` + `regist
 - **Description:** Fetch a user by ID using a unary RPC, extract `user.name` and `user.email` into workflow variables.
 - **Nodes:**
   1. `start`
-  2. `grpcUnary` — `GetUser({ id: 1 })`, output bindings: `userId ← $.user.id`, `userName ← $.user.name`
-  3. `grpcAssert` — assert `$.user.id === 1` and field existence
+  2. `grpcUnary` — `GetUser({ id: 1 })`, `saveAs: 'userResult'`
+  3. `grpcAssert` — source: `'userResult'`, assert status 0 + `$.user.id === 1` + `$.user.name exists`
   4. `end`
 - **Tags:** `grpc`, `unary`, `extract`, `variable`
-- **liveApis:** demo gRPC endpoint
+- **liveApis:** `(configurable gRPC endpoint)`
 - **Purpose:** Shows output variable binding and chaining variables into downstream nodes.
 
 ---
 
-#### WF-GRPC-03 · gRPC Server Streaming — List Orders (Medium)
+#### WF-GRPC-03 · gRPC Server Streaming — List Orders (Medium) ✅
 - **ID:** `sample-grpc-server-stream`
 - **Name:** `gRPC: Server Stream — Order Feed`
 - **Category:** grpc
@@ -128,34 +135,35 @@ The gallery has 7 registered domains (in `src/data/galleries/types.ts` + `regist
 - **Description:** Call a `ListOrders` server-streaming RPC; the node collects all stream messages and publishes them as `messages[]` into context.
 - **Nodes:**
   1. `start`
-  2. `grpcServerStream` — `ListOrders({ status: "PENDING" })`, `maxMessages: 20`, `timeoutMs: 5000`
-  3. `grpcAssert` — assert `$.messages.length > 0` and `$.messages[0].status === "PENDING"`
+  2. `grpcServerStream` — `ListOrders({ status: "PENDING" })`, `collect: { maxMessages: 20, maxDurationMs: 5000 }`, `saveAs: 'orderFeed'`
+  3. `grpcAssert` — source: `'orderFeed'`, assert `grpcStreamLength >= 1` (StreamLengthAssertion)
   4. `end`
 - **Tags:** `grpc`, `streaming`, `server-stream`, `collect`
-- **liveApis:** demo gRPC endpoint
+- **liveApis:** `(configurable gRPC endpoint)`
 - **Purpose:** Demonstrates `grpcServerStream` node — bounded collection, assert on collected array.
 
 ---
 
-#### WF-GRPC-04 · gRPC CRUD Flow (Medium)
+#### WF-GRPC-04 · gRPC CRUD Flow (Medium) ✅
 - **ID:** `sample-grpc-crud`
 - **Name:** `gRPC: Create → Fetch → Delete`
 - **Category:** grpc
 - **Difficulty:** medium
-- **Description:** Three chained unary calls: `CreateProduct`, `GetProduct` (verify it was created), `DeleteProduct`. Uses output binding to thread the `productId` between steps.
+- **Description:** Three chained unary calls: `CreateProduct`, `GetProduct` (verify it was created), `DeleteProduct`. Uses `saveAs` to thread the `productId` between steps via `{{grpc.createResult.product.id}}`.
 - **Nodes:**
   1. `start`
-  2. `grpcUnary` — `CreateProduct({ name: "Test Widget", price: 9.99 })` → binds `productId ← $.product.id`
-  3. `grpcUnary` — `GetProduct({ id: {{productId}} })` → binds `fetchedName ← $.product.name`
-  4. `grpcAssert` — assert `$.product.name === "Test Widget"`
-  5. `grpcUnary` — `DeleteProduct({ id: {{productId}} })` → assert `$.success === true`
-  6. `end`
+  2. `grpcUnary` — `CreateProduct({ name: "Test Widget", price: 9.99 })`, `saveAs: 'createResult'`
+  3. `grpcUnary` — `GetProduct({ id: {{grpc.createResult.product.id}} })`, `saveAs: 'getResult'`
+  4. `grpcAssert` — source: `'getResult'`, assert `$.product.name === 'Test Widget'`
+  5. `grpcUnary` — `DeleteProduct({ id: {{grpc.createResult.product.id}} })`, `saveAs: 'deleteResult'`
+  6. `grpcAssert` — source: `'deleteResult'`, assert status 0 + `$.success === true`
+  7. `end`
 - **Tags:** `grpc`, `crud`, `chain`, `variable-binding`
 - **Purpose:** Real multi-step gRPC workflow with variable threading; mirrors the HTTP "Create → Extract → Verify" sample.
 
 ---
 
-#### WF-GRPC-05 · gRPC Schema Drift Watchdog (Advanced)
+#### WF-GRPC-05 · gRPC Schema Drift Watchdog (Advanced) ✅
 - **ID:** `sample-grpc-schema-diff`
 - **Name:** `gRPC: Schema Drift Watchdog`
 - **Category:** grpc
@@ -163,29 +171,30 @@ The gallery has 7 registered domains (in `src/data/galleries/types.ts` + `regist
 - **Description:** Schedule-triggered workflow that runs `grpcSchemaDiff` against the live proto reflection and fails the workflow if any breaking change is detected. Mirrors the GraphQL Schema Watchdog sample.
 - **Nodes:**
   1. `schedule` — `cron: "0 * * * *"` (hourly)
-  2. `grpcSchemaDiff` — baseline descriptor in context vs. live reflection
-  3. `condition` — `$.hasBreakingChanges === true`
-     - true → `logDebug` — "Breaking schema change detected!" → `errorHandler`
-     - false → `logDebug` — "Schema OK" → `end`
-  4. `end`
+  2. `grpcSchemaDiff` — `leftDescriptorKey: '{{baselineDescriptor}}'`, `rightDescriptorKey: '{{liveDescriptor}}'`, `failOnBreaking: false` (branch via condition instead)
+  3. `condition` — `{{grpc.diffResult.hasBreakingChanges}} === true`
+     - true → `logDebug` (error) "Breaking schema change detected!" → `end`
+     - false → `logDebug` (info) "Schema OK" → `end`
+  - **Note:** `failOnBreaking: false` lets the condition node control flow. `grpcSchemaDiff.saveAs: 'diffResult'` binds result for the condition expression. Node type is `'schedule'` (not `'scheduleTrigger'`); `cronExpression` field (not `cron`).
 - **Tags:** `grpc`, `schema-diff`, `watchdog`, `schedule`, `breaking-change`
 - **Purpose:** Shows `grpcSchemaDiff` node and how to gate a pipeline on proto compatibility.
 
 ---
 
-#### WF-GRPC-06 · gRPC Load Test (Advanced)
+#### WF-GRPC-06 · gRPC Load Test (Advanced) ✅
 - **ID:** `sample-grpc-load-test`
 - **Name:** `gRPC: Load Test — Bounded Unary`
 - **Category:** grpc
 - **Difficulty:** advanced
-- **Description:** Run a `grpcLoadTest` against a unary RPC endpoint with 50 virtual users for 10 seconds, then assert on `loadTestSummary.errorRate <= 1%` and `p95 <= 200ms`.
+- **Description:** Run a `grpcLoadTest` against a unary RPC endpoint with 50 virtual users for 10 seconds, then gate on `p95 <= 200ms` and `errorRate` via a condition node. `GrpcAssertFieldAssertion` has no numeric comparison operators (`<=`/`>=`), so the SLA gate uses a `condition` node instead.
 - **Nodes:**
   1. `start`
-  2. `grpcLoadTest` — `target: "GetUser"`, `vus: 50`, `durationMs: 10000`, `request: { id: 1 }`
-  3. `grpcAssert` — assert `$.loadTestSummary.errorRate <= 1` and `$.loadTestSummary.p95 <= 200`
-  4. `end`
+  2. `grpcLoadTest` — `concurrency: 50`, `durationMs: 10000`, `saveAs: 'loadResult'`
+  3. `condition` — `{{grpc.loadResult.p95Ms}} <= 200` and `{{grpc.loadResult.errorRate}} <= 1`
+     - true → `logDebug` (info) "SLA passed" → `end`
+     - false → `logDebug` (error) "SLA violation — p95 or error rate exceeded" → `end`
 - **Tags:** `grpc`, `load-test`, `performance`, `p95`, `sla`
-- **Purpose:** Teaches the `grpcLoadTest` node — config fields, summary output shape, SLA assertions.
+- **Purpose:** Teaches the `grpcLoadTest` node — config fields, summary output shape, SLA assertions via condition.
 
 ---
 
@@ -198,17 +207,18 @@ The gallery has 7 registered domains (in `src/data/galleries/types.ts` + `regist
 #### WF-GQL-04 · GraphQL Subscription over WebSocket (Medium)
 - **ID:** `sample-graphql-subscription-ws`
 - **Name:** `GraphQL: Subscription over WebSocket`
-- **Category:** graphql
+- **Category:** graphql / event-driven
 - **Difficulty:** medium
-- **Description:** Opens a `graphqlSubscription` node with `subscriptionTransport: 'ws'`. Subscribes to a live event feed (e.g. `subscription { onOrderUpdated { id status } }`), collects up to 3 messages, asserts at least one message was received and `$.messages[0].status` is a valid string. Demonstrates the subscription node as distinct from queries — persistent connection, streamed events, bounded collection.
-- **Nodes:**
+- **Description:** Opens a `graphqlSubscription` node with `subscriptionTransport: 'graphql-ws'` (graphql-ws protocol). Subscribes to a live event feed (`subscription OnOrderUpdated { onOrderUpdated { id status updatedAt } }`), collects up to 5 messages or 15 s of wall time, then branches on whether any events were received.
+- **Nodes (6):**
   1. `start`
-  2. `graphqlSubscription` — `subscriptionTransport: 'ws'`, `subscription { onOrderUpdated { id status } }`, `maxMessages: 3`, `timeoutMs: 10000`
-  3. `condition` — `$.messages.length > 0`
-     - true → `logDebug` "Received {{messages.length}} events" → `end`
-     - false → `errorHandler`
-- **Tags:** `graphql`, `subscription`, `websocket`, `streaming`, `events`
-- **liveApis:** public GraphQL subscription endpoint (e.g. `realtime-demo.graphql.io` or mock)
+  2. `graphqlSubscription` — `subscriptionTransport: 'graphql-ws'`, `stopAfterMessages: 5`, `stopAfterMs: 15000`, binds `messageCount → receivedCount`, `lastMessage → lastEvent`
+  3. `condition` — `{{receivedCount}} > 0`
+     - true → `logDebug` "Received {{receivedCount}} live events via WebSocket" → `end`
+     - false → `logDebug` (warn) "No events received — verify endpoint and transport" → `end`
+- **Note:** The plan originally said `subscriptionTransport: 'ws'`, `maxMessages`, and `timeoutMs` — these are incorrect field names. Actual fields: `subscriptionTransport: 'graphql-ws'`, `stopAfterMessages`, `stopAfterMs`. Also, the plan mentioned `errorHandler` node for the false path — no standalone errorHandler node exists; use `logDebug` (warn) instead.
+- **Tags:** `graphql`, `subscription`, `websocket`, `graphql-ws`, `streaming`, `events`, `real-time`
+- **liveApis:** `(configurable GraphQL subscription endpoint)` — use `http://localhost:4000/graphql` as default
 - **Purpose:** Teaches the `graphqlSubscription` node — key difference from queries, bounded collection, transport choice.
 
 ---
@@ -216,14 +226,15 @@ The gallery has 7 registered domains (in `src/data/galleries/types.ts` + `regist
 #### WF-GQL-05 · GraphQL Subscription over SSE (Medium)
 - **ID:** `sample-graphql-subscription-sse`
 - **Name:** `GraphQL: Subscription over SSE`
-- **Category:** graphql
+- **Category:** graphql / event-driven
 - **Difficulty:** medium
-- **Description:** Same structure as WF-GQL-04 but with `subscriptionTransport: 'sse'`. Some GraphQL servers (e.g. using `graphql-sse`) prefer SSE over WebSocket for subscriptions. This sample shows how to switch transports with a single field change and what `multipart/mixed` or `text/event-stream` SSE delivery looks like in the journal.
-- **Nodes:**
+- **Description:** Same structure as WF-GQL-04 but with `subscriptionTransport: 'sse'`. Some GraphQL servers (e.g. using `graphql-sse`) prefer SSE over WebSocket for subscriptions. Default endpoint uses `/stream` suffix (`http://localhost:4000/graphql/stream`) to illustrate that SSE servers often use a distinct path. Shows how to switch transports with a single field change.
+- **Nodes (6):**
   1. `start`
-  2. `graphqlSubscription` — `subscriptionTransport: 'sse'`, same subscription query, `maxMessages: 3`, `timeoutMs: 10000`
-  3. `condition` + `logDebug` → `end`
-- **Tags:** `graphql`, `subscription`, `sse`, `server-sent-events`, `streaming`
+  2. `graphqlSubscription` — `subscriptionTransport: 'sse'`, same subscription query, `stopAfterMessages: 5`, `stopAfterMs: 15000`
+  3. `condition` + `logDebug` (info / warn) → `end`
+- **Note:** Plan originally said `subscriptionTransport: 'sse'` — this is the correct value for SSE. Endpoint default changed to `http://localhost:4000/graphql/stream` to hint at the typical SSE path convention.
+- **Tags:** `graphql`, `subscription`, `sse`, `server-sent-events`, `streaming`, `real-time`
 - **Purpose:** Shows the `sse` transport variant and how it differs from the WS path — same node type, different transport field.
 
 ---
@@ -587,11 +598,12 @@ Phase A — Infrastructure (1-2 days)
   A4. Create src/data/galleries/websocket/ directory + index.ts scaffold
 
 Phase B — Workflow Samples (3-4 days)
-  B1. Create galleries/workflows/grpc.ts (6 entries: WF-GRPC-01 → WF-GRPC-06)
+  B1. ✅ Create galleries/workflows/grpc.ts (6 entries: WF-GRPC-01 → WF-GRPC-06)
   B2. Create galleries/workflows/websocket.ts (5 entries: WF-WS-01 → WF-WS-05)
   B3. Add WF-GQL-04 + WF-GQL-05 to galleries/workflows/graphql.ts (subscription samples)
-  B4. Register new files in galleries/workflows/index.ts
-  B5. Write unit tests: galleries/workflows/grpc.test.ts, websocket.test.ts
+  B4. ✅ Register new files in galleries/workflows/index.ts (grpc.ts done; websocket/subscription pending)
+  B5. ✅ Write unit tests: galleries/workflows/grpc.test.ts (done); websocket.test.ts pending
+  B6. ✅ Added 'grpc' to SampleCategory + TemplateGalleryModal CATEGORIES filter tab (additive; part of this batch not item 7)
 
 Phase C — Test Gallery Samples (2-3 days)
   C1. Add GraphQL entries to galleries/tests/presets.ts (TG-GQL-01, TG-GQL-02)
