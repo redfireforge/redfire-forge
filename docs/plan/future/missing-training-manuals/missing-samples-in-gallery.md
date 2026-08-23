@@ -600,12 +600,12 @@ Phase C — Test Gallery Samples (2-3 days)
 Phase D — Requests + Assertions + API Mock Samples (2-3 days)
   D1. Add GraphQL request entries to galleries/requests/presets.ts (RQ-GQL-01 → RQ-GQL-03)
   D2. Add GraphQL + gRPC assertion entries to galleries/assertion-presets/presets.ts + index.ts
-  D3. Add createAuthGatedMock() to galleries/api-mock/presets-matching.ts (AM-AUTH-01)
-  D4. Add createGraphQLMock() to galleries/api-mock/presets-matching.ts (AM-GQL-01)
-  D5. Create galleries/api-mock/presets-state.ts with order flow sample (AM-STATE-01)
-  D6. Create galleries/api-mock/presets-webhook.ts with webhook receiver sample (AM-WH-01)
-  D7. Create galleries/api-mock/presets-callbacks.ts with outbound callbacks sample (AM-CALLBACK-01)
-  D8. Register new API mock entries in galleries/api-mock/index.ts
+  D3. ✅ Add createAuthGatedMock() to galleries/api-mock/presets-matching.ts (AM-AUTH-01)
+  D4. ✅ Add createGraphQLMock() to galleries/api-mock/presets-matching.ts (AM-GQL-01)
+  D5. ✅ Create galleries/api-mock/presets-state.ts with order flow sample (AM-STATE-01)
+  D6. ✅ Create galleries/api-mock/presets-webhook.ts with webhook receiver sample (AM-WH-01)
+  D7. ✅ Create galleries/api-mock/presets-callbacks.ts with outbound callbacks sample (AM-CALLBACK-01)
+  D8. ✅ Register new API mock entries in galleries/api-mock/index.ts
   D9. Run gallery-loaded-badge.spec.ts + gallery.spec.ts E2E to verify all new entries render
 
 Phase E — Validation
@@ -624,10 +624,12 @@ Phase E — Validation
 
 | Capability | Engine Support | Gallery Sample |
 |------------|---------------|----------------|
-| Match `POST /graphql` by body `$.query` content | ✅ `body` source + `jsonPath_equals` operator works today | ❌ no sample |
-| Receive inbound webhook POST, inspect payload | ✅ any route captures body; `json_subset` / `jsonPath_equals` predicates work | ❌ no sample |
+| Match `POST /graphql` by body `$.query` content | ✅ `body` source + `jsonPath_equals` operator works today | ✅ `am-gallery-graphql` |
+| Receive inbound webhook POST, inspect payload | ✅ any route captures body; `json_subset` / `jsonPath_equals` predicates work | ✅ `am-gallery-webhook` |
+| Gate routes by Bearer / API Key security predicates | ✅ `security` source with `scheme`/`apiKeyName` operators | ✅ `am-gallery-auth-gated` |
+| Stateful order lifecycle (idle→pending→paid→complete) | ✅ `responseMode: 'state'` + `transition` field | ✅ `am-gallery-order-flow` |
+| Fire outbound callback after match | ✅ Phase 9D `callbacks` field on `ApiMockResponseVariantV1` | ✅ `am-gallery-callbacks` |
 | Verify inbound HMAC signature (`X-Hub-Signature-256`) | ❌ `security` source only covers scheme/username/tokenClaim/apiKey/certSubject — no digest/HMAC operator | — needs new feature |
-| Fire outbound callback after match | ✅ Phase 9D `callbacks` field on `ApiMockResponseVariantV1` | ⚠️ `am-gallery-suite` touches it briefly |
 
 The inbound HMAC gap is a **feature gap** in the engine (`ApiMockPredicateOperator` + `predicateEvaluatorHelpers.ts`), not just a missing sample. Adding it requires a new `hmac_sha256` operator in `contracts.ts`, evaluation logic in `predicateEvaluatorHelpers.ts`, and UI support in `ApiMockRouteEditor`. That work is tracked separately below.
 
