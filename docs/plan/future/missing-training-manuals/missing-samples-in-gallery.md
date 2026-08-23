@@ -36,7 +36,9 @@ The gallery has 7 registered domains (in `src/data/galleries/types.ts` + `regist
 | GraphQL request gallery entries | `requests` domain is REST-only | 🟡 Medium |
 | GraphQL assertion gallery entries | `assertions` domain is REST-only | 🟡 Medium |
 | gRPC assertion gallery entries | `assertions` domain is REST-only | 🟡 Medium |
+| API Mock — Auth-gated routes sample | `security` predicate covers Bearer + API Key today, no sample | 🟡 Medium |
 | API Mock — GraphQL over HTTP sample | Body `jsonPath_equals` on `$.query` works today, no sample | 🟡 Medium |
+| API Mock — Stateful sequence sample | `'state'` mode + `ApiMockStateTransitionV1` exist today, no sample | 🟡 Medium |
 | API Mock — Webhook receiver sample | Capture + body validate works; HMAC signature verify is **not** a predicate operator | 🟡 Medium — partial (no inbound HMAC) |
 
 ---
@@ -547,10 +549,12 @@ Phase C — Test Gallery Samples (2-3 days)
 Phase D — Requests + Assertions + API Mock Samples (2-3 days)
   D1. Add GraphQL request entries to galleries/requests/presets.ts (RQ-GQL-01 → RQ-GQL-03)
   D2. Add GraphQL + gRPC assertion entries to galleries/assertion-presets/presets.ts + index.ts
-  D3. Add createGraphQLMock() to galleries/api-mock/presets-matching.ts (AM-GQL-01)
-  D4. Create galleries/api-mock/presets-webhook.ts with webhook receiver sample (AM-WH-01)
-  D5. Register new API mock entries in galleries/api-mock/index.ts
-  D6. Run gallery-loaded-badge.spec.ts + gallery.spec.ts E2E to verify all new entries render
+  D3. Add createAuthGatedMock() to galleries/api-mock/presets-matching.ts (AM-AUTH-01)
+  D4. Add createGraphQLMock() to galleries/api-mock/presets-matching.ts (AM-GQL-01)
+  D5. Create galleries/api-mock/presets-state.ts with order flow sample (AM-STATE-01)
+  D6. Create galleries/api-mock/presets-webhook.ts with webhook receiver sample (AM-WH-01)
+  D7. Register new API mock entries in galleries/api-mock/index.ts
+  D8. Run gallery-loaded-badge.spec.ts + gallery.spec.ts E2E to verify all new entries render
 
 Phase E — Validation
   E1. npx tsc --noEmit — 0 errors
@@ -577,7 +581,30 @@ The inbound HMAC gap is a **feature gap** in the engine (`ApiMockPredicateOperat
 
 ---
 
-### 6a. GraphQL over HTTP Mock (new entry in `galleries/api-mock/presets-matching.ts`)
+### 6a. Auth-gated Routes (new entry in `galleries/api-mock/presets-matching.ts`)
+
+**1 planned entry:**
+
+---
+
+#### AM-AUTH-01 · Auth-gated API Routes (Easy)
+- **ID:** `am-gallery-auth-gated`
+- **Name:** `Auth-gated routes`
+- **Category:** `matching`
+- **Difficulty:** easy
+- **Description:** Demonstrates the `security` predicate source with two protected endpoints — one requires an OAuth2 Bearer token (`scheme` = `Bearer`), another requires an API Key header (`apiKeyName` present). Each route returns `401 Unauthorized` when auth is missing and `200 OK` with a stub payload when present. A third catch-all route shows how an unprotected public endpoint coexists.
+- **Routes:**
+  1. `GET /api/profile` — predicate: `security scheme exact Bearer` → `{ "id": 1, "name": "Alice" }` (200); variant: `security scheme absent` → `{ "error": "Unauthorized" }` (401)
+  2. `GET /api/data` — predicate: `security apiKeyName present` → `{ "rows": [] }` (200); variant: absent → `{ "error": "API key required" }` (401)
+  3. `GET /api/public` — no auth predicate → `{ "status": "ok" }` (200)
+- **routeCount:** 3
+- **teaches:** `['security-predicate', 'bearer-auth', 'api-key-auth', 'auth-gating', 'conditional-variants']`
+- **Tags:** `auth`, `bearer`, `api-key`, `security`, `oauth2`
+- **Source file:** add `createAuthGatedMock()` to `presets-matching.ts`, register in `index.ts`
+
+---
+
+### 6b. GraphQL over HTTP Mock (new entry in `galleries/api-mock/presets-matching.ts`)
 
 **1 planned entry:**
 
@@ -600,13 +627,39 @@ The inbound HMAC gap is a **feature gap** in the engine (`ApiMockPredicateOperat
 
 ---
 
-### 6b. Webhook Receiver (new file `galleries/api-mock/presets-webhook.ts`)
+### 6c. Stateful Sequence — Order Flow (new file `galleries/api-mock/presets-state.ts`)
+
+**1 planned entry:**
+
+---
+
+#### AM-STATE-01 · Stateful Order Flow (Medium)
+- **ID:** `am-gallery-order-flow`
+- **Name:** `Stateful order flow`
+- **Category:** `simulation`
+- **Difficulty:** medium
+- **Description:** Models a three-step order lifecycle using `responseMode: 'state'` and `ApiMockStateTransitionV1`. The mock server tracks a `orderState` key across requests. Calling `POST /orders` transitions from `idle` → `pending`, `POST /orders/:id/pay` transitions `pending` → `paid`, `GET /orders/:id` returns a different status body depending on the current state. Demonstrates stateful API mocking without any external database.
+- **Routes:**
+  1. `POST /orders` — variant with `transition: { targetState: 'pending' }` → `{ "id": "ord-1", "status": "pending" }` (201)
+  2. `POST /orders/:id/pay` — predicate: `stateKey = 'pending'`; transition → `paid`; response `{ "status": "paid" }` (200). Second variant: `stateKey` not pending → `{ "error": "order not in pending state" }` (409)
+  3. `POST /orders/:id/confirm` — predicate: `stateKey = 'paid'`; transition → `complete`; response `{ "status": "complete", "receipt": "REC-001" }` (200)
+  4. `GET /orders/:id` — three conditional variants returning `{ "status": "pending" | "paid" | "complete" }` based on current state
+- **routeCount:** 4
+- **teaches:** `['state-mode', 'state-transitions', 'lifecycle-mocking', 'conditional-variants', 'stateKey-predicate']`
+- **Tags:** `state`, `sequence`, `order`, `lifecycle`, `stateful`
+- **Source file:** create `presets-state.ts`, register in `index.ts`
+
+---
+
+### 6d. Webhook Receiver (new file `galleries/api-mock/presets-webhook.ts`)
 
 **1 planned entry (partial — no HMAC until engine supports it):**
 
 ---
 
 #### AM-WH-01 · Webhook Receiver (Medium)
+
+> Formerly listed as `6b` — renumbered to `6d` after adding Auth-gated and Stateful samples above.
 - **ID:** `am-gallery-webhook`
 - **Name:** `Webhook receiver`
 - **Category:** `matching`
@@ -623,7 +676,7 @@ The inbound HMAC gap is a **feature gap** in the engine (`ApiMockPredicateOperat
 
 ---
 
-### 6c. Engine Feature Gap — Inbound HMAC Signature Verification
+### 6e. Engine Feature Gap — Inbound HMAC Signature Verification
 
 This is a **missing feature**, not just a missing sample. Implementing it requires changes across 4 layers:
 
@@ -652,9 +705,11 @@ Once implemented, the webhook receiver sample (AM-WH-01) can be upgraded with a 
 | Requests (GraphQL) | 3 | D |
 | Assertions (GraphQL) | 2 | D |
 | Assertions (gRPC) | 2 | D |
+| API Mock (Auth-gated routes) | 1 | D |
 | API Mock (GraphQL over HTTP) | 1 | D |
+| API Mock (Stateful order flow) | 1 | D |
 | API Mock (Webhook receiver) | 1 | D |
-| **Total** | **26** | |
+| **Total** | **28** | |
 
 ### Engine Feature Required Before Full Webhook Sample
 
