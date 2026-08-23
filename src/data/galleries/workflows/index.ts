@@ -9,7 +9,7 @@ import { createPokemonEvolutionWorkflow, createCountryCurrencyWorkflow, createPr
 import { createPerfSimpleWorkflow, createPerfBranchingWorkflow, createPerfParallelWorkflow, createPerfEdgePercentageWorkflow, createPerfBottleneckDemoWorkflow } from './performance';
 import { createParallelShowcaseWorkflow } from './parallelShowcase';
 import { createKafkaProduceWorkflow, createKafkaTriggerWorkflow, createKafkaEventPipelineWorkflow, createKafkaAsyncCorrelationWorkflow } from './kafka';
-import { createGraphqlHealthCheckWorkflow, createGraphqlECommerceFlowWorkflow, createGraphqlSchemaWatchdogWorkflow, createGraphqlUserCrudWorkflow } from './graphql';
+import { createGraphqlHealthCheckWorkflow, createGraphqlECommerceFlowWorkflow, createGraphqlSchemaWatchdogWorkflow, createGraphqlUserCrudWorkflow, createGraphqlSubscriptionWsWorkflow, createGraphqlSubscriptionSseWorkflow } from './graphql';
 import { createGrpcHealthCheckWorkflow, createGrpcUserLookupWorkflow, createGrpcServerStreamWorkflow, createGrpcCrudWorkflow, createGrpcSchemaDiffWorkflow, createGrpcLoadTestWorkflow } from './grpc';
 import { createWsEchoPingWorkflow, createWsJsonExchangeWorkflow, createWsChatFlowWorkflow, createWsTriggerWorkflow, createWsHttpHybridWorkflow } from './websocket';
 import type { SampleWorkflowEntry } from './types';
@@ -24,7 +24,7 @@ export { createPokemonEvolutionWorkflow, createCountryCurrencyWorkflow, createPr
 export { createPerfSimpleWorkflow, createPerfBranchingWorkflow, createPerfParallelWorkflow, createPerfEdgePercentageWorkflow } from './performance';
 export { createParallelShowcaseWorkflow } from './parallelShowcase';
 export { createKafkaProduceWorkflow, createKafkaTriggerWorkflow, createKafkaEventPipelineWorkflow, createKafkaAsyncCorrelationWorkflow } from './kafka';
-export { createGraphqlHealthCheckWorkflow, createGraphqlECommerceFlowWorkflow, createGraphqlSchemaWatchdogWorkflow, createGraphqlUserCrudWorkflow } from './graphql';
+export { createGraphqlHealthCheckWorkflow, createGraphqlECommerceFlowWorkflow, createGraphqlSchemaWatchdogWorkflow, createGraphqlUserCrudWorkflow, createGraphqlSubscriptionWsWorkflow, createGraphqlSubscriptionSseWorkflow } from './graphql';
 export { createGrpcHealthCheckWorkflow, createGrpcUserLookupWorkflow, createGrpcServerStreamWorkflow, createGrpcCrudWorkflow, createGrpcSchemaDiffWorkflow, createGrpcLoadTestWorkflow } from './grpc';
 export { createWsEchoPingWorkflow, createWsJsonExchangeWorkflow, createWsChatFlowWorkflow, createWsTriggerWorkflow, createWsHttpHybridWorkflow } from './websocket';
 
@@ -723,6 +723,36 @@ export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
     primaryNodes: ['GraphqlMutation', 'GraphqlQuery', 'GraphqlAssert'],
     secondaryNodes: ['Start', 'End'],
     factory: createGraphqlUserCrudWorkflow,
+  },
+  {
+    id: 'sample-graphql-subscription-ws',
+    name: 'GraphQL: Subscription over WebSocket',
+    description: 'Subscribes to a live event feed via graphql-ws, collects up to 5 messages or 15 s, then branches on whether any events were received',
+    domain: 'workflows',
+    tags: ['graphql', 'subscription', 'websocket', 'graphql-ws', 'streaming', 'events', 'real-time'],
+    liveApis: ['(configurable GraphQL subscription endpoint)'],
+    category: 'event-driven',
+    difficulty: 'medium',
+    icon: '📡',
+    nodeCount: 6,
+    primaryNodes: ['GraphqlSubscription'],
+    secondaryNodes: ['Start', 'Condition', 'Log', 'End'],
+    factory: createGraphqlSubscriptionWsWorkflow,
+  },
+  {
+    id: 'sample-graphql-subscription-sse',
+    name: 'GraphQL: Subscription over SSE',
+    description: 'Same subscription pattern as the WebSocket variant but uses SSE transport — demonstrates the single-field difference between transport modes',
+    domain: 'workflows',
+    tags: ['graphql', 'subscription', 'sse', 'server-sent-events', 'streaming', 'real-time'],
+    liveApis: ['(configurable GraphQL subscription endpoint)'],
+    category: 'event-driven',
+    difficulty: 'medium',
+    icon: '📶',
+    nodeCount: 6,
+    primaryNodes: ['GraphqlSubscription'],
+    secondaryNodes: ['Start', 'Condition', 'Log', 'End'],
+    factory: createGraphqlSubscriptionSseWorkflow,
   },
 
   // ── gRPC Workflow Samples ────────────────────────────────────────────────
