@@ -9,8 +9,42 @@
  */
 import { build } from 'esbuild';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, copyFileSync, writeFileSync, rmSync, statSync, chmodSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, copyFileSync, writeFileSync, rmSync, statSync, chmodSync, readFileSync } from 'node:fs';
+import { join, resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+const TS_EXTS = ['.ts', '.tsx', '/index.ts', '/index.tsx'];
+
+function isFile(p) {
+  try { return statSync(p).isFile(); } catch { return false; }
+}
+
+// Resolves tsconfig path aliases (e.g. @shared/*, @engine/*) for esbuild.
+function tsconfigPathsPlugin() {
+  const tsconfig = JSON.parse(readFileSync(join(ROOT, 'tsconfig.server.json'), 'utf8'));
+  const paths = tsconfig.compilerOptions?.paths ?? {};
+  return {
+    name: 'tsconfig-paths',
+    setup(build) {
+      for (const [alias, [target]] of Object.entries(paths)) {
+        if (!alias.endsWith('/*')) continue;
+        const prefix = alias.slice(0, -2);
+        const targetDir = join(ROOT, target.slice(0, -2));
+        const filter = new RegExp(`^${prefix.replace(/[.+^${}()|[\]\\]/g, '\\$&')}/`);
+        build.onResolve({ filter }, args => {
+          const base = join(targetDir, args.path.slice(prefix.length + 1));
+          for (const ext of TS_EXTS) {
+            const candidate = base + ext;
+            if (isFile(candidate)) return { path: candidate };
+          }
+          // No match — let esbuild fall back (e.g. for scoped npm packages like @grpc/grpc-js).
+        });
+      }
+    },
+  };
+}
 
 const OUT_DIR = 'src-tauri/binaries';
 const WORK = 'dist-server';
@@ -47,6 +81,7 @@ await build({
   // `import.meta.url` is empty in CJS; several modules use it via createRequire.
   define: { 'import.meta.url': '__IMPORT_META_URL__' },
   banner: { js: "const __IMPORT_META_URL__=require('url').pathToFileURL(__filename).href;" },
+  plugins: [tsconfigPathsPlugin()],
   logLevel: 'warning',
 });
 console.log(`bundled  ${BUNDLE} (${(statSync(BUNDLE).size / 1e6).toFixed(1)} MB)`);
