@@ -15,10 +15,10 @@ The gallery has 7 registered domains (in `src/data/galleries/types.ts` + `regist
 | Requests | `requests` | `galleries/requests/presets.ts` (13 entries) |
 | API Catalog | `catalog` | `galleries/catalog-specs/specs/*.ts` (8 public APIs) |
 | Tests | `tests` | `galleries/tests/presets.ts`, `presets-advanced.ts`, `parameterizedPresets.ts`, `sharedDataSourcePresets.ts` |
-| Workflows | `workflows` | `galleries/workflows/*.ts` (~30 entries across api-patterns, flow-control, event-driven, orchestration, script, async-correlation, diverse-apis, performance, parallel, kafka, graphql) |
+| Workflows | `workflows` | `galleries/workflows/*.ts` (~30 entries across api-patterns, flow-control, event-driven, orchestration, script, async-correlation, diverse-apis, performance, parallel, kafka, graphql — **0 for gRPC, WebSocket, or GraphQL subscriptions**) |
 | Assertions | `assertions` | `galleries/assertion-presets/index.ts` (7 entries) |
-| Data Mapper | `data-mapper` | `galleries/data-mapper/presets.ts` |
-| API Mock | `api-mock` | `galleries/api-mock/presets-*.ts` |
+| Data Mapper | `data-mapper` | `galleries/data-mapper/presets.ts` (52 entries — well covered) |
+| API Mock | `api-mock` | `galleries/api-mock/presets-*.ts` (16 entries — missing auth-gated, GraphQL, stateful, webhook, outbound callbacks) |
 
 ---
 
@@ -28,6 +28,7 @@ The gallery has 7 registered domains (in `src/data/galleries/types.ts` + `regist
 |----------|------|----------|
 | gRPC workflow samples | Missing entries in existing `workflows` domain | 🔴 High — node types exist, 0 samples |
 | WebSocket workflow samples | Missing entries in existing `workflows` domain | 🔴 High — node types exist, 0 samples |
+| **GraphQL Subscription workflow samples** | `graphqlSubscription` node supports `subscriptionTransport: 'ws'\|'sse'`; `graphql.ts` has 3 query/mutation samples but 0 subscription samples | 🔴 High — major node type, 0 samples |
 | gRPC gallery domain | `GalleryDomain` type + registry missing `'grpc'` | 🔴 High — blocks standalone gRPC samples |
 | WebSocket gallery domain | `GalleryDomain` type + registry missing `'websocket'` | 🔴 High — blocks standalone WS samples |
 | GraphQL test gallery entries | `tests` domain has 0 GraphQL scenario tests | 🟡 Medium |
@@ -40,6 +41,7 @@ The gallery has 7 registered domains (in `src/data/galleries/types.ts` + `regist
 | API Mock — GraphQL over HTTP sample | Body `jsonPath_equals` on `$.query` works today, no sample | 🟡 Medium |
 | API Mock — Stateful sequence sample | `'state'` mode + `ApiMockStateTransitionV1` exist today, no sample | 🟡 Medium |
 | API Mock — Webhook receiver sample | Capture + body validate works; HMAC signature verify is **not** a predicate operator | 🟡 Medium — partial (no inbound HMAC) |
+| API Mock — Outbound callbacks sample | Phase 9D `callbacks` field exists; `am-gallery-suite` only touches it briefly — no focused teaching sample | 🟡 Medium |
 
 ---
 
@@ -66,6 +68,15 @@ The gallery has 7 registered domains (in `src/data/galleries/types.ts` + `regist
 | `wsSend` | Send a text/binary message over an existing connection |
 | `wsReceive` | Wait for and capture an incoming message (with match criteria) |
 | `wsTrigger` | Entry-point trigger — waits for an inbound WS message to start the workflow |
+
+**GraphQL node types** (existing — `graphRunnerGraphqlNodeHandlers.ts` + `graphRunnerGraphqlSubscriptionHandler.ts`):
+
+| Node Type | Description |
+|-----------|-------------|
+| `graphqlQuery` | Single GraphQL query or mutation (HTTP POST) |
+| `graphqlIntrospect` | Schema introspection |
+| `graphqlSchemaDiff` | Schema diff / watchdog |
+| `graphqlSubscription` | Long-lived subscription; `subscriptionTransport: 'ws' \| 'sse'` — **0 gallery samples** |
 
 ---
 
@@ -175,6 +186,45 @@ The gallery has 7 registered domains (in `src/data/galleries/types.ts` + `regist
   4. `end`
 - **Tags:** `grpc`, `load-test`, `performance`, `p95`, `sla`
 - **Purpose:** Teaches the `grpcLoadTest` node — config fields, summary output shape, SLA assertions.
+
+---
+
+### 1c. GraphQL Subscription Workflow Samples (new entries in `galleries/workflows/graphql.ts`)
+
+**2 planned entries** (added to the existing `graphql.ts` file which already has 3 query/mutation samples):
+
+---
+
+#### WF-GQL-04 · GraphQL Subscription over WebSocket (Medium)
+- **ID:** `sample-graphql-subscription-ws`
+- **Name:** `GraphQL: Subscription over WebSocket`
+- **Category:** graphql
+- **Difficulty:** medium
+- **Description:** Opens a `graphqlSubscription` node with `subscriptionTransport: 'ws'`. Subscribes to a live event feed (e.g. `subscription { onOrderUpdated { id status } }`), collects up to 3 messages, asserts at least one message was received and `$.messages[0].status` is a valid string. Demonstrates the subscription node as distinct from queries — persistent connection, streamed events, bounded collection.
+- **Nodes:**
+  1. `start`
+  2. `graphqlSubscription` — `subscriptionTransport: 'ws'`, `subscription { onOrderUpdated { id status } }`, `maxMessages: 3`, `timeoutMs: 10000`
+  3. `condition` — `$.messages.length > 0`
+     - true → `logDebug` "Received {{messages.length}} events" → `end`
+     - false → `errorHandler`
+- **Tags:** `graphql`, `subscription`, `websocket`, `streaming`, `events`
+- **liveApis:** public GraphQL subscription endpoint (e.g. `realtime-demo.graphql.io` or mock)
+- **Purpose:** Teaches the `graphqlSubscription` node — key difference from queries, bounded collection, transport choice.
+
+---
+
+#### WF-GQL-05 · GraphQL Subscription over SSE (Medium)
+- **ID:** `sample-graphql-subscription-sse`
+- **Name:** `GraphQL: Subscription over SSE`
+- **Category:** graphql
+- **Difficulty:** medium
+- **Description:** Same structure as WF-GQL-04 but with `subscriptionTransport: 'sse'`. Some GraphQL servers (e.g. using `graphql-sse`) prefer SSE over WebSocket for subscriptions. This sample shows how to switch transports with a single field change and what `multipart/mixed` or `text/event-stream` SSE delivery looks like in the journal.
+- **Nodes:**
+  1. `start`
+  2. `graphqlSubscription` — `subscriptionTransport: 'sse'`, same subscription query, `maxMessages: 3`, `timeoutMs: 10000`
+  3. `condition` + `logDebug` → `end`
+- **Tags:** `graphql`, `subscription`, `sse`, `server-sent-events`, `streaming`
+- **Purpose:** Shows the `sse` transport variant and how it differs from the WS path — same node type, different transport field.
 
 ---
 
@@ -536,8 +586,9 @@ Phase A — Infrastructure (1-2 days)
 Phase B — Workflow Samples (3-4 days)
   B1. Create galleries/workflows/grpc.ts (6 entries: WF-GRPC-01 → WF-GRPC-06)
   B2. Create galleries/workflows/websocket.ts (5 entries: WF-WS-01 → WF-WS-05)
-  B3. Register both files in galleries/workflows/index.ts
-  B4. Write unit tests: galleries/workflows/grpc.test.ts, websocket.test.ts
+  B3. Add WF-GQL-04 + WF-GQL-05 to galleries/workflows/graphql.ts (subscription samples)
+  B4. Register new files in galleries/workflows/index.ts
+  B5. Write unit tests: galleries/workflows/grpc.test.ts, websocket.test.ts
 
 Phase C — Test Gallery Samples (2-3 days)
   C1. Add GraphQL entries to galleries/tests/presets.ts (TG-GQL-01, TG-GQL-02)
@@ -553,8 +604,9 @@ Phase D — Requests + Assertions + API Mock Samples (2-3 days)
   D4. Add createGraphQLMock() to galleries/api-mock/presets-matching.ts (AM-GQL-01)
   D5. Create galleries/api-mock/presets-state.ts with order flow sample (AM-STATE-01)
   D6. Create galleries/api-mock/presets-webhook.ts with webhook receiver sample (AM-WH-01)
-  D7. Register new API mock entries in galleries/api-mock/index.ts
-  D8. Run gallery-loaded-badge.spec.ts + gallery.spec.ts E2E to verify all new entries render
+  D7. Create galleries/api-mock/presets-callbacks.ts with outbound callbacks sample (AM-CALLBACK-01)
+  D8. Register new API mock entries in galleries/api-mock/index.ts
+  D9. Run gallery-loaded-badge.spec.ts + gallery.spec.ts E2E to verify all new entries render
 
 Phase E — Validation
   E1. npx tsc --noEmit — 0 errors
@@ -676,7 +728,29 @@ The inbound HMAC gap is a **feature gap** in the engine (`ApiMockPredicateOperat
 
 ---
 
-### 6e. Engine Feature Gap — Inbound HMAC Signature Verification
+### 6e. Outbound Callbacks (new entry in `galleries/api-mock/presets-simulation.ts` or new file `presets-callbacks.ts`)
+
+**1 planned entry:**
+
+---
+
+#### AM-CALLBACK-01 · Outbound Callbacks After Match (Medium)
+- **ID:** `am-gallery-callbacks`
+- **Name:** `Outbound callbacks`
+- **Category:** `simulation`
+- **Difficulty:** medium
+- **Description:** Demonstrates the Phase 9D `callbacks` field on `ApiMockResponseVariantV1`. When `POST /checkout` is matched, the mock delivers a `200` response **and** fires a fire-and-forget `POST` to a configured webhook URL with a templated payload. A second route shows callback retry configuration (`maxRetries: 3`, `retryDelayMs: 500`). The sample uses `{{body.orderId}}` template interpolation in the callback body so the outbound event mirrors the inbound request data.
+- **Routes:**
+  1. `POST /checkout` — response: `{ "received": true }` (200); `callbacks: [{ url: "https://example.com/notify", method: "POST", body: "{ \"event\": \"checkout\", \"orderId\": \"{{body.orderId}}\" }" }]`
+  2. `POST /checkout/retry` — same response; `callbacks` with `maxRetries: 3`, `retryDelayMs: 500` to demonstrate retry config
+- **routeCount:** 2
+- **teaches:** `['callbacks', 'outbound-webhook', 'template-interpolation', 'fire-and-forget', 'retry-config']`
+- **Tags:** `callbacks`, `webhook`, `outbound`, `template`, `phase-9d`
+- **Source file:** add `createCallbacksMock()` to `presets-simulation.ts` or new `presets-callbacks.ts`, register in `index.ts`
+
+---
+
+### 6f. Engine Feature Gap — Inbound HMAC Signature Verification
 
 This is a **missing feature**, not just a missing sample. Implementing it requires changes across 4 layers:
 
@@ -699,6 +773,7 @@ Once implemented, the webhook receiver sample (AM-WH-01) can be upgraded with a 
 |--------|-------------|-------|
 | Workflows (gRPC) | 6 | B |
 | Workflows (WebSocket) | 5 | B |
+| **Workflows (GraphQL Subscription)** | **2** | **B** |
 | Tests (GraphQL) | 2 | C |
 | Tests (gRPC) | 2 | C |
 | Tests (WebSocket) | 2 | C |
@@ -709,7 +784,8 @@ Once implemented, the webhook receiver sample (AM-WH-01) can be upgraded with a 
 | API Mock (GraphQL over HTTP) | 1 | D |
 | API Mock (Stateful order flow) | 1 | D |
 | API Mock (Webhook receiver) | 1 | D |
-| **Total** | **28** | |
+| **API Mock (Outbound callbacks)** | **1** | **D** |
+| **Total** | **31** | |
 
 ### Engine Feature Required Before Full Webhook Sample
 
