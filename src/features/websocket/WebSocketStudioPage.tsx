@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useWebSocketProfiles } from '../../app/hooks/useWebSocketProfiles';
-import { useWebSocketTemplates } from '../../app/hooks/useWebSocketTemplates';
-import { useWebSocketHistory } from '../../app/hooks/useWebSocketHistory';
+import { useWebSocketProfiles } from '@app/hooks/useWebSocketProfiles';
+import { useWebSocketTemplates } from '@app/hooks/useWebSocketTemplates';
+import { useWebSocketHistory } from '@app/hooks/useWebSocketHistory';
 import {
   WsConnectionTabBar,
   type ConnectionStateHint,

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
-import type { ConfirmOptions } from '../../app/hooks/useConfirmDialog';
+import type { ConfirmOptions } from '@app/hooks/useConfirmDialog';
 import {
   deleteServersFromLibrary,
   formatDeleteServersMessage,

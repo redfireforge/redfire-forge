@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { selectOption, getCustomSelectValue } from '@test-utils/customSelectHelper';
 import { KafkaSchemaRegistryPage } from './KafkaSchemaRegistryPage';
-import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
+import type { UseKafkaStateReturn } from '@app/hooks/useKafkaState';
 
 function makeKafkaState(overrides?: Partial<UseKafkaStateReturn>): UseKafkaStateReturn {
   return {

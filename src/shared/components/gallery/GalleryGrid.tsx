@@ -13,7 +13,7 @@ import {
 } from './galleryFiltersUtils';
 import { GalleryDetailPanel } from './GalleryDetailPanel';
 import { TrainingPathsView } from './TrainingPathsView';
-import { useSidebarResize } from '../../../app/hooks/useSidebarResize';
+import { useSidebarResize } from '@app/hooks/useSidebarResize';
 
 type LabelProp<T> = string | ((entry: GalleryEntry<T>) => string | undefined);
 

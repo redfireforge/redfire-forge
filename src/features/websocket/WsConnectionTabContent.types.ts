@@ -9,8 +9,8 @@ import type {
   WsConnectionHistoryEntry,
   WsProtocolMode,
 } from '@shared/websocket/types';
-import type { UseWebSocketProfilesReturn } from '../../app/hooks/useWebSocketProfiles';
-import type { UseWebSocketTemplatesReturn } from '../../app/hooks/useWebSocketTemplates';
+import type { UseWebSocketProfilesReturn } from '@app/hooks/useWebSocketProfiles';
+import type { UseWebSocketTemplatesReturn } from '@app/hooks/useWebSocketTemplates';
 import type { ConnectionStateHint } from './WsConnectionTabBar';
 
 export interface WsConnectionTabContentHandle {

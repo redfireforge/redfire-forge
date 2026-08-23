@@ -7,7 +7,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { selectOption, getCustomSelectValue } from '@test-utils/customSelectHelper';
 
-import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
+import type { UseKafkaStateReturn } from '@app/hooks/useKafkaState';
 import KafkaSettingsPage from './KafkaSettingsPage';
 
 vi.mock('../../shared/utils/fileSaver', () => ({

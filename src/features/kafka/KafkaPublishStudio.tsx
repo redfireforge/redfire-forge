@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { CustomSelect } from '@shared/components/CustomSelect';
 import { useListCrud } from '@shared/hooks/useListCrud';
 import KafkaSchemaConfigSection from '../workflow/components/configs/KafkaSchemaConfigSection';
-import type { UseKafkaMessageStudioReturn } from '../../app/hooks/useKafkaMessageStudio';
+import type { UseKafkaMessageStudioReturn } from '@app/hooks/useKafkaMessageStudio';
 import type { KafkaPublishTemplate } from '@shared/kafka/kafkaStorage';
 import type { KafkaSerdeFormat } from './types';
 import { validateBase64, validateHex } from './kafkaMessageStudioUtils';
