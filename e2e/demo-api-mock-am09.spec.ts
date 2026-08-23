@@ -68,6 +68,26 @@ async function expectWatchedRenderedBody(page: Page, pattern: RegExp): Promise<v
   ).toMatch(pattern);
 }
 
+async function watchSimulateOutcomes(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const w = window as Window & { __amSimOutcomes?: string[] };
+    w.__amSimOutcomes = [];
+    const take = () => {
+      const text = document.querySelector('[data-testid="api-mock-sim-outcome"]')?.textContent?.trim() ?? '';
+      if (text && w.__amSimOutcomes?.at(-1) !== text) w.__amSimOutcomes?.push(text);
+    };
+    take();
+    new MutationObserver(take).observe(document.documentElement, { subtree: true, childList: true, characterData: true });
+  });
+}
+
+async function expectWatchedSimulateOutcome(page: Page, pattern: RegExp): Promise<void> {
+  await expect.poll(
+    async () => page.evaluate(() => (window as Window & { __amSimOutcomes?: string[] }).__amSimOutcomes?.join('\n') ?? ''),
+    { timeout: AM_LESSON_STEP_TIMEOUT },
+  ).toMatch(pattern);
+}
+
 test.describe('Demo lesson AM-09 — Conflict Inspector: Four Overlap Kinds', () => {
   test.beforeEach(async ({ page, request }) => {
     await prepareApiMockLessonRun(page, request);
@@ -136,10 +156,9 @@ test.describe('Demo lesson AM-09 — Conflict Inspector: Four Overlap Kinds', ()
 
     await launchApiMockLesson(page, AM_LESSON_NAMES.am09);
     await advanceSteps(page, 2, AM_LESSON_STEP_TIMEOUT);
+    await watchSimulateOutcomes(page);
     const acting = completeCurrentStepAction(page, AM_LESSON_STEP_TIMEOUT);
-    await expect(page.locator(API_MOCK.SIMULATE_RENDERED_BODY)).toContainText(/ambiguous/i, {
-      timeout: AM_LESSON_STEP_TIMEOUT,
-    });
+    await expectWatchedSimulateOutcome(page, /ambiguous/i);
     await acting;
 
     await expect(page.locator(API_MOCK.SIMULATE_WORKSPACE)).toHaveCount(0, {

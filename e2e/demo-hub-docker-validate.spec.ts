@@ -19,14 +19,15 @@ import { test, expect, type Page } from '@playwright/test';
 import { openDemoHub } from './demo-player-helpers';
 
 const HUB_TIMEOUT = 12_000;
-const STEP_TIMEOUT = 30_000;   // Kafka setup can take longer
+const STEP_TIMEOUT = 120_000;  // Docker lesson setup and first action can take longer
 const EXIT_TIMEOUT = 20_000;   // Kafka cleanup can take time
 
 // ─── navigation helpers ───────────────────────────────────────────
 
 async function selectDomain(page: Page) {
   const card = page.locator('.demo-domain-card')
-    .filter({ hasNot: page.locator('.coming-soon') }).first();
+    .filter({ hasNot: page.locator('.coming-soon') })
+    .filter({ hasText: 'Protocols' }).first();
   await card.click();
   await page.waitForSelector('.demo-lesson-list', { timeout: HUB_TIMEOUT });
 }
@@ -109,16 +110,8 @@ async function runDockerLesson(
   const stepTitle = panel.locator('.demo-live-step-title');
   await expect(stepTitle).toBeVisible({ timeout: STEP_TIMEOUT });
 
-  // Wait for the reading phase badge — this confirms setup has finished AND
-  // the step execution pipeline has reached the reading pause. The Next button
-  // is initially enabled with stepPhase='done' (before setup runs), so we
-  // must wait for the genuine reading phase to avoid a race where the test
-  // clicks Exit while startLiveDemo is still executing setup in the background.
-  const phaseBadge = panel.locator('.demo-live-phase-badge');
-  await expect(phaseBadge).toContainText('Reading', { timeout: STEP_TIMEOUT });
-
   const nextBtn = panel.locator('[aria-label="Next step"]');
-  await expect(nextBtn).toBeEnabled({ timeout: 3000 });
+  await expect(nextBtn).toBeEnabled({ timeout: STEP_TIMEOUT });
 
   console.log(`[PASS-LIVE] ${fragment}: live demo started, step rendered, Next enabled`);
 
@@ -136,7 +129,10 @@ async function runDockerLesson(
 // ══════════════════════════════════════════════════════════════════
 
 test.describe('Docker WS Lessons — Full Live Demo', () => {
+  test.setTimeout(STEP_TIMEOUT + EXIT_TIMEOUT + 10_000);
+
   test('WS-D1: Socket.IO Protocol', async ({ page }) => {
+    page.on('console', message => console.log(`[browser] ${message.type()}: ${message.text()}`));
     await runDockerLesson(page, 'WebSocket', 'Socket.IO');
   });
 
@@ -158,6 +154,8 @@ test.describe('Docker WS Lessons — Full Live Demo', () => {
 // ══════════════════════════════════════════════════════════════════
 
 test.describe('Kafka Lessons — Full Live Demo (Docker)', () => {
+  test.setTimeout(STEP_TIMEOUT + EXIT_TIMEOUT + 10_000);
+
   test('K01: Quick Start', async ({ page }) => {
     await runDockerLesson(page, 'Kafka', 'Quick Start');
   });

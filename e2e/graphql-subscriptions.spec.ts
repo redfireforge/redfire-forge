@@ -18,6 +18,15 @@ import {
   subscriptionQuery,
 } from './graphql-helpers';
 
+/** Select a value in a CustomSelect (div-based, not native <select>). */
+async function selectCustomTransport(page: import('@playwright/test').Page, value: string) {
+  const wrapper = page.locator('[data-testid="gql-transport-select"]');
+  await wrapper.locator('.cs-trigger').click();
+  const menu = page.locator('.cs-menu');
+  await menu.waitFor({ state: 'visible', timeout: 5_000 });
+  await menu.locator(`.cs-item[data-value="${value}"]`).click();
+}
+
 test.describe.configure({ mode: 'serial', timeout: 90_000 });
 
 let serverAvailable = false;
@@ -40,7 +49,7 @@ test('subscription receives PENDING → PROCESSING → COMPLETE for created orde
   const orderId = await createTestOrder(request);
 
   await fillMonacoEditor(page, subscriptionQuery(orderId));
-  await page.locator('[data-testid="gql-transport-select"]').selectOption('graphql-transport-ws');
+  await selectCustomTransport(page, 'graphql-transport-ws');
   await expect(page.locator('[data-testid="gql-subscribe-btn"]')).toBeVisible({ timeout: 5_000 });
 
   await page.locator('[data-testid="gql-subscribe-btn"]').click();
@@ -60,7 +69,7 @@ test('subscription stats show message count after stream completes', async ({ pa
   const orderId = await createTestOrder(request);
 
   await fillMonacoEditor(page, subscriptionQuery(orderId));
-  await page.locator('[data-testid="gql-transport-select"]').selectOption('graphql-transport-ws');
+  await selectCustomTransport(page, 'graphql-transport-ws');
   await page.locator('[data-testid="gql-subscribe-btn"]').click();
   await expect(page.locator('[data-testid="gql-sub-stats-bar"]')).toBeVisible({ timeout: 10_000 });
   await expect(page.locator('[data-testid="gql-sub-stats-bar"]')).toContainText('3', { timeout: 15_000 });
@@ -70,7 +79,7 @@ test('stream toolbar re-subscribe stays live long enough for pause control', asy
   const orderId = await createTestOrder(request);
 
   await fillMonacoEditor(page, subscriptionQuery(orderId));
-  await page.locator('[data-testid="gql-transport-select"]').selectOption('graphql-transport-ws');
+  await selectCustomTransport(page, 'graphql-transport-ws');
   await page.locator('[data-testid="gql-subscribe-btn"]').click();
 
   await expect(page.locator('[data-testid="gql-sub-message-list"]')).toContainText('COMPLETE', { timeout: 20_000 });
