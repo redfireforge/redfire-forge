@@ -624,8 +624,8 @@ Phase A — Infrastructure (1-2 days)
 Phase B — Workflow Samples (3-4 days)
   B1. ✅ Create galleries/workflows/grpc.ts (6 entries: WF-GRPC-01 → WF-GRPC-06)
   B2. ✅ Create galleries/workflows/websocket.ts (5 entries: WF-WS-01 → WF-WS-05)
-  B3. Add WF-GQL-04 + WF-GQL-05 to galleries/workflows/graphql.ts (subscription samples)
-  B4. ✅ Register new files in galleries/workflows/index.ts (grpc.ts + websocket.ts done; subscription pending)
+  B3. ✅ Add WF-GQL-04 + WF-GQL-05 to galleries/workflows/graphql.ts (subscription samples)
+  B4. ✅ Register new files in galleries/workflows/index.ts (all done: grpc.ts, websocket.ts, subscription entries)
   B5. ✅ Write unit tests: galleries/workflows/grpc.test.ts + websocket.test.ts done
   B6. ✅ Added 'grpc' + 'websocket' to SampleCategory + TemplateGalleryModal CATEGORIES filter tabs
 
