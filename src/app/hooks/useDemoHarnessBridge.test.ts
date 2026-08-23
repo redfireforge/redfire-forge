@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import type { Environment, Microservice, FeatureGroup } from '../../shared/types';
+import type { Environment, Microservice, FeatureGroup } from '@shared/types';
 import { useDemoHarnessBridge } from './useDemoHarnessBridge';
 
 vi.mock('../../shared/utils/storage');

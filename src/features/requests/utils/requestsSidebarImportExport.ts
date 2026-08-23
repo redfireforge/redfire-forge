@@ -1,9 +1,9 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { RequestCollection, RequestFolder } from '../../../shared/types';
+import type { RequestCollection, RequestFolder } from '@shared/types';
 import { findFolderDeep, collectGroupIds } from './requestTree';
-import { saveJsonFile, openJsonFile } from '../../../shared/utils/fileSaver';
-import { isTauri } from '../../../shared/utils/platform';
-import { tryParseJson } from '../../../shared/utils/helpers';
+import { saveJsonFile, openJsonFile } from '@shared/utils/fileSaver';
+import { isTauri } from '@shared/utils/platform';
+import { tryParseJson } from '@shared/utils/helpers';
 
 export interface ToastLike {
   show: (level: 'success' | 'error' | 'warning' | 'info', title: string, subtitle?: string) => void;

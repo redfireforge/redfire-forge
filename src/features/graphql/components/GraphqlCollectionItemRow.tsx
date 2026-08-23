@@ -2,7 +2,7 @@
  * CollectionItemRow — a single row in the GraphQL collection tree.
  * Extracted from GraphqlCollections.tsx to reduce its line count.
  */
-import type { GraphqlCollectionItem } from '../../../shared/types/graphql';
+import type { GraphqlCollectionItem } from '@shared/types/graphql';
 
 export interface CollectionItemRowProps {
   item: GraphqlCollectionItem;

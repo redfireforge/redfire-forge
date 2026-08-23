@@ -1,4 +1,4 @@
-import { GRPC } from '../../../shared/selectors/grpc';
+import { GRPC } from '@shared/selectors/grpc';
 import type { GrpcStudioTabState } from '../grpcStudioTypes';
 
 export interface GrpcTabPaneShellProps {

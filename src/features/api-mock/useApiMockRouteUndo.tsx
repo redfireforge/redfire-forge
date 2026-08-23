@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
-import type { ApiMockServerDefinitionV1 } from '../../shared/api-mock/contracts';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
 import { applyRouteDelete, restoreDeletedRouteInList, type DeletedRouteSnapshot } from './apiMockPageHelpers';
 import { ApiMockUndoToast } from './components/ApiMockUndoToast';
 

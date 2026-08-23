@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from 'react';
-import type { GlobalAuthProfile } from '../../../shared/types';
+import type { GlobalAuthProfile } from '@shared/types';
 import type { GrpcStudioTabState, GrpcTabDescriptorState } from '../grpcStudioTypes';
 import { isGrpcLifecycleInFlight } from '../grpcStudioTypes';
 import { findGrpcMethod } from '../utils/grpcExplorerUtils';

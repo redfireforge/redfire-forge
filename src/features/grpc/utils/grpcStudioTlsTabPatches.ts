@@ -1,5 +1,5 @@
-import type { GrpcTlsMode } from '../../../shared/grpc/contracts';
-import { normalizeGrpcTlsConfig } from '../../../shared/grpc/grpcTlsPolicy';
+import type { GrpcTlsMode } from '@shared/grpc/contracts';
+import { normalizeGrpcTlsConfig } from '@shared/grpc/grpcTlsPolicy';
 import type { GrpcStudioTabState } from '../grpcStudioTypes';
 import { withoutTlsMaskFields } from './grpcSecretFieldUi';
 import type { GrpcTabConnectionResolution } from './resolveGrpcTabConnection';

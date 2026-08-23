@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FIXTURE_DESCRIPTOR_KEY } from '../grpc/contractFixtures';
 import type { Scenario } from '../types';
-import { makeScenario as _makeScenario } from '../../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 import {
   GRPC_HARNESS_SCENARIO_CONTRACT_MATRIX,
   GRPC_HARNESS_VALIDATION_CODES,

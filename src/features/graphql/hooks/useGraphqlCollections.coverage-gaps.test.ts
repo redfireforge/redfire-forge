@@ -26,10 +26,10 @@ import {
   idbSaveItem,
   idbLoadFolders,
   idbLoadItems,
-} from '../../../shared/utils/idbGraphqlCollections';
+} from '@shared/utils/idbGraphqlCollections';
 import { useGraphqlCollections } from './useGraphqlCollections';
 import { GQL_COLLECTIONS_RELOAD_EVENT } from '../utils/gqlDemoCollectionsCleanup';
-import type { GraphqlCollection, GraphqlCollectionFolder, GraphqlCollectionItem } from '../../../shared/types/graphql';
+import type { GraphqlCollection, GraphqlCollectionFolder, GraphqlCollectionItem } from '@shared/types/graphql';
 
 const col: GraphqlCollection = {
   id: 'col-1',

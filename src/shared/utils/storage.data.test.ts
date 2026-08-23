@@ -184,7 +184,7 @@ import { idbMigrateProjects } from './idbProjects';
 import { idbLoadWorkflows } from './idbWorkflows';
 import { TestRun, GlobalAuthProfile, RequestsData } from '../types';
 import { CatalogEntry, SavedEndpointValues } from '../../features/catalog/types/catalog';
-import { Workflow } from '../../features/workflow/types/workflow';
+import { Workflow } from '@workflow/types/workflow';
 
 function makeRun(id: string, results: number = 1): TestRun {
   return {

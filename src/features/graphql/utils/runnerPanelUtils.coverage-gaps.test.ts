@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { CollectionRunEvent } from '../../../shared/types/graphql';
+import type { CollectionRunEvent } from '@shared/types/graphql';
 import {
   buildRunnerConsoleEntries,
   buildRunnerExportPayload,

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { loadSavedThemes, isCustomThemeId, findSavedTheme, applyCustomTheme, clearCustomOverrides } from '../themeCustomizerUtils';
-import { saveTheme } from '../../shared/utils/storage';
+import { saveTheme } from '@shared/utils/storage';
 
 const THEMES = [
   { group: 'Dark', items: [

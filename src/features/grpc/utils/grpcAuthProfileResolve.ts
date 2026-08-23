@@ -1,8 +1,8 @@
-import type { GrpcAuthConfig } from '../../../shared/grpc/contracts';
-import { GRPC_ERROR_CODES } from '../../../shared/grpc/contracts';
+import type { GrpcAuthConfig } from '@shared/grpc/contracts';
+import { GRPC_ERROR_CODES } from '@shared/grpc/contracts';
 import type { GrpcAuthPreviewResult } from './grpcAuthPreview';
 import { previewGrpcAuthMerge } from './grpcAuthPreview';
-import type { AuthConfig, GlobalAuthProfile } from '../../../shared/types';
+import type { AuthConfig, GlobalAuthProfile } from '@shared/types';
 
 interface ResolvedGrpcAuthResult {
   auth: GrpcAuthConfig | undefined;

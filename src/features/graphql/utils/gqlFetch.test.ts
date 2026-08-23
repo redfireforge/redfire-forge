@@ -25,8 +25,8 @@ vi.mock('../../../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
 }));
 
-import { isTauri } from '../../../shared/utils/platform';
-import { httpFetch } from '../../../shared/utils/httpClient';
+import { isTauri } from '@shared/utils/platform';
+import { httpFetch } from '@shared/utils/httpClient';
 import { tauriGqlNativeFetch } from './tauriGqlNativeFetch';
 import { tauriGqlNativeUpload } from './tauriGqlNativeUpload';
 const mockIsTauri = vi.mocked(isTauri);

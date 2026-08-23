@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/react';
 import { BaselineListPanel } from './BaselineListPanel';
-import type { TestRun } from '../../../shared/types';
+import type { TestRun } from '@shared/types';
 import type { BaselineMark } from '../utils/runBaselines';
 
 function makeRun(id: string, ts = Date.now()): TestRun {

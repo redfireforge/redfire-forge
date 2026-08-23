@@ -4,7 +4,7 @@
  * Extracted from GraphqlCollections.tsx to reduce its line count.
  */
 import { useState, useEffect, useRef } from 'react';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import type { CollectionTree } from '../hooks/useGraphqlCollections';
 
 export interface SaveToCollectionModalProps {

@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { GrpcInterpolationErrorBanner } from './GrpcInterpolationErrorBanner';
-import { GRPC_INTERPOLATION_ERROR_CODES } from '../../../shared/grpc/grpcInterpolationConstants';
+import { GRPC_INTERPOLATION_ERROR_CODES } from '@shared/grpc/grpcInterpolationConstants';
 
 describe('GrpcInterpolationErrorBanner (Phase 9G)', () => {
   it('renders cycle banner with token path and alert role', () => {

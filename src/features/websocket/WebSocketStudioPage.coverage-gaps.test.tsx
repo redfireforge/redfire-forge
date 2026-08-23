@@ -9,7 +9,7 @@ import {
   DEMO_INITIAL_SURFACE_EVENT,
   clearDemoInitialSurface,
   setDemoInitialSurface,
-} from '../../shared/demoInitialSurface';
+} from '@shared/demoInitialSurface';
 
 const {
   mockLoadWsTabState,

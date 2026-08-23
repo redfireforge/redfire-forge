@@ -2,23 +2,23 @@
  * @vitest-environment jsdom
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { GRPC_ERROR_CODES } from '../../../../shared/grpc/contracts';
-import * as grpcApiClient from '../../../../shared/grpc/grpcApiClient';
-import { GrpcApiClientError } from '../../../../shared/grpc/grpcApiClient';
+import { GRPC_ERROR_CODES } from '@shared/grpc/contracts';
+import * as grpcApiClient from '@shared/grpc/grpcApiClient';
+import { GrpcApiClientError } from '@shared/grpc/grpcApiClient';
 import {
   FIXTURE_DESCRIPTOR_KEY,
   FIXTURE_UNARY_CALL_REQUEST,
   FIXTURE_UNARY_CALL_RESULT,
-} from '../../../../shared/grpc/contractFixtures';
+} from '@shared/grpc/contractFixtures';
 import {
   createGrpcStudioTab,
 } from '../../grpcStudioTypes';
 import * as callHistoryCapture from '../../utils/grpcStudioCallHistoryCapture';
 import * as streamHelpers from '../grpcStreamSessionHelpers';
-import * as transportRouter from '../../../../shared/grpc/grpcBrowserTransportRouter';
-import * as transportFacade from '../../../../shared/grpc/grpcTransportFacade';
-import { buildBrowserTransportGrpcApiError } from '../../../../shared/grpc/grpcBrowserTransportErrorMapper';
-import { isGrpcExpressFallbackOffered } from '../../../../shared/grpc/grpcTransportFallback';
+import * as transportRouter from '@shared/grpc/grpcBrowserTransportRouter';
+import * as transportFacade from '@shared/grpc/grpcTransportFacade';
+import { buildBrowserTransportGrpcApiError } from '@shared/grpc/grpcBrowserTransportErrorMapper';
+import { isGrpcExpressFallbackOffered } from '@shared/grpc/grpcTransportFallback';
 import { createInitialSessionState } from '../grpcStudioSessionHelpers';
 import {
   createCancelUnaryCallHandler,

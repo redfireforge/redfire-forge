@@ -1,11 +1,11 @@
 /**
  * Phase 11N — Collections schema compare / history drift actions.
  */
-import type { GrpcDescriptor } from '../../../shared/grpc/contracts';
-import type { GrpcCallHistoryEntryV1 } from '../../../shared/grpc/grpcPersistenceSchema';
-import type { GrpcSavedRequest } from '../../../shared/grpc/grpcSavedRequest';
-import { computeGrpcSchemaDiff } from '../../../shared/grpc/grpcSchemaDiffEngine';
-import type { GrpcSchemaDiffReport } from '../../../shared/grpc/grpcSchemaDiffContracts';
+import type { GrpcDescriptor } from '@shared/grpc/contracts';
+import type { GrpcCallHistoryEntryV1 } from '@shared/grpc/grpcPersistenceSchema';
+import type { GrpcSavedRequest } from '@shared/grpc/grpcSavedRequest';
+import { computeGrpcSchemaDiff } from '@shared/grpc/grpcSchemaDiffEngine';
+import type { GrpcSchemaDiffReport } from '@shared/grpc/grpcSchemaDiffContracts';
 
 export type GrpcDescriptorResolver = (
   descriptorKey: string,

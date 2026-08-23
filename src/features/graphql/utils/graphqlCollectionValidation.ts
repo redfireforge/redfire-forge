@@ -1,6 +1,6 @@
 import { buildClientSchema, validate, parse as gqlParseDoc } from 'graphql';
 import type { IntrospectionQuery } from 'graphql';
-import type { GraphqlCollectionItem } from '../../../shared/types/graphql';
+import type { GraphqlCollectionItem } from '@shared/types/graphql';
 
 /** Returns collection item ids whose operations fail schema validation. */
 export function computeInvalidCollectionItemIds(

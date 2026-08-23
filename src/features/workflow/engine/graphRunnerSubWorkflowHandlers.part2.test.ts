@@ -14,7 +14,7 @@ vi.mock('./scriptLibraries', () => ({
 }));
 
 import { handleSubWorkflowNode } from './graphRunnerSubWorkflowHandler';
-import type { RequestResult } from '../../../shared/types';
+import type { RequestResult } from '@shared/types';
 import type { GraphRunCallbacks } from './graphRunnerInterfaces';
 import {
   getMockFetch,

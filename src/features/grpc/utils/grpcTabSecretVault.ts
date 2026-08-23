@@ -1,7 +1,7 @@
 /**
  * Phase 4E — feature-layer bridge to the gRPC secret vault (storage port injection).
  */
-import type { GrpcAuthConfig, GrpcTlsConfig } from '../../../shared/grpc/contracts';
+import type { GrpcAuthConfig, GrpcTlsConfig } from '@shared/grpc/contracts';
 import {
   createGrpcSecretVault,
   extractAuthVaultValues,
@@ -13,9 +13,9 @@ import {
   tlsConfigMissingVaultPemFields,
   type GrpcSecretVaultAdapter,
   type GrpcVaultOwnerRef,
-} from '../../../shared/grpc/grpcSecretVault';
-import { isTauri } from '../../../shared/utils/platform';
-import { readKey, removeKey, writeKey } from '../../../shared/utils/storage';
+} from '@shared/grpc/grpcSecretVault';
+import { isTauri } from '@shared/utils/platform';
+import { readKey, removeKey, writeKey } from '@shared/utils/storage';
 import type { GrpcTabDescriptorState, GrpcStudioTabState } from '../grpcStudioTypes';
 import {
   buildMaskedFieldsFromVaultHydration,

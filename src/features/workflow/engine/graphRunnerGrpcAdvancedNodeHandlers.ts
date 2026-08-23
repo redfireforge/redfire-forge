@@ -5,20 +5,20 @@
  *   grpcMockAssert — unary call against mock listener target
  */
 import type { WorkflowNode } from '../types/workflow';
-import type { GrpcDescriptor } from '../../../shared/grpc/contracts';
+import type { GrpcDescriptor } from '@shared/grpc/contracts';
 import {
   captureGrpcLoadTestExecuteSnapshot,
   assertGrpcLoadTestConfig,
   deriveGrpcLoadTestSummaryStatus,
   type GrpcLoadTestConfig,
-} from '../../../shared/grpc/grpcAdvancedFeatureContracts';
-import { startGrpcLoadTestSchedulerRun } from '../../../shared/grpc/grpcLoadTestSchedulerCore';
-import { buildGrpcLoadTestRunSummaryExport } from '../../../shared/grpc/grpcLoadTestMetrics';
-import { computeGrpcSchemaDiff } from '../../../shared/grpc/grpcSchemaDiffEngine';
-import { getByPath } from '../../../shared/utils/jsonPath';
-import { toErrorMessage } from '../../../shared/utils/helpers';
-import { nextResultId } from '../../../engine/requestExecution';
-import type { FailureDetail, RequestResult } from '../../../shared/types';
+} from '@shared/grpc/grpcAdvancedFeatureContracts';
+import { startGrpcLoadTestSchedulerRun } from '@shared/grpc/grpcLoadTestSchedulerCore';
+import { buildGrpcLoadTestRunSummaryExport } from '@shared/grpc/grpcLoadTestMetrics';
+import { computeGrpcSchemaDiff } from '@shared/grpc/grpcSchemaDiffEngine';
+import { getByPath } from '@shared/utils/jsonPath';
+import { toErrorMessage } from '@shared/utils/helpers';
+import { nextResultId } from '@engine/core/requestExecution';
+import type { FailureDetail, RequestResult } from '@shared/types';
 import { buildGrpcWorkflowExecuteSnapshot } from '../utils/grpcWorkflowSnapshotBuilder';
 import { createGrpcWorkflowNodeSnapshotContext } from '../utils/grpcWorkflowRuntimeContext';
 import type {

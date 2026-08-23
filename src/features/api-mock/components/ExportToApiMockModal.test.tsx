@@ -4,8 +4,8 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
-import { DEFAULT_SETTINGS } from '../../../shared/api-mock/defaults';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
+import { DEFAULT_SETTINGS } from '@shared/api-mock/defaults';
 
 const loadApiMockWorkspace = vi.fn();
 const saveApiMockWorkspace = vi.fn();

@@ -11,7 +11,7 @@ import {
   resolveGrpcInterpolationJsonValue,
   resolveGrpcInterpolationMetadata,
   type GrpcInterpolationTemplateResolver,
-} from '../../../shared/grpc/grpcInterpolationDeepResolver';
+} from '@shared/grpc/grpcInterpolationDeepResolver';
 
 export type GrpcWorkflowTemplateResolver = GrpcInterpolationTemplateResolver;
 

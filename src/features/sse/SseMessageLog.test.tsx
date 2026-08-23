@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption } from '../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import { SseMessageLog } from './SseMessageLog';
 import type { SseEvent, SseStats } from './sseTypes';
 

@@ -7,7 +7,7 @@ import '@testing-library/jest-dom';
 import PublishedEndpointsPanel from './PublishedEndpointsPanel';
 import type { PublishedEndpointItem } from '../utils/publishedEndpointAggregator';
 import type { WorkflowPublication } from '../types/catalog';
-import type { WorkflowPreviewEntry } from '../../../shared/utils/workflowPreviewStorage';
+import type { WorkflowPreviewEntry } from '@shared/utils/workflowPreviewStorage';
 
 vi.mock('../utils/workflowExposureScanner', () => ({
   scanWorkflowsForCatalogRef: vi.fn().mockResolvedValue([]),

@@ -4,8 +4,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import RequestPreview from './RequestPreview';
-import type { Scenario } from '../../shared/types';
-import { makeScenario as _makeScenario } from '../../test-utils/factories';
+import type { Scenario } from '@shared/types';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 const makeScenario = (overrides: Partial<Scenario> = {}): Scenario =>
   _makeScenario({

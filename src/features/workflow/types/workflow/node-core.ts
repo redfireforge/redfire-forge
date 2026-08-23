@@ -1,6 +1,6 @@
 // ── Node data types ──────────────────────────────────
 
-import type { DataSource, Scenario } from '../../../../shared/types';
+import type { DataSource, Scenario } from '@shared/types';
 
 export interface HttpNodeData {
   [key: string]: unknown;

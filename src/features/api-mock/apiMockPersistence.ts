@@ -6,10 +6,10 @@
  * Runtime status (running/generation) is never persisted — it is reconciled
  * from the companion at load time.
  */
-import type { ApiMockServerDefinitionV1, ApiMockWorkspaceV1 } from '../../shared/api-mock/contracts';
-import { safeLoadWorkspace } from '../../shared/api-mock/recoveryDiagnostics';
-import { CURRENT_SCHEMA_VERSION } from '../../shared/api-mock/defaults';
-import { readKey, removeKey, writeKey } from '../../shared/utils/storage';
+import type { ApiMockServerDefinitionV1, ApiMockWorkspaceV1 } from '@shared/api-mock/contracts';
+import { safeLoadWorkspace } from '@shared/api-mock/recoveryDiagnostics';
+import { CURRENT_SCHEMA_VERSION } from '@shared/api-mock/defaults';
+import { readKey, removeKey, writeKey } from '@shared/utils/storage';
 import { isApiMockDemoLessonServer } from './apiMockDemoServers';
 
 export const API_MOCK_STORAGE_KEY = 'api-mock-workspace-v1';

@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { WebSocketLoadTest } from './WebSocketLoadTest';
 import type { UseWebSocketLoadTestReturn } from './useWebSocketLoadTest';
-import type { WsLoadTestResult } from '../../shared/websocket/types';
+import type { WsLoadTestResult } from '@shared/websocket/types';
 import { createDefaultLoadTestConfig } from './wsLoadTestMetrics';
 
 vi.mock('../../shared/utils/fileSaver', () => ({ saveJsonFile: vi.fn() }));

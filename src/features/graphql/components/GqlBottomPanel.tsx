@@ -6,8 +6,8 @@
  * Phase 6H Slice 7.3: Auth tab (Option D bottom panel).
  */
 
-import type { GlobalAuthProfile } from '../../../shared/types';
-import type { GraphqlAuth, GraphqlEnvironment, GraphqlHeaderRow } from '../../../shared/types/graphql';
+import type { GlobalAuthProfile } from '@shared/types';
+import type { GraphqlAuth, GraphqlEnvironment, GraphqlHeaderRow } from '@shared/types/graphql';
 import type { BottomPanelTab } from '../graphqlStudioPageTypes';
 import type { GqlAuthPopoverScope } from '../utils/gqlAuthPopoverUtils';
 import type { FileEntry } from '../utils/multipartBuilder';

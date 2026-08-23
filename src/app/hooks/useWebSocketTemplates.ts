@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { WsMessageFormat, WsMessageTemplate } from '../../shared/websocket/types';
-import { loadWsTemplates, saveWsTemplates } from '../../shared/websocket/websocketStorage';
+import type { WsMessageFormat, WsMessageTemplate } from '@shared/websocket/types';
+import { loadWsTemplates, saveWsTemplates } from '@shared/websocket/websocketStorage';
 import {
   applyLoadError,
   applyLoadedTemplates,

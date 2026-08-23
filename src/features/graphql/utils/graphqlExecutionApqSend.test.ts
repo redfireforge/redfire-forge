@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { buildApqSendFn } from './graphqlExecutionApqSend';
 import { gqlFetch } from './gqlFetch';
 import { parseHttpBody } from './graphqlExecutionResponseParsing';
-import { gqlRequiresTlsProxy, tlsApqGetNeedsPostProxy } from '../../../shared/types/gqlTls';
+import { gqlRequiresTlsProxy, tlsApqGetNeedsPostProxy } from '@shared/types/gqlTls';
 
 vi.mock('./gqlFetch', () => ({
   gqlFetch: vi.fn(),

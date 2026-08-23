@@ -14,11 +14,11 @@ import {
   applyNodeChanges,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import type { WorkflowExecutionTrace } from '../../../shared/types';
+import type { WorkflowExecutionTrace } from '@shared/types';
 import { isSampledIteration } from '../utils/sampledIterations';
-import { nodeTypes } from '../../workflow/utils/workflowNodeFactory';
-import { useHasLayoutSize } from '../../workflow/hooks/useHasLayoutSize';
-import { reactFlowOnError } from '../../workflow/utils/reactFlowOnError';
+import { nodeTypes } from '@workflow/utils/workflowNodeFactory';
+import { useHasLayoutSize } from '@workflow/hooks/useHasLayoutSize';
+import { reactFlowOnError } from '@workflow/utils/reactFlowOnError';
 import { identifyBottlenecks, getBottleneckNodeIds, type BottleneckInsight } from '../utils/bottleneckAnalysis';
 import { captureCanvasScreenshot, captureCanvasSvg } from '../utils/canvasScreenshot';
 import {

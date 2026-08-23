@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { useState } from 'react';
-import type { ApiMockServerDefinitionV1, ApiMockTransactionV1 } from '../../shared/api-mock/contracts';
+import type { ApiMockServerDefinitionV1, ApiMockTransactionV1 } from '@shared/api-mock/contracts';
 import type { ScenarioStateSnapshot } from './apiMockControlClient';
 import type { ApiMockMainView } from './components/ApiMockWorkspaceNav';
 import type { RuntimeInfo } from './apiMockStudioFactory';

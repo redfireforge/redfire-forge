@@ -2,8 +2,8 @@
  * Coverage gaps — grpcBodyComposer.ts
  */
 import { describe, expect, it } from 'vitest';
-import type { GrpcFieldSchema, GrpcMessageSchema } from '../../../shared/grpc/contracts';
-import { FIXTURE_DESCRIPTOR } from '../../../shared/grpc/contractFixtures';
+import type { GrpcFieldSchema, GrpcMessageSchema } from '@shared/grpc/contracts';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
 import {
   applyJsonTextToSchema,
   bodiesAreJsonEquivalent,

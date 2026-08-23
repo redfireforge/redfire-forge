@@ -3,8 +3,8 @@
  */
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
-import { prepareGrpcCallHistoryEntryForPersist } from '../../../shared/grpc/grpcPersistenceSchema';
+import { FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
+import { prepareGrpcCallHistoryEntryForPersist } from '@shared/grpc/grpcPersistenceSchema';
 import { GRPC_CALL_HISTORY_UPDATED_EVENT } from '../utils/grpcStudioCallHistoryCapture';
 
 const loadMock = vi.fn();

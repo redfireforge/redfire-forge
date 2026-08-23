@@ -7,7 +7,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { GraphqlEnvModal } from './GraphqlEnvModal';
-import type { GraphqlEnvironment } from '../../../shared/types/graphql';
+import type { GraphqlEnvironment } from '@shared/types/graphql';
 
 // ─── generateVarId mock ───────────────────────────────────────────────────────
 

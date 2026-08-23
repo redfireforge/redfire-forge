@@ -24,8 +24,8 @@ import {
   setupApiMockFixture,
   teardownApiMockFixture,
 } from './apiMockTestFixture';
-import { DEFAULT_SETTINGS, createDefaultResponse } from '../../../shared/api-mock/defaults';
-import { makeScenario } from '../../../test-utils/factories';
+import { DEFAULT_SETTINGS, createDefaultResponse } from '@shared/api-mock/defaults';
+import { makeScenario } from '@test-utils/factories';
 
 const ts = '2026-08-12T00:00:00.000Z';
 

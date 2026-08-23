@@ -1,5 +1,5 @@
 import type { HttpNodeData } from '../types/workflow';
-import type { RequestItem, Scenario, SpecVersion } from '../../../shared/types';
+import type { RequestItem, Scenario, SpecVersion } from '@shared/types';
 
 /**
  * Resolve the effective scenario for an HTTP workflow node based on its

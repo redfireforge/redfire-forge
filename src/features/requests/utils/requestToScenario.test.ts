@@ -6,7 +6,7 @@ import type {
   GlobalAuthProfile,
   RequestCollection,
   RequestItem,
-} from '../../../shared/types';
+} from '@shared/types';
 
 const basicAuth: AuthConfig = { type: 'basic', username: 'u', password: 'p' };
 const bearerAuth: AuthConfig = { type: 'bearer', token: 'tok123' };

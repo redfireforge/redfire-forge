@@ -1,11 +1,11 @@
 import { useCallback, useState, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { FeatureGroup, TestScenario, Scenario, SharedDataSource } from '../../../shared/types';
-import { saveJsonFile, buildExportFilename } from '../../../shared/utils/fileSaver';
-import { validateWsActionConfig } from '../../../shared/utils/wsScenarioDefaults';
-import { validateGrpcHarnessActionConfig } from '../../../shared/utils/grpcHarnessScenarioContracts';
+import type { FeatureGroup, TestScenario, Scenario, SharedDataSource } from '@shared/types';
+import { saveJsonFile, buildExportFilename } from '@shared/utils/fileSaver';
+import { validateWsActionConfig } from '@shared/utils/wsScenarioDefaults';
+import { validateGrpcHarnessActionConfig } from '@shared/utils/grpcHarnessScenarioContracts';
 import { pickJsonFile, reIdScenarios, unwrapImport, wrapExport, stripVersions, hasVersionData, normalizeTestFields } from '../utils/scenarioImportExport';
-import { normalizeGroupActionTypes } from '../../../shared/utils/scenarioMigration';
+import { normalizeGroupActionTypes } from '@shared/utils/scenarioMigration';
 import type { VersionExportOptions } from '../utils/scenarioImportExport';
 
 function collectTransportImportWarnings(

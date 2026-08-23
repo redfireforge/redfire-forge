@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import type { GrpcCallResult } from '../../../shared/grpc/contracts';
+import type { GrpcCallResult } from '@shared/grpc/contracts';
 import { useGrpcStudioHints } from '../hooks/useGrpcStudioHints';
 import { formatGrpcHealthStatusLabel } from '../utils/grpcHealthProbe';
 import { GrpcSpringHintCard } from './GrpcSpringHintCard';

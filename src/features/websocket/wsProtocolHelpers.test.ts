@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createFrame, type WsFrame } from '../../shared/websocket/types';
+import { createFrame, type WsFrame } from '@shared/websocket/types';
 import {
   buildSioMeta,
   buildStompMeta,

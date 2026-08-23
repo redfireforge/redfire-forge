@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from './contractFixtures';
-import { createGrpcStudioTab } from '../../features/grpc/grpcStudioTypes';
+import { createGrpcStudioTab } from '@grpc/grpcStudioTypes';
 import { createGrpcSavedRequestFromSnapshot } from './grpcSavedRequest';
 import {
   assertGrpcReplayUsesFreshInterpolationEnv,
@@ -13,7 +13,7 @@ import {
   grpcReplayTargetMatchesEnvResolution,
 } from './grpcReplayTemplateCompatibility';
 import { createGrpcInterpolationEnvSnapshot } from './grpcInterpolationEnvSnapshot';
-import { resolveGrpcSavedRequestReplay } from '../../features/grpc/utils/grpcReplayResolver';
+import { resolveGrpcSavedRequestReplay } from '@grpc/utils/grpcReplayResolver';
 
 describe('grpcReplayTemplateCompatibility (Phase 9F)', () => {
   it('buildGrpcSavedRequestTemplateSource captures tab template fields', () => {

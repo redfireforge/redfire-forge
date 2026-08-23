@@ -1,16 +1,16 @@
 import { type Dispatch, type SetStateAction, useCallback, useEffect, useState } from 'react';
-import type { Environment, FeatureGroup, Microservice, RequestCollection } from '../../shared/types';
+import type { Environment, FeatureGroup, Microservice, RequestCollection } from '@shared/types';
 import type { Tab } from '../utils/appTabUtils';
 import { domainOf, isApiMockTab, isApiTab, isHarnessTab, isWorkflowTab } from '../utils/appTabUtils';
 import type { UseCatalogReturn } from '../../features/catalog/hooks/useCatalog';
 import type { UseRequestsReturn } from '../../features/requests/hooks/useRequests';
 import type { UseRequestTabCoordinatorReturn } from '../../features/requests/hooks/useRequestTabCoordinator';
-import type { WorkflowHook } from '../../features/workflow/hooks/useWorkflows';
-import type { WorkflowFoldersHook } from '../../features/workflow/hooks/useWorkflowFolders';
+import type { WorkflowHook } from '@workflow/hooks/useWorkflows';
+import type { WorkflowFoldersHook } from '@workflow/hooks/useWorkflowFolders';
 import type { GalleryDomain } from '../../data/galleries/types';
 import CatalogSidebar from '../../features/catalog/components/CatalogSidebar';
 import RequestsSidebar from '../../features/requests/components/RequestsSidebar';
-import WorkflowSidebar from '../../features/workflow/components/panels/WorkflowSidebar';
+import WorkflowSidebar from '@workflow/components/panels/WorkflowSidebar';
 import Sidebar from '../Sidebar';
 import ApiMockSidebar from '../../features/api-mock/components/ApiMockSidebar';
 import { ExportToApiMockModal, type ExportToApiMockItem } from '../../features/api-mock/components/ExportToApiMockModal';
@@ -19,7 +19,7 @@ import {
   isDemoAppSidebarSession,
   markDemoAppSidebarUserCollapsed,
   markDemoAppSidebarUserExpanded,
-} from '../../shared/demoAppSidebarSession';
+} from '@shared/demoAppSidebarSession';
 
 export interface AppSidebarRegionProps {
   activeTab: Tab;

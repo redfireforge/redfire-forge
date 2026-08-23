@@ -2,8 +2,8 @@
  * Coverage gaps — grpcWorkflowUnaryExecutor.ts
  */
 import { describe, expect, it, vi } from 'vitest';
-import { GrpcApiClientError } from '../../../shared/grpc/grpcApiClient';
-import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
+import { GrpcApiClientError } from '@shared/grpc/grpcApiClient';
+import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
 import { buildGrpcWorkflowExecuteSnapshot } from './grpcWorkflowSnapshotBuilder';
 import { executeGrpcWorkflowUnary, wrapUnaryInvokeWithAbort } from './grpcWorkflowUnaryExecutor';
 

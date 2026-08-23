@@ -1,10 +1,10 @@
 import { useState, useMemo, useCallback } from 'react';
 import type { ScriptNodeData, ScriptMode } from '../../types/workflow';
-import type { ScriptResult } from '../../engine/scriptSandbox';
-import { executeScript } from '../../engine/scriptSandbox';
-import { detectOutputVariables, analyzeScriptComplexity, inferMockInputs } from '../../engine/scriptAnalysis';
-import { loadScriptLibraries, buildLibraryPreamble } from '../../engine/scriptLibraries';
-import type { ScriptLibrary } from '../../engine/scriptLibraries';
+import type { ScriptResult } from '@workflow/engine/scriptSandbox';
+import { executeScript } from '@workflow/engine/scriptSandbox';
+import { detectOutputVariables, analyzeScriptComplexity, inferMockInputs } from '@workflow/engine/scriptAnalysis';
+import { loadScriptLibraries, buildLibraryPreamble } from '@workflow/engine/scriptLibraries';
+import type { ScriptLibrary } from '@workflow/engine/scriptLibraries';
 
 /** Shared mode options for script node dropdowns. */
 export const SCRIPT_MODE_OPTIONS: { value: ScriptMode; label: string; description: string }[] = [

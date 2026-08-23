@@ -6,8 +6,8 @@
  */
 
 import { useEffect, useId, useState } from 'react';
-import { useModalDrag } from '../../../shared/hooks/useModalDrag';
-import type { GraphqlBatchResult, GraphqlBatchOperationResult } from '../../../shared/types/graphql';
+import { useModalDrag } from '@shared/hooks/useModalDrag';
+import type { GraphqlBatchResult, GraphqlBatchOperationResult } from '@shared/types/graphql';
 import { batchResultTransportSummary, batchTransportSummaryForResponse } from '../utils/batchResponseContextUtils';
 
 interface GraphqlBatchResultsProps {

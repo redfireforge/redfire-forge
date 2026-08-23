@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import type { SubWorkflowNodeData } from '../../types/workflow';
 import { parseClampedInteger } from './subWorkflowConfigUtils';
 import { addMappingEntry, removeMappingEntry, updateMappingEntry } from '../workflowMappingUtils';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import { KafkaAddButton, KafkaCard, KafkaEmptyState, KafkaFormRow } from './KafkaConfigUi';
 
 export interface WorkflowPickerItem {

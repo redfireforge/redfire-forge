@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { WsFrame } from '../../shared/websocket/types';
+import type { WsFrame } from '@shared/websocket/types';
 import type { RecordingState } from './useWebSocketRecording';
 
 export interface UseWebSocketRecordingBridgeParams {

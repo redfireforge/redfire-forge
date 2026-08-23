@@ -1,11 +1,11 @@
 /** Phase 4J-D / 7F / 10B / 10G — transport mode cards with per-tab selection, call-type guardrails, and reason labels. */
-import { isTauri } from '../../../shared/utils/platform';
-import { isGrpcTransportDispatchImplemented } from '../../../shared/grpc/grpcBrowserTransportRouter';
+import { isTauri } from '@shared/utils/platform';
+import { isGrpcTransportDispatchImplemented } from '@shared/grpc/grpcBrowserTransportRouter';
 import {
   isGrpcTransportCallTypeSupported,
   isGrpcTransportPlatformSupported,
-} from '../../../shared/grpc/grpcWebTransportContracts';
-import type { GrpcCallType } from '../../../shared/grpc/contracts';
+} from '@shared/grpc/grpcWebTransportContracts';
+import type { GrpcCallType } from '@shared/grpc/contracts';
 import type { GrpcStudioTransportMode } from '../grpcStudioTypes';
 
 const TRANSPORT_MODES: Array<{

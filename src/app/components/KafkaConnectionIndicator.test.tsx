@@ -10,7 +10,7 @@ import {
   deriveIndicatorStatus,
   type KafkaConnectionIndicatorProps,
 } from './KafkaConnectionIndicator.utils';
-import type { KafkaConnectionSnapshot } from '../../shared/kafka/kafkaConfig';
+import type { KafkaConnectionSnapshot } from '@shared/kafka/kafkaConfig';
 
 function makeProps(overrides: Partial<KafkaConnectionIndicatorProps> = {}): KafkaConnectionIndicatorProps {
   return {

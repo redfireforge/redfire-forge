@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { GRPC_ERROR_CODES } from '../../../shared/grpc/contracts';
-import { FIXTURE_DESCRIPTOR } from '../../../shared/grpc/contractFixtures';
-import { GrpcApiClientError } from '../../../shared/grpc/grpcApiClient';
+import { GRPC_ERROR_CODES } from '@shared/grpc/contracts';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
+import { GrpcApiClientError } from '@shared/grpc/grpcApiClient';
 import { createDefaultProtoIngestState } from '../grpcStudioTypes';
 import {
   buildActiveSourceSelectionPatch,

@@ -1,4 +1,4 @@
-import type { ApiMockBehaviorV1 } from '../../shared/api-mock/contracts';
+import type { ApiMockBehaviorV1 } from '@shared/api-mock/contracts';
 
 function pad2(n: number): string {
   return String(n).padStart(2, '0');

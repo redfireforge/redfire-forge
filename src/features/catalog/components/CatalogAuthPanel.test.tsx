@@ -5,10 +5,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import { selectOption, selectOptionByIndex, getCustomSelectOptionLabels } from '../../../test-utils/customSelectHelper';
+import { selectOption, selectOptionByIndex, getCustomSelectOptionLabels } from '@test-utils/customSelectHelper';
 import CatalogAuthPanel from './CatalogAuthPanel';
 import { makeScheme } from './catalogTestFactories';
-import type { AuthConfig, GlobalAuthProfile } from '../../../shared/types';
+import type { AuthConfig, GlobalAuthProfile } from '@shared/types';
 import type { CatalogSecurityScheme } from '../types/catalog';
 
 const verifyState = vi.hoisted(() => ({

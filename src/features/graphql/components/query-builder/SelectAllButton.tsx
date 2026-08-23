@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo } from 'react';
-import type { GraphqlTypeNode } from '../../../../shared/types/graphql';
+import type { GraphqlTypeNode } from '@shared/types/graphql';
 import type { BuilderState } from '../../hooks/useGraphqlQueryBuilder';
 import { isLeafType, stripTypeModifiers } from '../../utils/queryBuilderGenerator';
 

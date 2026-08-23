@@ -12,14 +12,14 @@
  * Only usable inside a Tauri desktop shell — callers must guard with isTauri().
  */
 
-import { isTauri } from '../../../shared/utils/platform';
-import type { TestConfig, Scenario, RequestResult, ScenarioWeight, FailureDetail } from '../../../shared/types';
-import type { ProgressMeta } from '../../../engine/executor';
-import type { TestResult } from '../../../engine/executor';
-import { buildHeaders, buildUrl } from '../../../engine/executor';
-import { serializeWithContentType } from '../../../shared/utils/bodySerializer';
-import { expandQueue } from '../../../engine/dataSourceExpander';
-import { computeAllocation } from '../../../engine/allocationEngine';
+import { isTauri } from '@shared/utils/platform';
+import type { TestConfig, Scenario, RequestResult, ScenarioWeight, FailureDetail } from '@shared/types';
+import type { ProgressMeta } from '@engine/core/executor';
+import type { TestResult } from '@engine/core/executor';
+import { buildHeaders, buildUrl } from '@engine/core/executor';
+import { serializeWithContentType } from '@shared/utils/bodySerializer';
+import { expandQueue } from '@engine/core/dataSourceExpander';
+import { computeAllocation } from '@engine/core/allocationEngine';
 import {
   mapRustResult,
   buildScenarioLookup,

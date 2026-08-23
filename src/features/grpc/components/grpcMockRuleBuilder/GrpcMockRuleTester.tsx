@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { serializeGrpcMockBuilderModelToRuleSet } from '../../utils/grpcMockRuleBuilderModel';
 import type { GrpcMockBuilderModel } from '../../utils/grpcMockRuleBuilderModel';
-import { evaluateGrpcMockRuleSet } from '../../../../shared/grpc/grpcMockRuleEvaluatorCore';
-import type { GrpcMockEvaluationContext, GrpcMockRuleEvaluationResult } from '../../../../shared/grpc/grpcMockRuleContracts';
+import { evaluateGrpcMockRuleSet } from '@shared/grpc/grpcMockRuleEvaluatorCore';
+import type { GrpcMockEvaluationContext, GrpcMockRuleEvaluationResult } from '@shared/grpc/grpcMockRuleContracts';
 
 export interface GrpcMockRuleTesterProps {
   builderModel: GrpcMockBuilderModel;

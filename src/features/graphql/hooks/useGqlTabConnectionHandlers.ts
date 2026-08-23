@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
-import type { GraphqlAuth } from '../../../shared/types/graphql';
-import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
+import type { GraphqlAuth } from '@shared/types/graphql';
+import type { GqlTlsSettings } from '@shared/types/gqlTls';
 import { clampPollingIntervalSeconds } from '../utils/pollingIntervalUtils';
 
 /** True when auth stores inherit from Environment Manager catalog (not bare inherit workspace). */

@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWebSocketSchema } from './useWebSocketSchema';
-import type { WsFrame } from '../../shared/websocket/types';
+import type { WsFrame } from '@shared/websocket/types';
 
 vi.mock('./wsSchemaValidator', () => ({
   compileSchema: vi.fn(),

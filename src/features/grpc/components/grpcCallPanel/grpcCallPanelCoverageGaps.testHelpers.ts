@@ -1,5 +1,5 @@
 import { act, fireEvent, screen } from '@testing-library/react';
-import { FIXTURE_DESCRIPTOR } from '../../../../shared/grpc/contractFixtures';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
 
 export const SERVER_STREAM = FIXTURE_DESCRIPTOR.services[0]!.methods.find((m) => m.name === 'ServerStream')!;
 export const CLIENT_STREAM = FIXTURE_DESCRIPTOR.services[0]!.methods.find((m) => m.name === 'ClientStream')!;

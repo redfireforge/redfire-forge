@@ -4,8 +4,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { act, fireEvent, render, renderHook, screen } from '@testing-library/react';
 import { useApiMockServerLibrary } from './useApiMockServerLibrary';
-import { DEFAULT_SETTINGS } from '../../shared/api-mock/defaults';
-import type { ApiMockServerDefinitionV1 } from '../../shared/api-mock/contracts';
+import { DEFAULT_SETTINGS } from '@shared/api-mock/defaults';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
 
 function makeServer(id: string, port = 4600): ApiMockServerDefinitionV1 {
   return {

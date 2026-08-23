@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { ExpectedField, Scenario } from '../../../shared/types';
+import type { ExpectedField, Scenario } from '@shared/types';
 import { parseSearchQuery, evaluateQuery, buildSearchText } from './scenarioSearch';
 
 function scenarioBase(over: Partial<Scenario> = {}): Scenario {

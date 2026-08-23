@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
-import type { GrpcCallHistoryEntryV1 } from '../../../shared/grpc/grpcPersistenceSchema';
-import { GRPC_REDACTED_PLACEHOLDER } from '../../../shared/grpc/grpcRedaction';
+import { FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
+import type { GrpcCallHistoryEntryV1 } from '@shared/grpc/grpcPersistenceSchema';
+import { GRPC_REDACTED_PLACEHOLDER } from '@shared/grpc/grpcRedaction';
 import {
   mergeHistoryMetadataForGrpcurl,
   resolveSiblingRuntimeHistoryMetadata,

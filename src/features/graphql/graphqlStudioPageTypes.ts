@@ -1,5 +1,5 @@
 /** Shared types for GraphqlStudioPage. */
-import type { GlobalAuthProfile, Microservice } from '../../shared/types';
+import type { GlobalAuthProfile, Microservice } from '@shared/types';
 
 export type BottomPanelTab = 'variables' | 'headers' | 'auth' | 'files';
 export type RightPaneView = 'response' | 'schema';

@@ -3,17 +3,17 @@
  */
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { GRPC_ERROR_CODES } from '../../../shared/grpc/contracts';
-import { GrpcApiClientError } from '../../../shared/grpc/grpcApiClient';
-import * as grpcStreamClient from '../../../shared/grpc/grpcStreamClient';
-import { FIXTURE_DESCRIPTOR, FIXTURE_SERVER_STREAM_START_REQUEST } from '../../../shared/grpc/contractFixtures';
+import { GRPC_ERROR_CODES } from '@shared/grpc/contracts';
+import { GrpcApiClientError } from '@shared/grpc/grpcApiClient';
+import * as grpcStreamClient from '@shared/grpc/grpcStreamClient';
+import { FIXTURE_DESCRIPTOR, FIXTURE_SERVER_STREAM_START_REQUEST } from '@shared/grpc/contractFixtures';
 import {
   hasGrpcStreamTransportBinding,
   isGrpcExpressFallbackOffered,
   resetGrpcStreamTransportBindingsForTests,
-} from '../../../shared/grpc/grpcTransportFallback';
-import { buildBrowserTransportGrpcApiError } from '../../../shared/grpc/grpcBrowserTransportErrorMapper';
-import { resetGrpcTabTransportRoutingForTests, syncGrpcTabTransportMode } from '../../../shared/grpc/grpcTransportTabRouting';
+} from '@shared/grpc/grpcTransportFallback';
+import { buildBrowserTransportGrpcApiError } from '@shared/grpc/grpcBrowserTransportErrorMapper';
+import { resetGrpcTabTransportRoutingForTests, syncGrpcTabTransportMode } from '@shared/grpc/grpcTransportTabRouting';
 import { createInitialSessionState } from './grpcStudioSessionHelpers';
 import { useGrpcStreamSession } from './useGrpcStreamSession';
 

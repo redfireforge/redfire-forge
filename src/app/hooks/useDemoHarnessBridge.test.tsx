@@ -4,7 +4,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useState } from 'react';
-import type { Environment, Microservice } from '../../shared/types';
+import type { Environment, Microservice } from '@shared/types';
 import { useDemoHarnessBridge } from './useDemoHarnessBridge';
 
 function useHarnessBridgeHarness(initialEnv: Environment[] = [], initialSvc: Microservice[] = []) {

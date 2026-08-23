@@ -1,10 +1,10 @@
-import type { GlobalAuthProfile } from '../../../shared/types';
-import type { GrpcAuthConfig, GrpcAuthType } from '../../../shared/grpc/contracts';
-import { isGrpcSecretMetadataKey } from '../../../shared/grpc/grpcSecretPolicy';
+import type { GlobalAuthProfile } from '@shared/types';
+import type { GrpcAuthConfig, GrpcAuthType } from '@shared/grpc/contracts';
+import { isGrpcSecretMetadataKey } from '@shared/grpc/grpcSecretPolicy';
 import type { GrpcAuthPreviewResult } from '../utils/grpcAuthPreview';
 import type { GrpcAuthSecretFieldKey, GrpcMaskedSecretFields } from '../utils/grpcSecretFieldUi';
 import { getGrpcCompatibleGlobalAuthProfiles } from '../utils/grpcAuthProfileResolve';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import { GrpcSecretField } from './GrpcSecretField';
 
 export interface GrpcAuthPanelProps {

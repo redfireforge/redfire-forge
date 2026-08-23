@@ -1,4 +1,4 @@
-import { formatUptime } from '../../shared/websocket/types';
+import { formatUptime } from '@shared/websocket/types';
 
 interface WebSocketStatusBarProps {
   isConnected: boolean;

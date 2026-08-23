@@ -12,10 +12,10 @@
  * Extracted from graphqlClient.ts to keep that file under 900 lines.
  */
 import { buildAuthHeaders, buildConnectionParams } from './authUtils';
-import { isTauri } from '../../../shared/utils/platform';
-import { serializeGqlTlsForProxy, tlsApqGetNeedsPostProxy } from '../../../shared/types/gqlTls';
+import { isTauri } from '@shared/utils/platform';
+import { serializeGqlTlsForProxy, tlsApqGetNeedsPostProxy } from '@shared/types/gqlTls';
 import type { GraphqlTransport, GraphqlSubscribeCallbacks } from './graphqlTransportTypes';
-import type { GraphqlAuth, GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlAuth, GraphqlResponse } from '@shared/types/graphql';
 
 // ─── Proxy base URL ───────────────────────────────────────────────────────────
 

@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import type { ApiMockPredicateV1 } from '../../../shared/api-mock/contracts';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import type { ApiMockPredicateV1 } from '@shared/api-mock/contracts';
 import {
   CONSTRAINT_OPERATOR_OPTIONS,
   CONSTRAINT_SOURCE_OPTIONS,

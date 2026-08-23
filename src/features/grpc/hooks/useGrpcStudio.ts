@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import type { GlobalAuthProfile } from '../../../shared/types';
+import type { GlobalAuthProfile } from '@shared/types';
 import type { GrpcConnectionProfile, GrpcTabConnectionPageDefaults } from '../utils/resolveGrpcTabConnection';
 import {
   canChangeGrpcTabTransportMode,
@@ -11,11 +11,11 @@ import {
 import {
   syncGrpcStudioTabTransport,
 } from '../utils/grpcStudioTransportSync';
-import { isGrpcExpressFallbackOffered } from '../../../shared/grpc/grpcTransportFallback';
+import { isGrpcExpressFallbackOffered } from '@shared/grpc/grpcTransportFallback';
 import {
   GRPC_DEMO_PLAINTEXT_TARGET,
   isKnownEncryptedLoopbackGrpcTarget,
-} from '../../../shared/grpc/grpcTlsPolicy';
+} from '@shared/grpc/grpcTlsPolicy';
 import { mountGrpcStudioNativeTransport, registerGrpcStudioAppLifecycle } from './grpcStudioTabLifecycle';
 import {
   detachStreamEventsForTab,

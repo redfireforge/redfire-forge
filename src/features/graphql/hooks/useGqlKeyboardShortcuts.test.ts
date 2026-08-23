@@ -16,7 +16,7 @@ vi.mock('../utils/envUtils', () => ({
 }));
 
 import { useGqlKeyboardShortcuts } from './useGqlKeyboardShortcuts';
-import { isTauri } from '../../../shared/utils/platform';
+import { isTauri } from '@shared/utils/platform';
 import { findUnresolvedVars } from '../utils/envUtils';
 
 const fireKey = (key: string, opts: Partial<KeyboardEventInit> = {}) => {

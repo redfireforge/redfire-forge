@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { WsKeyValueEntry } from '../../../shared/websocket/types';
+import type { WsKeyValueEntry } from '@shared/websocket/types';
 import { KeyValueEditor } from '../../websocket/KeyValueEditor';
 import {
   metadataEntriesFromRecord,

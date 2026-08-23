@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import type { CorrelationWaitRunnerConfig, LoadProfileConfig, SlaTarget, WorkflowExecutionTrace } from '../../shared/types';
+import type { CorrelationWaitRunnerConfig, LoadProfileConfig, SlaTarget, WorkflowExecutionTrace } from '@shared/types';
 import type { Workflow, WorkflowFolder, WebhookTriggerNodeData } from '../workflow/types/workflow';
 import { useTestExecution } from './hooks/useTestExecution';
 import { useWorkflowRunnerConfig } from './hooks/useWorkflowRunnerConfig';

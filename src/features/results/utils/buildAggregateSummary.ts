@@ -1,5 +1,5 @@
-import type { WorkflowExecutionTrace, WorkflowIterationTrace } from '../../../shared/types';
-import type { LogLine } from '../../../shared/utils/consoleLogUtils';
+import type { WorkflowExecutionTrace, WorkflowIterationTrace } from '@shared/types';
+import type { LogLine } from '@shared/utils/consoleLogUtils';
 import { isSampledIteration } from './sampledIterations';
 
 /**

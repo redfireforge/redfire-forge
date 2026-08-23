@@ -14,8 +14,8 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parseDsl, dslToModel, serializeToDsl, DSL_ASSERTION_TYPES } from '../utils/validationDsl';
-import { evaluateAssertions } from '../../../../engine/validator';
-import { evaluateFieldOperator } from '../../../../engine/fieldOperatorEvaluation';
+import { evaluateAssertions } from '@engine/core/validator';
+import { evaluateFieldOperator } from '@engine/core/fieldOperatorEvaluation';
 import type { Assertion } from '../../../types';
 import { stripJsonPathPrefix } from '../../../utils/jsonPath';
 

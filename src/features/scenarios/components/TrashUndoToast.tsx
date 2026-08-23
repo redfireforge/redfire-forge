@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import type { TrashItem } from '../../../shared/types';
+import type { TrashItem } from '@shared/types';
 
 const DISMISS_MS = 5000;
 

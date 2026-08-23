@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import type { RequestsData } from '../../../shared/types';
+import type { RequestsData } from '@shared/types';
 
 const mockSaveRequests = vi.fn();
 let mockInitial: RequestsData;

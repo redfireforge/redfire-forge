@@ -1,6 +1,6 @@
 import type { ExpressionFunction } from './types';
 import { s, n } from './helpers';
-import { tryParseJsonArray } from '../../../../shared/utils/helpers';
+import { tryParseJsonArray } from '@shared/utils/helpers';
 
 /**
  * Parse a JSONPath-like string into segments.

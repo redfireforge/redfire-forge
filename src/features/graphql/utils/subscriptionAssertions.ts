@@ -10,10 +10,10 @@
  * Designed to be pure and side-effect free so it can run inside `useMemo`.
  */
 
-import { evaluateFieldOperator } from '../../../engine/fieldOperatorEvaluation';
-import { getByPath } from '../../../shared/utils/jsonPath';
-import type { FieldOperator } from '../../../shared/types';
-import type { GraphqlSubscriptionAssertion, GraphqlSubscriptionMessage } from '../../../shared/types/graphql';
+import { evaluateFieldOperator } from '@engine/core/fieldOperatorEvaluation';
+import { getByPath } from '@shared/utils/jsonPath';
+import type { FieldOperator } from '@shared/types';
+import type { GraphqlSubscriptionAssertion, GraphqlSubscriptionMessage } from '@shared/types/graphql';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

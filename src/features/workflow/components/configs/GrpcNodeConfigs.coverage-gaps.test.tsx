@@ -4,7 +4,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
-import { selectOption, selectOptionByTestId, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
+import { selectOption, selectOptionByTestId, getCustomSelectValue } from '@test-utils/customSelectHelper';
 import '@testing-library/jest-dom';
 import GrpcAssertConfig from './GrpcAssertConfig';
 import GrpcLoadTestConfig from './GrpcLoadTestConfig';
@@ -25,7 +25,7 @@ vi.mock('../../hooks/useGrpcWorkflowTargetReflection', () => ({
   }),
 }));
 
-vi.mock('../../../../engine/grpcConnectionProfileHydration', () => ({
+vi.mock('../../../../engine/grpc/grpcConnectionProfileHydration', () => ({
   loadGrpcConnectionProfilesFromStorage: () => [],
 }));
 

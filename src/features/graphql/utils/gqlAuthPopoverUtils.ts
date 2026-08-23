@@ -1,8 +1,8 @@
 /**
  * Phase 6H Slice 3 — map stored auth layers ↔ popover type selector values.
  */
-import type { GlobalAuthProfile } from '../../../shared/types';
-import type { GraphqlAuth } from '../../../shared/types/graphql';
+import type { GlobalAuthProfile } from '@shared/types';
+import type { GraphqlAuth } from '@shared/types/graphql';
 
 export const AUTH_TYPE_NONE = 'none' as const;
 export const AUTH_TYPE_INHERIT_WORKSPACE = 'inherit-workspace' as const;

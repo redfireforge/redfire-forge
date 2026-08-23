@@ -2,9 +2,9 @@ import { vi } from 'vitest';
 import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_DESCRIPTOR_KEY,
-} from '../../../shared/grpc/contractFixtures';
-import { buildGrpcLoadTestRunSummaryExport } from '../../../shared/grpc/grpcLoadTestMetrics';
-import { captureGrpcLoadTestExecuteSnapshot } from '../../../shared/grpc/grpcAdvancedFeatureContracts';
+} from '@shared/grpc/contractFixtures';
+import { buildGrpcLoadTestRunSummaryExport } from '@shared/grpc/grpcLoadTestMetrics';
+import { captureGrpcLoadTestExecuteSnapshot } from '@shared/grpc/grpcAdvancedFeatureContracts';
 import { createInitialGrpcTabAdvancedFeaturesUiState } from '../grpcStudioAdvancedTypes';
 import type { UseGrpcStudioAdvancedFeaturesReturn } from '../hooks/useGrpcStudioAdvancedFeatures';
 

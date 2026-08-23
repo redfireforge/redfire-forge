@@ -7,11 +7,11 @@ import type {
   ApiMockCapturedResponseV1,
   ApiMockTransactionV1,
   ApiMockSimulationSampleV1,
-} from '../../shared/api-mock/contracts';
-import { convertSourceToRule } from '../../shared/api-mock/sourceToRule';
-import { joinCapturedHeaderValue, mockClientOrigin, stripCapturedRequestSecrets } from '../../shared/api-mock/harExport';
-import type { HttpMethod, KeyValue } from '../../shared/types';
-import { isClientManagedRequestHeader } from '../../shared/utils/outboundRequestHeaders';
+} from '@shared/api-mock/contracts';
+import { convertSourceToRule } from '@shared/api-mock/sourceToRule';
+import { joinCapturedHeaderValue, mockClientOrigin, stripCapturedRequestSecrets } from '@shared/api-mock/harExport';
+import type { HttpMethod, KeyValue } from '@shared/types';
+import { isClientManagedRequestHeader } from '@shared/utils/outboundRequestHeaders';
 
 export const API_MOCK_OPEN_IN_REQUESTS_EVENT = 'api-mock-open-in-requests';
 

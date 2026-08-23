@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
-import type { WorkflowExecutionTrace, WorkflowIterationTrace } from '../../../shared/types';
-import FullPanelModal from '../../../shared/components/FullPanelModal';
-import { formatDurationMs } from '../../../shared/utils/formatDuration';
+import type { WorkflowExecutionTrace, WorkflowIterationTrace } from '@shared/types';
+import FullPanelModal from '@shared/components/FullPanelModal';
+import { formatDurationMs } from '@shared/utils/formatDuration';
 import WorkflowExecutionCanvas from './WorkflowExecutionCanvas';
 import NodeExecutionDetailPanel from './NodeExecutionDetailPanel';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 type ReplaySnapshotNode = {
   id: string;

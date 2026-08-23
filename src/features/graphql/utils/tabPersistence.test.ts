@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { GraphqlAuth } from '../../../shared/types/graphql';
+import type { GraphqlAuth } from '@shared/types/graphql';
 
 // monacoGraphqlSetup transitively loads Monaco which requires `window`. Mock it.
 vi.mock('./monacoGraphqlSetup', () => ({

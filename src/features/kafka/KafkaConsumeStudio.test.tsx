@@ -3,18 +3,18 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { selectOption, getCustomSelectValue } from '../../test-utils/customSelectHelper';
+import { selectOption, getCustomSelectValue } from '@test-utils/customSelectHelper';
 
 vi.mock('./kafkaMessageStudioUtils', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./kafkaMessageStudioUtils')>();
   return { ...actual, exportResultSet: vi.fn().mockResolvedValue(undefined) };
 });
 import { KafkaConsumeStudio } from './KafkaConsumeStudio';
-import type { UseKafkaMessageStudioReturn } from '../../app/hooks/useKafkaMessageStudio';
-import type { UseKafkaStreamModeReturn } from '../../app/hooks/useKafkaStreamMode';
+import type { UseKafkaMessageStudioReturn } from '@app/hooks/useKafkaMessageStudio';
+import type { UseKafkaStreamModeReturn } from '@app/hooks/useKafkaStreamMode';
 import type { KafkaConsumeDraft, KafkaConsumeResultRow } from './types';
 import { exportResultSet } from './kafkaMessageStudioUtils';
-import { installClipboardMock } from '../../test-utils/clipboardMock';
+import { installClipboardMock } from '@test-utils/clipboardMock';
 
 function baseConsumeDraft(): KafkaConsumeDraft {
   return {

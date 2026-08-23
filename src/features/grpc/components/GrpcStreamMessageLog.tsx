@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { GRPC_STREAM_MESSAGE_CAP, type GrpcStreamLogEntry } from '../../../shared/grpc/contracts';
+import { GRPC_STREAM_MESSAGE_CAP, type GrpcStreamLogEntry } from '@shared/grpc/contracts';
 
 const ROW_HEIGHT = 28;
 const VIRTUALIZER_OVERSCAN = 12;

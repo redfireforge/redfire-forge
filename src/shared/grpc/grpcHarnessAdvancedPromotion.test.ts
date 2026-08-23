@@ -5,7 +5,7 @@ import {
   prepareGrpcHarnessResultReportExportWithAdvanced,
   prepareGrpcLoadTestProfileHarnessFixture,
 } from './grpcHarnessAdvancedPromotion';
-import { makeResult } from '../../test-utils/factories';
+import { makeResult } from '@test-utils/factories';
 
 describe('grpcHarnessAdvancedPromotion', () => {
   it('builds leak-scanned profile fixture and harness bundle attachments', () => {

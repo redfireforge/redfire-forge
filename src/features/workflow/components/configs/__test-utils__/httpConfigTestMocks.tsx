@@ -1,7 +1,7 @@
 /**
  * Shared mock implementations for HttpConfig test splits.
  *
- * `vi.mock(...)` must remain at the top of each test file (Vitest hoisting).
+ * Mock registrations must remain at the top of each test file (Vitest hoisting).
  * This module exports mock factory objects and optional prop-capture state.
  */
 import React from 'react';

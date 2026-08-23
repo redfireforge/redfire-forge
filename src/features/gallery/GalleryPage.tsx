@@ -1,7 +1,7 @@
 import { useMemo, useCallback, useState } from 'react';
 import type { GalleryEntry, GalleryDomain } from '../../data/galleries/types';
 import type { GallerySampleStatus } from './types';
-import { gallerySampleHash } from '../../shared/utils/gallerySampleHash';
+import { gallerySampleHash } from '@shared/utils/gallerySampleHash';
 import { requestSampleCatalog } from '../../data/galleries/requests';
 import { catalogSpecCatalog } from '../../data/galleries/catalog-specs';
 import { testSampleCatalog } from '../../data/galleries/tests';
@@ -9,10 +9,10 @@ import { sampleWorkflowCatalog } from '../../data/galleries/workflows';
 import { assertionPresetCatalog } from '../../data/galleries/assertion-presets';
 import { dataMapperSampleCatalog } from '../../data/galleries/data-mapper';
 import { apiMockSampleCatalog } from '../../data/galleries/api-mock';
-import { GalleryGrid } from '../../shared/components/gallery';
-import ConfirmModal from '../../shared/components/ConfirmModal';
+import { GalleryGrid } from '@shared/components/gallery';
+import ConfirmModal from '@shared/components/ConfirmModal';
 import RequestPreview from './RequestPreview';
-import type { Scenario } from '../../shared/types';
+import type { Scenario } from '@shared/types';
 import '../../shared/components/gallery/gallery.css';
 
 /**

@@ -1,4 +1,4 @@
-import type { GraphqlBatchResult } from '../../../shared/types/graphql';
+import type { GraphqlBatchResult } from '@shared/types/graphql';
 import type { SaveHistoryParams } from '../hooks/useGraphqlHistory';
 import type { GqlStudioTab } from '../utils/tabPersistence';
 import { resolveGraphqlRequestOperationName } from './graphqlQueryParseUtils';

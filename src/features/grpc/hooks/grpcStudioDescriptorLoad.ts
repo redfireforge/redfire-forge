@@ -4,14 +4,14 @@ import {
   type GrpcDescriptor,
   type GrpcDescriptorSource,
   type GrpcDescriptorSourceSelection,
-} from '../../../shared/grpc/contracts';
-import { createDefaultDescriptorSourceSelection } from '../../../shared/grpc/descriptorSourcePolicy';
+} from '@shared/grpc/contracts';
+import { createDefaultDescriptorSourceSelection } from '@shared/grpc/descriptorSourcePolicy';
 import {
   GrpcApiClientError,
   postGrpcDescribe,
   postGrpcExportProtoset,
   postGrpcReflect,
-} from '../../../shared/grpc/grpcApiClient';
+} from '@shared/grpc/grpcApiClient';
 import {
   clearedGrpcStreamSessionPatch,
   createDefaultProtoIngestState,

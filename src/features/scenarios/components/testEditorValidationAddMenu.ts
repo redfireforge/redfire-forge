@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import type { Assertion, ScenarioActionType } from '../../../shared/types';
-import { isWsActionType } from '../../../shared/types';
+import type { Assertion, ScenarioActionType } from '@shared/types';
+import { isWsActionType } from '@shared/types';
 
 /** Transport filter — which transports this row applies to. undefined = all transports. */
 type TransportFilter = 'http' | 'kafka' | 'ws';

@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid';
 import type { SetVariableNodeData } from '../../types/workflow';
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
-import { useListCrud } from '../../../../shared/hooks/useListCrud';
+import { useListCrud } from '@shared/hooks/useListCrud';
 import InsertVarField from '../expression/InsertVarField';
 import ExpressionInput from '../expression/ExpressionInput';
 import AvailableVariables from '../expression/AvailableVariables';

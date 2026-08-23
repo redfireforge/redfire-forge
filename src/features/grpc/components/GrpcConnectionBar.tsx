@@ -1,6 +1,6 @@
 import type { ChangeEvent } from 'react';
-import type { GrpcAuthConfig, GrpcTargetConnectionSession, GrpcTlsMode } from '../../../shared/grpc/contracts';
-import { GRPC_TRANSPORT_CAPABILITY_MATRIX, type GrpcStudioTransportMode } from '../../../shared/grpc/grpcWebTransportContracts';
+import type { GrpcAuthConfig, GrpcTargetConnectionSession, GrpcTlsMode } from '@shared/grpc/contracts';
+import { GRPC_TRANSPORT_CAPABILITY_MATRIX, type GrpcStudioTransportMode } from '@shared/grpc/grpcWebTransportContracts';
 import {
   formatGrpcDeadlineLabel,
   isGrpcAuthConfigured,

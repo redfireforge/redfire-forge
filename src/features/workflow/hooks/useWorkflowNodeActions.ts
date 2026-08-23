@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, RequestCollection, Environment, Microservice, GlobalAuthProfile, AuthConfig, KeyValue } from '../../../shared/types';
+import type { Scenario, RequestCollection, Environment, Microservice, GlobalAuthProfile, AuthConfig, KeyValue } from '@shared/types';
 import type { CatalogEntry } from '../../catalog/types/catalog';
 import type {
   WorkflowNode,

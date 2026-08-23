@@ -2,10 +2,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { selectOption, getCustomSelectValue, getCustomSelectOptionLabels } from '../../../test-utils/customSelectHelper';
+import { selectOption, getCustomSelectValue, getCustomSelectOptionLabels } from '@test-utils/customSelectHelper';
 import WsScenarioEditor from './WsScenarioEditor';
-import type { Scenario } from '../../../shared/types';
-import { createDefaultWsConnectAction, createDefaultWsSendAction, createDefaultWsReceiveAction } from '../../../shared/utils/wsScenarioDefaults';
+import type { Scenario } from '@shared/types';
+import { createDefaultWsConnectAction, createDefaultWsSendAction, createDefaultWsReceiveAction } from '@shared/utils/wsScenarioDefaults';
 
 const mockOnDraftChange = vi.fn();
 

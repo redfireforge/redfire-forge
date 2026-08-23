@@ -1,15 +1,15 @@
 /**
  * Phase 5H — fire-and-forget call history capture from execute outcomes.
  */
-import type { GrpcTabExecuteSnapshot } from '../../../shared/grpc/contracts';
-import type { GrpcCallResult, GrpcErrorBody } from '../../../shared/grpc/contracts';
+import type { GrpcTabExecuteSnapshot } from '@shared/grpc/contracts';
+import type { GrpcCallResult, GrpcErrorBody } from '@shared/grpc/contracts';
 import { appendGrpcCallHistory } from '../data/grpcCallHistoryRecorder';
 import { prepareGrpcCallHistoryExport } from './grpcCrossFeatureExport';
-import type { GrpcCallHistoryTemplateContext } from '../../../shared/grpc/grpcReplayTemplateCompatibility';
-import { applyGrpcCallHistoryTemplateContext } from '../../../shared/grpc/grpcReplayTemplateCompatibility';
+import type { GrpcCallHistoryTemplateContext } from '@shared/grpc/grpcReplayTemplateCompatibility';
+import { applyGrpcCallHistoryTemplateContext } from '@shared/grpc/grpcReplayTemplateCompatibility';
 import { captureGrpcRpcStatsFromOutcome } from './grpcStudioRpcStatsCapture';
-import { prepareGrpcCallMetadata } from '../../../shared/grpc/grpcCompressionPolicy';
-import { isGrpcRedactedPersistValue } from '../../../shared/grpc/grpcSavedRequest';
+import { prepareGrpcCallMetadata } from '@shared/grpc/grpcCompressionPolicy';
+import { isGrpcRedactedPersistValue } from '@shared/grpc/grpcSavedRequest';
 
 export const GRPC_CALL_HISTORY_UPDATED_EVENT = 'grpc-call-history-updated';
 

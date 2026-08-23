@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import WorkflowPicker from './WorkflowPicker';
-import type { Workflow, WorkflowFolder } from '../../workflow/types/workflow';
+import type { Workflow, WorkflowFolder } from '@workflow/types/workflow';
 import { createPerfSimpleWorkflow } from '../../../data/galleries/workflows';
 
 const ts = Date.now();

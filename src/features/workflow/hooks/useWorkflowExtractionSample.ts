@@ -1,8 +1,8 @@
 import { useCallback, useEffect } from 'react';
-import type { FetchErrorDetail } from '../../../shared/components/data-mapper/types';
+import type { FetchErrorDetail } from '@shared/components/data-mapper/types';
 import { isHttpWorkflowNode } from '../utils/workflowVariableHints';
 import { resolveHttpNodeBaseUrl } from '../utils/workflowHostResolve';
-import { fetchScenarioSample } from '../engine/fetchScenarioSample';
+import { fetchScenarioSample } from '@workflow/engine/fetchScenarioSample';
 import type {
   StartNodeData,
   ScheduleTriggerNodeData,
@@ -10,9 +10,9 @@ import type {
   WorkflowService,
   WorkflowNode,
 } from '../types/workflow';
-import type { Microservice } from '../../../shared/types';
+import type { Microservice } from '@shared/types';
 import type { WorkflowRFNode } from '../utils/workflowNodeFactory';
-import { prettyJson, isValidJson } from '../../../shared/utils/helpers';
+import { prettyJson, isValidJson } from '@shared/utils/helpers';
 
 interface UseWorkflowExtractionSampleOpts {
   selectedNode: WorkflowRFNode | null | undefined;

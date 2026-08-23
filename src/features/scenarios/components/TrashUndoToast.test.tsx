@@ -5,7 +5,7 @@ import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import TrashUndoToast from './TrashUndoToast';
-import { makeTrashItem } from '../../../test-utils/factories';
+import { makeTrashItem } from '@test-utils/factories';
 
 describe('TrashUndoToast', () => {
   let onUndo: ReturnType<typeof vi.fn>;

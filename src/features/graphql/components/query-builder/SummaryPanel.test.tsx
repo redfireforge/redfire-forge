@@ -6,7 +6,7 @@
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { selectOption, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
+import { selectOption, getCustomSelectValue } from '@test-utils/customSelectHelper';
 import { SummaryPanel } from './SummaryPanel';
 import type { BuilderState } from '../../hooks/useGraphqlQueryBuilder';
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import type { Workflow, CorrelationWaitNodeData, SwitchNodeData, ConditionNodeData, WorkflowNode, WorkflowEdge } from '../../workflow/types/workflow';
+import type { Workflow, CorrelationWaitNodeData, SwitchNodeData, ConditionNodeData, WorkflowNode, WorkflowEdge } from '@workflow/types/workflow';
 
 interface PausedCorrelation {
   correlationId: string;

@@ -1,4 +1,4 @@
-import type { Assertion } from '../../../shared/types';
+import type { Assertion } from '@shared/types';
 import type { GalleryEntry } from '../types';
 
 export type AssertionPresetCategory = 'api-validation' | 'data-quality' | 'security';

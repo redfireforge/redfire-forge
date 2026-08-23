@@ -10,10 +10,10 @@ import type {
   GraphqlIntrospectOutputBinding,
 } from '../types/workflow';
 import type { NodeHandlerContext } from './graphRunnerNodeHandlerContext';
-import type { RequestResult } from '../../../shared/types';
-import type { GraphqlAuth } from '../../../shared/types/graphql';
-import { nextResultId } from '../../../engine/requestExecution';
-import { buildAuthHeaders } from '../../graphql/utils/authUtils';
+import type { RequestResult } from '@shared/types';
+import type { GraphqlAuth } from '@shared/types/graphql';
+import { nextResultId } from '@engine/core/requestExecution';
+import { buildAuthHeaders } from '@graphql/utils/authUtils';
 
 // ── Bounded defaults ───────────────────────────────────────────────────────────
 

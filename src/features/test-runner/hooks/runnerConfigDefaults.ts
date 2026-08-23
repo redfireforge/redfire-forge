@@ -1,4 +1,4 @@
-import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig, ArrivalRateConfig, KafkaResultsPublishConfig } from '../../../shared/types';
+import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig, ArrivalRateConfig, KafkaResultsPublishConfig } from '@shared/types';
 import type { ReportOptions } from '../../results/utils/reportGenerator';
 import type { ApiMockTestFixtureConfig } from '../utils/apiMockTestFixture';
 

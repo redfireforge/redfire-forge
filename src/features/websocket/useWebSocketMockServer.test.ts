@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useWebSocketMockServer } from './useWebSocketMockServer';
-import type { WsMockRule, WsMockStatus, WsMockLogEntry } from '../../shared/websocket/types';
+import type { WsMockRule, WsMockStatus, WsMockLogEntry } from '@shared/websocket/types';
 
 vi.mock('../../shared/websocket/websocketStorage', () => ({
   loadMockRules: vi.fn(),
@@ -13,7 +13,7 @@ vi.mock('../../shared/websocket/websocketStorage', () => ({
   saveMockConfig: vi.fn(),
 }));
 
-import { loadMockRules, saveMockRules, loadMockConfig, saveMockConfig } from '../../shared/websocket/websocketStorage';
+import { loadMockRules, saveMockRules, loadMockConfig, saveMockConfig } from '@shared/websocket/websocketStorage';
 
 const mockedLoadMockRules = vi.mocked(loadMockRules);
 const mockedSaveMockRules = vi.mocked(saveMockRules);

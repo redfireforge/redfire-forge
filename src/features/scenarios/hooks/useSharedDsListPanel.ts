@@ -3,7 +3,7 @@
  * Handles selection, filtering, context menu, renaming, and resize.
  */
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import type { SharedDataSource } from '../../../shared/types';
+import type { SharedDataSource } from '@shared/types';
 
 export interface UseSharedDsListPanelOptions {
   sharedDataSources: SharedDataSource[];

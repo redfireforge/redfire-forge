@@ -1,4 +1,4 @@
-import type { RequestCollection, RequestFolder, Microservice } from '../../../shared/types';
+import type { RequestCollection, RequestFolder, Microservice } from '@shared/types';
 
 export interface NamedEnv {
   id: string;

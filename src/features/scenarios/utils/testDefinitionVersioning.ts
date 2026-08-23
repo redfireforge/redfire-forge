@@ -1,6 +1,6 @@
-import type { Scenario, TestDefinitionVersion, TestDefinitionSnapshot } from '../../../shared/types';
-import { prepareGrpcHarnessCallActionDefinitionSnapshot } from '../../../shared/grpc/grpcInterpolationPersistGuard';
-import { canonicalize } from '../../../shared/utils/canonicalize';
+import type { Scenario, TestDefinitionVersion, TestDefinitionSnapshot } from '@shared/types';
+import { prepareGrpcHarnessCallActionDefinitionSnapshot } from '@shared/grpc/grpcInterpolationPersistGuard';
+import { canonicalize } from '@shared/utils/canonicalize';
 import {
   computeSnapshotFingerprint,
   generateHttpChangeSummary,
@@ -8,7 +8,7 @@ import {
   createVersionEntry,
   addVersionToList as addVersionToListGeneric,
   type HttpSnapshotDiffBase,
-} from '../../../shared/utils/definitionVersioning';
+} from '@shared/utils/definitionVersioning';
 
 const MAX_VERSIONS = 20;
 

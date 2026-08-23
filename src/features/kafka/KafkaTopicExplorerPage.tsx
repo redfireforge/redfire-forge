@@ -1,4 +1,4 @@
-import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
+import type { UseKafkaStateReturn } from '@app/hooks/useKafkaState';
 import { KafkaStudioGuard } from './KafkaStudioGuard';
 import { useTopicExplorer } from './useTopicExplorer';
 import type { TopicHealthFilter, TopicPartitionBucket, TopicRetentionBucket } from './useTopicExplorer';

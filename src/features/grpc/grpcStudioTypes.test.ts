@@ -26,14 +26,14 @@ import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_SERVER_STREAM_START_REQUEST,
   FIXTURE_UNARY_CALL_REQUEST,
-} from '../../shared/grpc/contractFixtures';
+} from '@shared/grpc/contractFixtures';
 import {
   validateGrpcStreamStartRequest,
   validatePhase1UnaryCallRequest,
-} from '../../shared/grpc/requestValidation';
+} from '@shared/grpc/requestValidation';
 import { buildDefaultGrpcBody } from './utils/buildDefaultGrpcBody';
 import { resolveGrpcTabConnection } from './utils/resolveGrpcTabConnection';
-import { createDefaultDescriptorSourceSelection } from '../../shared/grpc/descriptorSourcePolicy';
+import { createDefaultDescriptorSourceSelection } from '@shared/grpc/descriptorSourcePolicy';
 
 describe('grpcStudioTypes (Phase 1A + 2A stream state)', () => {
   it('duplicateTabDescriptorState resets loading state instead of copying in-flight reflect', () => {

@@ -3,12 +3,12 @@
  */
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { buildGrpcLoadTestRunSummaryExport } from '../../../shared/grpc/grpcLoadTestMetrics';
-import { captureGrpcLoadTestExecuteSnapshot } from '../../../shared/grpc/grpcAdvancedFeatureContracts';
-import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
-import * as advancedFeatureExport from '../../../shared/grpc/grpcAdvancedFeatureExport';
-import { buildGrpcAdvancedFeatureSourceMetadata } from '../../../shared/grpc/grpcAdvancedFeatureExport';
-import * as mockRuleSetExport from '../../../shared/grpc/grpcMockRuleSetExport';
+import { buildGrpcLoadTestRunSummaryExport } from '@shared/grpc/grpcLoadTestMetrics';
+import { captureGrpcLoadTestExecuteSnapshot } from '@shared/grpc/grpcAdvancedFeatureContracts';
+import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
+import * as advancedFeatureExport from '@shared/grpc/grpcAdvancedFeatureExport';
+import { buildGrpcAdvancedFeatureSourceMetadata } from '@shared/grpc/grpcAdvancedFeatureExport';
+import * as mockRuleSetExport from '@shared/grpc/grpcMockRuleSetExport';
 import { createInitialGrpcTabAdvancedFeaturesUiState } from '../grpcStudioAdvancedTypes';
 import * as advancedModel from '../utils/grpcStudioAdvancedModel';
 import { useGrpcAdvancedExportCallbacks } from './useGrpcAdvancedExportCallbacks';

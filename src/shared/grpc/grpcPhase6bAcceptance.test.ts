@@ -2,7 +2,7 @@
  * Phase 6B — acceptance checklist traceability.
  */
 import { describe, expect, it } from 'vitest';
-import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '../../shared/grpc/contractFixtures';
+import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
 
 describe('Phase 6B acceptance checklist', () => {
   it('exports workflow snapshot contracts', async () => {

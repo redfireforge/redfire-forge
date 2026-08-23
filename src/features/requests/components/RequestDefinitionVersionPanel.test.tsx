@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import RequestDefinitionVersionPanel from './RequestDefinitionVersionPanel';
-import type { RequestDefinitionVersion, RequestDefinitionSnapshot } from '../../../shared/types';
+import type { RequestDefinitionVersion, RequestDefinitionSnapshot } from '@shared/types';
 
 function snapshot(overrides: Partial<RequestDefinitionSnapshot> = {}): RequestDefinitionSnapshot {
   return {

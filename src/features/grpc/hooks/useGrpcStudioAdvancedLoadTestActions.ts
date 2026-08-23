@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import {
   requestGrpcAdvancedOperationCancellation,
-} from '../../../shared/grpc/grpcAdvancedFeatureContracts';
+} from '@shared/grpc/grpcAdvancedFeatureContracts';
 import {
   buildGrpcAdvancedFeatureSourceMetadata,
   type GrpcAdvancedFeatureSourceMetadata,
-} from '../../../shared/grpc/grpcAdvancedFeatureExport';
-import type { GrpcCallType } from '../../../shared/grpc/contracts';
+} from '@shared/grpc/grpcAdvancedFeatureExport';
+import type { GrpcCallType } from '@shared/grpc/contracts';
 import {
   createInitialGrpcTabAdvancedFeaturesUiState,
   type GrpcTabAdvancedFeaturesUiState,
@@ -29,7 +29,7 @@ import {
 import { computeLoadTestProgressPercent } from '../utils/grpcStudioAdvancedModel';
 import { resolveGrpcStudioTabTransportMode } from '../grpcStudioTypes';
 import { findGrpcMethod } from '../utils/grpcExplorerUtils';
-import type { GrpcLoadTestSchedulerRun } from '../../../shared/grpc/grpcLoadTestSchedulerCore';
+import type { GrpcLoadTestSchedulerRun } from '@shared/grpc/grpcLoadTestSchedulerCore';
 import { captureGrpcRpcStatsFromLoadTestSummary } from '../utils/grpcStudioRpcStatsCapture';
 import {
   GRPC_LOAD_TEST_HISTORY_LIMIT,

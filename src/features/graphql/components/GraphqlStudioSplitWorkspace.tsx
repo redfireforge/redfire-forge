@@ -11,10 +11,10 @@ import type {
   GraphqlSchemaInfo,
   GraphqlSchemaSnapshot,
   GraphqlSubscriptionAssertion,
-} from '../../../shared/types/graphql';
-import type { GlobalAuthProfile } from '../../../shared/types';
-import type { SplitPaneDividerProps } from '../../../shared/hooks/useSplitPaneResize';
-import type { VerticalSplitPaneDividerProps } from '../../../shared/hooks/useVerticalSplitPaneResize';
+} from '@shared/types/graphql';
+import type { GlobalAuthProfile } from '@shared/types';
+import type { SplitPaneDividerProps } from '@shared/hooks/useSplitPaneResize';
+import type { VerticalSplitPaneDividerProps } from '@shared/hooks/useVerticalSplitPaneResize';
 import { GraphqlEditor } from './GraphqlEditor';
 import { GraphqlQueryBuilder } from './GraphqlQueryBuilder';
 import { GraphqlSubscriptionAssertionPanel } from './GraphqlSubscriptionAssertionPanel';

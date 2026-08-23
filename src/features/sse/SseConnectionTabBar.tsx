@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent } from 'react';
 import type { SseConnectionState, SseConnectionTab } from './sseTypes';
 import { SSE_MAX_TABS } from './sseTypes';
-import { computeDropIndex } from '../../shared/components/studio-tabs/computeDropIndex';
+import { computeDropIndex } from '@shared/components/studio-tabs/computeDropIndex';
 import {
   buildContextMenuItems,
   useTabContextMenu,
-} from '../../shared/components/studio-tabs/TabContextMenu';
+} from '@shared/components/studio-tabs/TabContextMenu';
 
+// eslint-disable-next-line react-refresh/only-export-components
 export { computeDropIndex };
 
 export interface SseConnectionTabBarProps {

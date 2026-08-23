@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import type { GraphqlAuth } from '../../../shared/types/graphql';
-import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
+import type { GraphqlAuth } from '@shared/types/graphql';
+import type { GqlTlsSettings } from '@shared/types/gqlTls';
 import type { ConnectionProfile } from '../utils/connectionProfileStorage';
 import type { GqlStudioTab } from '../utils/tabPersistence';
 import { resolveTabConnection, tabConnectionTls, type TabConnectionResolution } from '../utils/tabConnectionResolution';

@@ -11,7 +11,7 @@ import {
   waitWithAbort,
   getMockPayload,
 } from './correlationWaitHelpers';
-import { toErrorMessage } from '../../../shared/utils/helpers';
+import { toErrorMessage } from '@shared/utils/helpers';
 
 export async function handleCorrelationWaitNode(
   nodeId: string,

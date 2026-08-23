@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ApiMockRouteFolderV1, ApiMockRouteV1 } from '../../../shared/api-mock/contracts';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import { httpMethodSelectOptions } from '../../../shared/constants/httpMethodColors';
-import { getNextTabIndex } from '../../../shared/utils/tabListKeyboard';
+import type { ApiMockRouteFolderV1, ApiMockRouteV1 } from '@shared/api-mock/contracts';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import { httpMethodSelectOptions } from '@shared/constants/httpMethodColors';
+import { getNextTabIndex } from '@shared/utils/tabListKeyboard';
 import { PlusIcon, FolderPlusIcon, FilterIcon, XIcon, ChevronDownIcon, ChevronRightIcon, TrashIcon, CheckIcon } from './ApiMockIcons';
 import { API_MOCK_CLI_SIMULATE_EXAMPLE, API_MOCK_CLI_VERIFY_EXAMPLE } from '../apiMockExportActions';
 

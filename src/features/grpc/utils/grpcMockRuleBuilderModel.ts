@@ -5,12 +5,12 @@ import type {
   GrpcMockPredicate,
   GrpcMockRule,
   GrpcMockRuleSet,
-} from '../../../shared/grpc/grpcMockRuleContracts';
+} from '@shared/grpc/grpcMockRuleContracts';
 import {
   validateGrpcMockRuleSet,
   type GrpcMockRuleValidationIssue,
-} from '../../../shared/grpc/grpcMockRuleContracts';
-import { GRPC_MOCK_FORBIDDEN_EXPRESSION_PATTERNS } from '../../../shared/grpc/grpcMockPredicateSandbox';
+} from '@shared/grpc/grpcMockRuleContracts';
+import { GRPC_MOCK_FORBIDDEN_EXPRESSION_PATTERNS } from '@shared/grpc/grpcMockPredicateSandbox';
 import { summarizeMockRulePredicate } from './grpcStudioAdvancedModel';
 
 export const GRPC_MOCK_BUILDER_MAX_PREDICATE_DEPTH = 2;

@@ -6,7 +6,7 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ApiMockPatternToolboxModal } from './ApiMockPatternToolboxModal';
 import { clearToolboxBodySamples } from './apiMockPatternToolboxSamples';
-import type { ApiMockPathMatcherV1 } from '../../../shared/api-mock/contracts';
+import type { ApiMockPathMatcherV1 } from '@shared/api-mock/contracts';
 
 function renderModal(
   initial: ApiMockPathMatcherV1 = { kind: 'parameterized', value: '/users/:id' },

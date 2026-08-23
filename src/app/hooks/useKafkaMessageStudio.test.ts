@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useKafkaMessageStudio } from './useKafkaMessageStudio';
 import type { UseKafkaStateReturn } from './useKafkaState';
-import type { KafkaEnvelope } from '../../shared/kafka/kafkaClient';
+import type { KafkaEnvelope } from '@shared/kafka/kafkaClient';
 
 // ── Mock kafkaState ────────────────────────────────────────────────────────
 

@@ -10,8 +10,8 @@ import {
   makeDataSource,
   makeDataTransferWithId as _makeDataTransferWithId,
 } from './__test-utils__/dataSourceEditorTestHelpers';
-import { Scenario, DataSource, SharedDataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
-import { MapperFetchError } from '../../../shared/components/data-mapper/types';
+import { Scenario, DataSource, SharedDataSource, DataSourceColumn, DataSourceRow } from '@shared/types';
+import { MapperFetchError } from '@shared/components/data-mapper/types';
 
 vi.mock('uuid', () => ({ v4: () => `uuid-${Math.random().toString(36).slice(2, 8)}` }));
 

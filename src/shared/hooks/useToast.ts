@@ -1,5 +1,5 @@
 import { useContext } from 'react';
-import { ToastContext, type ToastApi } from '../../features/workflow/components/WorkflowToastProvider';
+import { ToastContext, type ToastApi } from '@workflow/components/WorkflowToastProvider';
 
 export function useToast(): ToastApi {
   const ctx = useContext(ToastContext);

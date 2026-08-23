@@ -1,13 +1,13 @@
 import { useCallback, useState } from 'react';
-import type { RequestItem, HttpMethod, Scenario } from '../../../shared/types';
-import { parseCurl } from '../../../shared/utils/curlParser';
-import { buildCurlCommand } from '../../../shared/utils/curlGenerator';
-import type { AuthConfig } from '../../../shared/types';
+import type { RequestItem, HttpMethod, Scenario } from '@shared/types';
+import { parseCurl } from '@shared/utils/curlParser';
+import { buildCurlCommand } from '@shared/utils/curlGenerator';
+import type { AuthConfig } from '@shared/types';
 import { pickJsonFile, unwrapImport } from '../../scenarios/utils/testEditorUtils';
-import { saveFile } from '../../../shared/utils/fileSaver';
-import { toErrorMessage } from '../../../shared/utils/helpers';
-import { useToast } from '../../../shared/hooks/useToast';
-import type { RequestInputMode, RequestSubTab } from '../../../shared/types';
+import { saveFile } from '@shared/utils/fileSaver';
+import { toErrorMessage } from '@shared/utils/helpers';
+import { useToast } from '@shared/hooks/useToast';
+import type { RequestInputMode, RequestSubTab } from '@shared/types';
 
 export interface UseRequestImportExportOptions {
   request: RequestItem;

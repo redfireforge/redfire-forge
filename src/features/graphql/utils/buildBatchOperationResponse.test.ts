@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { GraphqlError } from '../../../shared/types/graphql';
+import type { GraphqlError } from '@shared/types/graphql';
 import {
   buildBatchNetworkErrorResponse,
   buildBatchOperationResponse,

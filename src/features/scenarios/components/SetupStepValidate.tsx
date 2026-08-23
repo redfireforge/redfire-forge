@@ -4,14 +4,14 @@
  */
 import { useState, useMemo, useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import type { Scenario, ExpectedField } from '../../../shared/types';
-import type { FetchErrorDetail } from '../../../shared/components/data-mapper/types';
-import FetchErrorBanner from '../../../shared/components/data-mapper/FetchErrorBanner';
+import type { Scenario, ExpectedField } from '@shared/types';
+import type { FetchErrorDetail } from '@shared/components/data-mapper/types';
+import FetchErrorBanner from '@shared/components/data-mapper/FetchErrorBanner';
 import {
   DataMapperModal,
   createValidationAdapter,
-} from '../../../shared/components/data-mapper';
-import type { ValidationAdapterOutput } from '../../../shared/components/data-mapper';
+} from '@shared/components/data-mapper';
+import type { ValidationAdapterOutput } from '@shared/components/data-mapper';
 
 export interface SetupStepValidateProps {
   validationMode: 'none' | 'selective' | 'full';

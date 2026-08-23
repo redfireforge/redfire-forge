@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { AuthConfig, GlobalAuthProfile } from '../../../shared/types';
+import type { AuthConfig, GlobalAuthProfile } from '@shared/types';
 import {
   getAuthType,
   authToState,

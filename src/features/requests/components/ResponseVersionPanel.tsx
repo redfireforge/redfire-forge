@@ -1,9 +1,9 @@
 import { useState, useMemo, useCallback } from 'react';
-import type { ResponseVersion, ValidationConfig } from '../../../shared/types';
+import type { ResponseVersion, ValidationConfig } from '@shared/types';
 import { buildRulesSnapshot } from '../utils/versionUtils';
 import VersionPreviewModal from './VersionPreviewModal';
-import { prettyJson } from '../../../shared/utils/helpers';
-import { sharedDiffer } from '../../../shared/utils/jsonDiffKit';
+import { prettyJson } from '@shared/utils/helpers';
+import { sharedDiffer } from '@shared/utils/jsonDiffKit';
 import { useVersionDiffPanel } from '../hooks/useVersionDiffPanel';
 import VersionDiffModal from './version-shared/VersionDiffModal';
 import VersionListItem from './version-shared/VersionListItem';

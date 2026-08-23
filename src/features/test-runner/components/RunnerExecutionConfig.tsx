@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, LoadProfileType, ThinkTimeConfig, ThinkTimeMode, ArrivalRateConfig } from '../../../shared/types';
+import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, LoadProfileType, ThinkTimeConfig, ThinkTimeMode, ArrivalRateConfig } from '@shared/types';
 import { ProfilePreview } from '../../requests/components/ProfilePreview';
 import { profileDescriptions } from '../utils/runnerProgressStorage';
-import { getExecutionModeMeta } from '../../../shared/utils/executionMode';
-import { isTauri } from '../../../shared/utils/platform';
+import { getExecutionModeMeta } from '@shared/utils/executionMode';
+import { isTauri } from '@shared/utils/platform';
 
 function NumericInput({ value, onChange, min = 0, max = Infinity, step, disabled, className }: {
   value: number; onChange: (n: number) => void;

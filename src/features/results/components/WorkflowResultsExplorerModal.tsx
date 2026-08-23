@@ -1,20 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 
-import type { WorkflowExecutionTrace, WorkflowIterationTrace, ExecutionEvent } from '../../../shared/types';
+import type { WorkflowExecutionTrace, WorkflowIterationTrace, ExecutionEvent } from '@shared/types';
 import { isSampledIteration } from '../utils/sampledIterations';
-import FullPanelModal from '../../../shared/components/FullPanelModal';
+import FullPanelModal from '@shared/components/FullPanelModal';
 import WorkflowExecutionCanvas, { type NodeStateFilter } from './WorkflowExecutionCanvas';
 import ExecutionTimeline from './ExecutionTimeline';
 import ResultsExplorerDetailPanel from './ResultsExplorerDetailPanel';
 import IterationMatrixTable from './IterationMatrixTable';
 import IterationPicker from './IterationPicker';
-import { formatDurationMs } from '../../../shared/utils/formatDuration';
+import { formatDurationMs } from '@shared/utils/formatDuration';
 import type { BottleneckInsight } from '../utils/bottleneckAnalysis';
 import type { ForkJoinTopology } from '../utils/forkJoinDetection';
 import { getIterationByIndex } from '../utils/iterationLookup';
 import ResultsExplorerConsolePanel from './ResultsExplorerConsolePanel';
-import type { MappingTrace } from '../../../shared/components/data-mapper/utils/mappingTrace';
+import type { MappingTrace } from '@shared/components/data-mapper/utils/mappingTrace';
 import MappingTraceOverlay from './MappingTraceOverlay';
 import { useExplorerExport } from '../hooks/useExplorerExport';
 import { useIterationTransition } from '../hooks/useIterationTransition';

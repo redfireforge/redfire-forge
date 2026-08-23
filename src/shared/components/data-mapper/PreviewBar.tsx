@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { computePreview } from './utils/previewCompute';
 import type { Mapping, MapperSource } from './types';
-import type { ExpressionFunction } from '../../../features/workflow/utils/expressionFunctions/types';
+import type { ExpressionFunction } from '@workflow/utils/expressionFunctions/types';
 
 interface PreviewBarProps {
   mappings: Mapping[];

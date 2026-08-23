@@ -24,10 +24,10 @@ vi.mock('@tauri-apps/api/event', () => ({
 }));
 
 import { resetAvailabilityCache, canUseRustExecutor, buildExecutionPlan, mapRustResult, runTestViaRust, startRustLoadTest, type RustProgressBatch, type RustCompletionSummary, type RustExecutionResult, } from './rustBridge';
-import { isTauri } from '../../../shared/utils/platform';
-import { Scenario, TestConfig } from '../../../shared/types';
-import { ProgressMeta } from '../../../engine/executor';
-import { makeScenario as _makeScenario, makeConfig as _makeConfig } from '../../../test-utils/factories';
+import { isTauri } from '@shared/utils/platform';
+import { Scenario, TestConfig } from '@shared/types';
+import { ProgressMeta } from '@engine/core/executor';
+import { makeScenario as _makeScenario, makeConfig as _makeConfig } from '@test-utils/factories';
 
 const mockIsTauri = vi.mocked(isTauri);
 

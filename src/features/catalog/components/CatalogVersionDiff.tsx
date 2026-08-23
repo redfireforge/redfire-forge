@@ -4,7 +4,7 @@ interface Props {
   diff: CatalogSpecDiff;
 }
 
-import { SWAGGER_METHOD_COLORS as METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
+import { SWAGGER_METHOD_COLORS as METHOD_COLORS } from '@shared/constants/httpMethodColors';
 
 export default function CatalogVersionDiff({ diff }: Props) {
   const total = diff.summary.totalAdded + diff.summary.totalRemoved + diff.summary.totalChanged;

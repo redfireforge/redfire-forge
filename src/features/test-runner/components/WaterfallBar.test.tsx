@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import WaterfallBar, { AggregatedTimingTable } from './WaterfallBar';
-import type { TimingBreakdown } from '../../../shared/types';
+import type { TimingBreakdown } from '@shared/types';
 
 function makeTiming(overrides: Partial<TimingBreakdown> = {}): TimingBreakdown {
   return {

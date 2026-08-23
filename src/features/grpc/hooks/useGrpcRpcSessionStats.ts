@@ -8,7 +8,7 @@ import {
   GRPC_RPC_STATS_UPDATED_EVENT,
   pruneGrpcRpcSessionStatsForTabs,
   resetGrpcRpcSessionStats,
-} from '../../../shared/grpc/grpcRpcSessionStats';
+} from '@shared/grpc/grpcRpcSessionStats';
 
 export interface UseGrpcRpcSessionStatsResult {
   rpcSessionStats: ReturnType<typeof getGrpcRpcSessionStats>;

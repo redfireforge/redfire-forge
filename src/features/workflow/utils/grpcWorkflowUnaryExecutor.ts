@@ -1,10 +1,10 @@
 /**
  * Phase 6C — unary workflow executor with retry semantics.
  */
-import type { GrpcCallRequest } from '../../../shared/grpc/contracts';
-import { GrpcApiClientError } from '../../../shared/grpc/grpcApiClient';
-import type { GrpcTransportErrorDetails } from '../../../shared/grpc/grpcTransportErrors';
-import { cancelGrpcUnary } from '../../../shared/grpc/grpcTransportFacade';
+import type { GrpcCallRequest } from '@shared/grpc/contracts';
+import { GrpcApiClientError } from '@shared/grpc/grpcApiClient';
+import type { GrpcTransportErrorDetails } from '@shared/grpc/grpcTransportErrors';
+import { cancelGrpcUnary } from '@shared/grpc/grpcTransportFacade';
 import type { GrpcWorkflowExecuteSnapshot } from '../types/workflow/grpcWorkflowSnapshot';
 import type { GrpcWorkflowStepResult } from '../types/workflow/node-grpc';
 import { cloneGrpcWorkflowExecuteSnapshot } from './grpcWorkflowSnapshotBuilder';

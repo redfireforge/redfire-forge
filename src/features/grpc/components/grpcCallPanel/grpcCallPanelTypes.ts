@@ -1,5 +1,5 @@
-import type { GlobalAuthProfile } from '../../../../shared/types';
-import type { GrpcMethodInfo, GrpcMessageSchema } from '../../../../shared/grpc/contracts';
+import type { GlobalAuthProfile } from '@shared/types';
+import type { GrpcMethodInfo, GrpcMessageSchema } from '@shared/grpc/contracts';
 import type { GrpcStudioTabState, GrpcExecuteOverrides } from '../../grpcStudioTypes';
 import type { GrpcAuthSecretFieldKey } from '../../utils/grpcSecretFieldUi';
 

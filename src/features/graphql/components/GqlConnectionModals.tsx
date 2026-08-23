@@ -4,10 +4,10 @@
  */
 import { GraphqlProfileModal } from './GraphqlProfileModal';
 import { GraphqlEnvModal } from './GraphqlEnvModal';
-import { removeKey } from '../../../shared/utils/storage';
+import { removeKey } from '@shared/utils/storage';
 import { ENDPOINT_BASE_STORAGE_KEY } from '../utils/tabPersistence';
-import type { GraphqlAuth, GraphqlEnvironment, GraphqlEnvironmentVariable } from '../../../shared/types/graphql';
-import type { GlobalAuthProfile } from '../../../shared/types';
+import type { GraphqlAuth, GraphqlEnvironment, GraphqlEnvironmentVariable } from '@shared/types/graphql';
+import type { GlobalAuthProfile } from '@shared/types';
 import type { ConnectionProfile } from '../hooks/useGraphqlConnectionProfiles';
 
 interface GqlConnectionModalsProps {

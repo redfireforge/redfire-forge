@@ -2,7 +2,7 @@
  * Phase 6A — gRPC workflow node validation tests.
  */
 import { describe, expect, it } from 'vitest';
-import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
+import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
 import type { WorkflowNode } from '../types/workflow';
 import type {
   GrpcAssertNodeData,

@@ -2,7 +2,7 @@
  * Utility functions for Script node — auto-detection and analysis.
  */
 
-import { formatBytes } from '../../../shared/utils/helpers';
+import { formatBytes } from '@shared/utils/helpers';
 
 /**
  * Auto-detect output variable names from script code by scanning

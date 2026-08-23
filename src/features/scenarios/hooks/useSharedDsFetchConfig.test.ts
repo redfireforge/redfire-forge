@@ -4,8 +4,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useSharedDsFetchConfig } from './useSharedDsFetchConfig';
-import { parseCurl } from '../../../shared/utils/curlParser';
-import type { SharedDataSource, DataSource, Scenario } from '../../../shared/types';
+import { parseCurl } from '@shared/utils/curlParser';
+import type { SharedDataSource, DataSource, Scenario } from '@shared/types';
 
 vi.mock('../../../shared/utils/curlParser', () => ({
   parseCurl: vi.fn((_input: string) => ({

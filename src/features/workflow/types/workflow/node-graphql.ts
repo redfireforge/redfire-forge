@@ -1,7 +1,7 @@
 // ── Phase 4 — GraphQL Workflow Node Types ────────────────────────────────────
 
-import type { FieldOperator } from '../../../../shared/types';
-import type { GraphqlAuth } from '../../../../shared/types/graphql';
+import type { FieldOperator } from '@shared/types';
+import type { GraphqlAuth } from '@shared/types/graphql';
 
 export interface GraphqlNodeHeaderRow {
   id: string;

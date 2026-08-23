@@ -3,7 +3,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { computeQueryComplexity } from '../utils/complexityEstimator';
-import type { GraphqlSchemaInfo } from '../../../shared/types/graphql';
+import type { GraphqlSchemaInfo } from '@shared/types/graphql';
 
 export function useGraphqlStudioQueryComplexity(
   schemaStatus: string,

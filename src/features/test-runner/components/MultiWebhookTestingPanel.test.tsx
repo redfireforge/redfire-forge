@@ -4,7 +4,7 @@ import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom/vitest';
 import MultiWebhookTestingPanel, { type WebhookScenario } from './MultiWebhookTestingPanel';
-import { Workflow, CorrelationWaitNodeData } from '../../workflow/types/workflow';
+import { Workflow, CorrelationWaitNodeData } from '@workflow/types/workflow';
 
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
