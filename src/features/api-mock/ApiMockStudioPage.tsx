@@ -48,7 +48,7 @@ import {
 } from './apiMockJournalActions';
 import { useApiMockConsole } from './useApiMockConsole';
 import { analyzeConflicts } from '@shared/api-mock/conflictAnalyzer';
-import { useConfirmDialog } from '../../app/hooks/useConfirmDialog';
+import { useConfirmDialog } from '@app/hooks/useConfirmDialog';
 import { buildRuntimeActionBindings } from './apiMockRuntimeActionBindings';
 import { useApiMockRuntimeActions } from './useApiMockRuntimeActions';
 import './api-mock-studio.css';

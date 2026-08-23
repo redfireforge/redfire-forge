@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react';
 import { CustomSelect } from '@shared/components/CustomSelect';
 import KafkaSchemaConfigSection from '../workflow/components/configs/KafkaSchemaConfigSection';
-import type { UseKafkaMessageStudioReturn } from '../../app/hooks/useKafkaMessageStudio';
-import type { UseKafkaStreamModeReturn } from '../../app/hooks/useKafkaStreamMode';
+import type { UseKafkaMessageStudioReturn } from '@app/hooks/useKafkaMessageStudio';
+import type { UseKafkaStreamModeReturn } from '@app/hooks/useKafkaStreamMode';
 import { exportResultSet, valuePreview } from './kafkaMessageStudioUtils';
 import type { KafkaConsumeTemplate } from '@shared/kafka/kafkaStorage';
 import { KafkaTemplateControls } from './KafkaTemplateControls';

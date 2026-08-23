@@ -18,7 +18,7 @@ import {
 } from '@shared/utils/storage';
 import { purgeExpired } from '@shared/utils/trashStorage';
 import { normalizeGroupActionTypes } from '@shared/utils/scenarioMigration';
-import { isCustomThemeId, findSavedTheme, applyCustomTheme } from '../../../app/themeCustomizerUtils';
+import { isCustomThemeId, findSavedTheme, applyCustomTheme } from '@app/themeCustomizerUtils';
 
 export interface UseProjectsReturn {
   loading: boolean;

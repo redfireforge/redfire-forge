@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { UseKafkaMessageStudioReturn } from '../../app/hooks/useKafkaMessageStudio';
-import type { UseKafkaStreamModeReturn } from '../../app/hooks/useKafkaStreamMode';
+import type { UseKafkaMessageStudioReturn } from '@app/hooks/useKafkaMessageStudio';
+import type { UseKafkaStreamModeReturn } from '@app/hooks/useKafkaStreamMode';
 import type { KafkaConsumeResultRow } from './types';
 import { exportResultSet } from './kafkaMessageStudioUtils';
 import { filterIndexedStreamRows } from './kafkaConsumeStreamHelpers';

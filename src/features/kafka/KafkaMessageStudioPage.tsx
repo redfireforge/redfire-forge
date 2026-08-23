@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react';
-import { useKafkaMessageStudio } from '../../app/hooks/useKafkaMessageStudio';
-import { useKafkaTemplates } from '../../app/hooks/useKafkaTemplates';
-import { useKafkaStreamMode } from '../../app/hooks/useKafkaStreamMode';
-import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
+import { useKafkaMessageStudio } from '@app/hooks/useKafkaMessageStudio';
+import { useKafkaTemplates } from '@app/hooks/useKafkaTemplates';
+import { useKafkaStreamMode } from '@app/hooks/useKafkaStreamMode';
+import type { UseKafkaStateReturn } from '@app/hooks/useKafkaState';
 import { KafkaStudioGuard } from './KafkaStudioGuard';
 import { KafkaPublishStudio } from './KafkaPublishStudio';
 import { KafkaConsumeStudio } from './KafkaConsumeStudio';

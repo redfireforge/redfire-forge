@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { KafkaTopicExplorerPage } from './KafkaTopicExplorerPage';
-import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
+import type { UseKafkaStateReturn } from '@app/hooks/useKafkaState';
 import * as kafkaClient from '@shared/kafka/kafkaClient';
 
 vi.mock('../../shared/kafka/kafkaClient', async (importOriginal) => {

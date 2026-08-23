@@ -10,8 +10,8 @@ vi.mock('./kafkaMessageStudioUtils', async (importOriginal) => {
   return { ...actual, exportResultSet: vi.fn().mockResolvedValue(undefined) };
 });
 import { KafkaConsumeStudio } from './KafkaConsumeStudio';
-import type { UseKafkaMessageStudioReturn } from '../../app/hooks/useKafkaMessageStudio';
-import type { UseKafkaStreamModeReturn } from '../../app/hooks/useKafkaStreamMode';
+import type { UseKafkaMessageStudioReturn } from '@app/hooks/useKafkaMessageStudio';
+import type { UseKafkaStreamModeReturn } from '@app/hooks/useKafkaStreamMode';
 import type { KafkaConsumeDraft, KafkaConsumeResultRow } from './types';
 import { exportResultSet } from './kafkaMessageStudioUtils';
 import { installClipboardMock } from '@test-utils/clipboardMock';

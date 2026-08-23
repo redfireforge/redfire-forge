@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { KafkaMessageStudioPage } from './KafkaMessageStudioPage';
-import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
+import type { UseKafkaStateReturn } from '@app/hooks/useKafkaState';
 
 vi.mock('./KafkaTopicExplorerPage', () => ({
   KafkaTopicExplorerContent: () => <div data-testid="topic-explorer-page">Topic Explorer Content</div>,
