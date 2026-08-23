@@ -8,7 +8,7 @@
  * vi.advanceTimersByTimeAsync() so the 2 s BASE_DELAY_MS is skipped instantly.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { makeTestRun } from '../../test-utils/factories';
+import { makeTestRun } from '@test-utils/factories';
 import type { KafkaResultsPublishConfig, KafkaRunSummaryEnvelope } from '../types';
 
 // ── Hoisted mock ──────────────────────────────────────────────────────────────

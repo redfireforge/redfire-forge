@@ -1,5 +1,5 @@
-import type { ApiMockFaultKind, ApiMockResponseVariantV1 } from '../../../shared/api-mock/contracts';
-import { clampTimeoutHoldMs, DEFAULT_SETTINGS } from '../../../shared/api-mock/defaults';
+import type { ApiMockFaultKind, ApiMockResponseVariantV1 } from '@shared/api-mock/contracts';
+import { clampTimeoutHoldMs, DEFAULT_SETTINGS } from '@shared/api-mock/defaults';
 import { FAULT_CARDS } from './apiMockResponseEditorConstants';
 
 interface Props {

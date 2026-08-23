@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, TestScenario, FeatureGroup } from '../../shared/types';
+import type { Scenario, TestScenario, FeatureGroup } from '@shared/types';
 import type { ScenarioBuilderProps } from './scenarioBuilderTypes';
 import type { MoveType, MoveTarget } from './components/MoveModal';
 import { useAuthVerify } from '../requests/hooks/useAuthVerify';

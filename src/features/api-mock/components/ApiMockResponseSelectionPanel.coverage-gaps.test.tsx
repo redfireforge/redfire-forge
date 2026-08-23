@@ -6,8 +6,8 @@ import { useState } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ApiMockResponseSelectionPanel } from './ApiMockResponseSelectionPanel';
-import { createDefaultResponse } from '../../../shared/api-mock/defaults';
-import type { ApiMockRouteV1, ApiMockResponseVariantV1 } from '../../../shared/api-mock/contracts';
+import { createDefaultResponse } from '@shared/api-mock/defaults';
+import type { ApiMockRouteV1, ApiMockResponseVariantV1 } from '@shared/api-mock/contracts';
 
 const ts = '2026-08-12T00:00:00.000Z';
 

@@ -1,18 +1,18 @@
 import {
   previewGrpcSavedRequestForUi,
   serializeGrpcPreviewJson,
-} from '../../../shared/grpc/grpcSafePreview';
-import type { GrpcSavedRequest } from '../../../shared/grpc/grpcSavedRequest';
+} from '@shared/grpc/grpcSafePreview';
+import type { GrpcSavedRequest } from '@shared/grpc/grpcSavedRequest';
 import {
   formatGrpcCallTypeBadge,
   formatGrpcCallTypeLabel,
   grpcCallTypeBadgeModifier,
 } from '../utils/grpcExplorerUtils';
 import { GrpcResponseSnapshotPanel } from './GrpcResponseSnapshotPanel';
-import type { GrpcResponseSnapshotBaseline } from '../../../shared/grpc/grpcSavedRequest';
-import type { GrpcCallResult } from '../../../shared/grpc/contracts';
-import type { GrpcStreamLogEntry } from '../../../shared/grpc/contracts';
-import type { GrpcErrorBody } from '../../../shared/grpc/contracts';
+import type { GrpcResponseSnapshotBaseline } from '@shared/grpc/grpcSavedRequest';
+import type { GrpcCallResult } from '@shared/grpc/contracts';
+import type { GrpcStreamLogEntry } from '@shared/grpc/contracts';
+import type { GrpcErrorBody } from '@shared/grpc/contracts';
 
 export interface GrpcSavedRequestDetailProps {
   saved: GrpcSavedRequest | null;

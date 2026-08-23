@@ -1,7 +1,7 @@
-import type { WsFrame } from '../../shared/websocket/types';
-import { createFrame } from '../../shared/websocket/types';
-import type { WsProtocolMode, WsProtocolDetectionResult } from '../../shared/websocket/protocols/protocolTypes';
-import { detectFromMessage } from '../../shared/websocket/protocols/protocolDetector';
+import type { WsFrame } from '@shared/websocket/types';
+import { createFrame } from '@shared/websocket/types';
+import type { WsProtocolMode, WsProtocolDetectionResult } from '@shared/websocket/protocols/protocolTypes';
+import { detectFromMessage } from '@shared/websocket/protocols/protocolDetector';
 import { checkAutoRespond, type SioServerParams } from './wsProtocolHelpers';
 
 export interface AutoRespondResult {

@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import WorkflowNodeConfigModal from './WorkflowNodeConfigModal';
-import type { Scenario, AuthConfig, ValidationConfig } from '../../../../shared/types';
+import type { Scenario, AuthConfig, ValidationConfig } from '@shared/types';
 import type { WorkflowNode } from '../../types/workflow';
 
 const noAuth: AuthConfig = { type: 'none' };

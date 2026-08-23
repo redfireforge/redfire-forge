@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWebSocketFilterPresets } from './useWebSocketFilterPresets';
-import { loadWsFilterPresets, saveWsFilterPresets } from '../../shared/websocket/websocketStorage';
+import { loadWsFilterPresets, saveWsFilterPresets } from '@shared/websocket/websocketStorage';
 
 vi.mock('../../shared/websocket/websocketStorage', () => ({
   loadWsFilterPresets: vi.fn().mockResolvedValue([]),

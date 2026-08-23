@@ -1,12 +1,12 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import type { TestRun } from '../../../shared/types';
+import type { TestRun } from '@shared/types';
 import type { MetricDelta, ScenarioDelta, RegressionAlert, TrendPoint, BaselineMark, RegressionThresholds, TrendMetric, TrendScope } from '../utils/runBaselines';
 import { compareRuns, computeTrend, computeScopedTrend, computePerScenarioTrend } from '../utils/runBaselines';
 import { ResponseTimeOverlayHistogram } from './ResponseTimeHistogram';
 import { generateComparisonMarkdown, generateComparisonJson } from '../utils/comparisonReport';
-import { saveFile } from '../../../shared/utils/fileSaver';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { saveFile } from '@shared/utils/fileSaver';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 interface ComparisonProps {
   baselineRun: TestRun;

@@ -3,18 +3,18 @@ import { v4 as uuidv4 } from 'uuid';
 import type {
   TrashItem, TrashEntityType, TrashSettings,
   FeatureGroup, TestScenario, Scenario, SharedDataSource,
-} from '../../../shared/types';
+} from '@shared/types';
 import {
   loadTrash, addToTrash as storageAddToTrash,
   removeFromTrash as storageRemoveFromTrash, emptyTrash as storageEmptyTrash,
   loadTrashSettings, saveTrashSettings,
-} from '../../../shared/utils/trashStorage';
+} from '@shared/utils/trashStorage';
 import { logItemRestored } from '../utils/structureChangeLog';
 import {
   DEFAULT_TRASH_SETTINGS,
   RESTORED_ITEMS_FG_NAME, RESTORED_TESTS_SC_NAME, RESTORED_SUFFIX,
   computeExpiresAt,
-} from '../../../shared/utils/trashConstants';
+} from '@shared/utils/trashConstants';
 
 // ── Public types ──
 

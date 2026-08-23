@@ -3,8 +3,8 @@
  * Extracted to a separate module so GraphqlStudioActivityBar.tsx exports only
  * React components (required by Fast Refresh / react-refresh/only-export-components).
  */
-import { isTauri } from '../../../shared/utils/platform';
-import type { GraphqlStudioActivityTab } from '../../../shared/types/graphql';
+import { isTauri } from '@shared/utils/platform';
+import type { GraphqlStudioActivityTab } from '@shared/types/graphql';
 
 const STORAGE_KEY = 'gql-studio-activity-tab';
 

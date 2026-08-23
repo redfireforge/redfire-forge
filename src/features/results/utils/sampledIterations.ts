@@ -1,4 +1,4 @@
-import type { WorkflowIterationTrace } from '../../../shared/types';
+import type { WorkflowIterationTrace } from '@shared/types';
 
 /**
  * Returns true if the iteration was actually sampled (not skipped).

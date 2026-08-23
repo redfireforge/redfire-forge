@@ -7,7 +7,7 @@ import { renderHook, act } from '@testing-library/react';
 import { useWorkflowNodeActions, buildServiceFromCollection } from './useWorkflowNodeActions';
 import { WorkflowRFNode, WorkflowRFEdge } from '../utils/workflowNodeFactory';
 import { Workflow, WorkflowNode, WorkflowNodeData, HttpNodeData, WorkflowService } from '../types/workflow';
-import { RequestCollection, Environment, Microservice, GlobalAuthProfile } from '../../../shared/types';
+import { RequestCollection, Environment, Microservice, GlobalAuthProfile } from '@shared/types';
 import { CatalogEntry } from '../../catalog/types/catalog';
 import { ToastApi } from '../components/WorkflowToastProvider';
 import { ExtractResult } from '../utils/workflowExtractSubWorkflow';

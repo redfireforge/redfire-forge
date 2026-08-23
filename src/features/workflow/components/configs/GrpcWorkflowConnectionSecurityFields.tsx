@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
-import type { GrpcTlsConfig, GrpcTlsMode } from '../../../../shared/grpc/contracts';
-import type { GlobalAuthProfile } from '../../../../shared/types';
-import { GrpcTlsConfigBody } from '../../../grpc/components/GrpcTlsConfigBody';
-import { GrpcAuthPanel } from '../../../grpc/components/GrpcAuthPanel';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
-import { useGrpcTls } from '../../../grpc/hooks/useGrpcTls';
-import { buildGrpcAuthPreviewWithProfiles } from '../../../grpc/utils/grpcAuthProfileResolve';
+import type { GrpcTlsConfig, GrpcTlsMode } from '@shared/grpc/contracts';
+import type { GlobalAuthProfile } from '@shared/types';
+import { GrpcTlsConfigBody } from '@grpc/components/GrpcTlsConfigBody';
+import { GrpcAuthPanel } from '@grpc/components/GrpcAuthPanel';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import { useGrpcTls } from '@grpc/hooks/useGrpcTls';
+import { buildGrpcAuthPreviewWithProfiles } from '@grpc/utils/grpcAuthProfileResolve';
 import type { GrpcWorkflowBaseConfig } from '../../types/workflow/node-grpc';
 import { KafkaFormRow } from './KafkaConfigUi';
 

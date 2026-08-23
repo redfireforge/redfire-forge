@@ -2,8 +2,8 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it, vi } from 'vitest';
-import type { ApiMockServerDefinitionV1 } from '../../shared/api-mock/contracts';
-import { DEFAULT_SETTINGS, AUTO_PORT_RANGE } from '../../shared/api-mock/defaults';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
+import { DEFAULT_SETTINGS, AUTO_PORT_RANGE } from '@shared/api-mock/defaults';
 import {
   applyRouteDelete,
   applyRouteUpdate,

@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('../../../shared/utils/platform', () => ({ isTauri: vi.fn().mockReturnValue(false) }));
 
-import { isTauri } from '../../../shared/utils/platform';
+import { isTauri } from '@shared/utils/platform';
 import { loadPersistedActivityTab, persistActivityTab } from './gqlActivityBarUtils';
 
 const STORAGE_KEY = 'gql-studio-activity-tab';

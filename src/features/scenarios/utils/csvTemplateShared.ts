@@ -3,7 +3,7 @@
  * Eliminates duplication between csvTemplateCsv.ts and csvTemplateJson.ts.
  */
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, KeyValue, ExpectedField, ValidationMode, SelectiveMode } from '../../../shared/types';
+import type { Scenario, KeyValue, ExpectedField, ValidationMode, SelectiveMode } from '@shared/types';
 import type { TemplateMetadata, ExportOptions } from './csvTemplateTypes';
 import { PATH_PREFIX, PARAM_PREFIX, VALIDATE_PREFIX } from './csvTemplateTypes';
 import { parseUrl, buildUrlFromTemplate } from './csvTemplateUrl';

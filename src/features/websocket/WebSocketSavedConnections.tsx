@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   WsConnectionDraft,
   WsConnectionProfile,
-} from '../../shared/websocket/types';
+} from '@shared/websocket/types';
 import { formatTimeAgo } from './wsMessageUtils';
 import { ProfileEditorModal } from './WsProfileEditorModal';
 import type { ProfilePrefillDraft } from './WsProfileEditorModal';

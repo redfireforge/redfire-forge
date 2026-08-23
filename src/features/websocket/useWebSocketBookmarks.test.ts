@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWebSocketBookmarks } from './useWebSocketBookmarks';
-import type { WsFrame } from '../../shared/websocket/types';
+import type { WsFrame } from '@shared/websocket/types';
 
 function makeFrame(id: string, data = 'test'): WsFrame {
   return { id, direction: 'received', type: 'text', data, size: data.length, timestamp: new Date().toISOString() };

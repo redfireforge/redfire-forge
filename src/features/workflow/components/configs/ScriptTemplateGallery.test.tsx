@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ScriptTemplateGallery from './ScriptTemplateGallery';
-import { scriptTemplates } from '../../engine/scriptTemplates';
+import { scriptTemplates } from '@workflow/engine/scriptTemplates';
 
 describe('ScriptTemplateGallery', () => {
   const onSelect = vi.fn();

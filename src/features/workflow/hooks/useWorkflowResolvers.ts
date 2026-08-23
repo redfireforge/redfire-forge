@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useEffect } from 'react';
-import type { Environment, Microservice, GlobalAuthProfile } from '../../../shared/types';
+import type { Environment, Microservice, GlobalAuthProfile } from '@shared/types';
 import type {
   HttpNodeData,
   WorkflowHostProfile,

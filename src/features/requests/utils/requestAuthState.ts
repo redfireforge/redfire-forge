@@ -1,4 +1,4 @@
-import type { AuthConfig, GlobalAuthProfile } from '../../../shared/types';
+import type { AuthConfig, GlobalAuthProfile } from '@shared/types';
 
 export type ModalAuthType = 'none' | 'bearer' | 'basic' | 'apikey' | 'oauth2' | 'global-profile';
 

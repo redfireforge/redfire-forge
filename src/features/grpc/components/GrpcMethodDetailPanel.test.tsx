@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { FIXTURE_DESCRIPTOR } from '../../../shared/grpc/contractFixtures';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
 import { GrpcMethodDetailPanel } from './GrpcMethodDetailPanel';
 
 describe('GrpcMethodDetailPanel (Phase 1E)', () => {

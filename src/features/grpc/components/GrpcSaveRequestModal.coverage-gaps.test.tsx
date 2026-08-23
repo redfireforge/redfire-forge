@@ -3,8 +3,8 @@
  */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { getCustomSelectValue, selectOption } from '../../../test-utils/customSelectHelper';
-import { FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
+import { getCustomSelectValue, selectOption } from '@test-utils/customSelectHelper';
+import { FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
 import { GrpcSaveRequestModal } from './GrpcSaveRequestModal';
 
 const TS = '2026-06-29T12:00:00.000Z';

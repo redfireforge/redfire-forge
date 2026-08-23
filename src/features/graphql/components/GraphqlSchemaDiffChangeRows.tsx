@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { GraphqlSchemaDiffChange } from '../../../shared/types/graphql';
+import type { GraphqlSchemaDiffChange } from '@shared/types/graphql';
 import { SEVERITY_CSS, SEVERITY_LABEL, ackSectionChangeRowNoop } from '../utils/graphqlSchemaDiffConstants';
 
 interface ChangeRowProps {

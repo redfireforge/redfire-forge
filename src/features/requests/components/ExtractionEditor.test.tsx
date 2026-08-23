@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ExtractionEditor from './ExtractionEditor';
-import type { Extraction } from '../../../shared/types';
+import type { Extraction } from '@shared/types';
 
 const extractionAdapterOptsRef = vi.hoisted(() => ({
   current: [] as Array<{ fetchSampleData?: () => Promise<unknown> }>,

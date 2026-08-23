@@ -8,8 +8,8 @@ import {
   FIXTURE_REFLECT_SUCCESS_ENVELOPE,
   FIXTURE_DESCRIBE_SUCCESS_ENVELOPE,
   FIXTURE_ECHO_PROTO,
-} from '../../../shared/grpc/contractFixtures';
-import { setGrpcClientTransport } from '../../../shared/grpc/grpcApiClient';
+} from '@shared/grpc/contractFixtures';
+import { setGrpcClientTransport } from '@shared/grpc/grpcApiClient';
 const downloadProtosetFileMock = vi.hoisted(() => vi.fn());
 vi.mock('../utils/downloadProtoset', () => ({
   downloadProtosetFile: (...args: unknown[]) => downloadProtosetFileMock(...args),

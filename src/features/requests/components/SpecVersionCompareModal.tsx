@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import type { RequestItem } from '../../../shared/types';
-import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import type { RequestItem } from '@shared/types';
+import { useEscapeKey } from '@shared/hooks/useEscapeKey';
 import { computeSpecVersionDiff } from '../../catalog/utils/versionDiff';
 
 interface Props {

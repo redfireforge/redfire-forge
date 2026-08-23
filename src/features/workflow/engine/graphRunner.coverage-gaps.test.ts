@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { ExecutionTraceOptions, WorkflowIterationTrace } from '../../../shared/types';
+import type { ExecutionTraceOptions, WorkflowIterationTrace } from '@shared/types';
 import type { WorkflowEdge, WorkflowNode } from '../types/workflow';
 
 vi.mock('../../../shared/utils/httpClient', () => ({
@@ -37,9 +37,9 @@ vi.mock('graphql', () => ({
 }));
 
 import { runGraph } from './graphRunner';
-import { httpFetch } from '../../../shared/utils/httpClient';
+import { httpFetch } from '@shared/utils/httpClient';
 import { httpNode, startNode, endNode } from './graphRunnerNodeHandlers.test-utils';
-import { createSseProxyTransport } from '../../graphql/utils/graphqlProxyTransports';
+import { createSseProxyTransport } from '@graphql/utils/graphqlProxyTransports';
 import { makeNode } from './graphRunnerNodeHandlers.test-utils';
 
 const mockFetch = vi.mocked(httpFetch);

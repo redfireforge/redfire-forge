@@ -15,7 +15,7 @@ import { useGraphqlCollections } from './useGraphqlCollections';
 import { useGraphqlCollectionRunner } from './useGraphqlCollectionRunner';
 import { useGqlTabResponseCache } from './useGqlTabResponseCache';
 import { useGraphqlSubscription } from './useGraphqlSubscription';
-import type { GraphqlHistoryItem } from '../../../shared/types/graphql';
+import type { GraphqlHistoryItem } from '@shared/types/graphql';
 import type { GraphqlStudioPageProps } from '../graphqlStudioPageTypes';
 
 export function useGraphqlStudioPageFoundation({

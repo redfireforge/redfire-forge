@@ -16,13 +16,13 @@ import {
   GRPC_REDACTED_PLACEHOLDER,
   sanitizeGrpcErrorMessage,
 } from './grpcRedaction';
-import { assertTabTlsConfigValid } from '../../features/grpc/hooks/grpcStudioSessionHelpers';
+import { assertTabTlsConfigValid } from '@grpc/hooks/grpcStudioSessionHelpers';
 import {
   prepareGrpcCallHistoryExport,
   prepareGrpcExportBundle,
   prepareGrpcHarnessScenarioExport,
   prepareGrpcWorkflowNodeExport,
-} from '../../features/grpc/utils/grpcCrossFeatureExport';
+} from '@grpc/utils/grpcCrossFeatureExport';
 import {
   classifyGrpcTransportFailure,
   formatGrpcTransportFailureMessage,
@@ -39,7 +39,7 @@ import {
   readDismissedGrpcStudioHints,
   shouldShowPermissionDeniedHint,
   type GrpcStudioHintId,
-} from '../../features/grpc/utils/grpcSpringHints';
+} from '@grpc/utils/grpcSpringHints';
 
 const VALID_PEM = `-----BEGIN CERTIFICATE-----
 TEST-CA

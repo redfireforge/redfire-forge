@@ -4,7 +4,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import type { ApiMockSimulationResultV1, ApiMockSimulationSampleV1 } from '../../../shared/api-mock/contracts';
+import type { ApiMockSimulationResultV1, ApiMockSimulationSampleV1 } from '@shared/api-mock/contracts';
 import { simulateSampleBadge } from './apiMockSimulateModalHelpers';
 import { ApiMockSimulateSampleList } from './ApiMockSimulateSampleList';
 

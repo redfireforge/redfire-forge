@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
-import type { WsTlsConfig } from '../../shared/websocket/types';
-import { isTauri } from '../../shared/utils/platform';
-import { TlsConfigModal, type TlsValues } from '../../shared/components/TlsConfigModal';
+import type { WsTlsConfig } from '@shared/websocket/types';
+import { isTauri } from '@shared/utils/platform';
+import { TlsConfigModal, type TlsValues } from '@shared/components/TlsConfigModal';
 
 export interface WebSocketTlsPanelProps {
   tlsConfig: WsTlsConfig;

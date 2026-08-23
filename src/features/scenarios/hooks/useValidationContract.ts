@@ -1,5 +1,5 @@
 import { useMemo, useCallback } from 'react';
-import type { Scenario, DataSource } from '../../../shared/types';
+import type { Scenario, DataSource } from '@shared/types';
 
 interface ContractPattern {
   pattern: string;

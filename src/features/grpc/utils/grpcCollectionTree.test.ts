@@ -2,9 +2,9 @@
  * Phase 5B — collection tree projection tests.
  */
 import { describe, expect, it } from 'vitest';
-import type { GrpcCollectionV1 } from '../../../shared/grpc/grpcPersistenceSchema';
-import type { GrpcSavedRequest } from '../../../shared/grpc/grpcSavedRequest';
-import { GRPC_TEST_TIMESTAMP, makeGrpcSavedRequest } from '../../../test-utils/grpcFactories';
+import type { GrpcCollectionV1 } from '@shared/grpc/grpcPersistenceSchema';
+import type { GrpcSavedRequest } from '@shared/grpc/grpcSavedRequest';
+import { GRPC_TEST_TIMESTAMP, makeGrpcSavedRequest } from '@test-utils/grpcFactories';
 import {
   buildGrpcCollectionServiceMethodTree,
   flattenGrpcCollectionServiceMethodTree,

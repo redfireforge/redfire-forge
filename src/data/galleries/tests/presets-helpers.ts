@@ -2,7 +2,7 @@
  * Shared builder helpers for test gallery preset factories.
  */
 
-import type { FeatureGroup, Scenario, Assertion, TestScenario } from '../../../shared/types';
+import type { FeatureGroup, Scenario, Assertion, TestScenario } from '@shared/types';
 
 export const noAuth = { type: 'none' as const };
 

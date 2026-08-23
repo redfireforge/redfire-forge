@@ -14,7 +14,7 @@ vi.mock('./scriptLibraries', () => ({
 }));
 
 import type { WorkflowNode } from '../types/workflow';
-import * as _dataSourceExpander from '../../../engine/dataSourceExpander';
+import * as _dataSourceExpander from '@engine/core/dataSourceExpander';
 import * as _graphRunnerHelpers from './graphRunnerHelpers';
 import { handleHttpNode } from './graphRunnerHttpHandler';
 import * as _workflowRunErrors from '../utils/workflowRunErrors';

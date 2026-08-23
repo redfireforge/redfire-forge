@@ -1,1 +1,1 @@
-export { syncHighlightedTextareaScroll as syncHighlightedJsonScrollPosition } from '../../../shared/utils/highlightedTextareaScroll';
+export { syncHighlightedTextareaScroll as syncHighlightedJsonScrollPosition } from '@shared/utils/highlightedTextareaScroll';

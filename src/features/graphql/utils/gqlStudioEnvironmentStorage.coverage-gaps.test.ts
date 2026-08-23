@@ -24,7 +24,7 @@ import {
   writeGqlStudioEnvironments,
   GQL_ENVS_STORAGE_KEY,
 } from './gqlStudioEnvironmentStorage';
-import type { GraphqlEnvironment } from '../../../shared/types/graphql';
+import type { GraphqlEnvironment } from '@shared/types/graphql';
 
 function makeEnv(overrides: Partial<GraphqlEnvironment> = {}): GraphqlEnvironment {
   return {

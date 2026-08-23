@@ -7,8 +7,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import React from 'react';
-import type { GraphqlAuth } from '../../../shared/types/graphql';
-import { readKey, writeKey } from '../../../shared/utils/storage';
+import type { GraphqlAuth } from '@shared/types/graphql';
+import { readKey, writeKey } from '@shared/utils/storage';
 import { useRecentEndpoints } from './useRecentEndpoints';
 import { useGraphqlConnectionProfiles } from './useGraphqlConnectionProfiles';
 import { useGraphqlEnvironments } from './useGraphqlEnvironments';
@@ -16,7 +16,7 @@ import { loadAuth, saveAuth, loadTlsCerts, saveTlsCerts, ENDPOINT_BASE_STORAGE_K
 import { GQL_PAGE_AUTH_RELOAD_EVENT, GQL_PAGE_ENDPOINT_RELOAD_EVENT, loadDemoSession } from '../utils/gqlDemoWorkspace';
 import { clampPollingIntervalSeconds } from '../utils/pollingIntervalUtils';
 import { normalizeGraphqlEndpoint } from '../utils/graphqlEndpointUtils';
-import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
+import type { GqlTlsSettings } from '@shared/types/gqlTls';
 
 export interface GraphqlConnectionSettingsResult {
   // Endpoint

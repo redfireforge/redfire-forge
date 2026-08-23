@@ -5,9 +5,9 @@ import { describe, expect, it } from 'vitest';
 import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from './contractFixtures';
 import { validateResolvedGrpcTargetAddress } from './targetValidation';
 import type { Scenario } from '../types';
-import { makeScenario as _makeScenario } from '../../test-utils/factories';
-import { captureGrpcTabExecuteSnapshotFromResolution } from '../../features/grpc/grpcStudioTypes';
-import { resolveGrpcTabConnection } from '../../features/grpc/utils/resolveGrpcTabConnection';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
+import { captureGrpcTabExecuteSnapshotFromResolution } from '@grpc/grpcStudioTypes';
+import { resolveGrpcTabConnection } from '@grpc/utils/resolveGrpcTabConnection';
 import {
   buildGrpcHarnessExecuteSnapshot,
   cloneGrpcHarnessExecuteSnapshot,

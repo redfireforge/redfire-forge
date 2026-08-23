@@ -14,14 +14,14 @@
  *  6. Each result carries `workflowNodeId` for per-step routing (Results Explorer).
  */
 import { describe, it, expect, vi } from 'vitest';
-import type { WorkflowNode, WorkflowEdge } from '../../features/workflow/types/workflow';
+import type { WorkflowNode, WorkflowEdge } from '@workflow/types/workflow';
 import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from './contractFixtures';
-import { runGraph } from '../../features/workflow/engine/graphRunner';
+import { runGraph } from '@workflow/engine/graphRunner';
 import {
   endNode,
   makeEdge,
   startNode,
-} from '../../features/workflow/engine/graphRunnerNodeHandlers.test-utils';
+} from '@workflow/engine/graphRunnerNodeHandlers.test-utils';
 
 vi.mock('../../shared/utils/httpClient', () => ({ httpFetch: vi.fn() }));
 

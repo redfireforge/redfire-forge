@@ -1,6 +1,6 @@
-import { loadWorkflows, saveWorkflows } from '../../../shared/utils/storage';
-import type { Workflow } from '../../workflow/types/workflow';
-import type { HttpNodeData } from '../../workflow/types/workflow/node-core';
+import { loadWorkflows, saveWorkflows } from '@shared/utils/storage';
+import type { Workflow } from '@workflow/types/workflow';
+import type { HttpNodeData } from '@workflow/types/workflow/node-core';
 
 export interface AffectedWorkflowInfo {
   workflowId: string;

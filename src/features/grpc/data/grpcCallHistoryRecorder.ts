@@ -1,20 +1,20 @@
 /**
  * Phase 5D — gRPC call history recorder (append-only + dual-mode persistence).
  */
-import type { GrpcCallHistoryRecord } from '../../../shared/grpc/grpcRedaction';
+import type { GrpcCallHistoryRecord } from '@shared/grpc/grpcRedaction';
 import {
   createEmptyGrpcCallHistoryStore,
   GRPC_CALL_HISTORY_MAX_ENTRIES,
   GRPC_CALL_HISTORY_STORAGE_KEY,
   type GrpcCallHistoryEntryV1,
-} from '../../../shared/grpc/grpcPersistenceSchema';
+} from '@shared/grpc/grpcPersistenceSchema';
 import {
   prepareGrpcCallHistoryEntryForPersistSafe,
   prepareGrpcCallHistoryStoreForPersistSafe,
-} from '../../../shared/grpc/grpcPersistRedactionMiddleware';
-import { migrateGrpcCallHistoryStore } from '../../../shared/grpc/grpcPersistenceMigration';
-import { isTauri } from '../../../shared/utils/platform';
-import { readKey, writeKey } from '../../../shared/utils/storage';
+} from '@shared/grpc/grpcPersistRedactionMiddleware';
+import { migrateGrpcCallHistoryStore } from '@shared/grpc/grpcPersistenceMigration';
+import { isTauri } from '@shared/utils/platform';
+import { readKey, writeKey } from '@shared/utils/storage';
 import {
   idbAppendGrpcCallHistoryEntry,
   idbClearGrpcCallHistory,
@@ -23,8 +23,8 @@ import {
   idbLoadGrpcCallHistoryByService,
   idbLoadGrpcCallHistoryEntries,
   idbSyncGrpcCallHistoryFromLocalStorage,
-} from '../../../shared/utils/idbGrpcCallHistory';
-import { idbAvailable } from '../../../shared/utils/idbHelpers';
+} from '@shared/utils/idbGrpcCallHistory';
+import { idbAvailable } from '@shared/utils/idbHelpers';
 import {
   filterGrpcCallHistoryEntries,
   type GrpcCallHistoryFilters,

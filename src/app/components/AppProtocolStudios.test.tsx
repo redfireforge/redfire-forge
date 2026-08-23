@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import AppProtocolStudios from './AppProtocolStudios';
-import type { Microservice, GlobalAuthProfile } from '../../shared/types';
+import type { Microservice, GlobalAuthProfile } from '@shared/types';
 
 vi.mock('../../features/kafka/KafkaMessageStudioPage', () => ({
   KafkaMessageStudioPage: () => <div data-testid="kafka-page" />,

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildAggregateSummary } from './buildAggregateSummary';
-import { WorkflowExecutionTrace, WorkflowIterationTrace, ExecutionEvent } from '../../../shared/types';
+import { WorkflowExecutionTrace, WorkflowIterationTrace, ExecutionEvent } from '@shared/types';
 
 function makeEvent(overrides?: Partial<ExecutionEvent>): ExecutionEvent {
   return {

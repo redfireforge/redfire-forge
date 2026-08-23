@@ -4,9 +4,9 @@
  */
 
 // Re-export shared JSON helpers so existing imports from wsMessageUtils don't break
-export { isValidJson, prettyJson } from '../../shared/utils/helpers';
-import { buildEnvVarMap } from '../../shared/utils/envVarUtils';
-import type { Microservice } from '../../shared/types';
+export { isValidJson, prettyJson } from '@shared/utils/helpers';
+import { buildEnvVarMap } from '@shared/utils/envVarUtils';
+import type { Microservice } from '@shared/types';
 
 /** Decode a base64 string to Uint8Array. Falls back to UTF-8 encoding on decode error. */
 export function decodeBase64ToBytes(data: string): Uint8Array {

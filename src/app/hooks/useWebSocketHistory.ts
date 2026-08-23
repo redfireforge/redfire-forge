@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { WsConnectionHistoryEntry, WsProtocolMode } from '../../shared/websocket/types';
-import { loadWsHistory, MAX_HISTORY_ENTRIES, saveWsHistory } from '../../shared/websocket/websocketStorage';
+import type { WsConnectionHistoryEntry, WsProtocolMode } from '@shared/websocket/types';
+import { loadWsHistory, MAX_HISTORY_ENTRIES, saveWsHistory } from '@shared/websocket/websocketStorage';
 
 export interface UseWebSocketHistoryReturn {
   history: WsConnectionHistoryEntry[];

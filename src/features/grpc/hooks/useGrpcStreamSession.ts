@@ -3,30 +3,30 @@ import {
   type GrpcCallResult,
   type GrpcErrorBody,
   type GrpcStreamEvent,
-} from '../../../shared/grpc/contracts';
-import { GrpcApiClientError } from '../../../shared/grpc/grpcApiClient';
+} from '@shared/grpc/contracts';
+import { GrpcApiClientError } from '@shared/grpc/grpcApiClient';
 import {
   cancelGrpcStream,
   endGrpcStream,
   openGrpcStreamEvents,
   sendGrpcStreamMessage,
   startGrpcStream,
-} from '../../../shared/grpc/grpcStreamClient';
-import { resolveGrpcStudioStreamMessageBodyForSend } from '../../../shared/grpc/grpcStudioExecuteInterpolation';
+} from '@shared/grpc/grpcStreamClient';
+import { resolveGrpcStudioStreamMessageBodyForSend } from '@shared/grpc/grpcStudioExecuteInterpolation';
 import {
   bindGrpcStreamTransportForTab,
   clearGrpcStreamTransportBinding,
   grpcApiErrorToExpressFallbackBody,
   isGrpcNativePreflightFailure,
   withGrpcExpressFallbackOffer,
-} from '../../../shared/grpc/grpcTransportFallback';
+} from '@shared/grpc/grpcTransportFallback';
 import {
   grpcApiErrorToBrowserExpressFallbackBody,
   isBrowserDirectTransportMode,
-} from '../../../shared/grpc/grpcBrowserTransportErrorMapper';
-import { isGrpcStreamLifecycleTerminal } from '../../../shared/grpc/streamLifecycle';
-import { assertGrpcTransportDispatchReady } from '../../../shared/grpc/grpcBrowserTransportRouter';
-import type { GrpcStudioTransportMode } from '../../../shared/grpc/grpcWebTransportContracts';
+} from '@shared/grpc/grpcBrowserTransportErrorMapper';
+import { isGrpcStreamLifecycleTerminal } from '@shared/grpc/streamLifecycle';
+import { assertGrpcTransportDispatchReady } from '@shared/grpc/grpcBrowserTransportRouter';
+import type { GrpcStudioTransportMode } from '@shared/grpc/grpcWebTransportContracts';
 import {
   clearedGrpcStreamSessionPatch,
   resolveGrpcStudioTabTransportMode,

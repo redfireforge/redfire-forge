@@ -15,7 +15,17 @@
     "sourceMap": true,
     "types": ["node"],
     "allowSyntheticDefaultImports": true,
-    "noEmit": false
+    "noEmit": false,
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": ["src/shared/*"],
+      "@graphql/*": ["src/features/graphql/*"],
+      "@grpc/*": ["src/features/grpc/*"],
+      "@workflow/*": ["src/features/workflow/*"],
+      "@engine/*": ["src/engine/*"],
+      "@test-utils/*": ["src/test-utils/*"],
+      "@app/*": ["src/app/*"]
+    }
   },
   "include": [
     "src-server/**/*.ts",

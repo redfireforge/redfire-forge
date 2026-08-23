@@ -5,25 +5,25 @@ import { useState } from 'react';
 import { ComponentProps } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { selectOption, selectOptionByIndex, getCustomSelectValue, getCustomSelectOptionLabels } from '../../../test-utils/customSelectHelper';
+import { selectOption, selectOptionByIndex, getCustomSelectValue, getCustomSelectOptionLabels } from '@test-utils/customSelectHelper';
 import SharedDataSourceModal from './SharedDataSourceModal';
-import { SharedDataSource, FeatureGroup, DataSource, GlobalAuthProfile } from '../../../shared/types';
-import { proxyFetch } from '../../../engine/executor';
+import { SharedDataSource, FeatureGroup, DataSource, GlobalAuthProfile } from '@shared/types';
+import { proxyFetch } from '@engine/core/executor';
 // Mock uuid to return predictable IDs
 vi.mock('uuid', () => ({
   v4: vi.fn(() => 'mock-uuid-' + Math.random().toString(36).slice(2, 8)),
 }));
 
 // Mock proxyFetch
-vi.mock('../../../engine/executor', () => ({
+vi.mock('@engine/core/executor', () => ({
   proxyFetch: vi.fn(),
   buildHeaders: vi.fn(() => ({})),
 }));
 
 /** Minimal frame so `onClose` (dirty gate) can be exercised — production uses closeButtonKind none + closeOnOverlayClick false */
-vi.mock('../../../shared/components/AppModalFrame', async () => {
+vi.mock('@shared/components/AppModalFrame', async () => {
   const { MockAppModalFrame } = await import('./__test-utils__/sharedDataSourceModalMocks');
   return { default: MockAppModalFrame };
 });
@@ -83,8 +83,8 @@ vi.mock('./DataSourceSetupModal', () => ({
   ),
 }));
 
-vi.mock('../../../shared/components/data-mapper', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../shared/components/data-mapper')>();
+vi.mock('@shared/components/data-mapper', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@shared/components/data-mapper')>();
   const createSharedDsFetchAdapterMock = vi.fn(actual.createSharedDsFetchAdapter);
   return {
     ...actual,
@@ -135,7 +135,7 @@ vi.mock('./SharedDsSaveConfirmModal', () => ({
   ),
 }));
 
-vi.mock('../../../shared/components/ConfirmModal', () => ({
+vi.mock('@shared/components/ConfirmModal', () => ({
   default: ({
     onConfirm,
     onCancel,

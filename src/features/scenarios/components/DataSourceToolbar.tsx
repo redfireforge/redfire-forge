@@ -3,8 +3,8 @@
  * Extracted to reduce DataSourceEditor.tsx line count.
  */
 import { useRef } from 'react';
-import type { DataSource, SharedDataSource } from '../../../shared/types';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import type { DataSource, SharedDataSource } from '@shared/types';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import ColumnOrderPopover from './ColumnOrderPopover';
 
 interface DataSourceToolbarProps {

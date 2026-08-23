@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { GraphqlAuth, GraphqlSubscriptionAssertion } from '../../../shared/types/graphql';
-import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
+import type { GraphqlAuth, GraphqlSubscriptionAssertion } from '@shared/types/graphql';
+import type { GqlTlsSettings } from '@shared/types/gqlTls';
 import { extractOperations } from '../utils/monacoGraphqlSetup';
 import { disposeTabModels } from '../utils/tabPersistence';
 import type { ConnectionProfile } from '../utils/connectionProfileStorage';

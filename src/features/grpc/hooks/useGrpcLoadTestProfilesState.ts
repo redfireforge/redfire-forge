@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { GrpcLoadTestConfig } from '../../../shared/grpc/grpcAdvancedFeatureContracts';
+import type { GrpcLoadTestConfig } from '@shared/grpc/grpcAdvancedFeatureContracts';
 import {
   deleteGrpcLoadTestProfile,
   listGrpcLoadTestProfiles,

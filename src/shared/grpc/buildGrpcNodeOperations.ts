@@ -4,12 +4,12 @@
 import type { GrpcCallRequest, GrpcStreamStartRequest } from './contracts';
 import { invokeGrpcUnary, retainGrpcNativeTransport, selectGrpcTransport } from './grpcTransportFacade';
 import { isTauri } from '../utils/platform';
-import type { GrpcNodeOperations } from '../../features/workflow/engine/graphRunnerNodeHandlerContext';
-import type { GrpcServerStreamCollectConfig } from '../../features/workflow/types/workflow/node-grpc';
-import { collectGrpcWorkflowServerStream } from '../../features/workflow/utils/grpcWorkflowStreamCollector';
-import type { GrpcUnaryInvokeResult } from '../../features/workflow/utils/grpcWorkflowUnaryExecutor';
+import type { GrpcNodeOperations } from '@workflow/engine/graphRunnerNodeHandlerContext';
+import type { GrpcServerStreamCollectConfig } from '@workflow/types/workflow/node-grpc';
+import { collectGrpcWorkflowServerStream } from '@workflow/utils/grpcWorkflowStreamCollector';
+import type { GrpcUnaryInvokeResult } from '@workflow/utils/grpcWorkflowUnaryExecutor';
 import { resolveGrpcWorkflowDescriptorByKey } from './grpcWorkflowDescriptorResolver';
-import { getGrpcLoadTestProfileById } from '../../features/grpc/data/grpcLoadTestProfileRepository';
+import { getGrpcLoadTestProfileById } from '@grpc/data/grpcLoadTestProfileRepository';
 
 let workflowNativeTransportRetained = false;
 

@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { WebSocketSendPane, type WebSocketSendPaneProps } from './WebSocketSendPane';
-import type { WsMessageTemplate } from '../../shared/websocket/types';
+import type { WsMessageTemplate } from '@shared/websocket/types';
 
 function defaultProps(overrides?: Partial<WebSocketSendPaneProps>): WebSocketSendPaneProps {
   return {

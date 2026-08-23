@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import type { ApiMockServerDefinitionV1, ApiMockServerSettingsV1 } from '../../../shared/api-mock/contracts';
-import { HARD_CEILINGS } from '../../../shared/api-mock/defaults';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import type { ApiMockServerDefinitionV1, ApiMockServerSettingsV1 } from '@shared/api-mock/contracts';
+import { HARD_CEILINGS } from '@shared/api-mock/defaults';
 import { ApiMockRedactHeaderPicker } from './ApiMockRedactHeaderPicker';
 
 interface Props {

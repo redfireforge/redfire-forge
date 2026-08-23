@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
-import type { GraphqlAuth, GraphqlSubscriptionAssertion } from '../../../shared/types/graphql';
-import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
+import type { GraphqlAuth, GraphqlSubscriptionAssertion } from '@shared/types/graphql';
+import type { GqlTlsSettings } from '@shared/types/gqlTls';
 import { deriveOperationType } from '../utils/monacoGraphqlSetup';
 import type { ConnectionProfile } from '../utils/connectionProfileStorage';
 import {

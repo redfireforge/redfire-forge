@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { WsFilterPreset } from '../../shared/websocket/types';
+import type { WsFilterPreset } from '@shared/websocket/types';
 import type { WsSizeFilter, WsTimeFilter, WsContentTypeFilter } from './useWebSocketStudioTypes';
 
 type FilterDropdownKey = 'size' | 'time' | 'type';

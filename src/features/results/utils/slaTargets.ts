@@ -7,11 +7,11 @@
  * or stored per-run (`sla-targets-run-{runId}`) for ad-hoc post-run overrides.
  */
 
-import type { TestSummary, RequestResult, SlaMetric, SlaTarget, TestRun } from '../../../shared/types';
-import { readKey, writeKey } from '../../../shared/utils/storage';
+import type { TestSummary, RequestResult, SlaMetric, SlaTarget, TestRun } from '@shared/types';
+import { readKey, writeKey } from '@shared/utils/storage';
 
 // Re-export shared types so callers can import from either location.
-export type { SlaMetric, SlaTarget } from '../../../shared/types';
+export type { SlaMetric, SlaTarget } from '@shared/types';
 
 // ── Storage keys ──
 

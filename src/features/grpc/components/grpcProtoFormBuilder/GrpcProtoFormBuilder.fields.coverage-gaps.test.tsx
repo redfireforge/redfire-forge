@@ -4,7 +4,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { getCustomSelectValue, selectOption } from '../../../../test-utils/customSelectHelper';
+import { getCustomSelectValue, selectOption } from '@test-utils/customSelectHelper';
 import { GrpcProtoFormBuilder } from '../GrpcProtoFormBuilder';
 import {
   ENUM_BOOL_SCHEMA,

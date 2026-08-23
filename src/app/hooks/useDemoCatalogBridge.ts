@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { UseCatalogReturn } from '../../features/catalog/hooks/useCatalog';
 import { parseOpenApiSpec } from '../../features/catalog/utils/openApiParser';
-import { clearAllPreviews } from '../../shared/utils/workflowPreviewStorage';
+import { clearAllPreviews } from '@shared/utils/workflowPreviewStorage';
 
 /**
  * Demo-player bridge for the API Catalog. Mounts imperative `window.__demo*`

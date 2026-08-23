@@ -7,10 +7,10 @@
  */
 
 import { useRef } from 'react';
-import { useSplitPaneResize } from '../../../shared/hooks/useSplitPaneResize';
-import { useVerticalSplitPaneResize } from '../../../shared/hooks/useVerticalSplitPaneResize';
-import type { SplitPaneDividerProps } from '../../../shared/hooks/useSplitPaneResize';
-import type { VerticalSplitPaneDividerProps } from '../../../shared/hooks/useVerticalSplitPaneResize';
+import { useSplitPaneResize } from '@shared/hooks/useSplitPaneResize';
+import { useVerticalSplitPaneResize } from '@shared/hooks/useVerticalSplitPaneResize';
+import type { SplitPaneDividerProps } from '@shared/hooks/useSplitPaneResize';
+import type { VerticalSplitPaneDividerProps } from '@shared/hooks/useVerticalSplitPaneResize';
 
 export interface GraphqlStudioSplitPanes {
   gqlSplitRef: React.RefObject<HTMLDivElement | null>;

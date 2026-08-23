@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import type { FailureDetail } from '../../../shared/types';
-import { highlightJsonHtml } from '../../../shared/utils/jsonHighlightHtml';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import { prettyJson } from '../../../shared/utils/helpers';
+import type { FailureDetail } from '@shared/types';
+import { highlightJsonHtml } from '@shared/utils/jsonHighlightHtml';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import { prettyJson } from '@shared/utils/helpers';
 
 interface ValidationResultData {
   passed: boolean;

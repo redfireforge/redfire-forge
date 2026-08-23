@@ -4,14 +4,14 @@
 import type {
   GrpcStreamEvent,
   GrpcStreamStartRequest,
-} from '../../../shared/grpc/contracts';
-import type { GrpcStudioTransportMode } from '../../../shared/grpc/grpcWebTransportContracts';
-import { parseGrpcSseStream, parseGrpcStreamEventJson } from '../../../shared/grpc/grpcStreamSseParser';
+} from '@shared/grpc/contracts';
+import type { GrpcStudioTransportMode } from '@shared/grpc/grpcWebTransportContracts';
+import { parseGrpcSseStream, parseGrpcStreamEventJson } from '@shared/grpc/grpcStreamSseParser';
 import {
   cancelGrpcStream,
   openGrpcStreamEvents,
   startGrpcStream,
-} from '../../../shared/grpc/grpcStreamClient';
+} from '@shared/grpc/grpcStreamClient';
 import type { GrpcServerStreamCollectConfig } from '../types/workflow/node-grpc';
 import { evaluateGrpcStreamUntilExpression } from './grpcWorkflowUntilExpression';
 

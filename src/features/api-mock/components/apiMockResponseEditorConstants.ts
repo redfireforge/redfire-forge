@@ -1,4 +1,4 @@
-import type { ApiMockFaultKind, ApiMockResponseBodyKind } from '../../../shared/api-mock/contracts';
+import type { ApiMockFaultKind, ApiMockResponseBodyKind } from '@shared/api-mock/contracts';
 
 export const FAULT_CARDS: Array<{ id: ApiMockFaultKind; title: string; description: string }> = [
   { id: 'none', title: 'No fault', description: 'Return the configured response normally.' },

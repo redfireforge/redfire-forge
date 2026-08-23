@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { GlobalAuthProfile } from '../../../../shared/types';
+import type { GlobalAuthProfile } from '@shared/types';
 import type { EnvAuthState } from '../../../requests/utils/requestAuthState';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 interface ServiceAuthPopupProps {
   envName: string;

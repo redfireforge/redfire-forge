@@ -27,8 +27,8 @@ import {
   computeRunRegressionStatus,
   type BaselineMark,
 } from './runBaselines';
-import type { TestRun } from '../../../shared/types';
-import { makeResult as _makeResult } from '../../../test-utils/factories';
+import type { TestRun } from '@shared/types';
+import { makeResult as _makeResult } from '@test-utils/factories';
 
 function makeSummary(overrides: Partial<TestRun['summary']> = {}): TestRun['summary'] {
   return {

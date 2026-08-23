@@ -3,8 +3,8 @@
  * Simplified version of useRunnerConfig, without scenario-specific state.
  */
 import { useState, useEffect } from 'react';
-import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig, ExecutionTraceOptions, KafkaResultsPublishConfig } from '../../../shared/types';
-import { saveRunnerConfig, loadRunnerConfig as loadRunnerConfigAsync } from '../../../shared/utils/storage';
+import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig, ExecutionTraceOptions, KafkaResultsPublishConfig } from '@shared/types';
+import { saveRunnerConfig, loadRunnerConfig as loadRunnerConfigAsync } from '@shared/utils/storage';
 import { defaultLoadProfile, defaultThinkTime } from './runnerConfigDefaults';
 
 export interface WorkflowRunnerConfig {

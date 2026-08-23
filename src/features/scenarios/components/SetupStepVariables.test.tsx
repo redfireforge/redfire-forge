@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption, selectOptionByIndex, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
+import { selectOption, selectOptionByIndex, getCustomSelectValue } from '@test-utils/customSelectHelper';
 import SetupStepVariables from './SetupStepVariables';
 import { SetupStepVariablesProps } from './SetupStepVariables';
 

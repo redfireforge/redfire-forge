@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
+import AppModalFrame from '@shared/components/AppModalFrame';
 import {
   findTextExpandMatches,
   formatTextExpandCount,

@@ -16,7 +16,7 @@ vi.mock('./authHeaders', () => ({
   }),
 }));
 
-vi.mock('../../engine/tokenManager', () => ({
+vi.mock('@engine/core/tokenManager', () => ({
   acquireOAuth2Token: vi.fn().mockResolvedValue('mock-oauth2-token'),
 }));
 
@@ -52,7 +52,7 @@ describe('applyAuthHeaders', () => {
   });
 
   it('acquires OAuth2 token and applies headers', async () => {
-    const { acquireOAuth2Token } = await import('../../engine/tokenManager');
+    const { acquireOAuth2Token } = await import('@engine/core/tokenManager');
     const headers: Record<string, string> = {};
     const auth: AuthConfig = { type: 'oauth2', tokenUrl: 'https://auth.example.com/token' } as AuthConfig;
     const result = await applyAuthHeaders(auth, headers);

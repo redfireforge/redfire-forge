@@ -4,8 +4,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { selectOption } from '../../../test-utils/customSelectHelper';
-import type { Scenario, DataSource } from '../../../shared/types';
+import { selectOption } from '@test-utils/customSelectHelper';
+import type { Scenario, DataSource } from '@shared/types';
 import PopulateFromApiModal from './PopulateFromApiModal';
 
 const mockHookReturn = {

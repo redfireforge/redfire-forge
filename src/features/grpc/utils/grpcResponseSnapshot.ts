@@ -1,10 +1,10 @@
 /**
  * Phase 5I — Kreya-style response snapshot baseline capture and diff.
  */
-import type { GrpcCallResult } from '../../../shared/grpc/contracts';
-import type { GrpcStreamLogEntry } from '../../../shared/grpc/contracts';
-import type { GrpcErrorBody } from '../../../shared/grpc/contracts';
-import type { GrpcResponseSnapshotBaseline } from '../../../shared/grpc/grpcSavedRequest';
+import type { GrpcCallResult } from '@shared/grpc/contracts';
+import type { GrpcStreamLogEntry } from '@shared/grpc/contracts';
+import type { GrpcErrorBody } from '@shared/grpc/contracts';
+import type { GrpcResponseSnapshotBaseline } from '@shared/grpc/grpcSavedRequest';
 
 export type { GrpcResponseSnapshotBaseline };
 

@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
-import { formatRelativeTime, formatTimestamp } from '../../../../shared/utils/formatRelativeTime';
-import type { ScriptLibrary, ScriptLibraryVersion } from '../../engine/scriptLibraries';
-import { restoreFromVersion, deleteVersion, renameVersion, computeSnapshotDiff } from '../../engine/scriptLibraryVersioning';
-import type { LibraryUsage } from '../../engine/scriptLibraryVersioning';
+import { formatRelativeTime, formatTimestamp } from '@shared/utils/formatRelativeTime';
+import type { ScriptLibrary, ScriptLibraryVersion } from '@workflow/engine/scriptLibraries';
+import { restoreFromVersion, deleteVersion, renameVersion, computeSnapshotDiff } from '@workflow/engine/scriptLibraryVersioning';
+import type { LibraryUsage } from '@workflow/engine/scriptLibraryVersioning';
 import ScriptLibraryVersionDiff from './ScriptLibraryVersionDiff';
 
 interface Props {

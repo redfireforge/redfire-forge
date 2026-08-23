@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GRPC_PROTO_HYBRID_EDITOR_ENABLED } from '../../../../config/features';
-import type { GrpcMethodInfo, GrpcMessageSchema } from '../../../../shared/grpc/contracts';
+import type { GrpcMethodInfo, GrpcMessageSchema } from '@shared/grpc/contracts';
 import type { GrpcStudioTabState } from '../../grpcStudioTypes';
 import {
   applyJsonTextToSchema,

@@ -3,7 +3,7 @@ import {
   buildCollectionImportPreview,
   formatImportQueryPreview,
 } from './collectionImportPreview';
-import type { CollectionExportData } from '../../../shared/utils/idbGraphqlCollections';
+import type { CollectionExportData } from '@shared/utils/idbGraphqlCollections';
 
 const makeExport = (overrides?: Partial<CollectionExportData>): CollectionExportData => ({
   _exportMeta: { version: '1.1', exportedAt: '2026-06-23T12:00:00.000Z', source: 'RedfireForge/GraphQL' },

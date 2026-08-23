@@ -5,7 +5,7 @@
  */
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { DataSource, DataSourceRow } from '../../../shared/types';
+import type { DataSource, DataSourceRow } from '@shared/types';
 import { createEmptyRow } from '../utils/dataSourceUtils';
 
 export interface UseDataSourceRowsOptions {

@@ -1,11 +1,11 @@
 import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react';
 import RegexPatternLibrary from './RegexPatternLibrary';
-import { buildJsonTree, getAllLeafPaths, nodeMatchesSearch } from '../../../shared/utils/jsonTreeModel';
-import type { JsonTreeNode } from '../../../shared/utils/jsonTreeModel';
-import type { FetchErrorDetail } from '../../../shared/components/data-mapper/types';
-import { typeColor, getValuePreview, ChevronIcon } from '../../../shared/components/jsonTreeShared';
-import FullPanelModal from '../../../shared/components/FullPanelModal';
-import FetchErrorBanner from '../../../shared/components/data-mapper/FetchErrorBanner';
+import { buildJsonTree, getAllLeafPaths, nodeMatchesSearch } from '@shared/utils/jsonTreeModel';
+import type { JsonTreeNode } from '@shared/utils/jsonTreeModel';
+import type { FetchErrorDetail } from '@shared/components/data-mapper/types';
+import { typeColor, getValuePreview, ChevronIcon } from '@shared/components/jsonTreeShared';
+import FullPanelModal from '@shared/components/FullPanelModal';
+import FetchErrorBanner from '@shared/components/data-mapper/FetchErrorBanner';
 import { testPattern, resolveValue, type PatternEntry } from './regexAssertionUtils';
 export type { MatchResult } from './regexAssertionUtils';
 

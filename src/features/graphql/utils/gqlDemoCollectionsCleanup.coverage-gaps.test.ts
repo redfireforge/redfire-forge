@@ -33,8 +33,8 @@ vi.mock('../../../shared/utils/idbGraphqlCollections', () => ({
   idbDeleteItem: vi.fn(async () => {}),
 }));
 
-import { idbClearHistory, idbLoadHistory } from '../../../shared/utils/idbGraphqlHistory';
-import { idbDeleteCollection, idbDeleteItem } from '../../../shared/utils/idbGraphqlCollections';
+import { idbClearHistory, idbLoadHistory } from '@shared/utils/idbGraphqlHistory';
+import { idbDeleteCollection, idbDeleteItem } from '@shared/utils/idbGraphqlCollections';
 
 describe('gqlDemoCollectionsCleanup — coverage gaps', () => {
   beforeEach(() => {

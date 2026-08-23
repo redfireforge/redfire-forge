@@ -9,7 +9,7 @@ vi.mock('../../../../config/features', () => ({
   GRPC_PROTO_HYBRID_EDITOR_ENABLED: false,
 }));
 
-import { FIXTURE_DESCRIPTOR } from '../../../../shared/grpc/contractFixtures';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
 import { createGrpcStudioTab } from '../../grpcStudioTypes';
 import * as streamLogExport from '../../utils/grpcStreamLogExport';
 import { useGrpcCallPanel } from './useGrpcCallPanel';

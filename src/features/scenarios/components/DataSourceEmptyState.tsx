@@ -1,9 +1,9 @@
-import type { Scenario, DataSource, FeatureGroup, AuthConfig } from '../../../shared/types';
+import type { Scenario, DataSource, FeatureGroup, AuthConfig } from '@shared/types';
 import { v4 as uuidv4 } from 'uuid';
 import { createDataSourceWithTemplatizedUrl } from '../utils/dataSourceUtils';
 import DataSourceSetupModal from './DataSourceSetupModal';
 import type { TestEditingContext } from './TestEditorModal';
-import type { HttpResponse } from '../../../shared/utils/httpClient';
+import type { HttpResponse } from '@shared/utils/httpClient';
 
 interface DataSourceEmptyStateProps {
   draft: Scenario;

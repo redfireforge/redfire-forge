@@ -4,7 +4,7 @@ import {
   API_MOCK_RUNTIME_CHANGED_EVENT,
   API_MOCK_WORKSPACE_PERSISTED_EVENT,
 } from '../../api-mock/apiMockPersistence';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import type { ApiMockFixtureRunStatus, ApiMockTestFixtureConfig } from '../utils/apiMockTestFixture';
 import {
   fixtureServerLabel,

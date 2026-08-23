@@ -1,5 +1,5 @@
 import Papa from 'papaparse';
-import { saveFile } from '../../../shared/utils/fileSaver';
+import { saveFile } from '@shared/utils/fileSaver';
 import {
   type TemplateMetadata,
   type ExportOptions,

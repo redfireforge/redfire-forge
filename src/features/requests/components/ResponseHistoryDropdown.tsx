@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { ResponseHistoryEntry } from '../hooks/useResponseCache';
-import { formatBytes } from '../../../shared/utils/helpers';
+import { formatBytes } from '@shared/utils/helpers';
 
 function timeAgo(ts: number): string {
   const diff = Date.now() - ts;

@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import SubCollectionModal from './SubCollectionModal';
-import type { RequestFolder, RequestCollection, RequestEnv, GlobalAuthProfile, Microservice } from '../../../shared/types';
+import type { RequestFolder, RequestCollection, RequestEnv, GlobalAuthProfile, Microservice } from '@shared/types';
 
 const ENVS: RequestEnv[] = [
   { id: 'e1', name: 'Dev' },

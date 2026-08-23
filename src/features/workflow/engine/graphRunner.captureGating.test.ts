@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { resolveTraceLevel } from './graphRunner';
-import type { ExecutionTraceOptions } from '../../../shared/types';
+import type { ExecutionTraceOptions } from '@shared/types';
 
 describe('resolveTraceLevel', () => {
   it('returns "standard" when no options provided', () => {

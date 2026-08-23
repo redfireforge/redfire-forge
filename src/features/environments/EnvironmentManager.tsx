@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Environment, Microservice, GlobalAuthProfile, FeatureGroup, ProtocolKey } from '../../shared/types';
+import type { Environment, Microservice, GlobalAuthProfile, FeatureGroup, ProtocolKey } from '@shared/types';
 import {
   logEnvironmentCreated, logEnvironmentDeleted,
   logMicroserviceCreated, logMicroserviceDeleted, logMicroserviceUpdated,

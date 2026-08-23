@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react';
-import type { Environment } from '../../shared/types';
+import type { Environment } from '@shared/types';
 import type { CatalogEntry, CatalogEndpoint, SavedEndpointValues } from '../../features/catalog/types/catalog';
 import { buildCatalogExport } from '../../features/catalog/utils/catalogExport';
 import { mergeExportIntoCollections, isCollectionEmpty, separateFoldersForMerge } from '../../features/catalog/utils/versionMerge';
 import type { SendToRequestsPayload } from '../../features/catalog/components/CatalogSendToRequestsModal';
 import type { UseCatalogReturn } from '../../features/catalog/hooks/useCatalog';
 import type { UseRequestsReturn } from '../../features/requests/hooks/useRequests';
-import { loadCatalogEndpointValues } from '../../shared/utils/storage';
+import { loadCatalogEndpointValues } from '@shared/utils/storage';
 import type { Tab } from '../utils/appTabUtils';
 
 export type UseCatalogExportParams = {

@@ -11,10 +11,10 @@
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { selectOption } from '../../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import HttpConfig from './HttpConfig';
 import { WorkflowService } from '../../types/workflow';
-import { Scenario, KeyValue } from '../../../../shared/types';
+import { Scenario, KeyValue } from '@shared/types';
 import { makeHttpData, makeScenario, makeDefaultProps } from './__test-utils__/httpConfigTestHelpers';
 vi.mock('../expression/ExpressionInput', async () => {
   const { createExpressionInputModuleMock } = await import('./__test-utils__/httpConfigTestMocks');

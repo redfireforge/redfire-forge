@@ -16,8 +16,8 @@ import { validateGrpcTargetAddress } from './targetValidation';
 import type {
   GrpcConnectionProfile,
   GrpcTabConnectionPageDefaults,
-} from '../../features/grpc/utils/resolveGrpcTabConnection';
-import { resolveGrpcTabConnection } from '../../features/grpc/utils/resolveGrpcTabConnection';
+} from '@grpc/utils/resolveGrpcTabConnection';
+import { resolveGrpcTabConnection } from '@grpc/utils/resolveGrpcTabConnection';
 import type { GrpcTlsMode } from './contracts';
 
 const GRPC_PORT_ENV_RE = /^\d{1,5}$/;

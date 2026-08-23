@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { isTauri } from '../../shared/utils/platform';
+import { isTauri } from '@shared/utils/platform';
 
 export interface UpdateInfo {
   version: string;

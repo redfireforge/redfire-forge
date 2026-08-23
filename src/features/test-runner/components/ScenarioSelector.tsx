@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import type { FeatureGroup, GlobalAuthProfile, AuthConfig, ScenarioKind } from '../../../shared/types';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import type { FeatureGroup, GlobalAuthProfile, AuthConfig, ScenarioKind } from '@shared/types';
 import type { RunnerConfig, UnorderedOverride } from '../hooks/runnerConfigDefaults';
 import { buildSelectedTests } from '../utils/buildSelectedTests';
 

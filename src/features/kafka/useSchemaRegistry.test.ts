@@ -8,7 +8,7 @@ import {
   deriveSchemaFormat,
   type SchemaVersionDetail,
 } from './useSchemaRegistry';
-import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
+import type { UseKafkaStateReturn } from '@app/hooks/useKafkaState';
 
 function makeKafkaState(overrides?: Partial<UseKafkaStateReturn>): UseKafkaStateReturn {
   return {

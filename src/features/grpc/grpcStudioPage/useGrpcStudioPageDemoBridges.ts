@@ -3,7 +3,7 @@ import { flushSync } from 'react-dom';
 import type { UseGrpcStudioAdvancedFeaturesReturn } from '../hooks/useGrpcStudioAdvancedFeatures';
 import type { UseGrpcStudioReturn } from '../hooks/useGrpcStudio';
 import { createDefaultProtoIngestState } from '../grpcStudioTypes';
-import { syncGrpcTabTransportMode } from '../../../shared/grpc/grpcTransportTabRouting';
+import { syncGrpcTabTransportMode } from '@shared/grpc/grpcTransportTabRouting';
 
 export function useGrpcStudioPageDemoBridges(
   studio: UseGrpcStudioReturn,

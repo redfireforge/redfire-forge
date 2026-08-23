@@ -6,7 +6,7 @@
  * is clicked.
  */
 import { useState, useMemo, useRef, useEffect } from 'react';
-import type { TestSummary, RequestResult } from '../../../shared/types';
+import type { TestSummary, RequestResult } from '@shared/types';
 import {
   evaluateSlaTree,
   extractScenarioNames,

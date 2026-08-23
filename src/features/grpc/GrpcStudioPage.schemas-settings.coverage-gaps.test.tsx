@@ -7,12 +7,12 @@ import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_MULTI_SERVICE_DESCRIPTOR,
   FIXTURE_REFLECT_SUCCESS_ENVELOPE,
-} from '../../shared/grpc/contractFixtures';
-import { GRPC_ERROR_CODES } from '../../shared/grpc/contracts';
-import { GrpcApiClientError, setGrpcClientTransport } from '../../shared/grpc/grpcApiClient';
-import { createGrpcSuccessEnvelope } from '../../shared/grpc/contracts';
-import * as grpcStreamClient from '../../shared/grpc/grpcStreamClient';
-import { setGrpcStreamTransport } from '../../shared/grpc/grpcStreamClient';
+} from '@shared/grpc/contractFixtures';
+import { GRPC_ERROR_CODES } from '@shared/grpc/contracts';
+import { GrpcApiClientError, setGrpcClientTransport } from '@shared/grpc/grpcApiClient';
+import { createGrpcSuccessEnvelope } from '@shared/grpc/contracts';
+import * as grpcStreamClient from '@shared/grpc/grpcStreamClient';
+import { setGrpcStreamTransport } from '@shared/grpc/grpcStreamClient';
 const downloadProtosetFileMock = vi.hoisted(() => vi.fn());
 vi.mock('./utils/downloadProtoset', () => ({
   downloadProtosetFile: (...args: unknown[]) => downloadProtosetFileMock(...args),

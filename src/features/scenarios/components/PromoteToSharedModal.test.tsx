@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import PromoteToSharedModal from './PromoteToSharedModal';
-import { DataSource } from '../../../shared/types';
+import { DataSource } from '@shared/types';
 
 vi.mock('../../../shared/components/PopupModal', () => ({
   default: ({ title, children, footer, onClose }: { title: string; children: React.ReactNode; footer: React.ReactNode; onClose: () => void }) => (

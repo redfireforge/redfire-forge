@@ -9,12 +9,12 @@ import type {
   ApiMockSimulationSampleV1,
   ApiMockStateTransitionV1,
   ApiMockTransactionOutcome,
-} from '../../shared/api-mock/contracts';
+} from '@shared/api-mock/contracts';
 import { DEMO_HUB_ENABLED } from '../../config/features';
-import { createDefaultResponse } from '../../shared/api-mock/defaults';
-import { DEFAULT_PROXY_SETTINGS } from '../../shared/api-mock/proxyContracts';
-import { DEFAULT_CALLBACK_SETTINGS } from '../../shared/api-mock/callbackContracts';
-import { inferPathKind, pathParamNames } from '../../shared/api-mock/pathMatcher';
+import { createDefaultResponse } from '@shared/api-mock/defaults';
+import { DEFAULT_PROXY_SETTINGS } from '@shared/api-mock/proxyContracts';
+import { DEFAULT_CALLBACK_SETTINGS } from '@shared/api-mock/callbackContracts';
+import { inferPathKind, pathParamNames } from '@shared/api-mock/pathMatcher';
 import { kindFromContentType } from './components/apiMockResponseEditorConstants';
 import { createRoute, nowIso } from './apiMockStudioFactory';
 

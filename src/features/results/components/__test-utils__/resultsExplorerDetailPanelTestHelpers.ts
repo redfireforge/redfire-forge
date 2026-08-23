@@ -5,7 +5,7 @@
  * tests. Each `partN.test.tsx` only contains its own unique scenarios and
  * imports these fixtures so we don't duplicate the same trace data across files.
  */
-import type { ExecutionEvent, WorkflowIterationTrace } from '../../../../shared/types';
+import type { ExecutionEvent, WorkflowIterationTrace } from '@shared/types';
 
 export const mockEvents: ExecutionEvent[] = [
   {

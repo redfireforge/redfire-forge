@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { GraphqlHistoryItem } from '../../../shared/types/graphql';
+import type { GraphqlHistoryItem } from '@shared/types/graphql';
 import type { UseGraphqlHistoryResult } from '../hooks/useGraphqlHistory';
 import { DEFAULT_MAX_ITEMS } from '../hooks/useGraphqlHistory';
 import { historyEntrySummary } from '../utils/historyItemParse';

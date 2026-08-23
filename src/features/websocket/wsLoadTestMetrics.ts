@@ -2,8 +2,8 @@
  * Load test metrics collection: latency tracking, histogram bucketing, and result aggregation.
  * Designed for high-throughput scenarios (up to 1000 msg/s).
  */
-import type { WsLoadTestConfig, WsLoadTestResult } from '../../shared/websocket/types';
-import { computePercentiles, round2 } from '../../shared/utils/percentiles';
+import type { WsLoadTestConfig, WsLoadTestResult } from '@shared/websocket/types';
+import { computePercentiles, round2 } from '@shared/utils/percentiles';
 
 const HISTOGRAM_BUCKETS = [1, 2, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, Infinity];
 const THROUGHPUT_SAMPLE_INTERVAL_MS = 1000;

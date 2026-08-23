@@ -2,10 +2,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { selectOption, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
+import { selectOption, getCustomSelectValue } from '@test-utils/customSelectHelper';
 import AssertionRowEditor from './AssertionRowEditor';
-import type { Assertion } from '../../../shared/types';
-import { installClipboardReadMock, installEmptyClipboard } from '../../../test-utils/clipboardMock';
+import type { Assertion } from '@shared/types';
+import { installClipboardReadMock, installEmptyClipboard } from '@test-utils/clipboardMock';
 
 const mockOnUpdate = vi.fn();
 const mockOnRemove = vi.fn();

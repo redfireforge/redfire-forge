@@ -3,7 +3,7 @@
  * suitable for download from the UI or embedding in CI artefacts.
  */
 
-import type { TestRun } from '../../../shared/types';
+import type { TestRun } from '@shared/types';
 import type { RunComparison } from './runBaselines';
 
 // ── Lean export shape (no results / trace arrays) ────────────────────────────

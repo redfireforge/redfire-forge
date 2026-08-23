@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
+import AppModalFrame from '@shared/components/AppModalFrame';
 import {
   findTextExpandMatches,
   formatJsonBody,
@@ -12,8 +12,8 @@ import {
 } from './apiMockTextExpand';
 import { ChevronDownIcon, ChevronUpIcon, RedoIcon, UndoIcon } from './ApiMockIcons';
 import JsonPreview, { buildJTree, collectJTreePaths } from '../../requests/components/JsonTreePreview';
-import { useJsonTreeCollapseState } from '../../../shared/hooks/useJsonTreeCollapseState';
-import { useSearchMatchNavigation } from '../../../shared/hooks/useSearchMatchNavigation';
+import { useJsonTreeCollapseState } from '@shared/hooks/useJsonTreeCollapseState';
+import { useSearchMatchNavigation } from '@shared/hooks/useSearchMatchNavigation';
 
 interface Props {
   title: string;

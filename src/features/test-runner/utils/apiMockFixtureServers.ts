@@ -5,7 +5,7 @@
  */
 import { apiMockControlClient } from '../../api-mock/apiMockControlClient';
 import { loadApiMockWorkspace } from '../../api-mock/apiMockPersistence';
-import { isTauri } from '../../../shared/utils/platform';
+import { isTauri } from '@shared/utils/platform';
 
 export type ApiMockFixtureServerStatus = 'running' | 'stopped';
 

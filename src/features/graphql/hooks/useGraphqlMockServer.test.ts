@@ -35,8 +35,8 @@ vi.stubGlobal('fetch', mockFetch);
 // ─── Import after mocks ───────────────────────────────────────────────────────
 
 import { useGraphqlMockServer, resolveMockSyncSdl } from './useGraphqlMockServer';
-import type { MockResolver, MockScenario } from '../../../shared/types/graphql';
-import { isTauri } from '../../../shared/utils/platform';
+import type { MockResolver, MockScenario } from '@shared/types/graphql';
+import { isTauri } from '@shared/utils/platform';
 import { loadCachedGraphqlSchemaSdl } from '../utils/graphqlSchemaCache';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

@@ -7,7 +7,7 @@ import {
   postGrpcK8sPortForwardStart,
   postGrpcK8sPortForwardStop,
   type GrpcK8sPortForwardApiLogLine,
-} from '../../../shared/grpc/grpcApiClient';
+} from '@shared/grpc/grpcApiClient';
 import {
   buildKubectlPortForwardCommand,
   buildK8sLocalTarget,
@@ -20,7 +20,7 @@ import {
   type GrpcK8sPortForwardSession,
   type GrpcK8sTargetType,
 } from '../utils/grpcK8sPortForward';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 function getK8sWorkflowStatusLabel(
   ready: boolean,

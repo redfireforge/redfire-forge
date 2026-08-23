@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
-import { GRPC } from '../../../shared/selectors/grpc';
+import { GRPC } from '@shared/selectors/grpc';
 import { isGrpcLifecycleInFlight, type GrpcStudioTabState } from '../grpcStudioTypes';
-import type { GrpcCallType } from '../../../shared/grpc/contracts';
-import { isGrpcStreamLifecycleInFlight } from '../../../shared/grpc/streamLifecycle';
+import type { GrpcCallType } from '@shared/grpc/contracts';
+import { isGrpcStreamLifecycleInFlight } from '@shared/grpc/streamLifecycle';
 import { formatGrpcCallTypeBadge } from '../utils/grpcExplorerUtils';
-import { useTabDragReorder } from '../../../shared/components/studio-tabs/useTabDragReorder';
+import { useTabDragReorder } from '@shared/components/studio-tabs/useTabDragReorder';
 import {
   buildContextMenuItems,
   useTabContextMenu,
-} from '../../../shared/components/studio-tabs/TabContextMenu';
+} from '@shared/components/studio-tabs/TabContextMenu';
 
 function tabMethodSubtitle(tab: GrpcStudioTabState): string | null {
   if (!tab.service || !tab.method) return null;

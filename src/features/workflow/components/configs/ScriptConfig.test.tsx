@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
-import { selectOption } from '../../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import ScriptConfig from './ScriptConfig';
 import type { ScriptNodeData } from '../../types/workflow';
 
@@ -68,13 +68,13 @@ vi.mock('./ScriptCodeModal', () => ({
 }));
 
 // Mock scriptLibraries
-vi.mock('../../engine/scriptLibraries', () => ({
+vi.mock('@workflow/engine/scriptLibraries', () => ({
   loadScriptLibraries: () => [],
   saveScriptLibraries: vi.fn(),
   buildLibraryPreamble: () => '',
 }));
 
-import { saveScriptLibraries } from '../../engine/scriptLibraries';
+import { saveScriptLibraries } from '@workflow/engine/scriptLibraries';
 
 function makeData(overrides: Partial<ScriptNodeData> = {}): ScriptNodeData {
   return {

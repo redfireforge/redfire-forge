@@ -1,10 +1,10 @@
 import { useMemo, type RefObject } from 'react';
-import type { Environment, Microservice } from '../../shared/types';
-import type { KafkaConnectionSnapshot } from '../../shared/kafka/kafkaConfig';
+import type { Environment, Microservice } from '@shared/types';
+import type { KafkaConnectionSnapshot } from '@shared/kafka/kafkaConfig';
 import { isCustomThemeId, findSavedTheme } from '../themeCustomizerUtils';
 import type { Tab } from '../utils/appTabUtils';
 import { resolveHeaderProtocolIndicator } from '../utils/headerProtocolUtils';
-import { CustomSelect, type CustomSelectItems } from '../../shared/components/CustomSelect';
+import { CustomSelect, type CustomSelectItems } from '@shared/components/CustomSelect';
 import HeaderProtocolIndicator from './HeaderProtocolIndicator';
 import KafkaConnectionIndicator from './KafkaConnectionIndicator';
 

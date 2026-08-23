@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { GrpcTlsConfig, GrpcTlsMode } from '../../../shared/grpc/contracts';
-import type { GrpcTlsValidationIssue } from '../../../shared/grpc/grpcTlsPolicy';
-import { validateGrpcTlsConfigContract } from '../../../shared/grpc/grpcTlsPolicy';
+import type { GrpcTlsConfig, GrpcTlsMode } from '@shared/grpc/contracts';
+import type { GrpcTlsValidationIssue } from '@shared/grpc/grpcTlsPolicy';
+import { validateGrpcTlsConfigContract } from '@shared/grpc/grpcTlsPolicy';
 import type { GrpcMaskedSecretFields, GrpcTlsSecretFieldKey } from '../utils/grpcSecretFieldUi';
-import { TlsConfigModal } from '../../../shared/components/TlsConfigModal';
+import { TlsConfigModal } from '@shared/components/TlsConfigModal';
 import { GrpcTlsConfigBody, type GrpcTlsTestResult } from './GrpcTlsConfigBody';
 
 type TlsSnapshot = {

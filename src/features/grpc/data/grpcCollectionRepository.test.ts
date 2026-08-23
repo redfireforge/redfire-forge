@@ -2,8 +2,8 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createEmptyGrpcCollectionsStore } from '../../../shared/grpc/grpcPersistenceSchema';
-import { makeGrpcSavedRequest, GRPC_TEST_TIMESTAMP as TS } from '../../../test-utils/grpcFactories';
+import { createEmptyGrpcCollectionsStore } from '@shared/grpc/grpcPersistenceSchema';
+import { makeGrpcSavedRequest, GRPC_TEST_TIMESTAMP as TS } from '@test-utils/grpcFactories';
 
 const saveMock = vi.fn().mockResolvedValue(undefined);
 const loadMock = vi.fn();
@@ -44,7 +44,7 @@ import {
   updateGrpcCollectionInStore,
   updateGrpcSavedRequestInStore,
 } from './grpcCollectionRepository';
-import { readKey } from '../../../shared/utils/storage';
+import { readKey } from '@shared/utils/storage';
 
 beforeEach(() => {
   saveMock.mockClear();

@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { GraphqlSchemaDiff } from './GraphqlSchemaDiff';
-import type { GraphqlSchemaDiffResult, GraphqlSchemaDiffChange } from '../../../shared/types/graphql';
+import type { GraphqlSchemaDiffResult, GraphqlSchemaDiffChange } from '@shared/types/graphql';
 
 const mockSaveJsonFile = vi.fn().mockResolvedValue(undefined);
 const mockSaveFile = vi.fn().mockResolvedValue(undefined);

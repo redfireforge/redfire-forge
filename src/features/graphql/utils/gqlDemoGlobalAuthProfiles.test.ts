@@ -10,7 +10,7 @@ vi.mock('../../../shared/utils/storage', () => ({
   saveGlobalAuthProfiles: vi.fn(() => Promise.resolve()),
 }));
 
-import { loadGlobalAuthProfiles, saveGlobalAuthProfiles } from '../../../shared/utils/storage';
+import { loadGlobalAuthProfiles, saveGlobalAuthProfiles } from '@shared/utils/storage';
 
 describe('gqlDemoGlobalAuthProfiles', () => {
   beforeEach(() => {

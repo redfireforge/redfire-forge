@@ -5,7 +5,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ApiMockTemplateHelperModal } from './ApiMockTemplateHelperModal';
-import { TEMPLATE_HELPER_CATALOG } from '../../../shared/api-mock/templateHelperCatalog';
+import { TEMPLATE_HELPER_CATALOG } from '@shared/api-mock/templateHelperCatalog';
 
 describe('ApiMockTemplateHelperModal', () => {
   const writeText = vi.fn(async () => undefined);

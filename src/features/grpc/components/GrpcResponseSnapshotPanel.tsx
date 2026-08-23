@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { GrpcCallResult } from '../../../shared/grpc/contracts';
-import type { GrpcResponseSnapshotBaseline } from '../../../shared/grpc/grpcSavedRequest';
+import type { GrpcCallResult } from '@shared/grpc/contracts';
+import type { GrpcResponseSnapshotBaseline } from '@shared/grpc/grpcSavedRequest';
 import {
   captureGrpcStreamResponseSnapshotBaseline,
   createPseudoGrpcCallResultFromStreamSession,
@@ -8,8 +8,8 @@ import {
   compareGrpcResponseToBaseline,
   savedRequestMatchesUnaryResult,
 } from '../utils/grpcResponseSnapshot';
-import type { GrpcStreamLogEntry } from '../../../shared/grpc/contracts';
-import type { GrpcErrorBody } from '../../../shared/grpc/contracts';
+import type { GrpcStreamLogEntry } from '@shared/grpc/contracts';
+import type { GrpcErrorBody } from '@shared/grpc/contracts';
 import { GrpcResponseSnapshotDiffModal } from './GrpcResponseSnapshotDiffModal';
 
 export interface GrpcResponseSnapshotPanelProps {

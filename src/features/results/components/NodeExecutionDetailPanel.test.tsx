@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import NodeExecutionDetailPanel from './NodeExecutionDetailPanel';
-import type { WorkflowIterationTrace, ExecutionEvent } from '../../../shared/types';
+import type { WorkflowIterationTrace, ExecutionEvent } from '@shared/types';
 
 function createEvent(overrides: Partial<ExecutionEvent> = {}): ExecutionEvent {
   return {

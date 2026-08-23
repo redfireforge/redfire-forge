@@ -1,9 +1,9 @@
-import type { TestRun, RequestResult } from '../../../shared/types';
-import { getResultErrorMessage } from '../../../shared/utils/helpers';
-import { percentile } from '../../../shared/utils/percentiles';
+import type { TestRun, RequestResult } from '@shared/types';
+import { getResultErrorMessage } from '@shared/utils/helpers';
+import { percentile } from '@shared/utils/percentiles';
 import { formatTransportStatus } from './transportStatus';
-import { redactGrpcHarnessRunnerArtifactsForExport } from '../../../shared/grpc/grpcHarnessExport';
-// import { escapeCsv } from '../../../shared/utils/export';
+import { redactGrpcHarnessRunnerArtifactsForExport } from '@shared/grpc/grpcHarnessExport';
+// import { escapeCsv } from '@shared/utils/export';
 
 function exportSafeResults(results: RequestResult[]): RequestResult[] {
   return redactGrpcHarnessRunnerArtifactsForExport(results);

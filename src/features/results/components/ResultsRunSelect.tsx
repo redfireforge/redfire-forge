@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { TestRun } from '../../../shared/types';
+import type { TestRun } from '@shared/types';
 import { isBaseline, type BaselineMark, type RunRegressionStatus } from '../utils/runBaselines';
 
 function formatRunLabel(

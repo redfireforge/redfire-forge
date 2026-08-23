@@ -38,7 +38,7 @@ function getLevel(t: SlaTarget): SlaLevel {
 
 import { validateRow, METRIC_OPTIONS } from './slaEditorUtils';
 import type { RowError } from './slaEditorUtils';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 // ── Target Editor ──
 

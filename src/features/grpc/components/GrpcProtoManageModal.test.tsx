@@ -4,7 +4,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { createDefaultProtoIngestState } from '../grpcStudioTypes';
-import { FIXTURE_DESCRIPTOR } from '../../../shared/grpc/contractFixtures';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
 import { GrpcProtoManageModal } from './GrpcProtoManageModal';
 
 describe('GrpcProtoManageModal', () => {

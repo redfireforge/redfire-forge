@@ -10,11 +10,11 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import type { GraphqlMockConfig, GraphqlSchemaInfo, MockResolver } from '../../../shared/types/graphql';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import type { GraphqlMockConfig, GraphqlSchemaInfo, MockResolver } from '@shared/types/graphql';
 import type { UseGraphqlMockServerResult } from '../hooks/useGraphqlMockServer';
 import type { MockSchemaSource } from '../hooks/useGraphqlMockServer';
-import { parseJsonOrRaw } from '../../../shared/utils/helpers';
+import { parseJsonOrRaw } from '@shared/utils/helpers';
 
 // ─── ResolversTab ─────────────────────────────────────────────────────────────
 

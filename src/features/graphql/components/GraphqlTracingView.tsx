@@ -5,7 +5,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import type { ApolloTracingData, ResolverTrace } from '../../../shared/types/graphql';
+import type { ApolloTracingData, ResolverTrace } from '@shared/types/graphql';
 import {
   nsToMs,
   durationColorClass,

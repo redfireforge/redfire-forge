@@ -2,9 +2,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { selectOption, selectOptionByIndex } from '../../../test-utils/customSelectHelper';
+import { selectOption, selectOptionByIndex } from '@test-utils/customSelectHelper';
 import DataSourceToolbar from './DataSourceToolbar';
-import type { DataSource, SharedDataSource } from '../../../shared/types';
+import type { DataSource, SharedDataSource } from '@shared/types';
 import { createRef } from 'react';
 
 function createMockDataSource(rowCount = 3): DataSource {

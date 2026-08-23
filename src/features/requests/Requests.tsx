@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import type { GlobalAuthProfile, Microservice, Environment, RequestItem, RequestCollection, RequestTab, RequestSubTab, ResponseSubTab, RequestInputMode } from '../../shared/types';
+import type { GlobalAuthProfile, Microservice, Environment, RequestItem, RequestCollection, RequestTab, RequestSubTab, ResponseSubTab, RequestInputMode } from '@shared/types';
 import type { UseRequestsReturn } from './hooks/useRequests';
 import { findRequestInCollection, findAncestorSubCollection } from './utils/requestTree';
 import RequestEditor from './components/RequestEditor';

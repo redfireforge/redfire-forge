@@ -1,7 +1,7 @@
 import { useEffect, useRef, type CSSProperties } from 'react';
-import { useSplitPaneResize } from '../../../shared/hooks/useSplitPaneResize';
-import type { ApiMockConflictFindingV1, ApiMockServerDefinitionV1, ApiMockSimulationSampleV1, ApiMockTransactionV1 } from '../../../shared/api-mock/contracts';
-import { mockClientOrigin } from '../../../shared/api-mock/harExport';
+import { useSplitPaneResize } from '@shared/hooks/useSplitPaneResize';
+import type { ApiMockConflictFindingV1, ApiMockServerDefinitionV1, ApiMockSimulationSampleV1, ApiMockTransactionV1 } from '@shared/api-mock/contracts';
+import { mockClientOrigin } from '@shared/api-mock/harExport';
 import type { ScenarioStateSnapshot } from '../apiMockControlClient';
 import type { ApiMockConsoleLine } from '../useApiMockConsole';
 import { API_MOCK_WORKSPACE_PANEL_ID } from './ApiMockServerTabs';

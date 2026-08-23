@@ -4,7 +4,7 @@
  * UI-layer concepts (drafts, result rows) not shared with the server.
  */
 
-import type { KafkaSchemaConfig } from '../../shared/kafka/kafkaClient';
+import type { KafkaSchemaConfig } from '@shared/kafka/kafkaClient';
 
 // ── Header row (Publish panel) ─────────────────────────────────────────────
 

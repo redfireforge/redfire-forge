@@ -3,8 +3,8 @@
  */
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { selectOption } from '../../../../test-utils/customSelectHelper';
-import type { GrpcFieldSchema, GrpcMessageSchema } from '../../../../shared/grpc/contracts';
+import { selectOption } from '@test-utils/customSelectHelper';
+import type { GrpcFieldSchema, GrpcMessageSchema } from '@shared/grpc/contracts';
 import {
   GrpcProtoAnyFieldRow,
   GrpcProtoNestedMessageFieldRow,

@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import RequestCollectionModal from './RequestCollectionModal';
-import type { RequestCollection, RequestEnv, GlobalAuthProfile, Microservice, Environment } from '../../../shared/types';
+import type { RequestCollection, RequestEnv, GlobalAuthProfile, Microservice, Environment } from '@shared/types';
 
 const toastShow = vi.fn();
 vi.mock('../../../shared/hooks/useToast', () => ({

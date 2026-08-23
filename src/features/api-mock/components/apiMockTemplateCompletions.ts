@@ -1,7 +1,7 @@
 /**
  * Monaco `{{` completion items for API Mock response templates.
  */
-import { FAKER_HELPER_PATHS } from '../../../shared/api-mock/templateFaker';
+import { FAKER_HELPER_PATHS } from '@shared/api-mock/templateFaker';
 
 export interface MockTemplateCompletion {
   label: string;

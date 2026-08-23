@@ -1,7 +1,7 @@
-import type { ApiMockFaultKind, ApiMockPredicateV1 } from '../../../shared/api-mock/contracts';
-import { httpMethodSelectOptions } from '../../../shared/constants/httpMethodColors';
-import { isUnavailablePredicateOperator } from '../../../shared/api-mock/unavailableOperators';
-import type { CustomSelectGroup, CustomSelectOption } from '../../../shared/components/customSelectTypes';
+import type { ApiMockFaultKind, ApiMockPredicateV1 } from '@shared/api-mock/contracts';
+import { httpMethodSelectOptions } from '@shared/constants/httpMethodColors';
+import { isUnavailablePredicateOperator } from '@shared/api-mock/unavailableOperators';
+import type { CustomSelectGroup, CustomSelectOption } from '@shared/components/customSelectTypes';
 
 export type BuilderTab = 'match' | 'response' | 'behavior' | 'examples' | 'docs';
 

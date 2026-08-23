@@ -1,4 +1,4 @@
-import type { Microservice, ProtocolKey } from '../../../shared/types';
+import type { Microservice, ProtocolKey } from '@shared/types';
 import { patchProtocolEndpoints } from './protocolEndpointUtils';
 
 export function updateMicroserviceById(

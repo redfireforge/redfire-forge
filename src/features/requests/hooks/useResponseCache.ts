@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { HttpResponse } from '../../../shared/utils/httpClient';
-import type { LogLine } from '../../../shared/types/server-api';
+import type { HttpResponse } from '@shared/utils/httpClient';
+import type { LogLine } from '@shared/types/server-api';
 
 type ConsoleLine = LogLine;
 export type { ConsoleLine };

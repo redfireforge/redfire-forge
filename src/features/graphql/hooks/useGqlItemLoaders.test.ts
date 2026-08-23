@@ -6,7 +6,7 @@
 import { renderHook } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useGqlItemLoaders } from './useGqlItemLoaders';
-import type { GraphqlCollectionItem, GraphqlHistoryItem } from '../../../shared/types/graphql';
+import type { GraphqlCollectionItem, GraphqlHistoryItem } from '@shared/types/graphql';
 
 const makeItem = (id: string, query: string, variables = ''): GraphqlCollectionItem => ({
   id,

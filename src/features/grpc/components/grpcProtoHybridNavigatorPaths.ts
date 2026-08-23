@@ -1,4 +1,4 @@
-import type { GrpcMessageSchema } from '../../../shared/grpc/contracts';
+import type { GrpcMessageSchema } from '@shared/grpc/contracts';
 import { groupMessageFields } from '../utils/grpcProtoFormValues';
 
 export function buildHybridNavigatorPaths(schema: GrpcMessageSchema): string[] {

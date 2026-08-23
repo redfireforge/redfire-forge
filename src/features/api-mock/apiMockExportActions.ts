@@ -1,7 +1,7 @@
-import type { ApiMockExportV1, ApiMockServerDefinitionV1, ApiMockTransactionV1 } from '../../shared/api-mock/contracts';
-import { exportFilename, exportWorkspace, serializeExport } from '../../shared/api-mock/exportUtils';
-import { exportHarForStudio } from '../../shared/api-mock/harExport';
-import { exportWireMockMappings } from '../../shared/api-mock/wireMockExport';
+import type { ApiMockExportV1, ApiMockServerDefinitionV1, ApiMockTransactionV1 } from '@shared/api-mock/contracts';
+import { exportFilename, exportWorkspace, serializeExport } from '@shared/api-mock/exportUtils';
+import { exportHarForStudio } from '@shared/api-mock/harExport';
+import { exportWireMockMappings } from '@shared/api-mock/wireMockExport';
 import type { ApiMockExportFormat, ApiMockExportRequest, ApiMockExportScope } from './components/ApiMockWorkspaceNav';
 import { apiMockControlClient } from './apiMockControlClient';
 import { downloadJsonFile, isApiMockLiveDemoActive, saveTextFileToDisk } from './apiMockPageHelpers';

@@ -8,8 +8,8 @@ import {
   FIXTURE_DESCRIPTOR_KEY,
   FIXTURE_TARGET,
   FIXTURE_UNARY_CALL_REQUEST,
-} from '../../../shared/grpc/contractFixtures';
-import { createGrpcSavedRequestFromSnapshot } from '../../../shared/grpc/grpcSavedRequest';
+} from '@shared/grpc/contractFixtures';
+import { createGrpcSavedRequestFromSnapshot } from '@shared/grpc/grpcSavedRequest';
 import { createEmptyTabDescriptorState, createGrpcStudioTab } from '../grpcStudioTypes';
 import { useGrpcStudioReplayActions } from './useGrpcStudioReplayActions';
 

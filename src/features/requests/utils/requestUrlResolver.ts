@@ -1,4 +1,4 @@
-import type { RequestCollection, RequestFolder } from '../../../shared/types';
+import type { RequestCollection, RequestFolder } from '@shared/types';
 
 export interface UrlResolverContext {
   collectionMode: RequestCollection['mode'];
