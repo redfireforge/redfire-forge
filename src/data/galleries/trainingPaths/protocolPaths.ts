@@ -119,17 +119,90 @@ export const protocolPaths: TrainingPath[] = [
     id: 'grpc',
     name: 'gRPC Studio',
     icon: '🔌',
-    description: 'Send unary and streaming gRPC calls, manage .proto schemas, and build gRPC test workflows — coming soon.',
-    comingSoon: true,
+    description: 'Send unary and streaming gRPC calls, manage .proto schemas, configure TLS and mTLS, run a local mock server, and detect schema drift — all from one studio.',
     phases: [
       {
         id: 1,
-        name: 'Coming Soon',
+        name: 'Getting Started',
         manuals: [
           {
-            title: 'gRPC Studio — Coming Soon',
-            description: 'Training manuals for gRPC Studio are in progress.',
+            title: 'gRPC Studio Overview',
+            description: 'Tour the gRPC Studio interface — connection bar, schema panel, method types, and stream log.',
             difficulty: 'easy',
+            manualPath: 'grpc/grpc.html',
+          },
+          {
+            title: 'Your First gRPC Call',
+            description: 'Connect to a live server, load a schema via reflection, select a unary method, and send your first request.',
+            difficulty: 'easy',
+            sampleId: 'test-grpc-health',
+            manualPath: 'grpc/grpc-first-call-easy.html',
+          },
+          {
+            title: 'Schema Management',
+            description: 'Load proto schemas from files, protoset binaries, reflection, BSR, or URL — manage multiple descriptors side by side.',
+            difficulty: 'easy',
+            manualPath: 'grpc/grpc-schema-management-easy.html',
+          },
+        ],
+      },
+      {
+        id: 2,
+        name: 'Streaming',
+        manuals: [
+          {
+            title: 'Server Streaming',
+            description: 'Subscribe to a server-stream RPC — monitor incoming frames, track the stream log, and cancel cleanly.',
+            difficulty: 'medium',
+            manualPath: 'grpc/grpc-server-streaming-medium.html',
+          },
+          {
+            title: 'Client Streaming',
+            description: 'Send multiple messages over a client stream, half-close to receive the server response, and cancel mid-stream.',
+            difficulty: 'medium',
+            manualPath: 'grpc/grpc-client-streaming-medium.html',
+          },
+          {
+            title: 'Bidirectional Streaming',
+            description: 'Open a full-duplex bidi stream — send and receive messages simultaneously, read the interleaved log, and close gracefully.',
+            difficulty: 'medium',
+            manualPath: 'grpc/grpc-bidi-streaming-medium.html',
+          },
+          {
+            title: 'Collections & History',
+            description: 'Save requests to collections, replay from history, import grpcurl commands, and export collections for sharing.',
+            difficulty: 'medium',
+            manualPath: 'grpc/grpc-collections-medium.html',
+          },
+        ],
+      },
+      {
+        id: 3,
+        name: 'Advanced Topics',
+        manuals: [
+          {
+            title: 'TLS & Transport',
+            description: 'Configure Plaintext, TLS, and mTLS modes — set CA certs, client certs, and switch between proxy and native transport.',
+            difficulty: 'advanced',
+            manualPath: 'grpc/grpc-tls-advanced.html',
+          },
+          {
+            title: 'Mock Server',
+            description: 'Start the built-in gRPC mock server, define unary and streaming stubs, and test client code without a real backend.',
+            difficulty: 'advanced',
+            manualPath: 'grpc/grpc-mock-server-advanced.html',
+          },
+          {
+            title: 'Schema Drift Detection',
+            description: 'Compare two schema snapshots to find breaking changes, missing methods, and changed field types — gate deployments in CI.',
+            difficulty: 'advanced',
+            manualPath: 'grpc/grpc-schema-drift-advanced.html',
+          },
+          {
+            title: 'Interpolation & Variables',
+            description: 'Use {{variable}} syntax in targets, headers, and request bodies — switch environments and inject CI secrets without editing requests.',
+            difficulty: 'advanced',
+            manualPath: 'grpc/grpc-interpolation-advanced.html',
           },
         ],
       },

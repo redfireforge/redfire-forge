@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>gRPC: Bidirectional Streaming — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
+  .msg-box { border: 1px solid #dee2e6; border-radius: 6px; padding: 10px 12px; background: #f8f9fa; font-size: 12px; font-family: 'JetBrains Mono', monospace; }
+  .msg-box.outbound { border-color: #457b9d; background: #e8f4fd; }
+  .msg-box.inbound { border-color: #2e7d32; background: #e8f5e9; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>gRPC: Bidirectional Streaming</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; Full-duplex — send and receive simultaneously</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>How bidirectional streaming differs from the other stream types</li>
+    <li>Open a bidi stream and use the split message log</li>
+    <li>Send messages and receive responses interleaved in real time</li>
+    <li>Half-close the client side gracefully</li>
+    <li>Understand flow control and ordering</li>
+  </ul>
+
+  <h2>What is Bidirectional Streaming?</h2>
+  <p>A <strong>bidirectional (bidi) streaming</strong> RPC keeps both the client-to-server and server-to-client streams open simultaneously. Either side can send messages at any time and in any order. The stream ends when both sides have closed their half. This is the most powerful and complex gRPC method type.</p>
+
+  <div class="callout">
+    <strong>Real-world examples of bidirectional streaming</strong>
+    <ul style="margin-top:6px">
+      <li>Chat server: clients send messages and receive messages from others interleaved</li>
+      <li>Real-time collaboration: each edit operation sent by the client triggers a broadcast response</li>
+      <li>Interactive ML inference: send audio/image chunks, receive partial results as they are ready</li>
+      <li>Order book: send trade requests, receive live fill confirmations interleaved with market updates</li>
+    </ul>
+  </div>
+
+  <h2>Prerequisites</h2>
+  <ul>
+    <li>Completed the <a href="grpc-client-streaming-medium.html">Client Streaming</a> tutorial</li>
+    <li>gRPC Studio connected to <code>grpcb.in:443</code> with the echo schema loaded</li>
+  </ul>
+
+  <h2>Step-by-Step Walkthrough</h2>
+
+  <h3>1 — Select the BidiStream Method</h3>
+  <div class="step"><div class="step-num">1</div><div class="step-body">In the schema panel, expand <strong>EchoService</strong> and click <strong>BidiStream</strong>. The method type badge shows <strong>BIDI STREAM</strong>.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">The stream panel shows a <strong>unified message log</strong> that interleaves outbound (↑) and inbound (↓) messages chronologically. The JSON editor and <strong>Send Message</strong> / <strong>Close &amp; Finish</strong> buttons are at the bottom.</div></div>
+
+  <h3>2 — Open the Stream</h3>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Click <strong>Start Stream</strong>. The stream opens and status shows <strong>Open (full-duplex)</strong>. Both ↑ and ↓ counters start at zero.</div></div>
+
+  <h3>3 — Send and Receive Interleaved</h3>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Type the first message and click <strong>Send Message</strong>:</div></div>
+<pre>{ "message": "ping-1" }</pre>
+  <div class="step"><div class="step-num">5</div><div class="step-body">The echo server immediately sends back a response. The log shows:</div></div>
+  <div class="two-col">
+    <div class="msg-box outbound">↑ 12:00:01.000<br/>{ "message": "ping-1" }</div>
+    <div class="msg-box inbound">↓ 12:00:01.012<br/>{ "message": "ping-1" }</div>
+  </div>
+  <div class="step"><div class="step-num">6</div><div class="step-body">Send a second message before the first response has arrived (works because the stream is full-duplex). The server echoes each message independently.</div></div>
+  <div class="step"><div class="step-num">7</div><div class="step-body">Continue sending several messages. Each response appears in the log as soon as it arrives, interleaved with any new outbound messages you send.</div></div>
+
+  <h3>4 — Half-Close and Wait for Server</h3>
+  <div class="step"><div class="step-num">8</div><div class="step-body">When you have finished sending, click <strong>Close &amp; Finish</strong>. The client sends a half-close (END_STREAM). The studio stops accepting new messages from you but continues receiving server responses already in flight.</div></div>
+  <div class="step"><div class="step-num">9</div><div class="step-body">Once the server receives your half-close it processes any remaining input and closes its side. The status badge changes to <strong>Ended (OK)</strong>.</div></div>
+
+  <h3>5 — Review the Full Log</h3>
+  <div class="step"><div class="step-num">10</div><div class="step-body">The unified log shows all messages in chronological order. The ↑ arrow denotes client-sent messages and ↓ denotes server-sent responses. Scroll up to review the complete exchange.</div></div>
+  <div class="step"><div class="step-num">11</div><div class="step-body">The counters at the top of the stream panel show the final totals: <strong>↑ N</strong> messages sent, <strong>↓ N</strong> messages received.</div></div>
+
+  <h2>Message Log Reference</h2>
+  <table>
+    <tr><th>Symbol</th><th>Meaning</th></tr>
+    <tr><td><strong>↑</strong> (blue)</td><td>Outbound — message sent by this client</td></tr>
+    <tr><td><strong>↓</strong> (green)</td><td>Inbound — message received from the server</td></tr>
+    <tr><td>Timestamp</td><td>Wall-clock time of send or receive</td></tr>
+    <tr><td>Elapsed (+Nms)</td><td>Time since stream started</td></tr>
+  </table>
+
+  <h2>Flow Control Notes</h2>
+  <p>HTTP/2 flow control governs how many bytes can be in flight between client and server at any moment. In practice, for typical message sizes you will never hit flow control limits. However, if you send very large messages at high frequency, you may see brief pauses. The studio does not expose flow control settings directly.</p>
+
+  <h2>Ordering Guarantees</h2>
+  <p>gRPC preserves message order within each direction: your outbound messages arrive at the server in the order you sent them, and the server's inbound messages arrive at your client in the order they were sent. The interleaving between directions is determined by network timing and is <em>not</em> guaranteed to be alternating (unlike a strict ping-pong protocol).</p>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ Bidi streams and reconnection</strong>
+    If the connection drops mid-stream (e.g., TLS renegotiation or network interruption), the stream is permanently terminated. Unlike WebSocket, gRPC does not have a built-in reconnect protocol. You must start a new stream from the studio.
+  </div>
+
+  <h2>Practice Exercises</h2>
+  <ol>
+    <li>Open a bidi stream and send 10 messages. Confirm that each one generates a corresponding inbound echo and the ↓ counter ends at 10.</li>
+    <li>Send 3 messages quickly before any responses arrive. Observe whether the log shows responses interleaved or batched.</li>
+    <li>Half-close after 5 messages. Verify no further outbound messages are accepted but inbound responses still arrive.</li>
+    <li>Open two bidi streams in two separate tabs simultaneously. Confirm each tab's logs are completely independent.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · gRPC Studio — Bidirectional Streaming · August 2026</footer>
+</body>
+</html>
