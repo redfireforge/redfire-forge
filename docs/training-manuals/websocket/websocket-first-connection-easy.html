@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebSocket: First Connection — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>WebSocket: First Connection</h1>
+  <p><span class="badge badge-easy">Easy</span> &nbsp; Connect · Send · Receive · Disconnect</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Navigate to WebSocket Studio</li>
+    <li>Connect to a public echo server</li>
+    <li>Send a text message and observe the echo response</li>
+    <li>Filter the message log by direction</li>
+    <li>Disconnect cleanly</li>
+  </ul>
+
+  <h2>About the Echo Server</h2>
+  <p>This tutorial uses <code>wss://echo.websocket.org</code> — a public server that echoes every message you send right back to you. It is a classic first-step endpoint for WebSocket testing. No authentication required.</p>
+
+  <h2>Step-by-Step Walkthrough</h2>
+
+  <h3>1 — Open WebSocket Studio</h3>
+  <div class="step"><div class="step-num">1</div><div class="step-body">In RedfireForge, click <strong>Protocols</strong> in the activity bar. The sub-navigation shows Kafka, WebSocket, SSE, and gRPC. Click <strong>WebSocket</strong>.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">WebSocket Studio opens in <strong>Client</strong> mode. The <strong>Connect</strong> left-tab is active by default, showing the URL field and a <strong>Connect</strong> button.</div></div>
+
+  <h3>2 — Enter the URL and Connect</h3>
+  <div class="step"><div class="step-num">3</div><div class="step-body">In the <strong>WebSocket URL</strong> field, type:</div></div>
+<pre>wss://echo.websocket.org</pre>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Click <strong>Connect</strong>. The studio performs an HTTP upgrade handshake. The <strong>status badge</strong> changes from <em>Disconnected</em> to <em>Connected</em> (shown in green).</div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body">The tab bar entry for this connection also updates — the tab label shows a green dot to indicate an active connection.</div></div>
+
+  <div class="callout callout-tip">
+    <strong>💡 What is an HTTP upgrade?</strong>
+    WebSocket connections begin as ordinary HTTP requests. The client sends an <code>Upgrade: websocket</code> header. If the server accepts, it responds with HTTP 101 Switching Protocols and the connection becomes a persistent, full-duplex channel.
+  </div>
+
+  <h3>3 — Send a Message</h3>
+  <div class="step"><div class="step-num">6</div><div class="step-body">Click the <strong>Send</strong> left-tab. A text area (<code>.ws-compose-input</code>) appears.</div></div>
+  <div class="step"><div class="step-num">7</div><div class="step-body">Type a message, for example:</div></div>
+<pre>{"hello": "world"}</pre>
+  <div class="step"><div class="step-num">8</div><div class="step-body">Click <strong>Send</strong> (or press <kbd>Ctrl</kbd>+<kbd>Enter</kbd>). The message is sent over the WebSocket frame. The Events pane on the right shows it immediately as a <strong>↑ Sent</strong> row.</div></div>
+  <div class="step"><div class="step-num">9</div><div class="step-body">Within milliseconds, the echo server sends the same payload back. A <strong>↓ Received</strong> row appears in the Events pane with the echoed message.</div></div>
+
+  <h3>4 — Understand the Message Log</h3>
+  <div class="step"><div class="step-num">10</div><div class="step-body">Each row in the Events panel is a <code>.ws-message-row</code>. It shows:
+    <ul style="margin-top:6px">
+      <li><strong>↑ / ↓</strong> — direction (sent / received)</li>
+      <li><strong>Timestamp</strong> — wall-clock time of the frame</li>
+      <li><strong>Size</strong> — payload size in bytes</li>
+      <li><strong>Preview</strong> — first 80 characters of the payload (click to expand)</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">11</div><div class="step-body">Click any row to expand it and see the full payload with syntax highlighting.</div></div>
+
+  <h3>5 — Filter by Direction</h3>
+  <div class="step"><div class="step-num">12</div><div class="step-body">Send a few more messages. The log grows with alternating ↑ and ↓ rows. To see only received messages, click the <strong>Filter</strong> icon (or the direction dropdown). Select <strong>Received</strong>. Only ↓ rows are shown.</div></div>
+  <div class="step"><div class="step-num">13</div><div class="step-body">Reset the filter to <strong>All</strong> to see the full log again.</div></div>
+
+  <h3>6 — Disconnect</h3>
+  <div class="step"><div class="step-num">14</div><div class="step-body">Click the <strong>Connect</strong> left-tab again. The panel now shows a red <strong>Disconnect</strong> button (the same button changed label after connecting).</div></div>
+  <div class="step"><div class="step-num">15</div><div class="step-body">Click <strong>Disconnect</strong>. The studio sends a WebSocket close frame (code 1000). The status badge changes to <em>Disconnected</em>. The Events log shows a <em>Connection closed</em> system entry.</div></div>
+
+  <h2>Connection Status Reference</h2>
+  <table>
+    <tr><th>Status</th><th>Meaning</th></tr>
+    <tr><td><strong>Disconnected</strong> (grey)</td><td>No active connection</td></tr>
+    <tr><td><strong>Connecting…</strong> (yellow)</td><td>HTTP upgrade in progress</td></tr>
+    <tr><td><strong>Connected</strong> (green)</td><td>WebSocket open, ready to send/receive</td></tr>
+    <tr><td><strong>Disconnected (error)</strong> (red)</td><td>Connection closed unexpectedly or refused</td></tr>
+  </table>
+
+  <h2>Message Format Selector</h2>
+  <p>The Send tab has a format dropdown above the compose area:</p>
+  <table>
+    <tr><th>Format</th><th>Behaviour</th></tr>
+    <tr><td><strong>Text</strong></td><td>Sends the message as a UTF-8 text frame</td></tr>
+    <tr><td><strong>JSON</strong></td><td>Validates JSON syntax before sending; pretty-prints in the log</td></tr>
+    <tr><td><strong>Binary</strong></td><td>Sends as a binary frame (hex input accepted)</td></tr>
+  </table>
+
+  <h2>Practice Exercises</h2>
+  <ol>
+    <li>Connect to <code>wss://echo.websocket.org</code>, send 5 messages with different payloads, and verify each echoes back.</li>
+    <li>Send an invalid JSON string with <em>JSON</em> format selected. Observe the validation error and confirm no message is sent.</li>
+    <li>Filter the Events log to show only <em>Sent</em> messages. Count the rows and verify the count matches your send history.</li>
+    <li>Disconnect and reconnect. Confirm the Events log clears for the new session.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · WebSocket Studio — First Connection · August 2026</footer>
+</body>
+</html>

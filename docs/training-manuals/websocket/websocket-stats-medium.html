@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebSocket: Connection Stats — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>WebSocket: Connection Stats</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; Real-time throughput, frame counts, and byte totals</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Navigate to the Stats panel</li>
+    <li>Understand each metric: message rate, bytes in/out, frame count, uptime</li>
+    <li>When stats reset and how to interpret spikes</li>
+    <li>Use Stats alongside Load Test for throughput analysis</li>
+  </ul>
+
+  <h2>Opening the Stats Panel</h2>
+  <div class="step"><div class="step-num">1</div><div class="step-body">Connect to any WebSocket server.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">In the right panel, click the <strong>Stats</strong> tab (<code>right-tab-stats</code>). The stats pane (<code>ws-studio-stats-pane</code>) appears, containing the stats panel (<code>stats-panel</code>) with all live metrics.</div></div>
+
+  <h2>Metrics Reference</h2>
+
+  <table>
+    <tr><th>Metric</th><th>Testid</th><th>Description</th></tr>
+    <tr><td><strong>Message Rate</strong></td><td><code>stats-msg-rate</code></td><td>Combined messages per second (sent + received), averaged over a rolling 5-second window</td></tr>
+    <tr><td><strong>Bytes In</strong></td><td><code>stats-bytes-in</code></td><td>Total bytes received since connection opened (or last reset)</td></tr>
+    <tr><td><strong>Bytes Out</strong></td><td><code>stats-bytes-out</code></td><td>Total bytes sent since connection opened (or last reset)</td></tr>
+    <tr><td><strong>Total Frames</strong></td><td><code>stats-frames</code></td><td>Total WebSocket frames (both directions) since connection opened</td></tr>
+    <tr><td><strong>Uptime</strong></td><td>(inline label)</td><td>Elapsed time since the connection was established (HH:MM:SS format)</td></tr>
+  </table>
+
+  <h3>Understanding Message Rate</h3>
+  <p>The message rate is a <strong>rolling average</strong> rather than an instantaneous count. It smooths over short bursts so you can assess sustained throughput. If your server sends a burst of 100 messages in 1 second and then goes silent, the rate will spike then decay over the next 5 seconds rather than jumping to 100 and then instantly dropping to 0.</p>
+
+  <h3>Bytes In vs Bytes Out</h3>
+  <p>Bytes In measures raw WebSocket payload bytes received. Bytes Out measures raw payload bytes sent. These are <strong>payload bytes</strong>, not TCP bytes — WebSocket framing overhead (opcodes, masks, length fields) is not counted. For compressed connections, the pre-compression size is counted.</p>
+
+  <h2>When Stats Reset</h2>
+  <table>
+    <tr><th>Event</th><th>Stats reset?</th></tr>
+    <tr><td>Disconnect and reconnect (same tab)</td><td>✅ Reset to zero</td></tr>
+    <tr><td>New connection tab opened</td><td>✅ New tab starts at zero</td></tr>
+    <tr><td>Switching tabs (going back to tab with existing connection)</td><td>❌ Stats persist while connection is open</td></tr>
+    <tr><td>Replay mode started</td><td>❌ Stats are not affected by replay</td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Accumulating stats over time</strong>
+    Stats are cumulative for the lifetime of the connection. If you want to measure throughput for a specific period, note the starting bytes value, perform your test, then subtract to get the delta.
+  </div>
+
+  <h2>Walkthrough: Measuring Echo Throughput</h2>
+  <div class="step"><div class="step-num">1</div><div class="step-body">Connect to <code>ws://localhost:9876</code> (local echo mock server). Open the <strong>Stats</strong> tab. Verify all metrics start at 0.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Switch to the <strong>Send</strong> tab. Send 20 messages in rapid succession (you can use the <strong>Repeat</strong> feature if available, or send manually).</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Switch back to <strong>Stats</strong>. Observe: <code>stats-frames</code> should show 40 (20 sent + 20 received echo). <code>stats-bytes-out</code> and <code>stats-bytes-in</code> should be roughly equal (echo returns the same payload).</div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body">The <code>stats-msg-rate</code> will show the rolling average settling toward 0 as activity stops.</div></div>
+
+  <h2>Using Stats with Load Test</h2>
+  <p>The Stats panel becomes most useful when paired with the Load Test feature (see the Load Test manual):</p>
+  <ul>
+    <li>While a load test is running, Stats shows the aggregate message rate across all worker connections</li>
+    <li><code>stats-bytes-in</code> + <code>stats-bytes-out</code> together indicate total bandwidth consumed</li>
+    <li>Monitor <code>stats-msg-rate</code> over time to detect throughput degradation under load</li>
+  </ul>
+
+  <h2>Stats Panel Layout</h2>
+  <p>The Stats panel displays each metric as a large number card with a label beneath. The layout is a 2×3 grid of cards. The uptime counter updates every second. All numeric values update every 500 ms to balance readability with accuracy.</p>
+
+  <h2>Practice Exercises</h2>
+  <ol>
+    <li>Connect to <code>wss://echo.websocket.org</code> and navigate to Stats. Send 10 messages. Verify <code>stats-frames</code> = 20.</li>
+    <li>Note the <code>stats-bytes-out</code> value. Compose a larger payload (1000 characters) and send 5 times. Observe the bytes-out increase.</li>
+    <li>Disconnect and reconnect. Confirm stats reset to zero immediately after the new connection opens.</li>
+    <li>Open two tabs and run different message frequencies in each. Confirm stats are independent per tab.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · WebSocket Studio — Connection Stats · August 2026</footer>
+</body>
+</html>
