@@ -39,7 +39,10 @@ test('SDL diff shows 1 removed + 1 added for lesson12 baseline vs live schema', 
     .filter({ hasText: 'Prior release (demo)' })
     .first()
     .click({ force: true });
-  await page.locator('[data-testid="gql-changelog-compare-select"]').selectOption({ label: 'Current schema' });
+  // gql-changelog-compare-select is a CustomSelect (div-based), not a native <select>
+  await page.locator('[data-testid="gql-changelog-compare-select"] .cs-trigger').click();
+  await page.locator('.cs-menu').waitFor({ state: 'visible', timeout: 5_000 });
+  await page.locator('.cs-menu .cs-item').filter({ hasText: 'Current schema' }).first().click();
   await page.evaluate(() => {
     document.querySelector<HTMLElement>('[data-testid="gql-changelog-diff-btn"]')?.click();
   });

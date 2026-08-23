@@ -1120,16 +1120,20 @@ async function runAm09FindingSimulate(
     sampleName: string;
     headers?: string;
     holdWinner?: boolean;
+    compact?: boolean;
+    holdRenderedBody?: boolean;
   },
 ): Promise<string> {
-  await openAm09FindingSimulate(ctx, opts.kind);
+  await openAm09FindingSimulate(ctx, opts.kind, { compact: opts.compact });
   const outcome = await runAm09SimulateProbe(ctx, {
     pathNeedles: [opts.pathNeedle],
     sampleName: opts.sampleName,
     headers: opts.headers,
     holdWinner: opts.holdWinner,
+    compact: opts.compact,
+    holdRenderedBody: opts.holdRenderedBody,
   });
-  await finishAm09Simulate(ctx);
+  await finishAm09Simulate(ctx, { compact: opts.compact });
   return outcome;
 }
 
@@ -1140,6 +1144,8 @@ export async function runAm09Witness(ctx: DemoActionContext): Promise<string> {
     kind: AM09_KIND_DUPLICATE,
     pathNeedle: AM09_HEALTH_PATH,
     sampleName: `GET ${AM09_HEALTH_PATH} — witness`,
+    compact: true,
+    holdRenderedBody: true,
   });
 }
 
