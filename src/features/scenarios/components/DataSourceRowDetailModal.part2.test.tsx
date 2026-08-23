@@ -17,7 +17,7 @@ vi.mock('../../workflow/components/modals/WorkflowEditorModalFrame', () => ({
   ),
 }));
 
-vi.mock('../../../shared/components/data-mapper', () => ({
+vi.mock('@shared/components/data-mapper', () => ({
   DataMapperModal: ({ onSave, initialData }: {
     onSave: (output: { selectiveMode: string; expectedFields: unknown[]; excludedPaths: string[] }) => void;
     initialData: { expectedFields: unknown[] };
@@ -61,11 +61,11 @@ const mockResolveScenario = vi.fn(() => ({
   body: '',
 }));
 
-vi.mock('../../../engine/dataSourceExpander', () => ({
+vi.mock('@engine/core/dataSourceExpander', () => ({
   resolveScenarioFromDataRow: (...args: unknown[]) => mockResolveScenario(...args),
 }));
 
-vi.mock('../../../engine/executor', () => ({
+vi.mock('@engine/core/executor', () => ({
   proxyFetch: (...args: unknown[]) => mockProxyFetch(...args),
   buildHeaders: vi.fn(() => ({})),
 }));

@@ -4,9 +4,9 @@
 /**
  * Shared fixtures + mock factory builders for DataSourceEditor test splits.
  *
- * The vi.hoisted/vi.mock calls must remain in each test file due to Vitest's
+ * The vi.hoisted/mock registration calls must remain in each test file due to Vitest's
  * per-file hoisting. This module exports pure helpers (data fixtures,
- * wrapper-component factories) that the per-file vi.mock factories can call.
+ * wrapper-component factories) that the per-file mock factories can call.
  *
  * IMPORTANT: This module must NOT import `../DataSourceEditor` (avoid
  * circular mock-resolution hangs).
@@ -63,7 +63,7 @@ export function makeDataTransferWithId(id: string): DataTransfer {
 }
 
 // ─── Wrapper-mock factory builders ───────────────────────────────────
-// The DataSourceEditor tests rely on `vi.mock(...)` factories that wrap the
+// The DataSourceEditor tests rely on Vitest mock factories that wrap the
 // real component with hidden "probe" buttons used to drive specific code paths.
 // Each builder receives the original component and returns the wrapped one.
 

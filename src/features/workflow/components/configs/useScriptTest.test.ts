@@ -6,7 +6,7 @@ import { renderHook, act } from '@testing-library/react';
 import { SCRIPT_MODE_OPTIONS, initMockInputs, useScriptTest } from './useScriptTest';
 import type { ScriptNodeData } from '../../types/workflow';
 
-vi.mock('../../engine/scriptSandbox', () => ({
+vi.mock('@workflow/engine/scriptSandbox', () => ({
   executeScript: vi.fn(() => ({
     success: true,
     outputs: { result: 'ok' },
@@ -15,7 +15,7 @@ vi.mock('../../engine/scriptSandbox', () => ({
   })),
 }));
 
-vi.mock('../../engine/scriptAnalysis', () => ({
+vi.mock('@workflow/engine/scriptAnalysis', () => ({
   detectOutputVariables: vi.fn((code: string) =>
     code.includes('output.') ? ['result'] : [],
   ),
@@ -26,7 +26,7 @@ vi.mock('../../engine/scriptAnalysis', () => ({
   validateOutputSize: vi.fn(),
 }));
 
-vi.mock('../../engine/scriptLibraries', () => ({
+vi.mock('@workflow/engine/scriptLibraries', () => ({
   loadScriptLibraries: vi.fn(() => []),
   buildLibraryPreamble: vi.fn(() => ''),
 }));

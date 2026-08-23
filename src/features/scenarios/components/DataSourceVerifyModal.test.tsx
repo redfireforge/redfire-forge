@@ -94,7 +94,7 @@ vi.mock('../hooks/useVerifyEngine', () => ({
 }));
 
 const mockProxyFetch = vi.fn();
-vi.mock('../../../engine/executor', () => ({
+vi.mock('@engine/core/executor', () => ({
   proxyFetch: (...args: unknown[]) => mockProxyFetch(...args),
 }));
 

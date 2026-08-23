@@ -5,7 +5,7 @@ vi.mock('../../../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
 }));
 
-vi.mock('../../../engine/tokenManager', () => {
+vi.mock('@engine/core/tokenManager', () => {
   const getToken = vi.fn().mockResolvedValue(undefined);
   return {
     TokenManager: class {

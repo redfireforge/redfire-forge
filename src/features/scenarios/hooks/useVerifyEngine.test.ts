@@ -12,19 +12,19 @@ import { expandPatternFromResponse, extractJsonPath } from '../utils/dataSourceI
 
 // ─── Mocks ────────────────────────────────────────────────────
 
-vi.mock('../../../engine/dataSourceExpander', () => ({
+vi.mock('@engine/core/dataSourceExpander', () => ({
   resolveScenarioFromDataRow: vi.fn((draft: Scenario, _cols: DataSourceColumn[], row: DataSourceRow) => ({
     ...draft,
     url: draft.url.replace('{{id}}', row.values.c1 ?? ''),
   })),
 }));
 
-vi.mock('../../../engine/executor', () => ({
+vi.mock('@engine/core/executor', () => ({
   proxyFetch: vi.fn(),
   buildHeaders: vi.fn((s: Scenario) => ({ 'content-type': 'application/json', 'x-url': s.url })),
 }));
 
-vi.mock('../../../engine/validator', () => ({
+vi.mock('@engine/core/validator', () => ({
   validate: vi.fn(() => []),
 }));
 
@@ -192,7 +192,7 @@ describe('useVerifyEngine', () => {
     });
 
     it('uses proxyFetch fallback when no fetchFn provided', async () => {
-      const { proxyFetch: pf } = await import('../../../engine/executor');
+      const { proxyFetch: pf } = await import('@engine/core/executor');
       (pf as ReturnType<typeof vi.fn>).mockResolvedValue(makeOkResponse());
 
       const { result } = renderHook(() =>
@@ -699,7 +699,7 @@ describe('useVerifyEngine', () => {
     });
 
     it('uses proxyFetch in refetchFailedRows when onFetchRow is undefined', async () => {
-      const { proxyFetch: pf } = await import('../../../engine/executor');
+      const { proxyFetch: pf } = await import('@engine/core/executor');
       (pf as ReturnType<typeof vi.fn>)
         .mockResolvedValueOnce(makeNetworkError())
         .mockResolvedValueOnce(makeNetworkError())
