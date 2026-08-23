@@ -1,5 +1,5 @@
 import type { GraphqlAuth } from '@shared/types/graphql';
-import type { GraphqlOutputBinding } from '../../workflow/types/workflow';
+import type { GraphqlOutputBinding } from '@workflow/types/workflow';
 
 export const OUTPUT_FIELD_OPTIONS: GraphqlOutputBinding['field'][] = [
   'data', 'errors', 'latencyMs', 'httpStatus', 'operationName',

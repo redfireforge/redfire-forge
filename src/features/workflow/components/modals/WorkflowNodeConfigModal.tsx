@@ -24,7 +24,7 @@ import type { WorkflowPickerItem } from '../configs/SubWorkflowConfig';
 import {
   hasGraphqlNodeConfigErrors,
   isGraphqlWorkflowNodeType,
-} from '../../../graphql/utils/graphqlPanelHelpers';
+} from '@graphql/utils/graphqlPanelHelpers';
 import NodeConfigInputTab from '../configs/NodeConfigInputTab';
 import NodeConfigOutputTab from '../configs/NodeConfigOutputTab';
 import NodeConfigLogsTab from '../configs/NodeConfigLogsTab';

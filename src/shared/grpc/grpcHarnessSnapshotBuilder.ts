@@ -19,13 +19,13 @@ import {
 } from '../utils/grpcHarnessScenarioContracts';
 import {
   captureGrpcTabExecuteSnapshotFromResolution,
-} from '../../features/grpc/grpcStudioTypes';
+} from '@grpc/grpcStudioTypes';
 import {
   resolveGrpcTabConnection,
   resolutionToGrpcTarget,
   type GrpcConnectionProfile,
   type GrpcTabConnectionPageDefaults,
-} from '../../features/grpc/utils/resolveGrpcTabConnection';
+} from '@grpc/utils/resolveGrpcTabConnection';
 import {
   resolveGrpcTabInterpolationEnvLayers,
 } from './grpcInterpolationPrecedence';

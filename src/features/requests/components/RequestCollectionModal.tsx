@@ -4,7 +4,7 @@ import type { ModalAuthType, EnvAuthState } from '../utils/requestAuthState';
 import { authToState, stateToAuth, emptyAuthState } from '../utils/requestAuthState';
 import { useToast } from '@shared/hooks/useToast';
 import { useDraggableModal } from '../../environments/components/microserviceProtocolPanel/useDraggableModal';
-import WfDarkSelect from '../../workflow/components/modals/WfDarkSelect';
+import WfDarkSelect from '@workflow/components/modals/WfDarkSelect';
 
 interface Props {
   collection: RequestCollection | null;

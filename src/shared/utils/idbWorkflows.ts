@@ -3,7 +3,7 @@
  * Same pattern as idbFeatureGroups.ts — single key "all" in "workflows" store.
  */
 
-import type { Workflow, WorkflowFolder } from '../../features/workflow/types/workflow';
+import type { Workflow, WorkflowFolder } from '@workflow/types/workflow';
 import { createIdbBlobStore } from './idbHelpers';
 
 const STORE_WORKFLOWS = 'workflows';

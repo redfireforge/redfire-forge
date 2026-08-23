@@ -6,7 +6,7 @@
  * Each helper produces a fully-typed WorkflowNode object.
  */
 
-import type { WorkflowNode, SetVariableAssignment } from '../../../features/workflow/types/workflow';
+import type { WorkflowNode, SetVariableAssignment } from '@workflow/types/workflow';
 import type { Extraction } from '@shared/types';
 
 // ── Types ──────────────────────────────────────────────────────────────────

@@ -9,14 +9,14 @@ import { CustomSelect } from '@shared/components/CustomSelect';
 import type {
   GraphqlAssertNodeData,
   GraphqlWorkflowAssertion,
-} from '../../workflow/types/workflow';
+} from '@workflow/types/workflow';
 import type { FieldOperator } from '@shared/types';
-import type { WorkflowVariableHint } from '../../workflow/utils/workflowVariableHints';
+import type { WorkflowVariableHint } from '@workflow/utils/workflowVariableHints';
 import { useListCrud } from '@shared/hooks/useListCrud';
 import { FIELD_OP_OPTIONS } from '../../scenarios/components/testEditorValidationConstants';
-import InsertVarField from '../../workflow/components/expression/InsertVarField';
-import ExpressionInput from '../../workflow/components/expression/ExpressionInput';
-import AvailableVariables from '../../workflow/components/expression/AvailableVariables';
+import InsertVarField from '@workflow/components/expression/InsertVarField';
+import ExpressionInput from '@workflow/components/expression/ExpressionInput';
+import AvailableVariables from '@workflow/components/expression/AvailableVariables';
 import { computeAssertTabErrors } from '../utils/graphqlPanelHelpers';
 import {
   resolveRuntimeVariableValue,

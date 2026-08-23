@@ -18,8 +18,8 @@ import {
   type GrpcLoadTestSchedulerParams,
   type GrpcLoadTestSchedulerRun,
 } from './grpcLoadTestSchedulerCore';
-import type { GrpcServerStreamCollectConfig } from '../../features/workflow/types/workflow/node-grpc';
-import type { GrpcWorkflowStreamCollectionResult } from '../../features/workflow/utils/grpcWorkflowStreamCollector';
+import type { GrpcServerStreamCollectConfig } from '@workflow/types/workflow/node-grpc';
+import type { GrpcWorkflowStreamCollectionResult } from '@workflow/utils/grpcWorkflowStreamCollector';
 
 export type GrpcLoadTestStreamCollectFn = (
   request: GrpcStreamStartRequest,

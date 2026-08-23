@@ -6,13 +6,13 @@
  * and workflow bridge with mocked IPC (no live tonic/Docker required).
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { WorkflowNode } from '../../features/workflow/types/workflow';
-import { runGraph } from '../../features/workflow/engine/graphRunner';
+import type { WorkflowNode } from '@workflow/types/workflow';
+import { runGraph } from '@workflow/engine/graphRunner';
 import {
   endNode,
   makeEdge,
   startNode,
-} from '../../features/workflow/engine/graphRunnerNodeHandlers.test-utils';
+} from '@workflow/engine/graphRunnerNodeHandlers.test-utils';
 import {
   FIXTURE_DESCRIPTOR_KEY,
   FIXTURE_TAURI_PROTOSET_CONTENT_SHA256,
@@ -51,7 +51,7 @@ import {
 } from './grpcTransportFacade';
 import * as grpcStreamClient from './grpcStreamClient';
 import type { GrpcStreamStartRequest } from './contracts';
-import { cleanupGrpcStudioTabNativeResources } from '../../features/grpc/hooks/grpcStudioTabLifecycle';
+import { cleanupGrpcStudioTabNativeResources } from '@grpc/hooks/grpcStudioTabLifecycle';
 
 vi.mock('../utils/platform', () => ({
   isTauri: vi.fn(() => false),

@@ -1,7 +1,7 @@
 import type { TestConfig, Scenario, RequestResult, WorkflowExecutionTrace } from '@shared/types';
 import type { HttpResponse } from '@shared/utils/httpClient';
 import type { ProgressMeta } from './executor';
-import type { Workflow } from '../features/workflow/types/workflow';
+import type { Workflow } from '@workflow/types/workflow';
 
 /** Messages sent from the main thread to the execution worker. */
 export type MainToWorkerMessage =

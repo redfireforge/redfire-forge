@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Workflow } from '../../workflow/types/workflow';
-import type { HttpNodeData } from '../../workflow/types/workflow/node-core';
+import type { Workflow } from '@workflow/types/workflow';
+import type { HttpNodeData } from '@workflow/types/workflow/node-core';
 import {
   makeWorkflow,
   makeWorkflowNode,

@@ -10,7 +10,7 @@ import { resolveDate, toDayString, truncateToUnit } from './validatorDateHelpers
 import { matchesStatusPattern, findHeader, evaluateHeaderOp, getJsonTypeName } from './validatorHttpHelpers';
 import { deepSubsetMatch } from './validatorSubsetMatch';
 import { wrapCustomExprDollarPaths, isTruthy } from './validatorCustomExpression';
-import { evaluateExpression, formatExpressionResult } from '../features/workflow/utils/expressionEvaluator';
+import { evaluateExpression, formatExpressionResult } from '@workflow/utils/expressionEvaluator';
 import type { AssertionContext } from './validator';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';

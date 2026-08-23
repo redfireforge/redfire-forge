@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { KeyValue } from '@shared/types';
-import type { WorkflowVariableHint } from '../../workflow/utils/workflowVariableHints';
-import { buildVariableSourceMap, resolveVariableSource } from '../../workflow/utils/workflowSourceMap';
+import type { WorkflowVariableHint } from '@workflow/utils/workflowVariableHints';
+import { buildVariableSourceMap, resolveVariableSource } from '@workflow/utils/workflowSourceMap';
 import { useListDragReorder } from '@shared/hooks/useListDragReorder';
 
 export interface ParamEntry extends KeyValue {

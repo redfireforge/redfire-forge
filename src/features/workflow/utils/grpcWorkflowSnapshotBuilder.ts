@@ -11,13 +11,13 @@ import { validateGrpcTlsConfigContract } from '@shared/grpc/grpcTlsPolicy';
 import { validateGrpcMetadataRecord } from '@shared/grpc/metadataValidation';
 import { validateResolvedGrpcTargetAddress, withGrpcTargetValidationMessage } from '@shared/grpc/targetValidation';
 import { assertGrpcCanonicalEnvTokensValidForConnection } from '@shared/grpc/grpcCanonicalEnvValidation';
-import { captureGrpcTabExecuteSnapshotFromResolution } from '../../grpc/grpcStudioTypes';
+import { captureGrpcTabExecuteSnapshotFromResolution } from '@grpc/grpcStudioTypes';
 import {
   resolveGrpcTabConnection,
   resolutionToGrpcTarget,
   type GrpcConnectionProfile,
   type GrpcTabConnectionPageDefaults,
-} from '../../grpc/utils/resolveGrpcTabConnection';
+} from '@grpc/utils/resolveGrpcTabConnection';
 import {
   resolveGrpcTabInterpolationEnvLayers,
 } from '@shared/grpc/grpcInterpolationPrecedence';
@@ -44,7 +44,7 @@ import {
   resolveGrpcWorkflowMetadata,
   type GrpcWorkflowTemplateResolver,
 } from './grpcWorkflowTemplateResolver';
-import { resolveEffectiveGrpcAuth } from '../../grpc/utils/grpcAuthProfileResolve';
+import { resolveEffectiveGrpcAuth } from '@grpc/utils/grpcAuthProfileResolve';
 import type { GlobalAuthProfile } from '@shared/types';
 
 export interface GrpcWorkflowSnapshotBuildInput {

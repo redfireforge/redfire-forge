@@ -5,7 +5,7 @@ import type { GrpcCallRequest } from './contracts';
 import { GrpcApiClientError } from './grpcApiClient';
 import type { GrpcTransportErrorDetails } from './grpcTransportErrors';
 import type { GrpcHarnessCallOutcome, GrpcHarnessExecuteSnapshot } from '../types/grpc-harness-snapshot';
-import { wrapUnaryInvokeWithAbort, type GrpcUnaryInvokeResult } from '../../features/workflow/utils/grpcWorkflowUnaryExecutor';
+import { wrapUnaryInvokeWithAbort, type GrpcUnaryInvokeResult } from '@workflow/utils/grpcWorkflowUnaryExecutor';
 import { grpcHarnessSnapshotToUnaryRequest } from './grpcHarnessTransportAdapter';
 import {
   canStartNextGrpcHarnessAttempt,

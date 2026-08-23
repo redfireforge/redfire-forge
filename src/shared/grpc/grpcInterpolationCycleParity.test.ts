@@ -4,8 +4,8 @@
 import { describe, expect, it } from 'vitest';
 import { validateGrpcInterpolationEnvCycles } from './grpcInterpolationCycleDetector';
 import { mergeGrpcTabInterpolationEnv } from './grpcInterpolationPrecedence';
-import { resolveTabConnectionWithEnv } from '../../features/grpc/hooks/grpcStudioSessionHelpers';
-import { createGrpcStudioTab } from '../../features/grpc/grpcStudioTypes';
+import { resolveTabConnectionWithEnv } from '@grpc/hooks/grpcStudioSessionHelpers';
+import { createGrpcStudioTab } from '@grpc/grpcStudioTypes';
 
 describe('grpcInterpolationCycleParity (Phase 9E)', () => {
   const cyclicEnv = {

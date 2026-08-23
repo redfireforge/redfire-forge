@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { Workflow } from '../../features/workflow/types/workflow';
+import type { Workflow } from '@workflow/types/workflow';
 
 /**
  * Exposes demo-player bridge helpers on `window`:
