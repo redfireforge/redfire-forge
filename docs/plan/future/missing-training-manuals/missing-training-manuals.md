@@ -77,31 +77,53 @@ graphql/
 - Studio layout: method picker, request editor, response panel
 - Unary calls
 - Server streaming / client streaming / bidirectional streaming
-- Schema management: upload `.proto`, import from BSR (Buf Schema Registry)
-- Schema drift detection
-- TLS configuration (CA cert, mTLS)
-- Collections and execution history
-- Interpolation (variable injection into request fields)
-- Mock listener and mock streams (test gRPC servers without real backend)
-- Shell isolation and recovery (tab independence, reconnect)
-- Transport modes (native vs proxy)
+- Schema management: upload `.proto`, protoset, URL, BSR (Buf Schema Registry)
+- Schema drift detection (breaking change detection between descriptor snapshots)
+- TLS configuration (Plaintext, TLS, mTLS with CA cert, rejectUnauthorized)
+- Collections and execution history (save, replay, grpcurl import/export)
+- Interpolation (`{{variable}}` injection in target host, request fields)
+- Mock listener and mock streams (stub any gRPC service without a real backend)
+- Shell isolation and recovery (tab independence, reconnect after error)
+- Transport modes: proxy (default, Envoy gRPC-Web) vs native (direct gRPC-H2)
 
-### Planned Files
+### Added to scope (from deep e2e audit — 2026-08-23)
+- grpcurl CLI import: paste a `grpcurl` command into the collections import dialog
+- BSR runtime schema fetch: import descriptor directly from Buf Schema Registry URL
+- Native transport mode: bypasses Envoy proxy for direct H2 connections (desktop only)
+- Mock unary handler: define per-method response stubs in the Mock panel
+- Schema browser: tree-view explorer of loaded descriptor types/methods
+
+### Planned Files (11 total)
 
 ```
 grpc/
-  grpc.html                                 ← master overview
-  grpc-first-call-easy.html                 ← upload proto + unary call
-  grpc-schema-management-easy.html          ← manage .proto files, BSR import
-  grpc-server-streaming-medium.html         ← server stream with live results
-  grpc-client-streaming-medium.html         ← client stream upload pattern
-  grpc-bidi-streaming-medium.html           ← bidirectional stream chat pattern
-  grpc-collections-medium.html              ← save, replay, organize calls
-  grpc-tls-advanced.html                    ← CA cert, mTLS, rejectUnauthorized
-  grpc-mock-server-advanced.html            ← mock listener + mock streams
-  grpc-schema-drift-advanced.html           ← detect proto breaking changes
-  grpc-interpolation-advanced.html          ← variable injection in request fields
+  grpc.html                                 ← master overview                    [✅]
+  grpc-first-call-easy.html                 ← connect, reflect, first unary call [✅]
+  grpc-schema-management-easy.html          ← proto upload, protoset, BSR, browser [✅]
+  grpc-server-streaming-medium.html         ← server stream with live log        [✅]
+  grpc-client-streaming-medium.html         ← client stream send loop            [✅]
+  grpc-bidi-streaming-medium.html           ← bidirectional stream chat pattern  [✅]
+  grpc-collections-medium.html              ← save, history, grpcurl import      [✅]
+  grpc-tls-advanced.html                    ← Plaintext/TLS/mTLS, native transport [✅]
+  grpc-mock-server-advanced.html            ← mock listener, unary/stream stubs  [✅]
+  grpc-schema-drift-advanced.html           ← detect proto breaking changes      [✅]
+  grpc-interpolation-advanced.html          ← {{var}} in host + request fields   [✅]
 ```
+
+### Implementation Status
+| # | File | Status | Notes |
+|---|------|--------|-------|
+| 1 | `grpc.html` | ✅ | Created 2026-08-23 |
+| 2 | `grpc-first-call-easy.html` | ✅ | Created 2026-08-23 |
+| 3 | `grpc-schema-management-easy.html` | ✅ | Created 2026-08-23 |
+| 4 | `grpc-server-streaming-medium.html` | ✅ | Created 2026-08-23 |
+| 5 | `grpc-client-streaming-medium.html` | ✅ | Created 2026-08-23 |
+| 6 | `grpc-bidi-streaming-medium.html` | ✅ | Created 2026-08-23 |
+| 7 | `grpc-collections-medium.html` | ✅ | Created 2026-08-23 |
+| 8 | `grpc-tls-advanced.html` | ✅ | Created 2026-08-23 |
+| 9 | `grpc-mock-server-advanced.html` | ✅ | Desktop-only callout included; created 2026-08-23 |
+| 10 | `grpc-schema-drift-advanced.html` | ✅ | Created 2026-08-23 |
+| 11 | `grpc-interpolation-advanced.html` | ✅ | Created 2026-08-23 |
 
 ---
 
@@ -322,7 +344,7 @@ gallery/
 | Feature | Folder | Main File | # Tutorials | Status |
 |---------|--------|-----------|-------------|--------|
 | GraphQL | `graphql/` | `graphql.html` | 13 | ✅ Done (14 files — overview + 13 tutorials) |
-| gRPC | `grpc/` | `grpc.html` | 10 | 🔲 Not started |
+| gRPC | `grpc/` | `grpc.html` | 10 | ✅ Done (11 files — overview + 10 tutorials) |
 | WebSocket | `websocket/` | `websocket.html` | 12 | 🔲 Not started |
 | Environment Manager | `environments/` | `environments.html` | 5 | 🔲 Not started |
 | Results Dashboard | `results/` | `results.html` | 7 | 🔲 Not started |

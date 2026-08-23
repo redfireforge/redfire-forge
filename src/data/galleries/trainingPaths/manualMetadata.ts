@@ -358,6 +358,18 @@ export const manualMetadata: ManualMetadata[] = [
   { manualPath: 'graphql/graphql-code-gen-advanced.html', addedAt: date('2026-08-23') },
   { manualPath: 'graphql/graphql-schema-diff-advanced.html', addedAt: date('2026-08-23') },
   { manualPath: 'graphql/graphql-workflow-nodes-advanced.html', addedAt: date('2026-08-23') },
+  // gRPC Studio — added 2026-08-23
+  { manualPath: 'grpc/grpc.html', addedAt: date('2026-08-23') },
+  { manualPath: 'grpc/grpc-first-call-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'grpc/grpc-schema-management-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'grpc/grpc-server-streaming-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'grpc/grpc-client-streaming-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'grpc/grpc-bidi-streaming-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'grpc/grpc-collections-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'grpc/grpc-tls-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'grpc/grpc-mock-server-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'grpc/grpc-schema-drift-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'grpc/grpc-interpolation-advanced.html', addedAt: date('2026-08-23') },
 ];
 
 /** Map of manualPath -> ManualMetadata for fast lookup */
