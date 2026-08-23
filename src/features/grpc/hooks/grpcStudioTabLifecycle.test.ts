@@ -2,8 +2,8 @@
  * @vitest-environment jsdom
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { cancelGrpcStream } from '../../../shared/grpc/grpcStreamClient';
-import * as grpcTransportFacade from '../../../shared/grpc/grpcTransportFacade';
+import { cancelGrpcStream } from '@shared/grpc/grpcStreamClient';
+import * as grpcTransportFacade from '@shared/grpc/grpcTransportFacade';
 import type { GrpcStudioTabState } from '../grpcStudioTypes';
 import {
   cancelGrpcUnaryForTab,

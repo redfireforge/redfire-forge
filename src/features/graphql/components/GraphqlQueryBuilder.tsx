@@ -11,7 +11,7 @@
  */
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { GraphqlSchemaInfo } from '../../../shared/types/graphql';
+import type { GraphqlSchemaInfo } from '@shared/types/graphql';
 import {
   useGraphqlQueryBuilder,
   type BuilderState,

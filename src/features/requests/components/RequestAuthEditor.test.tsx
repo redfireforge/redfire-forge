@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import RequestAuthEditor from './RequestAuthEditor';
-import type { RequestCollection, AuthConfig } from '../../../shared/types';
+import type { RequestCollection, AuthConfig } from '@shared/types';
 
 function collection(overrides: Partial<RequestCollection> = {}): RequestCollection {
   return {

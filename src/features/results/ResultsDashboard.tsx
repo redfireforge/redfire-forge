@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import type { TestRun, RequestResult } from '../../shared/types';
+import type { TestRun, RequestResult } from '@shared/types';
 import ResponseDetailModal from '../requests/components/ResponseDetailModal';
 import { AggregatedTimingTable } from '../test-runner/components/WaterfallBar';
-import { loadTestRunsLite, loadTraceForRun, deleteTestRun } from '../../shared/utils/storage';
-import { exportJson, exportCsv } from '../../shared/utils/export';
+import { loadTestRunsLite, loadTraceForRun, deleteTestRun } from '@shared/utils/storage';
+import { exportJson, exportCsv } from '@shared/utils/export';
 import { hasWorkflowData } from '../test-runner/utils/resultsGrouping';
 import { RunComparisonPanel, TrendChart } from './components/RunComparisonPanel';
 import { ResponseTimeHistogram } from './components/ResponseTimeHistogram';
@@ -20,7 +20,7 @@ import {
 import { BaselineListPanel } from './components/BaselineListPanel';
 import { RegressionThresholdsPanel } from './components/RegressionThresholdsPanel';
 import WorkflowResultsExplorerModal from './components/WorkflowResultsExplorerModal';
-import { hasExecutionTrace, decompressTrace } from '../../shared/utils/traceCompression';
+import { hasExecutionTrace, decompressTrace } from '@shared/utils/traceCompression';
 import { SlaCompactBar } from './components/SlaCompactBar';
 import { SlaStatusAccordion } from './components/SlaStatusAccordion';
 import { useImportHandlers } from './hooks/useImportHandlers';

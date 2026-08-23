@@ -1,4 +1,4 @@
-import type { AuthConfig, FeatureGroup, GlobalAuthProfile, Scenario, TestScenario } from '../../../shared/types';
+import type { AuthConfig, FeatureGroup, GlobalAuthProfile, Scenario, TestScenario } from '@shared/types';
 
 /**
  * Walks the auth inheritance chain:

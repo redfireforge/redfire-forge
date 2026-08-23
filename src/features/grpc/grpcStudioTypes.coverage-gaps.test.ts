@@ -18,8 +18,8 @@ import {
   snapshotToUnaryCallRequest,
   toPersistedGrpcStudioTab,
 } from './grpcStudioTypes';
-import { FIXTURE_DESCRIPTOR } from '../../shared/grpc/contractFixtures';
-import { createDefaultDescriptorSourceSelection } from '../../shared/grpc/descriptorSourcePolicy';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
+import { createDefaultDescriptorSourceSelection } from '@shared/grpc/descriptorSourcePolicy';
 
 describe('grpcStudioTypes coverage gaps', () => {
   it('createTabDescriptorStateAfterReplayConnectionChange ignores blank descriptor keys', () => {

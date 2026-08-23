@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { hasUnresolvedVars, resolveEnvVars } from '../websocket/wsMessageUtils';
 import { resolveAuthForConnect, appendAuthQueryParams, resolveEffectiveAuth, type ResolvedAuth } from '../websocket/wsAuthResolve';
-import type { GlobalAuthProfile } from '../../shared/types';
+import type { GlobalAuthProfile } from '@shared/types';
 import type {
   SseConnectionConfig,
   SseConnectionSnapshot,

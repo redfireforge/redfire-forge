@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { parseGrpcurlCommand } from '../utils/grpcGrpcurl';
 import type { GrpcGrpcurlImportSuccess } from '../utils/grpcGrpcurlTypes';
-import { serializeGrpcPreviewJson } from '../../../shared/grpc/grpcSafePreview';
-import { useModalDrag } from '../../../shared/hooks/useModalDrag';
+import { serializeGrpcPreviewJson } from '@shared/grpc/grpcSafePreview';
+import { useModalDrag } from '@shared/hooks/useModalDrag';
 
 export interface GrpcGrpcurlImportModalProps {
   open: boolean;

@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
 import type { ApiMockRuntimeStatus } from './ApiMockServerTabs';
 import { CopyIcon, CheckIcon, SettingsIcon, RestartIcon, StopIcon, PlayIcon, PanelLeftIcon } from './ApiMockIcons';
-import { mockClientOrigin } from '../../../shared/api-mock/harExport';
-import { isTauri } from '../../../shared/utils/platform';
-import { analyzeNativeUnsupported } from '../../../shared/api-mock/nativeCapabilities';
+import { mockClientOrigin } from '@shared/api-mock/harExport';
+import { isTauri } from '@shared/utils/platform';
+import { analyzeNativeUnsupported } from '@shared/api-mock/nativeCapabilities';
 
 interface Props {
   server: ApiMockServerDefinitionV1;

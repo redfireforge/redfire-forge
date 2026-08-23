@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import type { RequestCollection } from '../../../shared/types';
+import type { RequestCollection } from '@shared/types';
 
 export type DragItem =
   | { kind: 'request'; reqId: string; colId: string }

@@ -7,9 +7,9 @@ import { describe, it, expect } from 'vitest';
 import { createValidationAdapter } from './validationAdapter';
 import { Mapping } from '../types';
 import { FieldOperator, ExpectedField, ValidationConfig } from '../../../types';
-import { evaluateFieldOperator } from '../../../../engine/fieldOperatorEvaluation';
+import { evaluateFieldOperator } from '@engine/core/fieldOperatorEvaluation';
 import { getByPath } from '../../../utils/jsonPath';
-import { validate } from '../../../../engine/validator';
+import { validate } from '@engine/core/validator';
 
 // ─── Sample response data ────────────────────────────────
 const RESPONSE = {

@@ -8,7 +8,7 @@
  *
  * All state and logic live in useDataSourceSetupState.
  */
-import FullPanelModal from '../../../shared/components/FullPanelModal';
+import FullPanelModal from '@shared/components/FullPanelModal';
 import SetupStepVariables from './SetupStepVariables';
 import SetupStepValidate from './SetupStepValidate';
 import SetupStepReview from './SetupStepReview';

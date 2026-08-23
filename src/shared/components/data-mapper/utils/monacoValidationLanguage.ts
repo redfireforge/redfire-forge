@@ -6,7 +6,7 @@
  * the 900-line monolithic threshold.
  */
 
-import { EXPRESSION_FUNCTIONS } from '../../../../features/workflow/utils/expressionFunctions';
+import { EXPRESSION_FUNCTIONS } from '@workflow/utils/expressionFunctions';
 
 export const LANGUAGE_ID = 'validation-dsl';
 

@@ -1,4 +1,4 @@
-import type { ApiMockRouteFolderV1, ApiMockServerDefinitionV1 } from '../../shared/api-mock/contracts';
+import type { ApiMockRouteFolderV1, ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
 
 export type ImportRoutesOptions = {
   mode: 'merge' | 'replace' | 'copy';

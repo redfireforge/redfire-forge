@@ -1,4 +1,4 @@
-import type { ApiMockSimulationResultV1, ApiMockSimulationSampleV1 } from '../../../shared/api-mock/contracts';
+import type { ApiMockSimulationResultV1, ApiMockSimulationSampleV1 } from '@shared/api-mock/contracts';
 import { capturedRequestPath } from '../apiMockJournalActions';
 import { isAutoRouteSample, simulateSampleBadge } from './apiMockSimulateModalHelpers';
 

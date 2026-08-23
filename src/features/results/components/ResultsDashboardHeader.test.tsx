@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ResultsDashboardHeader, RunTypeFilterTabs } from './ResultsDashboardHeader';
-import { makeTestRun } from '../../../test-utils/factories';
+import { makeTestRun } from '@test-utils/factories';
 
 // Mock the export side-effecting helpers so clicking Export buttons does not
 // attempt real file downloads, while still letting us assert they were called.

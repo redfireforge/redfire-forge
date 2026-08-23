@@ -4,8 +4,8 @@
  * Reuses PopupModal pattern from CopyTestModal.
  */
 import { useState, useMemo } from 'react';
-import type { DataSource } from '../../../shared/types';
-import PopupModal from '../../../shared/components/PopupModal';
+import type { DataSource } from '@shared/types';
+import PopupModal from '@shared/components/PopupModal';
 
 interface Props {
   dataSource: DataSource;

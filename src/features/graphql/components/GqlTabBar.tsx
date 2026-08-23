@@ -3,18 +3,18 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import type { GlobalAuthProfile } from '../../../shared/types';
+import type { GlobalAuthProfile } from '@shared/types';
 import type { GqlStudioTab } from '../utils/tabPersistence';
 import { MAX_TABS, MAX_USER_TABS, countUserTabs, isDemoTab } from '../utils/tabPersistence';
 import type { ConnectionProfile } from '../utils/connectionProfileStorage';
 import { findProfileById, resolveTabLabelEndpoint } from '../utils/tabConnectionResolution';
 import { resolveTabAuthDotKind } from '../utils/authUtils';
 import { getTabPresentation } from '../utils/tabLabelUtils';
-import { useTabDragReorder } from '../../../shared/components/studio-tabs/useTabDragReorder';
+import { useTabDragReorder } from '@shared/components/studio-tabs/useTabDragReorder';
 import {
   buildContextMenuItems,
   useTabContextMenu,
-} from '../../../shared/components/studio-tabs/TabContextMenu';
+} from '@shared/components/studio-tabs/TabContextMenu';
 
 interface GqlTabBarProps {
   tabs: GqlStudioTab[];

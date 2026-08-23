@@ -8,8 +8,8 @@ import {
   FIXTURE_MULTI_SERVICE_DESCRIPTOR,
   FIXTURE_REFLECT_SUCCESS_ENVELOPE,
   FIXTURE_ECHO_PROTO,
-} from '../../../shared/grpc/contractFixtures';
-import { setGrpcClientTransport } from '../../../shared/grpc/grpcApiClient';
+} from '@shared/grpc/contractFixtures';
+import { setGrpcClientTransport } from '@shared/grpc/grpcApiClient';
 import { useGrpcStudio } from './useGrpcStudio';
 import { PAGE_DEFAULTS, setupUseGrpcStudioHookTest } from './useGrpcStudio.testHelpers';
 

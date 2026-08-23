@@ -12,7 +12,7 @@ import {
   GQL_PROFILES_RELOAD_EVENT,
   type ConnectionProfile,
 } from './connectionProfileStorage';
-import { readKey, writeKey } from '../../../shared/utils/storage';
+import { readKey, writeKey } from '@shared/utils/storage';
 
 vi.mock('../../../shared/utils/storage', () => ({
   readKey: vi.fn(),

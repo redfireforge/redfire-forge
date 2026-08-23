@@ -1,4 +1,4 @@
-import type { GlobalAuthProfile, Microservice } from '../../../shared/types';
+import type { GlobalAuthProfile, Microservice } from '@shared/types';
 
 export interface GrpcStudioPageProps {
   resolvedBaseUrl?: string;

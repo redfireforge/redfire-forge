@@ -6,7 +6,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GqlPageToasts } from './GqlPageToasts';
-import type { GraphqlSchemaSnapshot } from '../../../shared/types/graphql';
+import type { GraphqlSchemaSnapshot } from '@shared/types/graphql';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

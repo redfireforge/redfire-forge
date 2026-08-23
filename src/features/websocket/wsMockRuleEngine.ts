@@ -2,8 +2,8 @@
  * Mock server rule matching engine.
  * Shared between frontend (test preview) and server (runtime evaluation).
  */
-import type { WsMockRule, WsMockMatch, WsMockResponse, WsMockFallbackMode } from '../../shared/websocket/types';
-import { tryParseJson } from '../../shared/utils/helpers';
+import type { WsMockRule, WsMockMatch, WsMockResponse, WsMockFallbackMode } from '@shared/websocket/types';
+import { tryParseJson } from '@shared/utils/helpers';
 
 export interface RuleMatchResult {
   matched: boolean;

@@ -17,7 +17,7 @@ import type {
   GraphqlSchemaInfo,
   GraphqlTypeNode,
   GraphqlArgNode,
-} from '../../../shared/types/graphql';
+} from '@shared/types/graphql';
 import type { BuilderArgValues, BuilderFieldDirectives, BuilderState } from '../hooks/useGraphqlQueryBuilder';
 
 // ─── Public output type ───────────────────────────────────────────────────────

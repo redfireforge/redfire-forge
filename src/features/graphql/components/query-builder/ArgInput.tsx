@@ -1,6 +1,6 @@
 import { memo, useCallback } from 'react';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
-import type { GraphqlTypeNode } from '../../../../shared/types/graphql';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import type { GraphqlTypeNode } from '@shared/types/graphql';
 import type { FieldPath } from '../../hooks/useGraphqlQueryBuilder';
 import { stripTypeModifiers } from '../../utils/queryBuilderGenerator';
 

@@ -16,7 +16,7 @@ interface Props {
   onEdit?: (entryId: string) => void;
 }
 
-import { METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
+import { METHOD_COLORS } from '@shared/constants/httpMethodColors';
 
 export default function CatalogSidebar({
   entries,

@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import type { WorkflowVersion } from '../../types/workflow';
 import { generateChangeSummary } from '../../utils/workflowVersioning';
-import { formatRelativeTime, formatTimestamp } from '../../../../shared/utils/formatRelativeTime';
+import { formatRelativeTime, formatTimestamp } from '@shared/utils/formatRelativeTime';
 import '../../../../styles/workflow-version-panel.css';
 
 interface Props {

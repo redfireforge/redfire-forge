@@ -2,9 +2,9 @@
  * Shared test helpers for rustBridge test suites
  */
 import { vi } from 'vitest';
-import type { Scenario, TestConfig } from '../../../../shared/types';
+import type { Scenario, TestConfig } from '@shared/types';
 import type { RustExecutionResult } from '../rustBridge';
-import { makeScenario as _makeScenario, makeConfig as _makeConfig } from '../../../../test-utils/factories';
+import { makeScenario as _makeScenario, makeConfig as _makeConfig } from '@test-utils/factories';
 
 /**
  * Creates a test scenario with sensible defaults

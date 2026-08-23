@@ -1,5 +1,5 @@
-import { createGrpcSavedRequestIdentity } from '../shared/grpc/grpcPersistenceSchema';
-import type { GrpcSavedRequest } from '../shared/grpc/grpcSavedRequest';
+import { createGrpcSavedRequestIdentity } from '@shared/grpc/grpcPersistenceSchema';
+import type { GrpcSavedRequest } from '@shared/grpc/grpcSavedRequest';
 
 export const GRPC_TEST_TIMESTAMP = '2026-06-29T12:00:00.000Z';
 

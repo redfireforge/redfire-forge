@@ -1,7 +1,7 @@
 import { useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
-import type { ApiMockServerDefinitionV1, ApiMockTransactionV1 } from '../../shared/api-mock/contracts';
-import { reconcileRuntimeState } from '../../shared/api-mock/recoveryDiagnostics';
-import { isTauri } from '../../shared/utils/platform';
+import type { ApiMockServerDefinitionV1, ApiMockTransactionV1 } from '@shared/api-mock/contracts';
+import { reconcileRuntimeState } from '@shared/api-mock/recoveryDiagnostics';
+import { isTauri } from '@shared/utils/platform';
 import type { ApiMockMainView } from './components/ApiMockWorkspaceNav';
 import { API_MOCK_WORKSPACE_CHANGED_EVENT } from './apiMockGalleryImport';
 import { apiMockControlClient } from './apiMockControlClient';

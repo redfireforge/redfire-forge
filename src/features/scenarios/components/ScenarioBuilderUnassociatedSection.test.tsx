@@ -4,7 +4,7 @@
 import '@testing-library/jest-dom';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { selectOptionByIndex } from '../../../test-utils/customSelectHelper';
+import { selectOptionByIndex } from '@test-utils/customSelectHelper';
 import ScenarioBuilderUnassociatedSection from './ScenarioBuilderUnassociatedSection';
 
 const baseFeatureGroups = [

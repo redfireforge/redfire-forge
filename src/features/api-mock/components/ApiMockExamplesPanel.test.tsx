@@ -5,8 +5,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ApiMockExamplesPanel } from './ApiMockExamplesPanel';
-import type { ApiMockSimulationSampleV1 } from '../../../shared/api-mock/contracts';
-import { CUSTOM_SELECT_SET_VALUE_EVENT } from '../../../shared/components/CustomSelect';
+import type { ApiMockSimulationSampleV1 } from '@shared/api-mock/contracts';
+import { CUSTOM_SELECT_SET_VALUE_EVENT } from '@shared/components/CustomSelect';
 
 const ts = '2026-08-13T00:00:00.000Z';
 

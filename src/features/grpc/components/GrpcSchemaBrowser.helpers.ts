@@ -1,4 +1,4 @@
-import type { GrpcDescriptor, GrpcFieldSchema, GrpcMethodInfo } from '../../../shared/grpc/contracts';
+import type { GrpcDescriptor, GrpcFieldSchema, GrpcMethodInfo } from '@shared/grpc/contracts';
 import { lookupMessageSchema } from '../utils/grpcSchemaBrowserModel';
 
 export type GrpcurlBodyMode = 'minimal' | 'full';

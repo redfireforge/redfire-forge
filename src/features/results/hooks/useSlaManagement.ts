@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { TestRun } from '../../../shared/types';
+import type { TestRun } from '@shared/types';
 import { resolveTargetsForRun, saveRunSlaTargets, computeRunSlaStatus } from '../utils/slaTargets';
 import type { SlaTarget, SlaStatus } from '../utils/slaTargets';
 

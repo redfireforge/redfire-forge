@@ -5,7 +5,7 @@ import {
   envelopeErrorToUiError,
   toKafkaUiSafeError,
   type KafkaUiSafeError,
-} from '../../shared/kafka/kafkaClient';
+} from '@shared/kafka/kafkaClient';
 import type { UseKafkaStateReturn } from './useKafkaState';
 import type {
   KafkaConsumeCursor,

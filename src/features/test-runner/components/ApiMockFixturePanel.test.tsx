@@ -6,12 +6,12 @@ import {
   API_MOCK_RUNTIME_CHANGED_EVENT,
   API_MOCK_WORKSPACE_PERSISTED_EVENT,
 } from '../../api-mock/apiMockPersistence';
-import { CUSTOM_SELECT_SET_VALUE_EVENT } from '../../../shared/components/CustomSelect';
+import { CUSTOM_SELECT_SET_VALUE_EVENT } from '@shared/components/CustomSelect';
 import {
   getCustomSelectValue,
   isCustomSelectDisabled,
   selectOptionByTestId,
-} from '../../../test-utils/customSelectHelper';
+} from '@test-utils/customSelectHelper';
 import ApiMockFixturePanel from './ApiMockFixturePanel';
 
 const loadApiMockFixtureServers = vi.fn();

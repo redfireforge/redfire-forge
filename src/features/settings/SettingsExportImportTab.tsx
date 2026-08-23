@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useCallback } from 'react';
-import type { Environment, Microservice, FeatureGroup, GlobalAuthProfile } from '../../shared/types';
-import { saveJsonFile, buildExportFilename, openJsonFile } from '../../shared/utils/fileSaver';
-import { isTauri } from '../../shared/utils/platform';
+import type { Environment, Microservice, FeatureGroup, GlobalAuthProfile } from '@shared/types';
+import { saveJsonFile, buildExportFilename, openJsonFile } from '@shared/utils/fileSaver';
+import { isTauri } from '@shared/utils/platform';
 import { countVersions, hasVersionData, stripVersions } from '../scenarios/utils/scenarioImportExport';
 
 interface ParsedImport {

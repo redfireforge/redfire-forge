@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import type { WebhookDelivery } from '../../shared/types/server-api';
+import type { WebhookDelivery } from '@shared/types/server-api';
 import { formatTimestamp, formatPayload } from '../test-runner/utils/serverFormatters';
-import { toErrorMessage } from '../../shared/utils/helpers';
+import { toErrorMessage } from '@shared/utils/helpers';
 import { subscribeLogStream } from '../../utils/logStream';
 import '../../styles/webhook-logs.css';
 

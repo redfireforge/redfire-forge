@@ -7,7 +7,7 @@ import {
   computeEligibleSubColEnvs,
   type NamedEnv,
 } from './subCollectionEnvs';
-import type { RequestCollection, RequestFolder, Microservice } from '../../../shared/types';
+import type { RequestCollection, RequestFolder, Microservice } from '@shared/types';
 
 const envs: NamedEnv[] = [
   { id: 'e-dev', name: 'dev' },

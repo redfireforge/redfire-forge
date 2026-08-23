@@ -2,7 +2,7 @@
  * Shared test helpers for WebSocketMessageLog tests
  */
 import { vi } from 'vitest';
-import type { WsFrame, WsMessageTemplate } from '../../shared/websocket/types';
+import type { WsFrame, WsMessageTemplate } from '@shared/websocket/types';
 import { WebSocketMessageLog } from './WebSocketMessageLog';
 
 export { WebSocketMessageLog };

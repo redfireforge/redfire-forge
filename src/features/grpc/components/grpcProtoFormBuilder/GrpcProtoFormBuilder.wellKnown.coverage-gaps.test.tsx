@@ -4,7 +4,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { selectOption } from '../../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import { GrpcProtoFormBuilder } from '../GrpcProtoFormBuilder';
 import {
   MAP_SCHEMA,

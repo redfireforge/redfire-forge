@@ -6,9 +6,9 @@
  * already scoped to the individual test).
  */
 import { useState } from 'react';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import type { SlaTarget, Scenario } from '../../../shared/types';
+import AppModalFrame from '@shared/components/AppModalFrame';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import type { SlaTarget, Scenario } from '@shared/types';
 import {
   SLA_METRIC_LABELS,
   SLA_METRIC_UNITS,

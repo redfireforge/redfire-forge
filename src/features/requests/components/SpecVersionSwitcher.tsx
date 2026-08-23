@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import type { RequestItem } from '../../../shared/types';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import type { RequestItem } from '@shared/types';
 import { applySpecVersion } from '../../catalog/utils/versionMerge';
 
 interface Props {

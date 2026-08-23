@@ -1,6 +1,6 @@
 import type { KeyboardEvent, Ref } from 'react';
 import { memo, useMemo, useState } from 'react';
-import type { GrpcMessageSchema } from '../../../shared/grpc/contracts';
+import type { GrpcMessageSchema } from '@shared/grpc/contracts';
 import { groupMessageFields } from '../utils/grpcProtoFormValues';
 
 interface GrpcProtoHybridNavigatorProps {

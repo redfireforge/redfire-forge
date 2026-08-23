@@ -8,7 +8,7 @@ import {
   hasValidationConfig,
   hasSampleJson,
 } from './validationHelpers';
-import type { Scenario } from '../../../shared/types';
+import type { Scenario } from '@shared/types';
 
 type V = Scenario['validation'];
 

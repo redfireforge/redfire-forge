@@ -10,8 +10,8 @@ import {
   scenarioWithExtraValidateColumn,
   ensurePathVariableChecked,
 } from './__test-utils__/dataSourceSetupModalTestHelpers';
-import { proxyFetch } from '../../../engine/executor';
-import { applyAuthHeaders } from '../../../shared/utils/applyAuthHeaders';
+import { proxyFetch } from '@engine/core/executor';
+import { applyAuthHeaders } from '@shared/utils/applyAuthHeaders';
 import { downloadExcel, generateExcelTemplate } from '../utils/csvTemplate';
 vi.mock('../../../shared/components/FullPanelModal', async () => {
   const h = await import('./__test-utils__/dataSourceSetupModalTestHelpers');
@@ -53,7 +53,7 @@ vi.mock('../../../shared/utils/templateHelpers', async () => {
   return h.makeTemplateHelpersMock();
 });
 
-vi.mock('../../../engine/executor', async () => {
+vi.mock('@engine/core/executor', async () => {
   const h = await import('./__test-utils__/dataSourceSetupModalTestHelpers');
   return h.makeExecutorMock();
 });

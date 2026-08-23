@@ -2,7 +2,7 @@
  * TraceCollector: Captures execution events during workflow runs for Phase 7e Visual Execution Replay.
  * Tracks node start/end times, state changes, variable snapshots, and edge traversals.
  */
-import type { ExecutionEvent, ExecutionEventDetails } from '../../../shared/types';
+import type { ExecutionEvent, ExecutionEventDetails } from '@shared/types';
 import type { WorkflowNode } from '../types/workflow';
 
 export class TraceCollector {

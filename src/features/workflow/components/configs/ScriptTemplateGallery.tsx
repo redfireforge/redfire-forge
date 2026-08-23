@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { scriptTemplates, SCRIPT_TEMPLATE_CATEGORIES, type ScriptTemplate, type ScriptTemplateCategory } from '../../engine/scriptTemplates';
+import { scriptTemplates, SCRIPT_TEMPLATE_CATEGORIES, type ScriptTemplate, type ScriptTemplateCategory } from '@workflow/engine/scriptTemplates';
 
 interface Props {
   onSelect: (template: ScriptTemplate) => void;

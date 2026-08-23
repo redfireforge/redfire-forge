@@ -10,8 +10,8 @@ import { useCallback } from 'react';
 import { buildAuthHeaders } from '../utils/authUtils';
 import { resolveEffectiveGqlAuth } from '../utils/gqlAuthResolve';
 import { findUnresolvedVars, resolveVars } from '../utils/envUtils';
-import type { GlobalAuthProfile } from '../../../shared/types';
-import type { GraphqlAuth, GraphqlEnvironment } from '../../../shared/types/graphql';
+import type { GlobalAuthProfile } from '@shared/types';
+import type { GraphqlAuth, GraphqlEnvironment } from '@shared/types/graphql';
 import type { UseGraphqlSubscriptionResult } from './useGraphqlSubscription';
 import type { GqlStudioTab } from '../utils/tabPersistence';
 

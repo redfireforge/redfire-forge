@@ -3,11 +3,11 @@ import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_DESCRIPTOR_KEY,
   FIXTURE_UNARY_CALL_REQUEST,
-} from '../../../shared/grpc/contractFixtures';
-import { captureGrpcLoadTestExecuteSnapshot } from '../../../shared/grpc/grpcAdvancedFeatureContracts';
-import { buildGrpcLoadTestRunSummaryExport } from '../../../shared/grpc/grpcLoadTestMetrics';
-import { startGrpcLoadTestSchedulerRun } from '../../../shared/grpc/grpcLoadTestSchedulerCore';
-import { invokeGrpcUnary } from '../../../shared/grpc/grpcTransportFacade';
+} from '@shared/grpc/contractFixtures';
+import { captureGrpcLoadTestExecuteSnapshot } from '@shared/grpc/grpcAdvancedFeatureContracts';
+import { buildGrpcLoadTestRunSummaryExport } from '@shared/grpc/grpcLoadTestMetrics';
+import { startGrpcLoadTestSchedulerRun } from '@shared/grpc/grpcLoadTestSchedulerCore';
+import { invokeGrpcUnary } from '@shared/grpc/grpcTransportFacade';
 import {
   applyGrpcLoadTestRequestTemplate,
   buildMockConfigSourceFromEditor,
@@ -32,7 +32,7 @@ import {
   transitionAdvancedOpQuickComplete,
   validateLoadTestPreconditions,
 } from './grpcStudioAdvancedCommands';
-import { createInitialGrpcAdvancedOperationState, transitionGrpcAdvancedOperationState } from '../../../shared/grpc/grpcAdvancedFeatureContracts';
+import { createInitialGrpcAdvancedOperationState, transitionGrpcAdvancedOperationState } from '@shared/grpc/grpcAdvancedFeatureContracts';
 
 vi.mock('../../../shared/grpc/grpcTransportFacade', () => ({
   invokeGrpcUnary: vi.fn(),

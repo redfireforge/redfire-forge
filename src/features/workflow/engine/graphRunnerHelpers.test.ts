@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { applyTemplateLiteralsFromMap, coerceStringMap, applyTemplateLiteralsToScenario, findStartNodes, collectReachableFromEdges, markSubtreeSkipped, compareValues, evaluateCondition, classifyErrorType, matchesErrorFilter, evaluateWaitCondition, extractPayloadVariables, logHttpResult, } from './graphRunnerHelpers';
 import { WorkflowNode, WorkflowEdge, ConditionNodeData } from '../types/workflow';
-import { RequestResult, Scenario } from '../../../shared/types';
+import { RequestResult, Scenario } from '@shared/types';
 import { GraphRunCallbacks } from './graphRunnerInterfaces';
 import { VariableContext } from './variableContext';
 

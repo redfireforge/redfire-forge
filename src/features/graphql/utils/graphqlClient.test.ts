@@ -19,7 +19,7 @@ import {
 } from './graphqlClient';
 // buildConnectionParams is tested in authUtils.test.ts (its canonical home).
 // It was previously duplicated in graphqlClient.ts but has been removed.
-import type { GraphqlAuth } from '../../../shared/types/graphql';
+import type { GraphqlAuth } from '@shared/types/graphql';
 
 // ─── Mock gqlFetch ─────────────────────────────────────────────────────────────
 
@@ -36,7 +36,7 @@ vi.mock('../../../shared/utils/platform', () => ({
   isTauri: vi.fn(() => false),
 }));
 
-import { isTauri } from '../../../shared/utils/platform';
+import { isTauri } from '@shared/utils/platform';
 const mockIsTauri = vi.mocked(isTauri);
 
 // ─── Mock graphql-ws to prevent real WebSocket connections in tests ───────────

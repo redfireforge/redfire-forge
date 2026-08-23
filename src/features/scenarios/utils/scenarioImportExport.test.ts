@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi } from 'vitest';
-import type { FeatureGroup } from '../../../shared/types';
+import type { FeatureGroup } from '@shared/types';
 import { reIdScenarios, wrapExport, unwrapImport, unwrapImportWithMeta, pickJsonFile, stripVersions, countVersions, hasVersionData, normalizeTestFields, DEFAULT_VERSION_EXPORT } from './scenarioImportExport';
 
 vi.mock('uuid', () => ({

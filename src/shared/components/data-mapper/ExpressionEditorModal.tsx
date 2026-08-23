@@ -5,7 +5,7 @@ import { debugExpression } from './utils/expressionStepDebugger';
 import type { EvalStep } from './utils/expressionStepDebugger';
 import ExpressionDebugDetailModal from './ExpressionDebugDetailModal';
 import { useTemporarySourceOverride } from './hooks/useTemporarySourceOverride';
-import type { ExpressionFunction } from '../../../features/workflow/utils/expressionFunctions/types';
+import type { ExpressionFunction } from '@workflow/utils/expressionFunctions/types';
 import { useExpressionFunctionCatalog } from './hooks/useExpressionFunctionCatalog';
 import {
   loadExpressionSnippets,

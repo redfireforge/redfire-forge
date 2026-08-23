@@ -6,9 +6,9 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import { useModalEscapeClose } from '../../../shared/hooks/useModalEscapeClose';
-import { useModalDrag } from '../../../shared/hooks/useModalDrag';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import { useModalEscapeClose } from '@shared/hooks/useModalEscapeClose';
+import { useModalDrag } from '@shared/hooks/useModalDrag';
 import { GqlBatchSettingsPanel, type GqlBatchSettingsPanelProps } from './GqlBatchSettingsPanel';
 
 // ─── Types ────────────────────────────────────────────────────────────────────

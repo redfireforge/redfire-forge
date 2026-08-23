@@ -3,7 +3,7 @@
  * and import its operation into a workflow query/mutation node config panel.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { GraphqlQueryNodeData } from '../../workflow/types/workflow';
+import type { GraphqlQueryNodeData } from '@workflow/types/workflow';
 import { useGraphqlCollections } from '../hooks/useGraphqlCollections';
 import { readConnectionProfiles } from '../utils/connectionProfileStorage';
 import {

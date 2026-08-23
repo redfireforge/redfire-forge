@@ -1,10 +1,10 @@
 import { Fragment, useCallback } from 'react';
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
-import type { RequestResult, TestRun } from '../../../shared/types';
+import type { RequestResult, TestRun } from '@shared/types';
 import type { GroupNode, GroupByLevel } from '../../test-runner/utils/resultsGrouping';
 import { DataRowSummaryTable } from './DataRowSummaryTable';
 import { formatTransportStatus, getTransportMethodLabel } from '../utils/transportStatus';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 interface Props {
   selectedRun: TestRun | null;

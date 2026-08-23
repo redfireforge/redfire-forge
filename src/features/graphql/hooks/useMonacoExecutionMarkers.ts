@@ -6,7 +6,7 @@
  */
 import { useEffect } from 'react';
 import type { Monaco } from '@monaco-editor/react';
-import type { GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlResponse } from '@shared/types/graphql';
 
 const EXEC_MARKER_OWNER = 'gql-execution';
 

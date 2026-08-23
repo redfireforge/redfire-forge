@@ -2,8 +2,8 @@
  * Phase 5D — history filter tests.
  */
 import { describe, expect, it } from 'vitest';
-import { FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
-import { prepareGrpcCallHistoryEntryForPersist } from '../../../shared/grpc/grpcPersistenceSchema';
+import { FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
+import { prepareGrpcCallHistoryEntryForPersist } from '@shared/grpc/grpcPersistenceSchema';
 import {
   collectGrpcCallHistoryFilterOptions,
   filterGrpcCallHistoryEntries,

@@ -1,5 +1,5 @@
-import type { LoadProfileConfig } from '../../../shared/types';
-import { getTargetConcurrency } from '../../../engine/executor';
+import type { LoadProfileConfig } from '@shared/types';
+import { getTargetConcurrency } from '@engine/core/executor';
 
 export function ProfilePreview({ profile }: { profile: LoadProfileConfig }) {
   const w = 220;

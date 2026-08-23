@@ -1,7 +1,7 @@
 /**
  * Phase 6C/6D/6F — gRPC workflow step output publication.
  */
-import type { VariableContext } from '../engine/variableContext';
+import type { VariableContext } from '@workflow/engine/variableContext';
 import type { GrpcWorkflowStepResult } from '../types/workflow/node-grpc';
 import type { GrpcWorkflowExecuteSnapshot } from '../types/workflow/grpcWorkflowSnapshot';
 import { GrpcWorkflowOutputRegistry } from './grpcWorkflowOutputRegistry';

@@ -5,8 +5,8 @@ import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import TrashPanel from './TrashPanel';
-import type { TrashItem, TrashSettings } from '../../../shared/types';
-import { makeTrashItem } from '../../../test-utils/factories';
+import type { TrashItem, TrashSettings } from '@shared/types';
+import { makeTrashItem } from '@test-utils/factories';
 
 function makeItems(): TrashItem[] {
   return [

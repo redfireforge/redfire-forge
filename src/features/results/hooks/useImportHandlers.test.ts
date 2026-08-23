@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import type { TestRun } from '../../../shared/types';
+import type { TestRun } from '@shared/types';
 
 const mockValidateTrace = vi.fn();
 const mockValidateImportedRun = vi.fn();

@@ -3,7 +3,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import type { GrpcMockRule, GrpcMockRuleSet } from '../../../../shared/grpc/grpcMockRuleContracts';
+import type { GrpcMockRule, GrpcMockRuleSet } from '@shared/grpc/grpcMockRuleContracts';
 import * as grpcMockRuleBuilderModel from '../../utils/grpcMockRuleBuilderModel';
 import {
   createDefaultGrpcMockBuilderRuleRow,

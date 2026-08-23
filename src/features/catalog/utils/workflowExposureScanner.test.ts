@@ -1,18 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Workflow } from '../../workflow/types/workflow';
-import type { HttpNodeData } from '../../workflow/types/workflow/node-core';
+import type { Workflow } from '@workflow/types/workflow';
+import type { HttpNodeData } from '@workflow/types/workflow/node-core';
 import {
   makeWorkflow,
   makeWorkflowNode,
   makeWorkflowEdge,
-} from '../../../test-utils/factories';
+} from '@test-utils/factories';
 
 vi.mock('../../../shared/utils/storage', () => ({
   loadWorkflows: vi.fn(),
   saveWorkflows: vi.fn(),
 }));
 
-import * as storage from '../../../shared/utils/storage';
+import * as storage from '@shared/utils/storage';
 import {
   scanWorkflowsForCatalogRef,
   removeCatalogNodesFromWorkflows,

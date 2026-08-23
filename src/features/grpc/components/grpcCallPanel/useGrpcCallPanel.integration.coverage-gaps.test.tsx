@@ -4,7 +4,7 @@
  */
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { FIXTURE_DESCRIPTOR, FIXTURE_MULTI_SERVICE_DESCRIPTOR } from '../../../../shared/grpc/contractFixtures';
+import { FIXTURE_DESCRIPTOR, FIXTURE_MULTI_SERVICE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
 import { createGrpcStudioTab } from '../../grpcStudioTypes';
 import { GrpcCallPanel } from '../GrpcCallPanel';
 

@@ -6,12 +6,12 @@
  */
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { FetchErrorDetail } from '../../../shared/components/data-mapper/types';
+import type { FetchErrorDetail } from '@shared/components/data-mapper/types';
 import type {
   Scenario, DataSource, DataSourceColumn, DataSourceRow,
   FeatureGroup, ExpectedField, AuthConfig,
-} from '../../../shared/types';
-import type { HttpResponse } from '../../../shared/utils/httpClient';
+} from '@shared/types';
+import type { HttpResponse } from '@shared/utils/httpClient';
 import type { TestEditingContext } from '../components/TestEditorModal';
 import {
   analyzeUrlPath,
@@ -20,8 +20,8 @@ import {
   parseUrl,
 } from '../utils/csvTemplate';
 import type { ColumnDef } from '../utils/csvTemplate';
-import { proxyFetch } from '../../../engine/executor';
-import { applyAuthHeaders } from '../../../shared/utils/applyAuthHeaders';
+import { proxyFetch } from '@engine/core/executor';
+import { applyAuthHeaders } from '@shared/utils/applyAuthHeaders';
 import { extractJsonPath } from '../utils/dataSourceImport';
 import {
   toVariableName,
@@ -30,8 +30,8 @@ import {
   buildConfiguredColumnDefs,
   buildUrlTemplate,
 } from '../utils/dataSourceSetupUtils';
-import { isTemplateToken } from '../../../shared/utils/templateHelpers';
-import { toErrorMessage } from '../../../shared/utils/helpers';
+import { isTemplateToken } from '@shared/utils/templateHelpers';
+import { toErrorMessage } from '@shared/utils/helpers';
 import type { SetupMode } from '../utils/dataSourceSetupUtils';
 
 // ─── Public types ────────────────────────────────────────────────────────────

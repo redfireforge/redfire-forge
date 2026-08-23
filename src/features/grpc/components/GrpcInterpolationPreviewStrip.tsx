@@ -1,4 +1,4 @@
-import type { GrpcInterpolationPreviewViewMode } from '../../../shared/grpc/grpcInterpolationPreviewModel';
+import type { GrpcInterpolationPreviewViewMode } from '@shared/grpc/grpcInterpolationPreviewModel';
 
 export interface GrpcInterpolationPreviewStripProps {
   showToggle: boolean;

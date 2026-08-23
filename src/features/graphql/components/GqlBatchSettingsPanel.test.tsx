@@ -10,7 +10,7 @@ vi.mock('../utils/monacoGraphqlSetup', () => ({
   deriveTabLabel: vi.fn(() => 'Untitled'),
 }));
 
-import { selectOption } from '../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import { GqlBatchSettingsPanel } from './GqlBatchSettingsPanel';
 import type { GqlStudioTab } from '../utils/tabPersistence';
 

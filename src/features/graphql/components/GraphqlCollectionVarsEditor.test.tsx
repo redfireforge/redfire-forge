@@ -5,7 +5,7 @@ import '@testing-library/jest-dom/vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { CollectionVarsEditor } from './GraphqlCollectionVarsEditor';
-import type { GraphqlCollection } from '../../../shared/types/graphql';
+import type { GraphqlCollection } from '@shared/types/graphql';
 
 function makeCollection(variables: Record<string, string> = {}): GraphqlCollection {
   return {

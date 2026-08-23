@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import type { GrpcMockConfigSource } from '../../../shared/grpc/grpcMockConfigResolution';
-import type { GrpcMockLatencyPolicy } from '../../../shared/grpc/grpcMockLatencySimulation';
+import type { GrpcMockConfigSource } from '@shared/grpc/grpcMockConfigResolution';
+import type { GrpcMockLatencyPolicy } from '@shared/grpc/grpcMockLatencySimulation';
 import type { GrpcTabAdvancedFeaturesUiState } from '../grpcStudioAdvancedTypes';
 import {
   buildMockConfigSourceFromEditor,
@@ -19,8 +19,8 @@ import {
   stopGrpcMockNetworkListener,
   supportsGrpcMockNetworkListener,
 } from '../utils/grpcMockListenerClient';
-import { isTauri } from '../../../shared/utils/platform';
-import { sha256HexFromBase64 } from '../../../shared/grpc/grpcTauriDescriptorBridge';
+import { isTauri } from '@shared/utils/platform';
+import { sha256HexFromBase64 } from '@shared/grpc/grpcTauriDescriptorBridge';
 import type { StudioSlice } from './useGrpcStudioAdvancedFeaturesTypes';
 
 function workspaceMockDefault(): GrpcMockConfigSource {

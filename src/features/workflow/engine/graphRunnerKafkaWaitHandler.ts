@@ -20,7 +20,7 @@ import {
 } from './correlationWaitHelpers';
 import { extractPayloadVariables } from './graphRunnerHelpers';
 import { KAFKA_WAIT_CONTEXT_KEYS } from './kafkaTriggerContracts';
-import { toErrorMessage } from '../../../shared/utils/helpers';
+import { toErrorMessage } from '@shared/utils/helpers';
 import type { CorrelationWaitConfig } from './correlationStore';
 
 // ── Resume data injection ─────────────────────────────────────────────────────

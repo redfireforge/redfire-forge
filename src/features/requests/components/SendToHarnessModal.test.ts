@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createScenarioFromRequest } from '../utils/requestToScenario';
 import type { PromotionContext } from '../utils/requestToScenario';
-import type { FeatureGroup, RequestCollection, RequestItem } from '../../../shared/types';
+import type { FeatureGroup, RequestCollection, RequestItem } from '@shared/types';
 
 function makeRequest(): RequestItem {
   return {

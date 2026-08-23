@@ -5,8 +5,8 @@
  * count are scoped to the active group. Demo lessons filter groups to demo tabs only.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { GraphqlAuth, GraphqlBatchResult, GraphqlEnvironment } from '../../../shared/types/graphql';
-import type { GlobalAuthProfile } from '../../../shared/types';
+import type { GraphqlAuth, GraphqlBatchResult, GraphqlEnvironment } from '@shared/types/graphql';
+import type { GlobalAuthProfile } from '@shared/types';
 import type { GqlStudioTab } from '../utils/tabPersistence';
 import type { ConnectionProfile } from '../utils/connectionProfileStorage';
 import type { AdvancedSettingsValues } from '../components/GraphqlAdvancedSettings';
@@ -17,14 +17,14 @@ import {
   type BatchEndpointGroup,
 } from '../utils/batchEndpointUtils';
 import { findUnresolvedVars, resolveVars } from '../utils/envUtils';
-import { readKey, writeKey } from '../../../shared/utils/storage';
+import { readKey, writeKey } from '@shared/utils/storage';
 import {
   resolveTabConnection,
   isTabProfileLinkPending,
   tabConnectionTls,
   type TabConnectionPageDefaults,
 } from '../utils/tabConnectionResolution';
-import { serializeGqlTlsForProxy } from '../../../shared/types/gqlTls';
+import { serializeGqlTlsForProxy } from '@shared/types/gqlTls';
 import type { SaveHistoryFn } from '../utils/saveBatchResultsToHistory';
 import { saveBatchResultsToHistory } from '../utils/saveBatchResultsToHistory';
 import {

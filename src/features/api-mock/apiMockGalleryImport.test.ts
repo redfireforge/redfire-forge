@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createHealthCheckMock, createUsersApiMock } from '../../data/galleries/api-mock';
-import type { ApiMockPredicateGroupV1, ApiMockServerDefinitionV1 } from '../../shared/api-mock/contracts';
+import type { ApiMockPredicateGroupV1, ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
 import {
   API_MOCK_WORKSPACE_CHANGED_EVENT,
   cloneServerForGalleryImport,

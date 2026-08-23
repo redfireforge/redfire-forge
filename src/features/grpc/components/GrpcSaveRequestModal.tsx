@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { GrpcCollectionV1 } from '../../../shared/grpc/grpcPersistenceSchema';
+import type { GrpcCollectionV1 } from '@shared/grpc/grpcPersistenceSchema';
 import {
   createGrpcSavedRequestFromSnapshot,
   defaultGrpcSavedRequestName,
-} from '../../../shared/grpc/grpcSavedRequest';
-import { createGrpcSavedRequestIdentity } from '../../../shared/grpc/grpcPersistenceSchema';
-import type { GrpcTabExecuteSnapshot } from '../../../shared/grpc/contracts';
-import type { GrpcSavedRequestTabContext } from '../../../shared/grpc/grpcReplayTemplateCompatibility';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+} from '@shared/grpc/grpcSavedRequest';
+import { createGrpcSavedRequestIdentity } from '@shared/grpc/grpcPersistenceSchema';
+import type { GrpcTabExecuteSnapshot } from '@shared/grpc/contracts';
+import type { GrpcSavedRequestTabContext } from '@shared/grpc/grpcReplayTemplateCompatibility';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 const DEFAULT_NEW_COLLECTION_NAME = 'Saved Requests';
 

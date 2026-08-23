@@ -1,7 +1,7 @@
 /**
  * Phase 6D — server-stream untilExpression evaluator.
  */
-import { getByPath, stripJsonPathPrefix } from '../../../shared/utils/jsonPath';
+import { getByPath, stripJsonPathPrefix } from '@shared/utils/jsonPath';
 
 const UNTIL_EXPRESSION_PATTERN = /^(\$[\w.[\]*]+)\s*(==|!=|>=|<=|>|<)\s*(.+)$/;
 

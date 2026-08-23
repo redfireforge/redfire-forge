@@ -1,7 +1,7 @@
 /**
  * Response pane display state — overlays batch-loading on the active tab pane.
  */
-import type { GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlResponse } from '@shared/types/graphql';
 
 export type StudioExecStatus = 'idle' | 'loading' | 'success' | 'error';
 

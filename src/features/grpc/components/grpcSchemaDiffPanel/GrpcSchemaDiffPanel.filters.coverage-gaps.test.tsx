@@ -3,9 +3,9 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { selectOption } from '../../../../test-utils/customSelectHelper';
-import type { GrpcSchemaDiffChange } from '../../../../shared/grpc/grpcSchemaDiffContracts';
-import { FIXTURE_DESCRIPTOR } from '../../../../shared/grpc/contractFixtures';
+import { selectOption } from '@test-utils/customSelectHelper';
+import type { GrpcSchemaDiffChange } from '@shared/grpc/grpcSchemaDiffContracts';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
 import { computeGrpcStudioSchemaDiffReport } from '../../utils/grpcStudioAdvancedCommands';
 import { grpcSchemaDiffChangeId } from '../../utils/grpcSchemaDiffAck';
 import { buildAdvancedMock } from '../../test-helpers/grpcAdvancedPanel.testHelpers';

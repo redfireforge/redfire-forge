@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildSelectedTests } from './buildSelectedTests';
-import { makeScenario } from '../../../test-utils/factories';
-import type { FeatureGroup, Assertion, DataSource } from '../../../shared/types';
+import { makeScenario } from '@test-utils/factories';
+import type { FeatureGroup, Assertion, DataSource } from '@shared/types';
 
 function makeFg(overrides: Partial<FeatureGroup> = {}): FeatureGroup {
   return {

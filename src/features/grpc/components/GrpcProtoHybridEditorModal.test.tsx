@@ -3,7 +3,7 @@
  */
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { FIXTURE_DESCRIPTOR } from '../../../shared/grpc/contractFixtures';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
 import type { GrpcProtoHybridModalState } from '../utils/grpcProtoHybridState';
 import { GrpcProtoHybridEditorModal } from './GrpcProtoHybridEditorModal';
 

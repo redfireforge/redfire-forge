@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
-import { SWAGGER_METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
-import { useModalDrag } from '../../../shared/hooks/useModalDrag';
+import { SWAGGER_METHOD_COLORS } from '@shared/constants/httpMethodColors';
+import { useModalDrag } from '@shared/hooks/useModalDrag';
 import HarnessOptionsGrid from './send-harness-shared/HarnessOptionsGrid';
 import type {
   Environment,
@@ -9,11 +9,11 @@ import type {
   RequestItem,
   Scenario,
   TestScenario,
-} from '../../../shared/types';
+} from '@shared/types';
 import type { PromotionContext, PromotionOptions } from '../utils/requestToScenario';
 import { createScenarioFromRequest } from '../utils/requestToScenario';
 import { CascadeSelect } from './CascadeSelect';
-import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
+import { useEscapeKey } from '@shared/hooks/useEscapeKey';
 import { useHarnessEnvironmentCascade } from '../hooks/useHarnessEnvironmentCascade';
 
 export interface SendToHarnessPayload {

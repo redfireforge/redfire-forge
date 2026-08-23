@@ -4,7 +4,7 @@ import {
   parseLatestHistoryRfResponse,
   buildGraphqlEnvSnapshot,
 } from './graphqlStudioUiUtils';
-import type { GraphqlHistoryItem } from '../../../shared/types/graphql';
+import type { GraphqlHistoryItem } from '@shared/types/graphql';
 
 describe('resolveSaveToCollectionDefaultName', () => {
   it('prefers operation name when present', () => {

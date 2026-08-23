@@ -9,7 +9,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import type { GraphqlAuth } from '../../../shared/types/graphql';
+import type { GraphqlAuth } from '@shared/types/graphql';
 import {
   GQL_PROFILES_RELOAD_EVENT,
   readConnectionProfiles,

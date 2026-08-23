@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { ExpectedField, Assertion } from '../../../types';
 import type { Mapping, MapperAdapter, MapperSource } from '../types';
-import { evaluateFieldOperator, evaluateAssertions, validateFieldsUnordered } from '../../../../engine/validator';
+import { evaluateFieldOperator, evaluateAssertions, validateFieldsUnordered } from '@engine/core/validator';
 import { getByPath, stripJsonPathPrefix } from '../../../utils/jsonPath';
 import { DSL_ASSERTION_TYPES } from '../utils/validationDsl';
 import { evaluateMapperExpression } from '../utils/mapperExpressionEvaluator';

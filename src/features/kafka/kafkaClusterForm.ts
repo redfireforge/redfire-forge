@@ -1,4 +1,4 @@
-import type { KafkaAuthMode, KafkaClusterConfig } from '../../shared/kafka/kafkaConfig';
+import type { KafkaAuthMode, KafkaClusterConfig } from '@shared/kafka/kafkaConfig';
 
 export interface KafkaClusterDraft {
   clusterId: string;

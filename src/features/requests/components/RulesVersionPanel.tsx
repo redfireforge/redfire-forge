@@ -1,9 +1,9 @@
 import { useMemo, useCallback } from 'react';
-import type { RulesVersion, ValidationConfig, ExpectedField, Assertion } from '../../../shared/types';
+import type { RulesVersion, ValidationConfig, ExpectedField, Assertion } from '@shared/types';
 import { buildRulesSnapshot } from '../utils/versionUtils';
-import { serializeToDsl } from '../../../shared/components/data-mapper/utils/validationDsl';
+import { serializeToDsl } from '@shared/components/data-mapper/utils/validationDsl';
 import VersionPreviewModal from './VersionPreviewModal';
-import { sharedDiffer } from '../../../shared/utils/jsonDiffKit';
+import { sharedDiffer } from '@shared/utils/jsonDiffKit';
 import { useVersionDiffPanel } from '../hooks/useVersionDiffPanel';
 import VersionDiffModal from './version-shared/VersionDiffModal';
 import VersionListItem from './version-shared/VersionListItem';

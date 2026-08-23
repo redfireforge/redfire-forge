@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { SpecVersion } from '../../../shared/types';
+import type { SpecVersion } from '@shared/types';
 import { computeSpecVersionDiff } from './versionDiff';
 
 function makeSV(overrides: Partial<SpecVersion> = {}): SpecVersion {

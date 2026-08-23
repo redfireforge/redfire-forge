@@ -5,26 +5,26 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useVerifyEngine, executeRowFetch } from './useVerifyEngine';
 import { UseVerifyEngineOptions } from './useVerifyEngine';
-import { Scenario, DataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
-import { HttpResponse } from '../../../shared/utils/httpClient';
-import { validate } from '../../../engine/validator';
+import { Scenario, DataSource, DataSourceColumn, DataSourceRow } from '@shared/types';
+import { HttpResponse } from '@shared/utils/httpClient';
+import { validate } from '@engine/core/validator';
 import { expandPatternFromResponse, extractJsonPath } from '../utils/dataSourceImport';
 
 // ─── Mocks ────────────────────────────────────────────────────
 
-vi.mock('../../../engine/dataSourceExpander', () => ({
+vi.mock('@engine/core/dataSourceExpander', () => ({
   resolveScenarioFromDataRow: vi.fn((draft: Scenario, _cols: DataSourceColumn[], row: DataSourceRow) => ({
     ...draft,
     url: draft.url.replace('{{id}}', row.values.c1 ?? ''),
   })),
 }));
 
-vi.mock('../../../engine/executor', () => ({
+vi.mock('@engine/core/executor', () => ({
   proxyFetch: vi.fn(),
   buildHeaders: vi.fn((s: Scenario) => ({ 'content-type': 'application/json', 'x-url': s.url })),
 }));
 
-vi.mock('../../../engine/validator', () => ({
+vi.mock('@engine/core/validator', () => ({
   validate: vi.fn(() => []),
 }));
 
@@ -192,7 +192,7 @@ describe('useVerifyEngine', () => {
     });
 
     it('uses proxyFetch fallback when no fetchFn provided', async () => {
-      const { proxyFetch: pf } = await import('../../../engine/executor');
+      const { proxyFetch: pf } = await import('@engine/core/executor');
       (pf as ReturnType<typeof vi.fn>).mockResolvedValue(makeOkResponse());
 
       const { result } = renderHook(() =>
@@ -699,7 +699,7 @@ describe('useVerifyEngine', () => {
     });
 
     it('uses proxyFetch in refetchFailedRows when onFetchRow is undefined', async () => {
-      const { proxyFetch: pf } = await import('../../../engine/executor');
+      const { proxyFetch: pf } = await import('@engine/core/executor');
       (pf as ReturnType<typeof vi.fn>)
         .mockResolvedValueOnce(makeNetworkError())
         .mockResolvedValueOnce(makeNetworkError())

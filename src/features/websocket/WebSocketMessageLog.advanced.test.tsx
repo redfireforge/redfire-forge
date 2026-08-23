@@ -5,8 +5,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { WebSocketMessageLog } from './WebSocketMessageLog';
-import type { WsFrame, WsMessageTemplate } from '../../shared/websocket/types';
-import { selectOption } from '../../test-utils/customSelectHelper';
+import type { WsFrame, WsMessageTemplate } from '@shared/websocket/types';
+import { selectOption } from '@test-utils/customSelectHelper';
 
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: (opts: { count: number; estimateSize: () => number }) => ({

@@ -7,7 +7,7 @@ import {
 } from './columnMappingAdapter';
 import type { Mapping } from '../types';
 import type { DataSourceColumn, Scenario } from '../../../types';
-import { makeScenario as _makeScenario } from '../../../../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 // ─── Test helpers ────────────────────────────────────────────
 

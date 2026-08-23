@@ -3,7 +3,7 @@
  */
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { selectOption } from '../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import { GrpcK8sPortForwardPanel } from './GrpcK8sPortForwardPanel';
 import { DEFAULT_GRPC_K8S_PORT_FORWARD_CONFIG } from '../utils/grpcK8sPortForward';
 

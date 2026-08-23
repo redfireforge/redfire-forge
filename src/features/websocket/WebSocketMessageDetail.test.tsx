@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { WebSocketMessageDetail } from './WebSocketMessageDetail';
 import { buildHexDump, tokenizeJson, isValidJson, prettyJson } from './wsMessageUtils';
-import type { WsFrame } from '../../shared/websocket/types';
+import type { WsFrame } from '@shared/websocket/types';
 
 function makeFrame(overrides?: Partial<WsFrame>): WsFrame {
   return {

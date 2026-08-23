@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useRunnerOrchestration } from './useRunnerOrchestration';
-import { FeatureGroup } from '../../../shared/types';
+import { FeatureGroup } from '@shared/types';
 
 const { mockExecute, mockSetWeights, mockSetLoadProfile, mockClearProgress, mockTestExecOverrides, mockRunnerConfigOverrides, mockLoadProgress, mockDownloadReport, mockGenerateReport, mockCapturedPublishConfig } = vi.hoisted(() => ({
   mockExecute: vi.fn(),
@@ -97,7 +97,7 @@ vi.mock('../../results/utils/reportGenerator', () => ({
   downloadReport: (...args: unknown[]) => mockDownloadReport(...args),
 }));
 
-vi.mock('../../../engine/dataSourceExpander', () => ({
+vi.mock('@engine/core/dataSourceExpander', () => ({
   resolveSharedDataSources: (tests: unknown[]) => tests,
   collectAllScenarioTags: () => [],
   countScenariosByTag: () => ({}),

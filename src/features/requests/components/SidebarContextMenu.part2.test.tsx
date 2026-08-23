@@ -6,7 +6,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
 import SidebarContextMenu from './SidebarContextMenu';
-import type { RequestCollection, RequestFolder, RequestItem } from '../../../shared/types';
+import type { RequestCollection, RequestFolder, RequestItem } from '@shared/types';
 import type { CtxMenuData } from './RequestsSidebar';
 
 function req(id: string, name: string): RequestItem {

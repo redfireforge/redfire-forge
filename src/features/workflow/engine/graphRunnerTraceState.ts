@@ -1,4 +1,4 @@
-import type { RequestResult } from '../../../shared/types';
+import type { RequestResult } from '@shared/types';
 import type { PassedFlag } from './graphRunnerNodeHandlers';
 
 /** gRPC/API-mock nodes write explicit pass/fail entries; use their latest node result for trace state. */

@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { TrashSettings } from '../types';
-import { makeTrashItem } from '../../test-utils/factories';
+import { makeTrashItem } from '@test-utils/factories';
 
 // Mock platform — defaults to non-Tauri (browser mode)
 const mockIsTauri = vi.fn(() => false);

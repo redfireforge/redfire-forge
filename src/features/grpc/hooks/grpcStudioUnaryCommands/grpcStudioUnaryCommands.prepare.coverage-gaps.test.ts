@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import * as grpcApiClient from '../../../../shared/grpc/grpcApiClient';
+import * as grpcApiClient from '@shared/grpc/grpcApiClient';
 import * as streamHelpers from '../grpcStreamSessionHelpers';
 import { createInitialSessionState } from '../grpcStudioSessionHelpers';
 import {createPrepareExecuteSnapshotHandler,

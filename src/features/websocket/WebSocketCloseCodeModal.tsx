@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom';
-import AppModalFrame from '../../shared/components/AppModalFrame';
-import { WS_CLOSE_CODE_PRESETS } from '../../shared/websocket/types';
+import AppModalFrame from '@shared/components/AppModalFrame';
+import { WS_CLOSE_CODE_PRESETS } from '@shared/websocket/types';
 import { MAX_REASON_BYTES } from './WebSocketConnectPanel.helpers';
 
 interface WebSocketCloseCodeModalProps {

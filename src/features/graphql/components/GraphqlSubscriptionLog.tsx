@@ -17,8 +17,8 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { GraphqlSubscriptionAssertion, GraphqlSubscriptionMessage, SubscriptionState, SubscriptionStats } from '../../../shared/types/graphql';
-import { getByPath } from '../../../shared/utils/jsonPath';
+import type { GraphqlSubscriptionAssertion, GraphqlSubscriptionMessage, SubscriptionState, SubscriptionStats } from '@shared/types/graphql';
+import { getByPath } from '@shared/utils/jsonPath';
 import type { MessageAssertionResults } from '../utils/subscriptionAssertions';
 import { aggregateAssertionResults } from '../utils/subscriptionAssertions';
 

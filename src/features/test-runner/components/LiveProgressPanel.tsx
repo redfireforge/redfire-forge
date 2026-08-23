@@ -1,14 +1,14 @@
 import { useLayoutEffect, useRef } from 'react';
-import type { TestSummary, Scenario, RequestResult, ArrivalRateConfig } from '../../../shared/types';
-import type { LoadProfileConfig, ThinkTimeConfig } from '../../../shared/types';
+import type { TestSummary, Scenario, RequestResult, ArrivalRateConfig } from '@shared/types';
+import type { LoadProfileConfig, ThinkTimeConfig } from '@shared/types';
 import type { TimeSeriesPoint } from '../hooks/useTestExecution';
-import type { ProgressMeta } from '../../../engine/executor';
+import type { ProgressMeta } from '@engine/core/executor';
 import { scrollRunnerMonitorIntoView } from '../utils/scrollRunnerMonitor';
 import { LiveCharts } from './LiveCharts';
 import { profileLabel } from './RunnerExecutionConfig';
 import { thinkTimeLabel } from '../utils/runnerProgressStorage';
-import { getExecutionModeMeta } from '../../../shared/utils/executionMode';
-import type { ExecutionMode } from '../../../shared/types';
+import { getExecutionModeMeta } from '@shared/utils/executionMode';
+import type { ExecutionMode } from '@shared/types';
 
 interface Props {
   isRunning: boolean;

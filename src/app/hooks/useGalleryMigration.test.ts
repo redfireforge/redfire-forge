@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useGalleryMigration } from './useGalleryMigration';
-import type { Environment, Microservice } from '../../shared/types';
+import type { Environment, Microservice } from '@shared/types';
 
 const makeEnv = (overrides: Partial<Environment> = {}): Environment => ({
   id: 'env-1',

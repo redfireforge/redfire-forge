@@ -1,8 +1,8 @@
 /**
  * Phase 4G — masked secret field UI helpers (write-only vault display).
  */
-import type { GrpcAuthConfig, GrpcTlsConfig } from '../../../shared/grpc/contracts';
-import { GRPC_REDACTED_PLACEHOLDER } from '../../../shared/grpc/grpcRedaction';
+import type { GrpcAuthConfig, GrpcTlsConfig } from '@shared/grpc/contracts';
+import { GRPC_REDACTED_PLACEHOLDER } from '@shared/grpc/grpcRedaction';
 
 export const GRPC_SECRET_STORED_LABEL = 'Stored securely';
 

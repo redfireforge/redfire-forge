@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import RunnerExecutionConfig from './RunnerExecutionConfig';
-import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig } from '../../../shared/types';
+import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig } from '@shared/types';
 
 type OverrideProps = Partial<React.ComponentProps<typeof RunnerExecutionConfig>>;
 

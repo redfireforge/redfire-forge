@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import WorkflowPicker from './WorkflowPicker';
-import type { Workflow } from '../../workflow/types/workflow';
+import type { Workflow } from '@workflow/types/workflow';
 const ts = Date.now();
 
 const manyHttpWorkflow: Workflow = {

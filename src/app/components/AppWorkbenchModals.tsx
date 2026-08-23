@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import type { Environment, Microservice, FeatureGroup, RequestFolder } from '../../shared/types';
+import type { Environment, Microservice, FeatureGroup, RequestFolder } from '@shared/types';
 import type { CatalogEntry, CatalogEndpoint, SavedEndpointValues } from '../../features/catalog/types/catalog';
 import type { Tab } from '../utils/appTabUtils';
 import type { UseCatalogReturn } from '../../features/catalog/hooks/useCatalog';
@@ -15,7 +15,7 @@ import CatalogVersionHistory from '../../features/catalog/components/CatalogVers
 import CatalogEditModal from '../../features/catalog/components/CatalogEditModal';
 import CatalogConvertOpenApiModal from '../../features/catalog/components/CatalogConvertOpenApiModal';
 import type { CatalogConvertTarget, SaveConvertedVersionArgs } from '../hooks/useCatalogState';
-import type { ToastType } from '../../features/workflow/components/WorkflowToastProvider';
+import type { ToastType } from '@workflow/components/WorkflowToastProvider';
 import SendToHarnessModal from '../../features/requests/components/SendToHarnessModal';
 import BatchSendToHarnessModal from '../../features/requests/components/BatchSendToHarnessModal';
 import { catalogEndpointToRequest } from '../../features/catalog/utils/catalogEndpointToRequest';

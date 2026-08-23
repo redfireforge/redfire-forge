@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
-import type { BodyType } from '../../../shared/types';
-import { isValidJson as checkValidJson, minifyJson, prettyJson } from '../../../shared/utils/helpers';
+import type { BodyType } from '@shared/types';
+import { isValidJson as checkValidJson, minifyJson, prettyJson } from '@shared/utils/helpers';
 
 const BODY_CODE_TYPE_LABELS: Record<BodyType, string> = {
   'form-data': 'Multipart',

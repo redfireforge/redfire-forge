@@ -4,32 +4,32 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useTestFetch } from './useTestFetch';
-import type { Scenario, FeatureGroup, GlobalAuthProfile } from '../../../shared/types';
+import type { Scenario, FeatureGroup, GlobalAuthProfile } from '@shared/types';
 
 const mockProxyFetch = vi.fn();
-vi.mock('../../../engine/executor', () => ({
+vi.mock('@engine/core/executor', () => ({
   proxyFetch: (...args: unknown[]) => mockProxyFetch(...args),
 }));
 
-vi.mock('../../../engine/tokenManager', () => ({
+vi.mock('@engine/core/tokenManager', () => ({
   acquireOAuth2Token: vi.fn().mockResolvedValue('mocked-token'),
 }));
 
 const validateMock = vi.hoisted(() => vi.fn(() => []));
 const evaluateAssertionsMock = vi.hoisted(() => vi.fn(() => ({ failures: [] as { path: string }[] })));
-vi.mock('../../../engine/validator', () => ({
+vi.mock('@engine/core/validator', () => ({
   validate: validateMock,
   evaluateAssertions: evaluateAssertionsMock,
 }));
 
-vi.mock('../../../shared/utils/authHeaders', () => ({
+vi.mock('@shared/utils/authHeaders', () => ({
   resolveAuthHeaders: vi.fn(() => ({})),
 }));
 
 const serializeWithContentTypeMock = vi.hoisted(() => vi.fn((draft: { body?: string }) => ({ body: draft.body || undefined, contentType: 'application/json' })));
 const getEffectiveBodyTypeMock = vi.hoisted(() => vi.fn(() => 'json'));
 
-vi.mock('../../../shared/utils/bodySerializer', () => ({
+vi.mock('@shared/utils/bodySerializer', () => ({
   serializeWithContentType: serializeWithContentTypeMock,
   getEffectiveBodyType: getEffectiveBodyTypeMock,
 }));

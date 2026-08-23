@@ -20,7 +20,7 @@ import type {
   FeatureGroup,
   TestScenario,
 } from '../types';
-import { makeScenario as _makeScenario, makeTestScenario as _makeTestScenario } from '../../test-utils/factories';
+import { makeScenario as _makeScenario, makeTestScenario as _makeTestScenario } from '@test-utils/factories';
 
 // ─── Test helpers ──────────────────────────────────────────────────────────────
 

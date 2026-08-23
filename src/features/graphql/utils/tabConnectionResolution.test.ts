@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { GraphqlAuth } from '../../../shared/types/graphql';
+import type { GraphqlAuth } from '@shared/types/graphql';
 import type { ConnectionProfile } from './connectionProfileStorage';
 import type { GqlStudioTab } from './tabPersistence';
 import {

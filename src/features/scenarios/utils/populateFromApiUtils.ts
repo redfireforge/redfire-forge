@@ -2,7 +2,7 @@
  * Pure utility functions for PopulateFromApiModal.
  * Extracted for testability and reuse.
  */
-import type { DataSourceColumn } from '../../../shared/types';
+import type { DataSourceColumn } from '@shared/types';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -63,7 +63,7 @@ export function detectArrays(obj: unknown, prefix = '', _seen?: WeakSet<object>)
  * Resolve a JSONPath-like string to a value in an object.
  * Supports dot notation, bracket indices, and wildcards via the canonical engine.
  */
-export { getByPath as resolvePath } from '../../../shared/utils/jsonPath';
+export { getByPath as resolvePath } from '@shared/utils/jsonPath';
 
 /**
  * Guess a column type from the field name.

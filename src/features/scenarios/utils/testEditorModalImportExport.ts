@@ -5,12 +5,12 @@
 import type { MutableRefObject } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import Papa from 'papaparse';
-import type { Scenario, DataSource } from '../../../shared/types';
-import { isWsActionType } from '../../../shared/types';
-import { validateWsActionConfig } from '../../../shared/utils/wsScenarioDefaults';
-import { validateGrpcHarnessActionConfig } from '../../../shared/utils/grpcHarnessScenarioContracts';
+import type { Scenario, DataSource } from '@shared/types';
+import { isWsActionType } from '@shared/types';
+import { validateWsActionConfig } from '@shared/utils/wsScenarioDefaults';
+import { validateGrpcHarnessActionConfig } from '@shared/utils/grpcHarnessScenarioContracts';
 import { pickJsonFile, unwrapImport } from '../utils/testEditorUtils';
-import { saveFile } from '../../../shared/utils/fileSaver';
+import { saveFile } from '@shared/utils/fileSaver';
 import type { ImportChoice, ExportChoice } from '../components/ImportExportChoiceModal';
 
 export interface TestEditorImportDeps {

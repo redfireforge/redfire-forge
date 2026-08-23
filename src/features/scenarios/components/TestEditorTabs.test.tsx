@@ -6,7 +6,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import type { ComponentProps } from 'react';
 import { TestEditorTabs } from './TestEditorTabs';
-import type { Scenario } from '../../../shared/types';
+import type { Scenario } from '@shared/types';
 import type { TestEditorTab } from './TestEditorModal';
 
 function makeDraft(overrides: Partial<Scenario> = {}): Scenario {

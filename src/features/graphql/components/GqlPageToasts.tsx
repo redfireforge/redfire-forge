@@ -3,7 +3,7 @@
  * GraphQL Studio page: schema-change toast, APQ unsupported toast, and batch
  * unsupported toast.
  */
-import type { GraphqlSchemaInfo, GraphqlSchemaSnapshot } from '../../../shared/types/graphql';
+import type { GraphqlSchemaInfo, GraphqlSchemaSnapshot } from '@shared/types/graphql';
 
 interface GqlPageToastsProps {
   // Schema change toast

@@ -2,7 +2,7 @@
  * Phase 10A — transport preflight wired in prepareExecuteSnapshot.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { FIXTURE_DESCRIPTOR, FIXTURE_DESCRIPTOR_KEY } from '../../../shared/grpc/contractFixtures';
+import { FIXTURE_DESCRIPTOR, FIXTURE_DESCRIPTOR_KEY } from '@shared/grpc/contractFixtures';
 import { createEmptyTabDescriptorState, createGrpcStudioTab } from '../grpcStudioTypes';
 import { createInitialSessionState } from './grpcStudioSessionHelpers';
 import {
@@ -11,7 +11,7 @@ import {
 } from './grpcStudioUnaryCommands';
 import type { GrpcStudioRuntimeContext } from './grpcStudioRuntimeContext';
 import type { GrpcStudioSessionCore } from './useGrpcStudioSessionCore';
-import * as transportFacade from '../../../shared/grpc/grpcTransportFacade';
+import * as transportFacade from '@shared/grpc/grpcTransportFacade';
 
 vi.mock('../../../shared/utils/platform', () => ({
   isTauri: vi.fn(() => false),
@@ -25,7 +25,7 @@ vi.mock('../../../shared/grpc/grpcTransportFacade', async (importOriginal) => {
   };
 });
 
-import { isTauri } from '../../../shared/utils/platform';
+import { isTauri } from '@shared/utils/platform';
 
 function makePrepareHarness(
   transportMode: 'grpc-web' | 'spring-servlet' | 'express',

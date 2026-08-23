@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from 'react';
-import type { FeatureGroup, GlobalAuthProfile, Scenario, SharedDataSource } from '../../../shared/types';
+import type { FeatureGroup, GlobalAuthProfile, Scenario, SharedDataSource } from '@shared/types';
 import { useRunnerOrchestration } from '../hooks/useRunnerOrchestration';
 import { scrollRunnerMonitorIntoView } from '../utils/scrollRunnerMonitor';
 import RunnerExecutionConfig from './RunnerExecutionConfig';

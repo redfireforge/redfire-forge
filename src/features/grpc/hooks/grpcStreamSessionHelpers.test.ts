@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { GrpcApiClientError } from '../../../shared/grpc/grpcApiClient';
-import { cancelGrpcStream } from '../../../shared/grpc/grpcStreamClient';
+import { GrpcApiClientError } from '@shared/grpc/grpcApiClient';
+import { cancelGrpcStream } from '@shared/grpc/grpcStreamClient';
 import {
   bindGrpcStreamTransportForTab,
   hasGrpcStreamTransportBinding,
   resetGrpcStreamTransportBindingsForTests,
-} from '../../../shared/grpc/grpcTransportFallback';
+} from '@shared/grpc/grpcTransportFallback';
 import type { GrpcStudioTabState } from '../grpcStudioTypes';
 import {
   abortTabActiveStream,

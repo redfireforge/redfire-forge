@@ -8,7 +8,7 @@ import {
   parseGrpcurlCommand,
   tokenizeGrpcurlCommand,
 } from './grpcGrpcurl';
-import { FIXTURE_DESCRIPTOR } from '../../../shared/grpc/contractFixtures';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
 
 describe('grpcGrpcurl coverage gaps', () => {
   it('formatGrpcStreamKeyword covers server, client, and bidi streaming', () => {

@@ -16,7 +16,7 @@ import {
   computeOverheadNs,
   pctOfTotal,
 } from '../utils/graphqlTracingUtils';
-import type { ApolloTracingData } from '../../../shared/types/graphql';
+import type { ApolloTracingData } from '@shared/types/graphql';
 
 // ─── Test data ───────────────────────────────────────────────────────────────
 

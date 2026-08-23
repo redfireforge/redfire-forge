@@ -4,7 +4,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
-import { DEFAULT_SETTINGS } from '../../../shared/api-mock/defaults';
+import { DEFAULT_SETTINGS } from '@shared/api-mock/defaults';
 import { ApiMockDock } from './ApiMockDock';
 
 function baseRoutes() {

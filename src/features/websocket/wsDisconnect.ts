@@ -1,7 +1,7 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
-import type { WsCloseDetail, WsConnectionSnapshot, WsFrame } from '../../shared/websocket/types';
-import { createFrame } from '../../shared/websocket/types';
-import { dispatchWsOperation } from '../../shared/websocket/websocketClient';
+import type { WsCloseDetail, WsConnectionSnapshot, WsFrame } from '@shared/websocket/types';
+import { createFrame } from '@shared/websocket/types';
+import { dispatchWsOperation } from '@shared/websocket/websocketClient';
 import { sanitizeNativeCloseCode } from './wsMessageUtils';
 import { formatCloseFrame } from './useWebSocketStudioTypes';
 

@@ -21,7 +21,7 @@ import {
   resolveGrpcHarnessTrailerValue,
 } from './grpcHarnessTrailerNormalize';
 import { evaluateGrpcHarnessAssertions } from './grpcHarnessAssertEngine';
-import { evaluateGrpcWorkflowAssertions } from '../../features/workflow/utils/grpcWorkflowAssertEngine';
+import { evaluateGrpcWorkflowAssertions } from '@workflow/utils/grpcWorkflowAssertEngine';
 
 // ── Source-scan helpers ───────────────────────────────────────────────────────
 const ROOT = fileURLToPath(new URL('../..', import.meta.url)); // → src/

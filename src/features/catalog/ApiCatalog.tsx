@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import type { UseCatalogReturn } from './hooks/useCatalog';
-import type { AuthConfig, GlobalAuthProfile, Environment, Microservice, RequestCollection } from '../../shared/types';
+import type { AuthConfig, GlobalAuthProfile, Environment, Microservice, RequestCollection } from '@shared/types';
 import type { CatalogEntry, CatalogEndpoint, CatalogFolder, SavedEndpointValues, WorkflowPublication } from './types/catalog';
 import type { SendToRequestsPayload } from './components/CatalogSendToRequestsModal';
 import { buildCoverageMap } from './utils/coverageChecker';
@@ -14,15 +14,15 @@ import type { UnpublishRequest } from './components/UnpublishConfirmDialog';
 import PublishEndpointModal from './components/PublishEndpointModal';
 import type { PublishRequest, PublishResult } from './components/PublishEndpointModal';
 import { scanWorkflowsForCatalogRef, removeCatalogNodesFromWorkflows } from './utils/workflowExposureScanner';
-import { loadCatalogView, saveCatalogView, loadCatalogRawSpec } from '../../shared/utils/storageCatalog';
-import { loadWorkflowPreviews, addWorkflowPreview, removeWorkflowPreview, getPreviewedEndpointIds } from '../../shared/utils/workflowPreviewStorage';
-import type { PreviewMap } from '../../shared/utils/workflowPreviewStorage';
+import { loadCatalogView, saveCatalogView, loadCatalogRawSpec } from '@shared/utils/storageCatalog';
+import { loadWorkflowPreviews, addWorkflowPreview, removeWorkflowPreview, getPreviewedEndpointIds } from '@shared/utils/workflowPreviewStorage';
+import type { PreviewMap } from '@shared/utils/workflowPreviewStorage';
 import PublishedEndpointsPanel from './components/PublishedEndpointsPanel';
 import { aggregatePublishedEndpoints } from './utils/publishedEndpointAggregator';
 import { republishAtCurrentVersion } from './utils/publicationDrift';
 import { usePublishPermission } from './hooks/usePublishPermission';
 import { logPublicationAudit } from './utils/publicationAudit';
-import { DEMO_INITIAL_SURFACE_EVENT, peekDemoInitialSurface } from '../../shared/demoInitialSurface';
+import { DEMO_INITIAL_SURFACE_EVENT, peekDemoInitialSurface } from '@shared/demoInitialSurface';
 
 function findEndpointInEntry(entry: CatalogEntry, endpointId: string): CatalogEndpoint | undefined {
   const search = (eps: CatalogEndpoint[]): CatalogEndpoint | undefined => eps.find(e => e.id === endpointId);

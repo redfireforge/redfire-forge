@@ -1,5 +1,5 @@
 import { useState, useRef, useLayoutEffect } from 'react';
-import type { RequestCollection, RequestFolder } from '../../../shared/types';
+import type { RequestCollection, RequestFolder } from '@shared/types';
 import { collectAllGroups, collectGroupIds, countGroupRequests, findFolderDeep, findSiblingFolders, countFolderReqs } from '../utils/requestTree';
 import type { CtxMenuData } from './RequestsSidebar';
 

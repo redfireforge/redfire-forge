@@ -16,7 +16,7 @@ vi.mock('../utils/gqlActivityBarUtils', () => ({
   persistActivityTab: vi.fn(),
 }));
 
-import { isTauri } from '../../../shared/utils/platform';
+import { isTauri } from '@shared/utils/platform';
 import { persistActivityTab } from '../utils/gqlActivityBarUtils';
 import { GraphqlStudioActivityBar } from './GraphqlStudioActivityBar';
 

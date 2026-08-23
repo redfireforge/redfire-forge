@@ -2,8 +2,8 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { selectOption } from '../../../test-utils/customSelectHelper';
+import { render, screen } from '@testing-library/react';
+import { selectOption } from '@test-utils/customSelectHelper';
 import userEvent from '@testing-library/user-event';
 import { GrpcCompressionPanel } from './GrpcCompressionPanel';
 

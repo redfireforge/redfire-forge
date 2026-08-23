@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
+import AppModalFrame from '@shared/components/AppModalFrame';
 import {
   findTextExpandMatches,
   formatTextExpandCount,
@@ -15,9 +15,9 @@ import {
 import { CheckIcon, CopyIcon, DownloadIcon, MaximizeIcon, ShieldCheckIcon } from './ApiMockIcons';
 import { ApiMockTextExpandModal } from './ApiMockTextExpandModal';
 import JsonPreview, { buildJTree, collectJTreePaths } from '../../requests/components/JsonTreePreview';
-import { SearchMatchBar } from '../../../shared/components/SearchMatchBar';
-import { useSearchMatchNavigation } from '../../../shared/hooks/useSearchMatchNavigation';
-import { useJsonTreeCollapseState } from '../../../shared/hooks/useJsonTreeCollapseState';
+import { SearchMatchBar } from '@shared/components/SearchMatchBar';
+import { useSearchMatchNavigation } from '@shared/hooks/useSearchMatchNavigation';
+import { useJsonTreeCollapseState } from '@shared/hooks/useJsonTreeCollapseState';
 
 interface Props {
   result: ApiMockExportResult;

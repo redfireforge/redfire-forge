@@ -1,10 +1,10 @@
-import type { GlobalAuthProfile } from '../../../shared/types';
+import type { GlobalAuthProfile } from '@shared/types';
 import type {
   GraphqlBatchResponseContext,
   GraphqlBatchResult,
   GraphqlError,
   GraphqlResponse,
-} from '../../../shared/types/graphql';
+} from '@shared/types/graphql';
 import type { ConnectionProfile } from './connectionProfileStorage';
 import {
   stampRequestHeaders,

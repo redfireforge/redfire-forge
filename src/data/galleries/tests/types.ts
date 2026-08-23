@@ -1,4 +1,4 @@
-import type { FeatureGroup, SharedDataSource } from '../../../shared/types';
+import type { FeatureGroup, SharedDataSource } from '@shared/types';
 import type { GalleryEntry } from '../types';
 
 export type TestCategory = 'smoke' | 'regression' | 'contract' | 'security' | 'load';

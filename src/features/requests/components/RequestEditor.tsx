@@ -2,19 +2,19 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import type {
   RequestCollection, RequestItem, RequestEnv,
   GlobalAuthProfile, HttpMethod, Scenario,
-} from '../../../shared/types';
+} from '@shared/types';
 import RequestResponsePlaceholder from './RequestResponsePlaceholder';
 import RequestEnvHint from './RequestEnvHint';
 import { useResponseCache } from '../hooks/useResponseCache';
 import { buildDisplayUrl } from '../utils/requestUrlResolver';
-import { formatBytes } from '../../../shared/utils/helpers';
+import { formatBytes } from '@shared/utils/helpers';
 import { HttpMethodSelect } from './HttpMethodSelect';
 import type { UrlResolverContext } from '../utils/requestUrlResolver';
 import { BodyEditor } from './BodyEditor';
 import { ParamsEditor } from './ParamsEditor';
 import type { ParamEntry } from './ParamsEditor';
 import { KeyValueEditor } from '../../websocket/KeyValueEditor';
-import type { WsKeyValueEntry } from '../../../shared/websocket/types';
+import type { WsKeyValueEntry } from '@shared/websocket/types';
 import { PathParamsEditor } from './PathParamsEditor';
 import type { PathParamEntry } from './PathParamsEditor';
 import { resolvePathParamUrl } from '../utils/pathParamResolver';
@@ -23,22 +23,22 @@ import JsonPreview, { buildJTreeFromBody, collectJTreePaths } from './JsonTreePr
 import ConsoleLog from './ConsoleLog';
 import MultiEnvResultRow from './MultiEnvResultRow';
 import { ResponseHistoryDropdown } from './ResponseHistoryDropdown';
-import { useJsonTreeCollapseState, useMatchCountChange } from '../../../shared/hooks/useJsonTreeCollapseState';
+import { useJsonTreeCollapseState, useMatchCountChange } from '@shared/hooks/useJsonTreeCollapseState';
 
 import { createSnapshot, restoreFromVersion, deleteVersion, renameVersion } from '../utils/requestDefinitionVersioning';
 import RequestDefinitionVersionPanel from './RequestDefinitionVersionPanel';
 import RequestDefinitionVersionDiff from './RequestDefinitionVersionDiff';
-import type { RequestDefinitionVersion } from '../../../shared/types';
+import type { RequestDefinitionVersion } from '@shared/types';
 import { SpecVersionSwitcher } from './SpecVersionSwitcher';
 import { SpecVersionCompareModal } from './SpecVersionCompareModal';
 import RequestCatalogApiInfoDrawer from './RequestCatalogApiInfoDrawer';
-import { parseQueryParams, rebuildUrlEncoded } from '../../../shared/utils/queryParams';
+import { parseQueryParams, rebuildUrlEncoded } from '@shared/utils/queryParams';
 import ResponseBodySearchBar from './ResponseBodySearchBar';
-import { useSearchMatchNavigation } from '../../../shared/hooks/useSearchMatchNavigation';
+import { useSearchMatchNavigation } from '@shared/hooks/useSearchMatchNavigation';
 import { useRequestSend } from '../hooks/useRequestSend';
 import { useRequestImportExport } from '../hooks/useRequestImportExport';
 
-import type { RequestSubTab, ResponseSubTab, RequestInputMode } from '../../../shared/types';
+import type { RequestSubTab, ResponseSubTab, RequestInputMode } from '@shared/types';
 
 type EditorTab = RequestSubTab;
 type InputMode = RequestInputMode;

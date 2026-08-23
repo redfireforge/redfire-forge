@@ -3,7 +3,7 @@
  * These workflows are designed specifically for load testing demonstrations.
  */
 
-import type { Workflow } from '../../../features/workflow/types/workflow';
+import type { Workflow } from '@workflow/types/workflow';
 import {
   makeStartNode,
   makeGetNode,

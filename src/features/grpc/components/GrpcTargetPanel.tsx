@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { GrpcAuthConfig, GrpcTlsMode } from '../../../shared/grpc/contracts';
+import type { GrpcAuthConfig, GrpcTlsMode } from '@shared/grpc/contracts';
 import {
   buildGrpcInterpolationTargetPreviewState,
   GRPC_INTERPOLATION_BANNER_STRIP_HINT,
   shouldShowGrpcInterpolationErrorBanner,
   type GrpcInterpolationPreviewViewMode,
-} from '../../../shared/grpc/grpcInterpolationPreviewModel';
+} from '@shared/grpc/grpcInterpolationPreviewModel';
 import { useGrpcTargetValidation } from '../hooks/useGrpcTargetValidation';
 import { GrpcInterpolationErrorBanner } from './GrpcInterpolationErrorBanner';
 import { GrpcInterpolationPreviewStrip } from './GrpcInterpolationPreviewStrip';

@@ -1,4 +1,4 @@
-import type { Scenario } from '../../../shared/types';
+import type { Scenario } from '@shared/types';
 
 export type QNode =
   | { type: 'term'; value: string; exact: boolean }

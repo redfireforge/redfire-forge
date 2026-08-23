@@ -1,5 +1,5 @@
-import type { MappingTrace } from '../../../shared/components/data-mapper/utils/mappingTrace';
-import { formatTraceValue, isTraceError } from '../../../shared/components/data-mapper/utils/mappingTrace';
+import type { MappingTrace } from '@shared/components/data-mapper/utils/mappingTrace';
+import { formatTraceValue, isTraceError } from '@shared/components/data-mapper/utils/mappingTrace';
 
 interface MappingTraceOverlayProps {
   traces: MappingTrace[];

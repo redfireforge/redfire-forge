@@ -4,7 +4,7 @@ import { renderHook, act } from '@testing-library/react';
 import { useVerifyNavigation } from './useVerifyNavigation';
 import type { VerifyResult } from './useValidationVerify';
 import type { Assertion } from '../../../types';
-import { stubScrollIntoView } from '../../../../test-utils/domMocks';
+import { stubScrollIntoView } from '@test-utils/domMocks';
 
 function createVerifyResult(overrides: Partial<VerifyResult> = {}): VerifyResult {
   return {

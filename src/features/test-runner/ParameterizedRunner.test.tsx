@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ParameterizedRunner from './ParameterizedRunner';
-import type { FeatureGroup } from '../../shared/types';
+import type { FeatureGroup } from '@shared/types';
 
 const orch = vi.hoisted(() => ({
   overrides: {} as Record<string, unknown>,

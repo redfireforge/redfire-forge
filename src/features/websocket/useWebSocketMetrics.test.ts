@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWebSocketMetrics } from './useWebSocketMetrics';
-import type { WsFrame } from '../../shared/websocket/types';
+import type { WsFrame } from '@shared/websocket/types';
 
 function makeFrame(
   overrides: Partial<WsFrame> & { direction: 'sent' | 'received' },

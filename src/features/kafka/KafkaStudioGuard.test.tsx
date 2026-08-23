@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { KafkaStudioGuard } from './KafkaStudioGuard';
-import type { KafkaConnectionSnapshot } from '../../shared/kafka/kafkaConfig';
+import type { KafkaConnectionSnapshot } from '@shared/kafka/kafkaConfig';
 
 function snapshot(overrides?: Partial<KafkaConnectionSnapshot>): KafkaConnectionSnapshot {
   return { state: 'disconnected', ...overrides };

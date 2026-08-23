@@ -1,8 +1,8 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import type { RequestCollection, RequestFolder, Environment, Microservice } from '../../../shared/types';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import type { RequestCollection, RequestFolder, Environment, Microservice } from '@shared/types';
 import { findSiblingFolders, collectGroupAncestors } from '../utils/requestTree';
-import { toggleSetItem } from '../../../shared/utils/setToggle';
+import { toggleSetItem } from '@shared/utils/setToggle';
 import SidebarContextMenu from './SidebarContextMenu';
 import { RequestsSidebarDialogs } from './RequestsSidebarDialogs';
 import { RequestsSidebarTree } from './RequestsSidebarTree';
@@ -24,7 +24,7 @@ import {
   scrollSelectedRequestIntoView,
   startDuplicateRequestState,
 } from './RequestsSidebarLogic';
-import { useToast } from '../../../shared/hooks/useToast';
+import { useToast } from '@shared/hooks/useToast';
 import { useRequestsSidebarSearch } from '../hooks/useRequestsSidebarSearch';
 import { useRequestsSidebarDnD } from '../hooks/useRequestsSidebarDnD';
 import {

@@ -1,8 +1,8 @@
 /**
  * Response-track API Mock gallery factories.
  */
-import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
-import { DEFAULT_SETTINGS, createDefaultResponse } from '../../../shared/api-mock/defaults';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
+import { DEFAULT_SETTINGS, createDefaultResponse } from '@shared/api-mock/defaults';
 import { TS, emptyGroup, jsonBody } from './presets-helpers';
 
 /**

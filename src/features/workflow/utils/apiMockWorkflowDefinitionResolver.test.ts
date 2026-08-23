@@ -4,7 +4,7 @@ import {
   resolveApiMockDefinition,
   resolveStartOptions,
 } from './apiMockWorkflowDefinitionResolver';
-import { DEFAULT_SETTINGS, createDefaultResponse } from '../../../shared/api-mock/defaults';
+import { DEFAULT_SETTINGS, createDefaultResponse } from '@shared/api-mock/defaults';
 
 const ts = '2026-08-12T00:00:00.000Z';
 

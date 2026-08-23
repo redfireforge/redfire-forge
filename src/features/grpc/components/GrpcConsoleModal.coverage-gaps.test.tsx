@@ -3,7 +3,7 @@
  */
 import { fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { selectOption } from '../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import { GrpcConsoleModal, type GrpcConsoleWireEvent } from './GrpcConsoleModal';
 
 function makeMultiEvents(): GrpcConsoleWireEvent[] {

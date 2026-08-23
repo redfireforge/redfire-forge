@@ -1,9 +1,9 @@
 /**
  * Shared test fixtures for useTrash test files.
  *
- * These are pure factories — no vi.mock side effects, because vi.mock must be
- * hoisted to the top of the consuming test file. Each test file declares its
- * own `vi.mock('../../../shared/utils/trashStorage', ...)` block.
+ * These are pure factories — no mock side effects, because mock registrations
+ * must be hoisted to the top of the consuming test file. Each test file declares
+ * its own Vitest mock block for trashStorage.
  */
 import { vi } from 'vitest';
 import type {
@@ -11,7 +11,7 @@ import type {
   Scenario,
   SharedDataSource,
   TestScenario,
-} from '../../../../shared/types';
+} from '@shared/types';
 
 export function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
   return {

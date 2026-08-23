@@ -10,7 +10,7 @@ import {
   normalizeWorkflowVarRef,
   getExtractionTestRoot,
 } from './graphqlConfigTestHelpers';
-import type { NodeRunStatus } from '../../workflow/types/workflow';
+import type { NodeRunStatus } from '@workflow/types/workflow';
 
 describe('graphqlConfigTestHelpers', () => {
   describe('buildGraphqlRunSnapshot / parseGraphqlRunSnapshot', () => {

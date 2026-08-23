@@ -2,7 +2,7 @@
  * Wires GraphQL Studio keyboard shortcuts with current tab/connection state.
  */
 import { useGqlKeyboardShortcuts } from './useGqlKeyboardShortcuts';
-import type { SubscriptionState } from '../../../shared/types/graphql';
+import type { SubscriptionState } from '@shared/types/graphql';
 import type { ExecutionStatus } from './useGraphqlExecution';
 
 interface ShortcutsBridgeInput {

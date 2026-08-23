@@ -10,9 +10,9 @@
  * - Burst: Fire N requests as fast as possible
  */
 
-import type { RequestResult, WorkflowIterationTrace } from '../../../shared/types';
+import type { RequestResult, WorkflowIterationTrace } from '@shared/types';
 import { expandPayloadTemplate, type PayloadGeneratorContext } from './payloadTemplateEngine';
-import { toErrorMessage } from '../../../shared/utils/helpers';
+import { toErrorMessage } from '@shared/utils/helpers';
 
 export type WebhookRateMode = 'fixed' | 'ramp' | 'burst';
 

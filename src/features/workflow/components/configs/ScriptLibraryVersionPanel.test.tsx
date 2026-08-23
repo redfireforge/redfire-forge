@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ScriptLibraryVersionPanel from './ScriptLibraryVersionPanel';
-import type { ScriptLibrary, ScriptLibraryVersion } from '../../engine/scriptLibraries';
+import type { ScriptLibrary, ScriptLibraryVersion } from '@workflow/engine/scriptLibraries';
 
 const { diffPropsSpy } = vi.hoisted(() => ({ diffPropsSpy: vi.fn() }));
 
