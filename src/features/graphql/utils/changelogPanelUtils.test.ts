@@ -11,7 +11,7 @@ import {
   snapshotDisplayTitle,
   snapshotDisplaySubtitle,
 } from './changelogPanelUtils';
-import type { GraphqlSchemaSnapshot } from '../../../shared/types/graphql';
+import type { GraphqlSchemaSnapshot } from '@shared/types/graphql';
 
 const SDL = `
   type Query { health: String }

@@ -6,7 +6,7 @@ vi.mock('../../../shared/utils/platform', () => ({
 
 import { mapRustResult } from './rustBridge';
 import { RustExecutionResult } from './rustBridge';
-import { Scenario } from '../../../shared/types';
+import { Scenario } from '@shared/types';
 import { makeScenario as _makeScenario } from '../../../test-utils/factories';
 
 const SHOULD_RUN = process.env.PERF === '1';

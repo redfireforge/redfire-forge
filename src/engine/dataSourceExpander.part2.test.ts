@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { expandDataSource, resolveScenarioFromDataRow, expandDataSourceWithSubset, expandDataSourceForRows, resolveSharedDataSource, resolveSharedDataSources } from './dataSourceExpander';
-import { SharedDataSource } from '../shared/types';
+import { SharedDataSource } from '@shared/types';
 import { makeScenario, makeColumns, makeDataSource } from './__test-utils__/dataSourceExpanderHelpers';
 
 // ─── Subset Expansion Tests ───────────────────────────────────

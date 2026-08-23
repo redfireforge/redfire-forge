@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import AppModalFrame from '../../shared/components/AppModalFrame';
+import AppModalFrame from '@shared/components/AppModalFrame';
 import type {
   WsBackoffMultiplier,
   WsConnectionProfile,
   WsKeyValueEntry,
   WsProtocolMode,
-} from '../../shared/websocket/types';
-import { DEFAULT_BACKOFF_MULTIPLIER, resolveBackoffMultiplier } from '../../shared/websocket/types';
+} from '@shared/websocket/types';
+import { DEFAULT_BACKOFF_MULTIPLIER, resolveBackoffMultiplier } from '@shared/websocket/types';
 import { isValidWsUrl } from './wsMessageUtils';
 import { KeyValueEditor } from './KeyValueEditor';
-import { CustomSelect } from '../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 // ── Profile Editor Modal ─────────────────────────────────────────────
 

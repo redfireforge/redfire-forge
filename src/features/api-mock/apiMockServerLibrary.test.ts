@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { ApiMockServerDefinitionV1 } from '../../shared/api-mock/contracts';
-import { DEFAULT_SETTINGS } from '../../shared/api-mock/defaults';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
+import { DEFAULT_SETTINGS } from '@shared/api-mock/defaults';
 import {
   buildLibraryEntries,
   deleteServersFromLibrary,

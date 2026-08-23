@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { Environment, Microservice } from '../../shared/types';
+import type { Environment, Microservice } from '@shared/types';
 import {
   GQL_DEMO_ENV_NAME,
   GQL_DEMO_SVC_NAME,

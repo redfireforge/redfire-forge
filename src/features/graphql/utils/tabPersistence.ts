@@ -5,7 +5,7 @@
  * unit-tested independently of the React component tree.
  */
 
-import type { GraphqlAuth, GraphqlHeaderRow, GraphqlOperationTab, GraphqlSubscriptionAssertion } from '../../../shared/types/graphql';
+import type { GraphqlAuth, GraphqlHeaderRow, GraphqlOperationTab, GraphqlSubscriptionAssertion } from '@shared/types/graphql';
 import {
   idbClearPageAuthRaw,
   idbLoadPageAuthRaw,
@@ -14,9 +14,9 @@ import {
   idbMigrateTabsFromLocalStorage,
   idbSavePageAuthRaw,
   idbSaveTabsPersisted,
-} from '../../../shared/utils/idbGraphqlStudio';
-import { readKey, writeKey, removeKey } from '../../../shared/utils/storage';
-import { isTauri } from '../../../shared/utils/platform';
+} from '@shared/utils/idbGraphqlStudio';
+import { readKey, writeKey, removeKey } from '@shared/utils/storage';
+import { isTauri } from '@shared/utils/platform';
 import { makeHeaderId } from './headerUtils';
 import { buildModelUri, buildVarsModelUri } from './monacoGraphqlSetup';
 import { clampPollingIntervalSeconds } from './pollingIntervalUtils';

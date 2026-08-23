@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { saveFile } from '../../shared/utils/fileSaver';
+import { saveFile } from '@shared/utils/fileSaver';
 import { MAX_VERSIONS, type UseCatalogReturn } from '../../features/catalog/hooks/useCatalog';
 import {
   detectSpecFormat,

@@ -19,10 +19,10 @@ import type {
   CollectionRunTestResult,
   ScriptLogEntry,
   RfResponseContext,
-} from '../../../shared/types/graphql';
+} from '@shared/types/graphql';
 import { executeGraphqlOperation } from '../utils/executeGraphqlOperation';
 import { resolveGraphqlRequestOperationName } from '../utils/graphqlQueryParseUtils';
-import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
+import type { GqlTlsSettings } from '@shared/types/gqlTls';
 import {
   createRfContext,
   runPhaseScript,

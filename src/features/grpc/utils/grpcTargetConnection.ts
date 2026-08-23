@@ -1,8 +1,8 @@
 /**
  * gRPC Studio — Connect/Disconnect target probe helpers (Phase 1 mockup 01).
  */
-import { getGrpcStatus } from '../../../shared/grpc/grpcApiClient';
-import type { GrpcTargetConnectionSession } from '../../../shared/grpc/contracts';
+import { getGrpcStatus } from '@shared/grpc/grpcApiClient';
+import type { GrpcTargetConnectionSession } from '@shared/grpc/contracts';
 import type { GrpcTabConnectionResolution } from './resolveGrpcTabConnection';
 
 export const GRPC_DEFAULT_TARGET_PROBE_TIMEOUT_MS = 5_000;

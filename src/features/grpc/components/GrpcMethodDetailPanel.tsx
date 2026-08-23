@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { GrpcMethodInfo } from '../../../shared/grpc/contracts';
+import type { GrpcMethodInfo } from '@shared/grpc/contracts';
 import {
   findGrpcMethod,
   formatGrpcCallTypeLabel,

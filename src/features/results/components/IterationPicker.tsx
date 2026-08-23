@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { WorkflowIterationTrace } from '../../../shared/types';
-import { formatDurationMs } from '../../../shared/utils/formatDuration';
+import type { WorkflowIterationTrace } from '@shared/types';
+import { formatDurationMs } from '@shared/utils/formatDuration';
 
 type FilterMode = 'all' | 'failed' | 'slowest';
 

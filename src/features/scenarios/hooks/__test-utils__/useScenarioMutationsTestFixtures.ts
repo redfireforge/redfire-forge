@@ -11,7 +11,7 @@ import type {
   FeatureGroup,
   Scenario,
   TestDefinitionSnapshot,
-} from '../../../../shared/types';
+} from '@shared/types';
 import { useScenarioMutations } from '../useScenarioMutations';
 
 export function emptySnapshot(): TestDefinitionSnapshot {

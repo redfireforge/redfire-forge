@@ -1,14 +1,14 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import type { Scenario, FeatureGroup, KeyValue, GlobalAuthProfile, SharedDataSource, DataSource, AuthConfig, ScenarioActionType } from '../../../shared/types';
-import { isWsActionType } from '../../../shared/types';
-import { parseCurl } from '../../../shared/utils/curlParser';
-import { buildCurlCommand } from '../../../shared/utils/curlGenerator';
+import type { Scenario, FeatureGroup, KeyValue, GlobalAuthProfile, SharedDataSource, DataSource, AuthConfig, ScenarioActionType } from '@shared/types';
+import { isWsActionType } from '@shared/types';
+import { parseCurl } from '@shared/utils/curlParser';
+import { buildCurlCommand } from '@shared/utils/curlGenerator';
 import { parseQueryParams, rebuildUrl } from '../utils/testEditorUtils';
-import { toErrorMessage, formatJson } from '../../../shared/utils/helpers';
+import { toErrorMessage, formatJson } from '@shared/utils/helpers';
 import type { VersionExportOptions } from '../utils/scenarioImportExport';
 import TestDefinitionVersionDiff from './TestDefinitionVersionDiff';
 import { toParamEntries, fromParamEntries, type ParamEntry } from '../../requests/components/ParamsEditor';
-import { useToast } from '../../../shared/hooks/useToast';
+import { useToast } from '@shared/hooks/useToast';
 import { useAuthVerify } from '../../requests/hooks/useAuthVerify';
 import { useTestFetch } from '../hooks/useTestFetch';
 import DataSourceSetupModal from './DataSourceSetupModal';
@@ -19,8 +19,8 @@ import WorkflowEditorModalFrame from '../../workflow/components/modals/WorkflowE
 import type { ImportChoice, ExportChoice } from './ImportExportChoiceModal';
 import TestEditorModalHeaderActions from './TestEditorModalHeaderActions';
 import WsScenarioEditor from './WsScenarioEditor';
-import { createDefaultWsConnectAction, createDefaultWsSendAction, createDefaultWsReceiveAction } from '../../../shared/utils/wsScenarioDefaults';
-import { makeDefaultGrpcHarnessCallAction } from '../../../shared/utils/grpcHarnessScenarioContracts';
+import { createDefaultWsConnectAction, createDefaultWsSendAction, createDefaultWsReceiveAction } from '@shared/utils/wsScenarioDefaults';
+import { makeDefaultGrpcHarnessCallAction } from '@shared/utils/grpcHarnessScenarioContracts';
 import { createTestEditorExportHandler, createTestEditorImportHandler } from '../utils/testEditorModalImportExport';
 
 // emptyTest is imported directly from '../utils/testEditorUtils' by consumers

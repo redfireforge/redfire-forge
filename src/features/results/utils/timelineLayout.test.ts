@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { ExecutionEvent, WorkflowIterationTrace } from '../../../shared/types';
+import type { ExecutionEvent, WorkflowIterationTrace } from '@shared/types';
 import {
   buildTimelineBars,
   assignLanes,

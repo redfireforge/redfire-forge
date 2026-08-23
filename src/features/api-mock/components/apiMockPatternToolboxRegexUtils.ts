@@ -1,4 +1,4 @@
-import type { ApiMockPredicateV1 } from '../../../shared/api-mock/contracts';
+import type { ApiMockPredicateV1 } from '@shared/api-mock/contracts';
 
 export function testRegex(pattern: string, value: string, caseSensitive: boolean): boolean | 'invalid' {
   try {

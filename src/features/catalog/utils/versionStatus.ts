@@ -1,4 +1,4 @@
-import type { RequestCollection, RequestItem, RequestFolder } from '../../../shared/types';
+import type { RequestCollection, RequestItem, RequestFolder } from '@shared/types';
 import type { CatalogEndpoint } from '../types/catalog';
 
 export interface EndpointVersionInfo {

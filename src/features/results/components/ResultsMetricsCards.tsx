@@ -1,4 +1,4 @@
-import type { TestSummary, TestRun } from '../../../shared/types';
+import type { TestSummary, TestRun } from '@shared/types';
 
 interface Props {
   summary: TestSummary;

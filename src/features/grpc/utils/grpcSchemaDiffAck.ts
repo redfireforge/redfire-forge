@@ -1,8 +1,8 @@
 /**
  * Phase 11J — schema diff acknowledgement persistence (GraphQL parity).
  */
-import type { GrpcSchemaDiffChange } from '../../../shared/grpc/grpcSchemaDiffContracts';
-import { openDB } from '../../../shared/utils/idbOpen';
+import type { GrpcSchemaDiffChange } from '@shared/grpc/grpcSchemaDiffContracts';
+import { openDB } from '@shared/utils/idbOpen';
 
 export const GRPC_SCHEMA_DIFF_ACKS_IDB_STORE = 'grpc-schema-diff-acks';
 

@@ -6,7 +6,7 @@ vi.mock('./metrics', () => ({
 }));
 
 import { mergeRerunResults } from './rerunMerge';
-import type { TestRun, TestSummary, RequestResult } from '../shared/types';
+import type { TestRun, TestSummary, RequestResult } from '@shared/types';
 import { makeResult as _makeResult, makeSummary as _makeSummary } from '../test-utils/factories';
 
 const makeResult = (overrides: Parameters<typeof _makeResult>[0] = {}) =>

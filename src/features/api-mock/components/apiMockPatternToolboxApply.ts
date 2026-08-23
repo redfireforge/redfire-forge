@@ -1,5 +1,5 @@
-import type { ApiMockPathMatcherV1, ApiMockPredicateV1 } from '../../../shared/api-mock/contracts';
-import { validateSchemaDraft } from '../../../shared/api-mock/schemaDraftValidation';
+import type { ApiMockPathMatcherV1, ApiMockPredicateV1 } from '@shared/api-mock/contracts';
+import { validateSchemaDraft } from '@shared/api-mock/schemaDraftValidation';
 import type { ConstraintDraft, ToolTab } from './apiMockPatternToolboxConstants';
 
 export function applyPatternToolbox(input: {

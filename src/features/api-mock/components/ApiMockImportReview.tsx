@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ApiMockDiagnosticV1, ApiMockRouteFolderV1, ApiMockRouteV1 } from '../../../shared/api-mock/contracts';
-import { convertSourceToRule, type SourceRequest, type ConversionOptions } from '../../../shared/api-mock/sourceToRule';
+import type { ApiMockDiagnosticV1, ApiMockRouteFolderV1, ApiMockRouteV1 } from '@shared/api-mock/contracts';
+import { convertSourceToRule, type SourceRequest, type ConversionOptions } from '@shared/api-mock/sourceToRule';
 import {
   batchToRoutes,
   catalogEndpointsToSources,
@@ -8,11 +8,11 @@ import {
   parseOpenApiOperations,
   parseWireMockMappings,
   requestItemsToSources,
-} from '../../../shared/api-mock/importParsers';
-import { parseHarEntries } from '../../../shared/api-mock/harImport';
-import { loadCatalogEntries, loadRequests } from '../../../shared/utils/storage';
+} from '@shared/api-mock/importParsers';
+import { parseHarEntries } from '@shared/api-mock/harImport';
+import { loadCatalogEntries, loadRequests } from '@shared/utils/storage';
 import type { CatalogEndpoint } from '../../catalog/types/catalog';
-import type { RequestItem } from '../../../shared/types/requests';
+import type { RequestItem } from '@shared/types/requests';
 export type ApiMockImportSourceId = 'curl' | 'catalog' | 'requests' | 'openapi' | 'wiremock' | 'native' | 'har';
 
 interface ImportOptions {

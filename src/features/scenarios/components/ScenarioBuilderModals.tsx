@@ -1,4 +1,4 @@
-import type { Scenario, FeatureGroup, GlobalAuthProfile, SharedDataSource, DataSource, KeyValue, AuthConfig, TestDefinitionVersion } from '../../../shared/types';
+import type { Scenario, FeatureGroup, GlobalAuthProfile, SharedDataSource, DataSource, KeyValue, AuthConfig, TestDefinitionVersion } from '@shared/types';
 import type { MoveType, MoveTarget } from './MoveModal';
 import type { VersionExportOptions } from '../utils/scenarioImportExport';
 import type { PendingImport } from '../hooks/useScenarioExportImport';
@@ -9,7 +9,7 @@ import MoveModal from './MoveModal';
 import CsvImportModal from './CsvImportModal';
 import TestEditorModal from './TestEditorModal';
 import CopyTestModal from './CopyTestModal';
-import ConfirmModal from '../../../shared/components/ConfirmModal';
+import ConfirmModal from '@shared/components/ConfirmModal';
 import ImportVersionModal from './ImportVersionModal';
 import SharedDataSourceModal from './SharedDataSourceModal';
 import FromSharedDsPickerModal from './FromSharedDsPickerModal';

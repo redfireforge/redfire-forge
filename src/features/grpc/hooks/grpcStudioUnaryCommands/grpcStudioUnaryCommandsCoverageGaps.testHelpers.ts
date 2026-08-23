@@ -3,12 +3,12 @@ import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_DESCRIPTOR_KEY,
   FIXTURE_CANCEL_SUCCESS_ENVELOPE,
-} from '../../../../shared/grpc/contractFixtures';
+} from '@shared/grpc/contractFixtures';
 import {
   createEmptyTabDescriptorState,
   createGrpcStudioTab,
 } from '../../grpcStudioTypes';
-import * as grpcApiClient from '../../../../shared/grpc/grpcApiClient';
+import * as grpcApiClient from '@shared/grpc/grpcApiClient';
 import * as callHistoryCapture from '../../utils/grpcStudioCallHistoryCapture';
 import * as streamHelpers from '../grpcStreamSessionHelpers';
 import { createInitialSessionState } from '../grpcStudioSessionHelpers';

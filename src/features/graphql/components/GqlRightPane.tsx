@@ -15,7 +15,7 @@ import type {
   GraphqlSubscriptionMessage,
   SubscriptionState,
   SubscriptionStats,
-} from '../../../shared/types/graphql';
+} from '@shared/types/graphql';
 import type { DeprecatedFieldUsage } from '../utils/deprecatedFieldScanner';
 import { GraphqlResponseViewer } from './GraphqlResponseViewer';
 import type { GraphqlResponseViewerTab } from './GraphqlResponseViewer';

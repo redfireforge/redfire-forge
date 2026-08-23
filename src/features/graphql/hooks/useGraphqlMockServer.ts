@@ -13,16 +13,16 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { readKey, writeKey } from '../../../shared/utils/storage';
+import { readKey, writeKey } from '@shared/utils/storage';
 import { getProxyBase } from '../utils/graphqlProxyTransports';
 import { loadCachedGraphqlSchemaSdl } from '../utils/graphqlSchemaCache';
-import { isTauri } from '../../../shared/utils/platform';
+import { isTauri } from '@shared/utils/platform';
 import type {
   GraphqlMockConfig,
   MockResolver,
   MockScalarFactory,
   MockScenario,
-} from '../../../shared/types/graphql';
+} from '@shared/types/graphql';
 
 const MOCK_PROXY_BASE = getProxyBase();
 const DEBOUNCE_MS     = 300;

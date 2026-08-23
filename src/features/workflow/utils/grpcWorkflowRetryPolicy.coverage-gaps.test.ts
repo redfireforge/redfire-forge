@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { GrpcApiClientError } from '../../../shared/grpc/grpcApiClient';
+import { GrpcApiClientError } from '@shared/grpc/grpcApiClient';
 import {
   grpcWorkflowRetryDelayMs,
   isRetryableGrpcWorkflowStatus,

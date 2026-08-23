@@ -11,7 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import { resolveScenarioFromDataRow } from './dataSourceExpander';
 import { makeScenario } from './__test-utils__/dataSourceExpanderHelpers';
-import type { DataSourceColumn, DataSourceRow, Assertion } from '../shared/types';
+import type { DataSourceColumn, DataSourceRow, Assertion } from '@shared/types';
 
 function makeRow(id: string, values: Record<string, string>): DataSourceRow {
   return { id, values, enabled: true };

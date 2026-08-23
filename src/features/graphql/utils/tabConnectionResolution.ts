@@ -2,8 +2,8 @@
  * Phase 6F/6H — single source of truth for per-tab connection resolution.
  * Endpoint, auth, TLS, and polling inherit from tab → profile → page defaults.
  */
-import type { GraphqlAuth } from '../../../shared/types/graphql';
-import { buildTabTlsSettings, type GqlTlsSettings } from '../../../shared/types/gqlTls';
+import type { GraphqlAuth } from '@shared/types/graphql';
+import { buildTabTlsSettings, type GqlTlsSettings } from '@shared/types/gqlTls';
 import type { ConnectionProfile } from './connectionProfileStorage';
 import type { GqlStudioTab } from './tabPersistence';
 import { normalizeGraphqlEndpoint } from './graphqlEndpointUtils';

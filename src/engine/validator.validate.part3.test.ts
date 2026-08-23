@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { evaluateFieldOperator, evaluateAssertions, deepSubsetMatch, getJsonTypeName, compare, matchesStatusPattern, formatOp, resolveDate, toDayString, } from './validator';
 import { AssertionContext } from './validator';
-import { ComparisonOperator } from '../shared/types';
+import { ComparisonOperator } from '@shared/types';
 import { baseCtx } from './validator.validate.test-utils';
 
 // ---------------------------------------------------------------------------

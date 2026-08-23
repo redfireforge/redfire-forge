@@ -1,5 +1,5 @@
-import type { GrpcCallHistoryEntryV1 } from '../../../shared/grpc/grpcPersistenceSchema';
-import { isGrpcRedactedPersistValue } from '../../../shared/grpc/grpcSavedRequest';
+import type { GrpcCallHistoryEntryV1 } from '@shared/grpc/grpcPersistenceSchema';
+import { isGrpcRedactedPersistValue } from '@shared/grpc/grpcSavedRequest';
 
 export function sanitizeHistoryAuthForGrpcurl(
   auth: GrpcCallHistoryEntryV1['record']['snapshot']['auth'],

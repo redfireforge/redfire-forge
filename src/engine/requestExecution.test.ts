@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { Scenario } from '../shared/types';
+import { Scenario } from '@shared/types';
 import { executeWithRetry, runSequential, runBatch, runPool, clearPrepCache, buildErrorResult, withTimeout, resetResultIdCounter, nextResultId, type RunOpts } from './requestExecution';
 import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
@@ -9,7 +9,7 @@ vi.mock('../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
 }));
 
-import { httpFetch } from '../shared/utils/httpClient';
+import { httpFetch } from '@shared/utils/httpClient';
 const mockedFetch = vi.mocked(httpFetch);
 
 const makeScenario = (overrides: Partial<Scenario> = {}) =>

@@ -1,24 +1,24 @@
 import type { MutableRefObject } from 'react';
-import type { GrpcDescriptor, GrpcDescriptorSourceSelection } from '../../../shared/grpc/contracts';
+import type { GrpcDescriptor, GrpcDescriptorSourceSelection } from '@shared/grpc/contracts';
 import {
   createDefaultDescriptorSourceSelection,
   normalizeDescriptorSourceSelection,
   resolveDescriptorSourceFingerprint,
-} from '../../../shared/grpc/descriptorSourcePolicy';
-import { cancelGrpcUnary } from '../../../shared/grpc/grpcTransportFacade';
-import type { GrpcStudioTransportMode } from '../../../shared/grpc/grpcWebTransportContracts';
-import { validateGrpcAuthForExecute } from '../../../shared/grpc/grpcAuthPolicy';
-import { validateGrpcTlsConfigContract } from '../../../shared/grpc/grpcTlsPolicy';
-import { validateResolvedGrpcTargetAddress, withGrpcTargetValidationMessage } from '../../../shared/grpc/targetValidation';
-import { createGrpcInterpolationTemplateResolver } from '../../../shared/grpc/grpcInterpolationResolver';
+} from '@shared/grpc/descriptorSourcePolicy';
+import { cancelGrpcUnary } from '@shared/grpc/grpcTransportFacade';
+import type { GrpcStudioTransportMode } from '@shared/grpc/grpcWebTransportContracts';
+import { validateGrpcAuthForExecute } from '@shared/grpc/grpcAuthPolicy';
+import { validateGrpcTlsConfigContract } from '@shared/grpc/grpcTlsPolicy';
+import { validateResolvedGrpcTargetAddress, withGrpcTargetValidationMessage } from '@shared/grpc/targetValidation';
+import { createGrpcInterpolationTemplateResolver } from '@shared/grpc/grpcInterpolationResolver';
 import {
   mergeGrpcTabInterpolationEnv,
   resolveGrpcTabInterpolationEnvLayers,
-} from '../../../shared/grpc/grpcInterpolationPrecedence';
+} from '@shared/grpc/grpcInterpolationPrecedence';
 import {
   createGrpcInterpolationEnvSnapshot,
   type GrpcInterpolationEnvSnapshot,
-} from '../../../shared/grpc/grpcInterpolationEnvSnapshot';
+} from '@shared/grpc/grpcInterpolationEnvSnapshot';
 import {
   clearedGrpcStreamSessionPatch,
   createEmptyTabDescriptorState,
@@ -38,12 +38,12 @@ import {
   metadataEntriesFromRecord,
   validateGrpcMetadataEntries,
 } from '../utils/grpcMetadataEditor';
-import { sanitizeGrpcErrorMessage } from '../../../shared/grpc/grpcRedaction';
+import { sanitizeGrpcErrorMessage } from '@shared/grpc/grpcRedaction';
 import {
   redactGrpcStudioPayloadForConsumer,
   type GrpcRedactableStudioPayload,
-} from '../../../shared/grpc/grpcRedaction';
-import type { GrpcRedactionConsumer } from '../../../shared/grpc/grpcSecretPolicy';
+} from '@shared/grpc/grpcRedaction';
+import type { GrpcRedactionConsumer } from '@shared/grpc/grpcSecretPolicy';
 import {
   resolutionToGrpcTarget,
   resolveGrpcTabConnection,
@@ -51,8 +51,8 @@ import {
   type GrpcTabConnectionPageDefaults,
   type GrpcTabConnectionResolution,
 } from '../utils/resolveGrpcTabConnection';
-import { assertGrpcCanonicalEnvTokensValidForConnection, validateGrpcCanonicalEnvTokensForConnection } from '../../../shared/grpc/grpcCanonicalEnvValidation';
-import { validateGrpcInterpolationEnvCycles } from '../../../shared/grpc/grpcInterpolationCycleDetector';
+import { assertGrpcCanonicalEnvTokensValidForConnection, validateGrpcCanonicalEnvTokensForConnection } from '@shared/grpc/grpcCanonicalEnvValidation';
+import { validateGrpcInterpolationEnvCycles } from '@shared/grpc/grpcInterpolationCycleDetector';
 import { abortTabActiveStream, tabHasActiveStream } from './grpcStreamSessionHelpers';
 
 export interface GrpcStudioSessionState {

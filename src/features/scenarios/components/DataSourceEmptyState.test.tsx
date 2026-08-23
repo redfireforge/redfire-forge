@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import DataSourceEmptyState from './DataSourceEmptyState';
-import { Scenario } from '../../../shared/types';
+import { Scenario } from '@shared/types';
 
 // Mock the DataSourceSetupModal — expose apply for parameterize / configure branches
 vi.mock('./DataSourceSetupModal', () => ({

@@ -11,7 +11,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { resolveScenarioFromDataRow, expandDataSource } from './dataSourceExpander';
-import type { Scenario, DataSourceColumn, DataSourceRow, Assertion } from '../shared/types';
+import type { Scenario, DataSourceColumn, DataSourceRow, Assertion } from '@shared/types';
 
 // ---------------------------------------------------------------------------
 // Helpers

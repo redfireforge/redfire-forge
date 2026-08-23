@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { selectOptionByIndex, getCustomSelectOptionLabels } from '../../test-utils/customSelectHelper';
-import type { FeatureGroup } from '../../shared/types';
+import type { FeatureGroup } from '@shared/types';
 import ScenarioBuilder from './ScenarioBuilder';
 import type { ScenarioBuilderProps } from './scenarioBuilderTypes';
 

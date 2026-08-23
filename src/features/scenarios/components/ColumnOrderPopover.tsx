@@ -11,8 +11,8 @@
  */
 import { useState, useCallback, useEffect, useLayoutEffect, useRef, useMemo, type CSSProperties, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
-import { useModalResize } from '../../../shared/hooks/useModalResize';
-import ModalResizeHandles from '../../../shared/components/ModalResizeHandles';
+import { useModalResize } from '@shared/hooks/useModalResize';
+import ModalResizeHandles from '@shared/components/ModalResizeHandles';
 
 export interface OrderableItem {
   mapping: string;

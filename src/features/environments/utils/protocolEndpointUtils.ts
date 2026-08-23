@@ -1,5 +1,5 @@
-import type { Environment, Microservice, ProtocolEndpoint, ProtocolKey } from '../../../shared/types';
-import { buildEnvVarMap, httpToWsUrl, joinBaseAndPath } from '../../../shared/utils/envVarUtils';
+import type { Environment, Microservice, ProtocolEndpoint, ProtocolKey } from '@shared/types';
+import { buildEnvVarMap, httpToWsUrl, joinBaseAndPath } from '@shared/utils/envVarUtils';
 
 export type EndpointRowStatus = 'explicit' | 'fallback' | 'empty' | 'unresolved';
 

@@ -7,8 +7,8 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { GraphqlSubscriptionLog } from './GraphqlSubscriptionLog';
 import type { GraphqlSubscriptionLogProps } from './GraphqlSubscriptionLog';
-import type { GraphqlSubscriptionMessage, SubscriptionStats } from '../../../shared/types/graphql';
-import type { GraphqlSubscriptionAssertion } from '../../../shared/types/graphql';
+import type { GraphqlSubscriptionMessage, SubscriptionStats } from '@shared/types/graphql';
+import type { GraphqlSubscriptionAssertion } from '@shared/types/graphql';
 import { buildAssertionResultMap } from '../utils/subscriptionAssertions';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

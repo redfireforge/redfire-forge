@@ -1,4 +1,4 @@
-import type { CollectionRunEvent, ScriptLogEntry } from '../../../shared/types/graphql';
+import type { CollectionRunEvent, ScriptLogEntry } from '@shared/types/graphql';
 
 export type RunnerConsoleEntry = ScriptLogEntry & { itemName: string };
 

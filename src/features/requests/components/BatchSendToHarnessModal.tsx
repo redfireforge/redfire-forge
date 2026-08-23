@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from 'react';
-import { SWAGGER_METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
-import type { RequestCollection, Environment, Microservice } from '../../../shared/types';
-import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
+import { SWAGGER_METHOD_COLORS } from '@shared/constants/httpMethodColors';
+import type { RequestCollection, Environment, Microservice } from '@shared/types';
+import { useEscapeKey } from '@shared/hooks/useEscapeKey';
 import { collectAllRequestsFromCollection } from '../utils/requestTree';
 import { CascadeSelect } from './CascadeSelect';
 import HarnessOptionsGrid from './send-harness-shared/HarnessOptionsGrid';

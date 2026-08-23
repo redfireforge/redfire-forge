@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
-import { normalizeRequest } from '../../../shared/api-mock/requestNormalization';
-import { simulateSingle, simulateBatch } from '../../../shared/api-mock/simulation';
+import AppModalFrame from '@shared/components/AppModalFrame';
+import { normalizeRequest } from '@shared/api-mock/requestNormalization';
+import { simulateSingle, simulateBatch } from '@shared/api-mock/simulation';
 import { capturedRequestPath } from '../apiMockJournalActions';
 import { PlayIcon, DownloadIcon, CheckIcon } from './ApiMockIcons';
 import type {
   ApiMockServerDefinitionV1,
   ApiMockSimulationResultV1,
   ApiMockSimulationSampleV1,
-} from '../../../shared/api-mock/contracts';
+} from '@shared/api-mock/contracts';
 import {
   annotateSimulatePass,
   reannotateSimulatePass,

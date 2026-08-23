@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import type { FeatureGroup } from '../../../shared/types';
+import type { FeatureGroup } from '@shared/types';
 import { BUILT_IN_SCENARIO_TAGS, collectAllScenarioTags, countScenariosByTag, normalizeTag } from '../../../engine/dataSourceExpander';
 
 interface UseScenarioTagsResult {

@@ -17,7 +17,7 @@ import type {
   DataSource,
   DataSourceColumn,
   DataSourceRow,
-} from '../../../../shared/types';
+} from '@shared/types';
 
 // ─── Data fixtures ───────────────────────────────────────────────────
 

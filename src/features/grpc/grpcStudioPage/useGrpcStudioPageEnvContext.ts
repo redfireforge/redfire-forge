@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import type { Microservice } from '../../../shared/types';
-import { buildEnvVarMap } from '../../../shared/utils/envVarUtils';
+import type { Microservice } from '@shared/types';
+import { buildEnvVarMap } from '@shared/utils/envVarUtils';
 import { getRowStatus } from '../../environments/utils/protocolEndpointUtils';
 import { buildLegacyGrpcEnvVarMap } from '../utils/grpcStudioPageEnv';
 import type { GrpcTabConnectionPageDefaults } from '../utils/resolveGrpcTabConnection';

@@ -1,4 +1,4 @@
-import type { LoadProfileConfig, RequestResult, Scenario, ScenarioWeight } from '../shared/types';
+import type { LoadProfileConfig, RequestResult, Scenario, ScenarioWeight } from '@shared/types';
 import { executeWithRetry, prepareScenario, buildErrorResult, type RunOpts } from './requestExecution';
 import { applyThinkTime } from './thinkTime';
 

@@ -1,4 +1,4 @@
-import type { GlobalAuthProfile } from '../../shared/types';
+import type { GlobalAuthProfile } from '@shared/types';
 import type { EndpointRowStatus } from '../environments/utils/protocolEndpointUtils';
 import type {
   WsConnectionDraft,
@@ -8,7 +8,7 @@ import type {
   WsTlsConfig,
   WsConnectionHistoryEntry,
   WsProtocolMode,
-} from '../../shared/websocket/types';
+} from '@shared/websocket/types';
 import type { UseWebSocketProfilesReturn } from '../../app/hooks/useWebSocketProfiles';
 import type { UseWebSocketTemplatesReturn } from '../../app/hooks/useWebSocketTemplates';
 import type { ConnectionStateHint } from './WsConnectionTabBar';

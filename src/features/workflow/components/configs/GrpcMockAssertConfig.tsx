@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { GrpcMockAssertNodeData } from '../../types/workflow/node-grpc-advanced';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 export default function GrpcMockAssertConfig({
   data,

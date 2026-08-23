@@ -30,9 +30,9 @@ import {
   saveApiMockWorkspace,
   stashApiMockUserWorkspaceIfNeeded,
 } from './apiMockPersistence';
-import { DEFAULT_SETTINGS, createDefaultResponse } from '../../shared/api-mock/defaults';
-import type { ApiMockServerDefinitionV1 } from '../../shared/api-mock/contracts';
-import * as storage from '../../shared/utils/storage';
+import { DEFAULT_SETTINGS, createDefaultResponse } from '@shared/api-mock/defaults';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
+import * as storage from '@shared/utils/storage';
 
 const ts = '2026-08-12T00:00:00.000Z';
 

@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CustomSelect } from '../../shared/components/CustomSelect';
-import StandardProfessionalModal from '../../shared/components/StandardProfessionalModal';
-import type { WsMessageFormat, WsMessageTemplate } from '../../shared/websocket/types';
-import type { WsProtocolMode } from '../../shared/websocket/protocols/protocolTypes';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import StandardProfessionalModal from '@shared/components/StandardProfessionalModal';
+import type { WsMessageFormat, WsMessageTemplate } from '@shared/websocket/types';
+import type { WsProtocolMode } from '@shared/websocket/protocols/protocolTypes';
 import { isValidJson, isValidBase64 } from './wsMessageUtils';
-import { encodeSioEvent } from '../../shared/websocket/protocols/socketIoCodec';
-import { encodeStompFrame } from '../../shared/websocket/protocols/stompCodec';
-import { encodeGqlWsSubscribe } from '../../shared/websocket/protocols/graphqlWsCodec';
+import { encodeSioEvent } from '@shared/websocket/protocols/socketIoCodec';
+import { encodeStompFrame } from '@shared/websocket/protocols/stompCodec';
+import { encodeGqlWsSubscribe } from '@shared/websocket/protocols/graphqlWsCodec';
 
 export interface UseWebSocketSendOptions {
   isConnected: boolean;

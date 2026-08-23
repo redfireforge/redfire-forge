@@ -1,4 +1,4 @@
-import type { GrpcAuthConfig, GrpcTargetConnectionSession, GrpcTlsMode } from '../../../shared/grpc/contracts';
+import type { GrpcAuthConfig, GrpcTargetConnectionSession, GrpcTlsMode } from '@shared/grpc/contracts';
 
 export type GrpcConnectionDotModifier = 'idle' | 'connecting' | 'connected' | 'error';
 

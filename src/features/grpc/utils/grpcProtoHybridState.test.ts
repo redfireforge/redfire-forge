@@ -4,7 +4,7 @@ import {
   isGrpcProtoHybridEnabledForMethod,
   reduceGrpcProtoHybridState,
 } from './grpcProtoHybridState';
-import type { GrpcMethodInfo } from '../../../shared/grpc/contracts';
+import type { GrpcMethodInfo } from '@shared/grpc/contracts';
 
 const FIXTURE_UNARY_METHOD = {
   name: 'Echo',

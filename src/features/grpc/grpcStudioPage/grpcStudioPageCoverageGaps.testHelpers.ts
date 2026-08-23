@@ -3,8 +3,8 @@
  */
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import { beforeEach, vi } from 'vitest';
-import { setGrpcClientTransport } from '../../../shared/grpc/grpcApiClient';
-import { setGrpcStreamTransport } from '../../../shared/grpc/grpcStreamClient';
+import { setGrpcClientTransport } from '@shared/grpc/grpcApiClient';
+import { setGrpcStreamTransport } from '@shared/grpc/grpcStreamClient';
 import { clearGrpcStudioPersistence } from '../hooks/useGrpcStudioPersistence';
 import { resetGrpcTabCounterForTests } from '../grpcStudioTypes';
 import { resetGrpcTabSecretVaultForTests } from '../utils/grpcTabSecretVault';

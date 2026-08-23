@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from 'react';
 import type { ErrorHandlerNodeData, ErrorFilter, RetryBackoffStrategy } from '../../types/workflow';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import { KafkaCard, KafkaFormRow } from './KafkaConfigUi';
 
 const FILTER_OPTIONS: { value: ErrorFilter; label: string; desc: string }[] = [

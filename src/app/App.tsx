@@ -49,14 +49,14 @@ import WebhookDeliveryLogs from '../features/webhooks/WebhookDeliveryLogs';
 import { AppDiscoveryPanes } from './components/AppDiscoveryPanes';
 import { useWorkflows } from '../features/workflow/hooks/useWorkflows';
 import { useWorkflowFolders } from '../features/workflow/hooks/useWorkflowFolders';
-import { useToast } from '../shared/hooks/useToast';
+import { useToast } from '@shared/hooks/useToast';
 import {
   type Tab,
   readTabFromUrl,
 } from './utils/appTabUtils';
 import { useKafkaState } from './hooks/useKafkaState';
-import { loadWorkflowPreviews, getPreviewEntriesForPalette } from '../shared/utils/workflowPreviewStorage';
-import type { WorkflowPreviewEntry } from '../shared/utils/workflowPreviewStorage';
+import { loadWorkflowPreviews, getPreviewEntriesForPalette } from '@shared/utils/workflowPreviewStorage';
+import type { WorkflowPreviewEntry } from '@shared/utils/workflowPreviewStorage';
 import AppLoadingScreen from './components/AppLoadingScreen';
 import { useApiMockOpenInRequestsBridge } from './hooks/useApiMockOpenInRequestsBridge';
 import { useCatalogPreviewMigrations } from './hooks/useCatalogPreviewMigrations';

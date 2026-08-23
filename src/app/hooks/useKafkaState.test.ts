@@ -3,7 +3,7 @@
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import type { KafkaClusterConfig, KafkaTopicSummary } from '../../shared/kafka/kafkaConfig';
+import type { KafkaClusterConfig, KafkaTopicSummary } from '@shared/kafka/kafkaConfig';
 
 const mocks = vi.hoisted(() => ({
   loadKafkaAutoConnectOnStartup: vi.fn<() => Promise<boolean>>(),

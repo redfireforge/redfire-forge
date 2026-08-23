@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, RequestResult, TimingBreakdown } from '../../../shared/types';
-import { httpFetch } from '../../../shared/utils/httpClient';
-import { serializeWithContentType } from '../../../shared/utils/bodySerializer';
+import type { Scenario, RequestResult, TimingBreakdown } from '@shared/types';
+import { httpFetch } from '@shared/utils/httpClient';
+import { serializeWithContentType } from '@shared/utils/bodySerializer';
 import { buildHeaders, buildUrl } from '../../../engine/executor';
 import { validate, evaluateAssertions } from '../../../engine/validator';
 import { TokenManager } from '../../../engine/tokenManager';
@@ -10,7 +10,7 @@ import { VariableContext } from './variableContext';
 import { resolveScenario } from './resolveScenario';
 import { ensureAbsoluteUrlWithBase } from './absoluteUrl';
 import { extractVariables, type ResponseData } from './extractVariables';
-import { toErrorMessage } from '../../../shared/utils/helpers';
+import { toErrorMessage } from '@shared/utils/helpers';
 import type { RunOpts } from '../../../engine/requestExecution';
 
 export interface WorkflowProgress {

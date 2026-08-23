@@ -3,8 +3,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import type { GrpcSchemaDiffChange } from '../../../../shared/grpc/grpcSchemaDiffContracts';
-import { FIXTURE_DESCRIPTOR } from '../../../../shared/grpc/contractFixtures';
+import type { GrpcSchemaDiffChange } from '@shared/grpc/grpcSchemaDiffContracts';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
 import { buildAdvancedMock } from '../../test-helpers/grpcAdvancedPanel.testHelpers';
 import { GrpcSchemaDiffPanel } from '../GrpcSchemaDiffPanel';
 import { diffChange, makeReport, RICH_DESCRIPTOR } from './grpcSchemaDiffPanelCoverageGaps.testHelpers';

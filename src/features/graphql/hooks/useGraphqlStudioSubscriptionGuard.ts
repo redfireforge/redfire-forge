@@ -2,7 +2,7 @@
  * Subscription lifecycle: switch to response view on subscribe, disconnect on tab change.
  */
 import { useCallback, useEffect, useRef } from 'react';
-import type { SubscriptionState } from '../../../shared/types/graphql';
+import type { SubscriptionState } from '@shared/types/graphql';
 import type { GqlStudioTab } from '../utils/tabPersistence';
 
 interface SubscriptionGuardInput {

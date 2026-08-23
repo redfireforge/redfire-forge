@@ -7,14 +7,14 @@ import { render, screen, fireEvent, waitFor, within, act } from '@testing-librar
 import '@testing-library/jest-dom';
 import RequestEditor from './RequestEditor';
 import { ConsoleLine } from '../hooks/useResponseCache';
-import { RequestCollection, RequestItem, RequestEnv } from '../../../shared/types';
-import { httpFetch } from '../../../shared/utils/httpClient';
-import { serializeWithContentType } from '../../../shared/utils/bodySerializer';
-import { parseCurl } from '../../../shared/utils/curlParser';
-import { buildCurlCommand } from '../../../shared/utils/curlGenerator';
+import { RequestCollection, RequestItem, RequestEnv } from '@shared/types';
+import { httpFetch } from '@shared/utils/httpClient';
+import { serializeWithContentType } from '@shared/utils/bodySerializer';
+import { parseCurl } from '@shared/utils/curlParser';
+import { buildCurlCommand } from '@shared/utils/curlGenerator';
 import { pickJsonFile, unwrapImport } from '../../scenarios/utils/testEditorUtils';
-import { saveFile } from '../../../shared/utils/fileSaver';
-import { HttpResponse } from '../../../shared/utils/httpClient';
+import { saveFile } from '@shared/utils/fileSaver';
+import { HttpResponse } from '@shared/utils/httpClient';
 
 beforeAll(() => {
   Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {

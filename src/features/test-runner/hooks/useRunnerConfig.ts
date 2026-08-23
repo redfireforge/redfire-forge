@@ -3,9 +3,9 @@
  * Extracted from TestRunner.tsx to reduce component size and isolate config concerns.
  */
 import { useState, useEffect } from 'react';
-import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig, ArrivalRateConfig, KafkaResultsPublishConfig } from '../../../shared/types';
+import type { ExecutionMode, ErrorPolicy, LoadProfileConfig, ThinkTimeConfig, ArrivalRateConfig, KafkaResultsPublishConfig } from '@shared/types';
 import type { ApiMockTestFixtureConfig } from '../utils/apiMockTestFixture';
-import { saveRunnerConfig, loadRunnerConfig as loadRunnerConfigAsync } from '../../../shared/utils/storage';
+import { saveRunnerConfig, loadRunnerConfig as loadRunnerConfigAsync } from '@shared/utils/storage';
 import type { ReportOptions } from '../../results/utils/reportGenerator';
 import { defaultLoadProfile, defaultThinkTime, defaultConfig, resolveLoadedConfig } from './runnerConfigDefaults';
 import type { HostMode, UnorderedOverride } from './runnerConfigDefaults';

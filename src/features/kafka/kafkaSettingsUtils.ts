@@ -1,5 +1,5 @@
-import type { KafkaClusterConfig } from '../../shared/kafka/kafkaConfig';
-import type { KafkaUiSafeError } from '../../shared/kafka/kafkaClient';
+import type { KafkaClusterConfig } from '@shared/kafka/kafkaConfig';
+import type { KafkaUiSafeError } from '@shared/kafka/kafkaClient';
 import type { KafkaClusterDraft } from './kafkaClusterForm';
 
 const AUTH_MODE_LABELS = {

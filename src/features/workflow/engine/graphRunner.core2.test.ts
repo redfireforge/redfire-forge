@@ -10,14 +10,14 @@ import type {
   KafkaConsumeNodeData,
 } from '../types/workflow';
 import type { WsNodeOperations } from './graphRunnerNodeHandlerContext';
-import type { ExecutionTraceOptions } from '../../../shared/types';
+import type { ExecutionTraceOptions } from '@shared/types';
 
 vi.mock('../../../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
 }));
 
 import { runGraph } from './graphRunner';
-import { httpFetch } from '../../../shared/utils/httpClient';
+import { httpFetch } from '@shared/utils/httpClient';
 import { httpNode } from './graphRunnerNodeHandlers.test-utils';
 
 const mockFetch = vi.mocked(httpFetch);

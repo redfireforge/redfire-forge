@@ -4,8 +4,8 @@ import type {
   ApiMockPredicateV1,
   ApiMockRouteV1,
   ApiMockResponseVariantV1,
-} from '../../../shared/api-mock/contracts';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+} from '@shared/api-mock/contracts';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import { ApiMockPatternToolboxModal } from './ApiMockPatternToolboxModal';
 import { WandIcon } from './ApiMockIcons';
 

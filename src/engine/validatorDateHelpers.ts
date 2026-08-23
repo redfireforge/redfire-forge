@@ -1,4 +1,4 @@
-import type { DateReference } from '../shared/types';
+import type { DateReference } from '@shared/types';
 
 export function resolveDate(ref: DateReference): string {
   if (ref.kind === 'fixed') return ref.iso.slice(0, 10);

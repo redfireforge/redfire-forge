@@ -1,10 +1,10 @@
 /**
  * Phase 5F/5G — grpcurl import parser, export builder, and normalization.
  */
-import type { GrpcCallType, GrpcMethodInfo, GrpcTlsMode } from '../../../shared/grpc/contracts';
-import { normalizeGrpcMetadata } from '../../../shared/grpc/contracts';
-import { isGrpcRedactedPersistValue } from '../../../shared/grpc/grpcSavedRequest';
-import { isGrpcSecretMetadataKey } from '../../../shared/grpc/grpcSecretPolicy';
+import type { GrpcCallType, GrpcMethodInfo, GrpcTlsMode } from '@shared/grpc/contracts';
+import { normalizeGrpcMetadata } from '@shared/grpc/contracts';
+import { isGrpcRedactedPersistValue } from '@shared/grpc/grpcSavedRequest';
+import { isGrpcSecretMetadataKey } from '@shared/grpc/grpcSecretPolicy';
 import type {
   GrpcGrpcurlDescriptorFlags,
   GrpcGrpcurlExportOptions,

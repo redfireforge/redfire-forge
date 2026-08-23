@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MetadataTab, HeadersTab } from './GraphqlResponseViewerTabs';
-import type { GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlResponse } from '@shared/types/graphql';
 
 const baseResponse = (): GraphqlResponse => ({
   httpStatus: 200,

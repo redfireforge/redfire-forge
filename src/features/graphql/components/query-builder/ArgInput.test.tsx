@@ -6,9 +6,9 @@
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { selectOption, getCustomSelectValue, getCustomSelectOptionLabels } from '../../../../test-utils/customSelectHelper';
+import { selectOption, getCustomSelectOptionLabels } from '../../../../test-utils/customSelectHelper';
 import { ArgInput } from './ArgInput';
-import type { GraphqlTypeNode } from '../../../../shared/types/graphql';
+import type { GraphqlTypeNode } from '@shared/types/graphql';
 
 vi.mock('../../utils/queryBuilderGenerator', () => ({
   stripTypeModifiers: (t: string) => t.replace(/[![\]]/g, ''),

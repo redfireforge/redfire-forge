@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { Workflow, HttpNodeData, WorkflowHostProfile, WorkflowAuthProfile, WorkflowService, WorkflowServiceUrlMode, ServiceEndpoint, WorkflowNode } from '../types/workflow';
-import type { AuthConfig } from '../../../shared/types';
+import type { AuthConfig } from '@shared/types';
 
 // ── v1 → v2: Inline host/auth fields → hostProfiles / authProfiles ──
 

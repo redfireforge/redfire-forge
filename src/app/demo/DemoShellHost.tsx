@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import { createPortal } from 'react-dom';
-import type { Environment, GlobalAuthProfile, Microservice } from '../../shared/types';
+import type { Environment, GlobalAuthProfile, Microservice } from '@shared/types';
 import type { Tab } from '../utils/appTabUtils';
 import type { DemoHubApi } from './demoHubApi';
 import { syncDemoHubRuntimeRef, resetDemoHubRuntimeRef, DEMO_HUB_MOUNT_ID } from './demoHubRuntimeRef';

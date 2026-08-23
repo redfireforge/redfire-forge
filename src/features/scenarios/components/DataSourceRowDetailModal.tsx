@@ -1,17 +1,17 @@
 import { useState, useCallback, useMemo } from 'react';
 import WorkflowEditorModalFrame from '../../workflow/components/modals/WorkflowEditorModalFrame';
-import type { Scenario, DataSource, DataSourceColumn, DataSourceRow, ExpectedField } from '../../../shared/types';
-import type { HttpResponse } from '../../../shared/utils/httpClient';
+import type { Scenario, DataSource, DataSourceColumn, DataSourceRow, ExpectedField } from '@shared/types';
+import type { HttpResponse } from '@shared/utils/httpClient';
 import { resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
 import { proxyFetch, buildHeaders } from '../../../engine/executor';
 import { expandPatternFromResponse } from '../utils/dataSourceImport';
 import {
   DataMapperModal,
   createValidationAdapter,
-} from '../../../shared/components/data-mapper';
-import { prettyJson, toErrorMessage, tryParseJson } from '../../../shared/utils/helpers';
-import { getByPath, setByPath } from '../../../shared/utils/jsonPath';
-import type { ValidationAdapterOutput } from '../../../shared/components/data-mapper';
+} from '@shared/components/data-mapper';
+import { prettyJson, toErrorMessage, tryParseJson } from '@shared/utils/helpers';
+import { getByPath, setByPath } from '@shared/utils/jsonPath';
+import type { ValidationAdapterOutput } from '@shared/components/data-mapper';
 
 interface DataSourceRowDetailModalProps {
   draft: Scenario;

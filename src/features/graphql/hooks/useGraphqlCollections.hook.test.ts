@@ -50,12 +50,12 @@ import type {
   GraphqlCollectionFolder,
   GraphqlCollectionItem,
   GraphqlOperation,
-} from '../../../shared/types/graphql';
+} from '@shared/types/graphql';
 import {
   idbLoadCollections,
   idbLoadFolders,
   idbLoadItems,
-} from '../../../shared/utils/idbGraphqlCollections';
+} from '@shared/utils/idbGraphqlCollections';
 
 // ─── Factories ────────────────────────────────────────────────────────────────
 

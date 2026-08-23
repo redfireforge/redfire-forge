@@ -4,14 +4,14 @@
  */
 import { useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, DataSource, DataSourceRow } from '../../../shared/types';
+import type { Scenario, DataSource, DataSourceRow } from '@shared/types';
 import {
   parseCsvLine, parseColumnHeader, parseJsonImport,
   buildColumnsAndRowsFromParseResult, parseExcelSimple,
 } from '../utils/dataSourceImport';
 import { parseExcelToScenarios } from '../utils/csvTemplateExcel';
 import { createEmptyColumn } from '../utils/dataSourceUtils';
-import { tryParseJson } from '../../../shared/utils/helpers';
+import { tryParseJson } from '@shared/utils/helpers';
 
 interface UseDataSourceImportOptions {
   draft: Scenario;

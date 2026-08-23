@@ -1,8 +1,8 @@
 /**
  * Phase 6C / 9C — workflow runtime context for gRPC snapshot building.
  */
-import type { GrpcTlsConfig } from '../../../shared/grpc/contracts';
-import type { GlobalAuthProfile } from '../../../shared/types';
+import type { GrpcTlsConfig } from '@shared/grpc/contracts';
+import type { GlobalAuthProfile } from '@shared/types';
 import { loadGrpcConnectionProfilesFromStorage } from '../../../engine/grpcConnectionProfileHydration';
 import type { GrpcConnectionProfile, GrpcTabConnectionPageDefaults } from '../../grpc/utils/resolveGrpcTabConnection';
 import type { VariableContext } from '../engine/variableContext';
@@ -11,12 +11,12 @@ import type { GrpcWorkflowSnapshotBuildContext } from './grpcWorkflowSnapshotBui
 import {
   buildGrpcStudioInterpolationEnvLayers,
   mergeGrpcInterpolationEnvLayers,
-} from '../../../shared/grpc/grpcInterpolationPrecedence';
+} from '@shared/grpc/grpcInterpolationPrecedence';
 import {
   createGrpcInterpolationEnvSnapshot,
   type GrpcInterpolationEnvSnapshot,
-} from '../../../shared/grpc/grpcInterpolationEnvSnapshot';
-import { createGrpcWorkflowInterpolationResolver } from '../../../shared/grpc/grpcWorkflowInterpolationResolver';
+} from '@shared/grpc/grpcInterpolationEnvSnapshot';
+import { createGrpcWorkflowInterpolationResolver } from '@shared/grpc/grpcWorkflowInterpolationResolver';
 
 const DEFAULT_PAGE_TARGET = 'localhost:50051';
 

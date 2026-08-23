@@ -10,7 +10,7 @@ import {
   useGqlTabResponseCache,
 } from './useGqlTabResponseCache';
 import type { ApqInfo } from './useGraphqlExecution';
-import type { GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlResponse } from '@shared/types/graphql';
 
 function makeResponse(overrides: Partial<GraphqlResponse> = {}): GraphqlResponse {
   return {

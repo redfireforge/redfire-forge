@@ -14,8 +14,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { GraphqlSchemaInfo } from '../../../shared/types/graphql';
-import { gqlTlsSettingsFromPartial } from '../../../shared/types/gqlTls';
+import type { GraphqlSchemaInfo } from '@shared/types/graphql';
+import { gqlTlsSettingsFromPartial } from '@shared/types/gqlTls';
 import { gqlFetch } from '../utils/gqlFetch';
 import { INTROSPECTION_QUERY } from '../utils/graphqlIntrospectionQuery';
 import {

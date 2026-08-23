@@ -5,8 +5,8 @@
  * when custom TLS is active on desktop (no Node proxy on port 3001).
  */
 
-import type { HttpResponse } from '../../../shared/utils/httpClient';
-import { serializeGqlTlsForProxy, type GqlTlsSettings } from '../../../shared/types/gqlTls';
+import type { HttpResponse } from '@shared/utils/httpClient';
+import { serializeGqlTlsForProxy, type GqlTlsSettings } from '@shared/types/gqlTls';
 import { toHttpResponse } from './tauriGqlNativeFetch';
 
 export interface GqlNativeUploadPart {

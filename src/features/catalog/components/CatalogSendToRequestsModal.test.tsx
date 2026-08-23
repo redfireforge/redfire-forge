@@ -8,7 +8,7 @@ import '@testing-library/jest-dom';
 import { selectOption } from '../../../test-utils/customSelectHelper';
 import CatalogSendToRequestsModal from './CatalogSendToRequestsModal';
 import { makeEntry, makeFolder, makeEndpoint, makeServer } from './catalogTestFactories';
-import type { Environment, Microservice } from '../../../shared/types';
+import type { Environment, Microservice } from '@shared/types';
 import type { SavedEndpointValues } from '../types/catalog';
 
 const versionMapRef = vi.hoisted(() => ({ map: new Map<string, { status: string; exportedVersion?: string }>() }));

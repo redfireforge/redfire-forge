@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ApiMockLocalDiagnosticsV1 } from '../../../shared/api-mock/contracts';
+import type { ApiMockLocalDiagnosticsV1 } from '@shared/api-mock/contracts';
 import { apiMockControlClient } from '../apiMockControlClient';
 
 interface Props {

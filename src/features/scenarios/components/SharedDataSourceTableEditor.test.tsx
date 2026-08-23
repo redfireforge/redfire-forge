@@ -6,7 +6,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { selectOptionByIndex } from '../../../test-utils/customSelectHelper';
 import SharedDataSourceTableEditor from './SharedDataSourceTableEditor';
-import type { DataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
+import type { DataSource, DataSourceColumn, DataSourceRow } from '@shared/types';
 
 vi.mock('../utils/dataSourceUtils', () => ({
   createEmptyRow: (cols: DataSourceColumn[]): DataSourceRow => ({

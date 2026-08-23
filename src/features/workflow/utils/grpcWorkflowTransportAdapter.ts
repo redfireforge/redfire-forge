@@ -1,7 +1,7 @@
 /**
  * Phase 6B — workflow snapshot → gRPC transport request adapter.
  */
-import type { GrpcCallRequest, GrpcStreamStartRequest } from '../../../shared/grpc/contracts';
+import type { GrpcCallRequest, GrpcStreamStartRequest } from '@shared/grpc/contracts';
 import {
   snapshotToStreamStartRequest,
   snapshotToUnaryCallRequest,

@@ -30,7 +30,7 @@ vi.mock('../../data/galleries/catalog-specs', async (importOriginal) => {
 });
 
 import { GalleryPage, LOADED_SENTINEL } from './GalleryPage';
-import { gallerySampleHash } from '../../shared/utils/gallerySampleHash';
+import { gallerySampleHash } from '@shared/utils/gallerySampleHash';
 import { testSampleCatalog } from '../../data/galleries/tests';
 
 describe('GalleryPage', () => {

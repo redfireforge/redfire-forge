@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseImportedDataRows } from './testEditorModalImportExport';
-import type { DataSource } from '../../../shared/types';
+import type { DataSource } from '@shared/types';
 
 const dt: DataSource = {
   urlTemplate: 'https://api.example.com/{{id}}',

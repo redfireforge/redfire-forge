@@ -4,9 +4,9 @@ import { createClient } from 'graphql-ws';
 import { createClient as createSseClient } from 'graphql-sse';
 import { parse, visit } from 'graphql';
 import { gqlFetch } from './gqlFetch';
-import { gqlRequiresTlsProxy, buildTabTlsSettings, type GqlTlsSettings } from '../../../shared/types/gqlTls';
+import { gqlRequiresTlsProxy, buildTabTlsSettings, type GqlTlsSettings } from '@shared/types/gqlTls';
 import { buildAuthHeaders, buildConnectionParams } from './authUtils';
-import type { GraphqlResponse, GraphqlAuth, GraphqlError } from '../../../shared/types/graphql';
+import type { GraphqlResponse, GraphqlAuth, GraphqlError } from '@shared/types/graphql';
 import {
   createWsProxyTransport as _createWsProxyTransport,
   createSseProxyTransport as _createSseProxyTransport,

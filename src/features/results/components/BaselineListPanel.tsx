@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import type { TestRun } from '../../../shared/types';
+import type { TestRun } from '@shared/types';
 import type { BaselineMark } from '../utils/runBaselines';
 
 interface Props {

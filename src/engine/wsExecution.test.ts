@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { executeWsAction } from './wsExecution';
-import type { Scenario, WsConnectActionConfig, WsSendActionConfig, WsReceiveActionConfig } from '../shared/types';
+import type { Scenario, WsConnectActionConfig, WsSendActionConfig, WsReceiveActionConfig } from '@shared/types';
 import type { WsNodeOperations } from '../features/workflow/engine/graphRunnerNodeHandlerContext';
 import { resetResultIdCounter } from './requestExecution';
 import { makeScenario as _makeScenario } from '../test-utils/factories';

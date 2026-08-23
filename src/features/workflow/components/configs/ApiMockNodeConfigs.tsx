@@ -16,7 +16,7 @@ import {
   loadApiMockWorkspace,
   peekApiMockWorkspaceSnapshot,
 } from '../../../api-mock/apiMockPersistence';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import {
   GqlWfFormCard,
   GqlWfFormRow,

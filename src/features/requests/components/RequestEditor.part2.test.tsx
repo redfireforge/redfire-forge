@@ -7,12 +7,12 @@ import { render, screen, fireEvent, waitFor, within, act } from '@testing-librar
 import '@testing-library/jest-dom';
 import RequestEditor from './RequestEditor';
 import type { ConsoleLine } from '../hooks/useResponseCache';
-import type { RequestCollection, RequestItem, RequestEnv } from '../../../shared/types';
-import { httpFetch } from '../../../shared/utils/httpClient';
-import { serializeWithContentType } from '../../../shared/utils/bodySerializer';
-import { parseCurl } from '../../../shared/utils/curlParser';
-import { buildCurlCommand } from '../../../shared/utils/curlGenerator';
-import type { HttpResponse } from '../../../shared/utils/httpClient';
+import type { RequestCollection, RequestItem, RequestEnv } from '@shared/types';
+import { httpFetch } from '@shared/utils/httpClient';
+import { serializeWithContentType } from '@shared/utils/bodySerializer';
+import { parseCurl } from '@shared/utils/curlParser';
+import { buildCurlCommand } from '@shared/utils/curlGenerator';
+import type { HttpResponse } from '@shared/utils/httpClient';
 
 beforeAll(() => {
   Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
@@ -122,7 +122,7 @@ vi.mock('../../../shared/utils/applyAuthHeaders', () => ({
   applyAuthHeaders: vi.fn(),
 }));
 
-import { applyAuthHeaders } from '../../../shared/utils/applyAuthHeaders';
+import { applyAuthHeaders } from '@shared/utils/applyAuthHeaders';
 
 vi.mock('../../scenarios/utils/testEditorUtils', () => ({
   pickJsonFile: vi.fn(),

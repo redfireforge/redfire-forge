@@ -9,7 +9,7 @@ import type {
   WsLoadTestProgress,
   WsLoadTestResult,
   WsFrame,
-} from '../../shared/websocket/types';
+} from '@shared/websocket/types';
 import {
   createLatencyTracker,
   createThroughputSampler,

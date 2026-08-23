@@ -4,7 +4,7 @@
  * Extracted from component files to satisfy react-refresh/only-export-components.
  */
 
-import type { GraphqlTypeNode } from '../../../shared/types/graphql';
+import type { GraphqlTypeNode } from '@shared/types/graphql';
 
 // ─── Kind metadata ────────────────────────────────────────────────────────────
 

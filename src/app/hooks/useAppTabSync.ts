@@ -7,7 +7,7 @@ import {
   type Tab,
   writeTabToUrl,
 } from '../utils/appTabUtils';
-import { writeKey } from '../../shared/utils/storage';
+import { writeKey } from '@shared/utils/storage';
 
 /** Syncs tab side effects (URL, protocol memory, gallery reset, catalog modal reset). */
 export function useAppTabSync(

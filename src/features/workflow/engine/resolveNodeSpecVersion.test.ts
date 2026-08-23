@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { resolveNodeSpecVersion, detectNewerVersion } from './resolveNodeSpecVersion';
 import type { HttpNodeData } from '../types/workflow';
-import type { RequestItem, SpecVersion } from '../../../shared/types';
+import type { RequestItem, SpecVersion } from '@shared/types';
 
 function makeSpecVersion(overrides?: Partial<SpecVersion>): SpecVersion {
   return {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { ApiMockConflictFindingV1, ApiMockServerDefinitionV1, ApiMockSimulationSampleV1, ApiMockTransactionV1 } from '../../shared/api-mock/contracts';
+import type { ApiMockConflictFindingV1, ApiMockServerDefinitionV1, ApiMockSimulationSampleV1, ApiMockTransactionV1 } from '@shared/api-mock/contracts';
 import { setApiMockServerList } from './ApiMockServerListBridge';
 import { ApiMockStudioTitleBar } from './components/ApiMockStudioTitleBar';
 import { type ApiMockDockTab } from './components/ApiMockDock';
@@ -11,7 +11,7 @@ import { nextApiMockDemoServerName } from './apiMockDemoServers';
 import { apiMockControlClient } from './apiMockControlClient';
 import type { ScenarioStateSnapshot } from './apiMockControlClient';
 import type { ApiMockExportRequest } from './components/ApiMockWorkspaceNav';
-import type { ApiMockRouteFolderV1 } from '../../shared/api-mock/contracts';
+import type { ApiMockRouteFolderV1 } from '@shared/api-mock/contracts';
 import {
   applyRouteUpdate,
   buildRuntimeMaps,
@@ -47,7 +47,7 @@ import {
   transactionToSample,
 } from './apiMockJournalActions';
 import { useApiMockConsole } from './useApiMockConsole';
-import { analyzeConflicts } from '../../shared/api-mock/conflictAnalyzer';
+import { analyzeConflicts } from '@shared/api-mock/conflictAnalyzer';
 import { useConfirmDialog } from '../../app/hooks/useConfirmDialog';
 import { buildRuntimeActionBindings } from './apiMockRuntimeActionBindings';
 import { useApiMockRuntimeActions } from './useApiMockRuntimeActions';

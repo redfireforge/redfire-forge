@@ -1,5 +1,5 @@
-import type { RequestResult, TestSummary } from '../shared/types';
-import { percentile, round2 } from '../shared/utils/percentiles';
+import type { RequestResult, TestSummary } from '@shared/types';
+import { percentile, round2 } from '@shared/utils/percentiles';
 
 export function computeMetrics(results: RequestResult[], totalDurationMs: number): TestSummary {
   const activeResults = results.filter(r => !r.cancelled);

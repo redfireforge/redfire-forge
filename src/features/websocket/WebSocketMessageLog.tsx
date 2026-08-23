@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import type { WsFrame, WsReplaySpeed, WsMessageFormat, WsMessageTemplate } from '../../shared/websocket/types';
+import type { WsFrame, WsReplaySpeed, WsMessageFormat, WsMessageTemplate } from '@shared/websocket/types';
 import type { WsDirectionFilter, WsSearchMode, WsSizeFilter, WsTimeFilter, WsContentTypeFilter } from './useWebSocketStudioTypes';
 import { WebSocketMessageDetail } from './WebSocketMessageDetail';
 import { useDropdownClose } from './useDropdownClose';
-import type { WsProtocolMode } from '../../shared/websocket/protocols/protocolTypes';
+import type { WsProtocolMode } from '@shared/websocket/protocols/protocolTypes';
 import { useWebSocketSend } from './useWebSocketSend';
 import { useWebSocketMessageDiff } from './useWebSocketMessageDiff';
-import { saveJsonFile } from '../../shared/utils/fileSaver';
+import { saveJsonFile } from '@shared/utils/fileSaver';
 import type { WsMetricsSnapshot } from './useWebSocketMetrics';
 import { WebSocketStatsPanel } from './WebSocketStatsPanel';
 import { WebSocketMessageDiff } from './WebSocketMessageDiff';

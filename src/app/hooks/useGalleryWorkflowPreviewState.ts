@@ -4,7 +4,7 @@ import type { Workflow } from '../../features/workflow/types/workflow';
 import type { WorkflowHook } from '../../features/workflow/hooks/useWorkflows';
 import { sampleWorkflowCatalog } from '../../data/galleries/workflows';
 import { getAutoLayoutNodes } from '../../features/workflow/utils/workflowAutoLayout';
-import { loadPreviewSampleId, savePreviewSampleId } from '../../shared/utils/storage';
+import { loadPreviewSampleId, savePreviewSampleId } from '@shared/utils/storage';
 
 function buildInitialPreviewWorkflow(): Workflow | null {
   const savedId = loadPreviewSampleId();

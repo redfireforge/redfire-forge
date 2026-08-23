@@ -2,7 +2,7 @@
  * Phase 11 — graphRunner handlers for API Mock lifecycle + assert nodes.
  */
 import type { WorkflowNode } from '../types/workflow';
-import { apiMockControlBase } from '../../../shared/api-mock/controlBase';
+import { apiMockControlBase } from '@shared/api-mock/controlBase';
 import type {
   ApiMockApplyNodeData,
   ApiMockAssertCallsNodeData,
@@ -24,10 +24,10 @@ import { isolateApiMockServerId, resolveApiMockDefinition } from '../utils/apiMo
 import { listApiMockServersForRun, registerApiMockServerForRun } from '../utils/apiMockRunIsolation';
 import { buildCombinedResolver } from './graphRunnerHelpers';
 import { nextResultId } from '../../../engine/requestExecution';
-import type { RequestResult } from '../../../shared/types';
-import { toErrorMessage } from '../../../shared/utils/helpers';
-import { httpFetch } from '../../../shared/utils/httpClient';
-import { isTauri } from '../../../shared/utils/platform';
+import type { RequestResult } from '@shared/types';
+import { toErrorMessage } from '@shared/utils/helpers';
+import { httpFetch } from '@shared/utils/httpClient';
+import { isTauri } from '@shared/utils/platform';
 
 type ApiMockTransport =
   | 'apiMockStart'

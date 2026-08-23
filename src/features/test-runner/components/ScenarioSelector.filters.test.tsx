@@ -4,7 +4,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ScenarioSelector from './ScenarioSelector';
 import { defaultProps } from './ScenarioSelector.test.utils';
-import type { FeatureGroup } from '../../../shared/types';
+import type { FeatureGroup } from '@shared/types';
 
 describe('ScenarioSelector - Filters', () => {
   describe('kind filter', () => {

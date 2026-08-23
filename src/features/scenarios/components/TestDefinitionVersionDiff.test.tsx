@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import TestDefinitionVersionDiff from './TestDefinitionVersionDiff';
-import type { TestDefinitionVersion, TestDefinitionSnapshot } from '../../../shared/types';
+import type { TestDefinitionVersion, TestDefinitionSnapshot } from '@shared/types';
 
 vi.mock('json-diff-kit', () => ({
   Differ: class {

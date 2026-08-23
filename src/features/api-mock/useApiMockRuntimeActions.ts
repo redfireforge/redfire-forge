@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import type { ApiMockServerDefinitionV1 } from '../../shared/api-mock/contracts';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
 import { apiMockControlClient } from './apiMockControlClient';
 import { parsePortOwnerServerId } from './apiMockPageHelpers';
 import type { RuntimeInfo } from './apiMockStudioFactory';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FIXTURE_DESCRIPTOR } from '../../../shared/grpc/contractFixtures';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
 import { buildGrpcurlInvokeCommand, formatGrpcMethodSignature } from './grpcGrpcurl';
 
 describe('grpcGrpcurl', () => {

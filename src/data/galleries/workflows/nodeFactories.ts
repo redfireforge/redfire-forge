@@ -7,7 +7,7 @@
  */
 
 import type { WorkflowNode, SetVariableAssignment } from '../../../features/workflow/types/workflow';
-import type { Extraction } from '../../../shared/types';
+import type { Extraction } from '@shared/types';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 

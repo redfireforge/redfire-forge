@@ -1,6 +1,6 @@
 // ── Kafka nodes ─────────────────────────────────────
 
-import type { KafkaSchemaConfig } from '../../../../shared/kafka/kafkaClient';
+import type { KafkaSchemaConfig } from '@shared/kafka/kafkaClient';
 
 export type KafkaAckMode = 'all' | 'leader' | 'none';
 export type KafkaConsumeStartPosition = 'latest' | 'earliest' | 'committed';

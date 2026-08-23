@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Scenario, TestConfig, ScenarioWeight, LoadProfileConfig } from '../shared/types';
+import { Scenario, TestConfig, ScenarioWeight, LoadProfileConfig } from '@shared/types';
 import { runSequential, runBatch, runPool, type RunOpts } from './requestExecution';
 import { runLoadProfile } from './loadProfileRunner';
 import { TokenManager } from './tokenManager';
@@ -11,7 +11,7 @@ vi.mock('../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
 }));
 
-import { httpFetch } from '../shared/utils/httpClient';
+import { httpFetch } from '@shared/utils/httpClient';
 const mockedFetch = vi.mocked(httpFetch);
 
 const makeScenario = (id = 's1'): Scenario =>

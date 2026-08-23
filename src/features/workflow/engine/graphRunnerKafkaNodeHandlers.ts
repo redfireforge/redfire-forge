@@ -4,8 +4,8 @@
  */
 import type { WorkflowNode, KafkaProduceNodeData, KafkaConsumeNodeData, KafkaNodeMetadataBinding } from '../types/workflow';
 import type { NodeHandlerContext, PassedFlag, KafkaConsumedMessage } from './graphRunnerNodeHandlerContext';
-import type { RequestResult, KafkaFailureClass, KafkaResultMeta, CapturedKafkaNodeDetails } from '../../../shared/types';
-import { toErrorMessage, truncate } from '../../../shared/utils/helpers';
+import type { RequestResult, KafkaFailureClass, KafkaResultMeta, CapturedKafkaNodeDetails } from '@shared/types';
+import { toErrorMessage, truncate } from '@shared/utils/helpers';
 import { waitWithAbort } from './correlationWaitHelpers';
 import { nextResultId } from '../../../engine/requestExecution';
 

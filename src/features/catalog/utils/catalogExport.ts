@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { RequestCollection, RequestItem, RequestFolder, KeyValue, CatalogRequestMeta, SpecVersion } from '../../../shared/types';
+import type { RequestCollection, RequestItem, RequestFolder, KeyValue, CatalogRequestMeta, SpecVersion } from '@shared/types';
 import type { CatalogEndpoint, CatalogServer, SavedEndpointValues } from '../types/catalog';
 import { extractServerPathPrefix } from './catalogCurlGenerator';
 

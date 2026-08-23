@@ -12,9 +12,9 @@
 import React from 'react';
 import { vi } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
-import type { WorkflowExecutionTrace } from '../../../../shared/types';
+import type { WorkflowExecutionTrace } from '@shared/types';
 import type { BottleneckInsight } from '../../utils/bottleneckAnalysis';
-import type { MappingTrace } from '../../../../shared/components/data-mapper/utils/mappingTrace';
+import type { MappingTrace } from '@shared/components/data-mapper/utils/mappingTrace';
 import type { ForkJoinTopology } from '../../utils/forkJoinDetection';
 
 // ─── Ref containers passed in by individual test files ─────────────────

@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { GraphqlBatchResults } from './GraphqlBatchResults';
-import type { GraphqlBatchResult } from '../../../shared/types/graphql';
+import type { GraphqlBatchResult } from '@shared/types/graphql';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

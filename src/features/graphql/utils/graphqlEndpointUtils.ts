@@ -1,5 +1,5 @@
-import { isTauri } from '../../../shared/utils/platform';
-import { preferLocalhostHostname, resolveLoopbackUrl } from '../../../shared/utils/loopbackUrl';
+import { isTauri } from '@shared/utils/platform';
+import { preferLocalhostHostname, resolveLoopbackUrl } from '@shared/utils/loopbackUrl';
 
 /** True when the URL targets the desktop GraphQL mock proxy route. */
 export function isGraphqlMockEndpoint(url: string | undefined | null): boolean {

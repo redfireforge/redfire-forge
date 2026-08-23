@@ -1,4 +1,4 @@
-import type { GrpcStreamLifecycle } from '../../../shared/grpc/streamLifecycle';
+import type { GrpcStreamLifecycle } from '@shared/grpc/streamLifecycle';
 
 export interface GrpcStreamStatusBarProps {
   lifecycle: GrpcStreamLifecycle;

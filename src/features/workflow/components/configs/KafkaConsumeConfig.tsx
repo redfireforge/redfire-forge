@@ -2,14 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { v4 as uuid } from 'uuid';
 import type { KafkaConsumeLoadTestBehavior, KafkaConsumeNodeData, KafkaConsumeStartPosition, KafkaNodeMetadataBinding } from '../../types/workflow';
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
-import { useListCrud } from '../../../../shared/hooks/useListCrud';
+import { useListCrud } from '@shared/hooks/useListCrud';
 import InsertVarField from '../expression/InsertVarField';
 import ExpressionInput from '../expression/ExpressionInput';
 import AvailableVariables from '../expression/AvailableVariables';
 import KafkaSchemaConfigSection from './KafkaSchemaConfigSection';
 import { createHeaderFilter, createJsonPathFilter } from './kafkaConfigFactories';
 import { KafkaAddButton, KafkaCard, KafkaEmptyState, KafkaFormRow } from './KafkaConfigUi';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 const START_OPTIONS: { value: KafkaConsumeStartPosition; label: string }[] = [
   { value: 'latest', label: 'Latest' },

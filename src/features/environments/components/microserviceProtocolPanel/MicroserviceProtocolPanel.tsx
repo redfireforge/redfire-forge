@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ProtocolKey } from '../../../../shared/types';
+import type { ProtocolKey } from '@shared/types';
 import { DerivedVarsPanel } from '../DerivedVarsPanel';
 import {
   PROTOCOL_TABS,

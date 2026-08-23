@@ -1,7 +1,7 @@
 /**
  * Phase 11N — validators for advanced gRPC workflow nodes.
  */
-import { assertGrpcLoadTestConfig } from '../../../shared/grpc/grpcAdvancedFeatureContracts';
+import { assertGrpcLoadTestConfig } from '@shared/grpc/grpcAdvancedFeatureContracts';
 import type {
   GrpcLoadTestNodeData,
   GrpcMockAssertNodeData,

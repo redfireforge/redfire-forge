@@ -14,7 +14,7 @@ import {
   endDemoAppSidebarSession,
   DEMO_SIDEBAR_PIN_KEY,
   DEMO_SIDEBAR_SESSION_KEY,
-} from '../../shared/demoAppSidebarSession';
+} from '@shared/demoAppSidebarSession';
 
 function useSidebarHarness(initialCollapsed = false) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(initialCollapsed);

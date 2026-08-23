@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
 import type { UseGrpcStudioAdvancedFeaturesReturn } from '../hooks/useGrpcStudioAdvancedFeatures';
-import { isTauri } from '../../../shared/utils/platform';
+import { isTauri } from '@shared/utils/platform';
 import {
   invokeGrpcNativeDiagnosticsNative,
   type GrpcNativeTauriDiagnosticsError,
-} from '../../../shared/grpc/grpcNativeTauriDiagnostics';
-import type { GrpcTauriNativeDiagnosticsResult } from '../../../shared/grpc/grpcTauriContracts';
+} from '@shared/grpc/grpcNativeTauriDiagnostics';
+import type { GrpcTauriNativeDiagnosticsResult } from '@shared/grpc/grpcTauriContracts';
 
 export interface GrpcNativeDiagnosticsPanelProps {
   advanced: UseGrpcStudioAdvancedFeaturesReturn;

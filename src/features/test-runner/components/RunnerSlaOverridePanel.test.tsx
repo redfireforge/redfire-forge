@@ -9,7 +9,7 @@ import {
   getCustomSelectOptionLabels,
 } from '../../../test-utils/customSelectHelper';
 import RunnerSlaOverridePanel from './RunnerSlaOverridePanel';
-import type { SlaTarget } from '../../../shared/types';
+import type { SlaTarget } from '@shared/types';
 
 function makeTarget(overrides?: Partial<SlaTarget>): SlaTarget {
   return {

@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { FieldTableRow } from './FieldTableRow';
-import type { GraphqlFieldNode } from '../../../../shared/types/graphql';
+import type { GraphqlFieldNode } from '@shared/types/graphql';
 
 function makeField(overrides: Partial<GraphqlFieldNode> = {}): GraphqlFieldNode {
   return {

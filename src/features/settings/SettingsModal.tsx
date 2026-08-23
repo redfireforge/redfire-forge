@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { CustomSelect } from '../../shared/components/CustomSelect';
-import type { GlobalAuthProfile, AuthType, Environment, Microservice, FeatureGroup } from '../../shared/types';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import type { GlobalAuthProfile, AuthType, Environment, Microservice, FeatureGroup } from '@shared/types';
 import { useAuthVerify } from '../requests/hooks/useAuthVerify';
-import { getStorageUsage, getMaxRuns } from '../../shared/utils/storage';
+import { getStorageUsage, getMaxRuns } from '@shared/utils/storage';
 import SettingsStorageTab from './SettingsStorageTab';
 import SettingsExportImportTab from './SettingsExportImportTab';
 import AuditLogPanel from '../audit/components/AuditLogPanel';

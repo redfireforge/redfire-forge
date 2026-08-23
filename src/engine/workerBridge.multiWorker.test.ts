@@ -6,7 +6,7 @@
  * `__test-utils__/workerBridgeMocks.ts`.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { TestConfig, LoadProfileConfig, Scenario } from '../shared/types';
+import type { TestConfig, LoadProfileConfig, Scenario } from '@shared/types';
 import type { MainToWorkerMessage } from './workerProtocol';
 import {
   createWorkerCtor,
@@ -28,8 +28,8 @@ const tracker: WorkerTracker = { current: undefined, all: [] };
 vi.stubGlobal('Worker', createWorkerCtor(tracker));
 
 import { runTestMultiWorker } from './workerBridge';
-import { httpFetch } from '../shared/utils/httpClient';
-import { isTauri } from '../shared/utils/platform';
+import { httpFetch } from '@shared/utils/httpClient';
+import { isTauri } from '@shared/utils/platform';
 
 const mockedHttpFetch = vi.mocked(httpFetch);
 const mockedIsTauri = vi.mocked(isTauri);

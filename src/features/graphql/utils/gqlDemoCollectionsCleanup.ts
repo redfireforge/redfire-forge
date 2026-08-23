@@ -2,13 +2,13 @@
  * Demo Hub GQL-9 (Collections & History) storage hygiene.
  * Removes lesson artifacts that accumulate in IndexedDB across repeated demo runs.
  */
-import { idbClearHistory, idbLoadHistory } from '../../../shared/utils/idbGraphqlHistory';
+import { idbClearHistory, idbLoadHistory } from '@shared/utils/idbGraphqlHistory';
 import {
   idbDeleteCollection,
   idbDeleteItem,
   idbLoadCollections,
   idbLoadItems,
-} from '../../../shared/utils/idbGraphqlCollections';
+} from '@shared/utils/idbGraphqlCollections';
 import { normalizeGraphqlEndpoint } from './graphqlEndpointUtils';
 
 export const GQL_COLLECTIONS_RELOAD_EVENT = 'gql-collections-reload';

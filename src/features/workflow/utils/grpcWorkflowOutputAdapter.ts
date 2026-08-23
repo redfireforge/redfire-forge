@@ -10,7 +10,7 @@
  */
 import type { GrpcWorkflowStepResult } from '../types/workflow/node-grpc';
 import type { GrpcNodeStatusMeta } from '../types/workflow/node-grpc';
-import { truncate } from '../../../shared/utils/helpers';
+import { truncate } from '@shared/utils/helpers';
 
 const MAX_BODY_PREVIEW = 512;
 

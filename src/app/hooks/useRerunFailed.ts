@@ -3,13 +3,13 @@
  * Extracted from App.tsx to reduce component size.
  */
 import { useState, useCallback } from 'react';
-import type { FeatureGroup, GlobalAuthProfile, Scenario, TestConfig, TestRun, AuthConfig } from '../../shared/types';
+import type { FeatureGroup, GlobalAuthProfile, Scenario, TestConfig, TestRun, AuthConfig } from '@shared/types';
 import { expandDataSourceForRows } from '../../engine/dataSourceExpander';
 import { runTest } from '../../engine/executor';
 import { mergeRerunResults } from '../../engine/rerunMerge';
 import { resolveAuth } from '../../features/requests/utils/authResolver';
-import { replaceHost } from '../../shared/utils/urlUtils';
-import { updateTestRun } from '../../shared/utils/storage';
+import { replaceHost } from '@shared/utils/urlUtils';
+import { updateTestRun } from '@shared/utils/storage';
 
 interface UseRerunFailedOptions {
   featureGroups: FeatureGroup[];

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Environment } from '../../shared/types';
+import type { Environment } from '@shared/types';
 
 interface Deps {
   setEnvironments: React.Dispatch<React.SetStateAction<Environment[]>>;

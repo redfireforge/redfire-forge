@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Scenario } from '../../../shared/types';
+import type { Scenario } from '@shared/types';
 import { fetchScenarioSample } from './fetchScenarioSample';
 
 vi.mock('../../../shared/utils/httpClient', () => ({
@@ -14,7 +14,7 @@ vi.mock('../../../engine/tokenManager', () => ({
   },
 }));
 
-import { httpFetch } from '../../../shared/utils/httpClient';
+import { httpFetch } from '@shared/utils/httpClient';
 
 const mockFetch = vi.mocked(httpFetch);
 

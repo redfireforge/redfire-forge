@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { Scenario, TestScenario, FeatureGroup, GlobalAuthProfile, AuthConfig } from '../../../shared/types';
+import type { Scenario, TestScenario, FeatureGroup, GlobalAuthProfile, AuthConfig } from '@shared/types';
 import {
   SCENARIO_AUTH_TYPE_OPTIONS,
   buildFeatureAuthTypeOptions,

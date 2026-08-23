@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GRPC_REDACTED_PLACEHOLDER } from '../../../shared/grpc/grpcRedaction';
+import { GRPC_REDACTED_PLACEHOLDER } from '@shared/grpc/grpcRedaction';
 import {
   authFieldHasStoredValue,
   buildMaskedFieldsFromVaultHydration,

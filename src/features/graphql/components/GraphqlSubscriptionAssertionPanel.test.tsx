@@ -11,7 +11,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { selectOption, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
 import { GraphqlSubscriptionAssertionPanel } from './GraphqlSubscriptionAssertionPanel';
-import type { GraphqlSubscriptionAssertion } from '../../../shared/types/graphql';
+import type { GraphqlSubscriptionAssertion } from '@shared/types/graphql';
 
 function makeAssertion(overrides: Partial<GraphqlSubscriptionAssertion> = {}): GraphqlSubscriptionAssertion {
   return {

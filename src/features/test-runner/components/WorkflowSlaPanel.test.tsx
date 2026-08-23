@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import WorkflowSlaPanel from './WorkflowSlaPanel';
-import type { SlaTarget } from '../../../shared/types';
+import type { SlaTarget } from '@shared/types';
 
 // Capture the props the editor was last rendered with so tests can invoke its callbacks.
 let lastEditorProps: {

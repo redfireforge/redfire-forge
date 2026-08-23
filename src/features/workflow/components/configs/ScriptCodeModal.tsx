@@ -8,13 +8,13 @@ import { SCRIPT_MODE_OPTIONS, useScriptTest } from './useScriptTest';
 import WorkflowEditorModalFrame from '../modals/WorkflowEditorModalFrame';
 import JsonPreview, { buildJTree, collectJTreePaths } from '../../../requests/components/JsonTreePreview';
 import type { JNode } from '../../../requests/components/JsonTreePreview';
-import { useDebounce } from '../../../../shared/hooks/useDebounce';
-import { useSplitterDrag } from '../../../../shared/hooks/useSplitterDrag';
-import { prettyJson, isValidJson } from '../../../../shared/utils/helpers';
-import { SearchMatchBar } from '../../../../shared/components/SearchMatchBar';
-import { useSearchMatchNavigation } from '../../../../shared/hooks/useSearchMatchNavigation';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
-import { useJsonTreeCollapseState } from '../../../../shared/hooks/useJsonTreeCollapseState';
+import { useDebounce } from '@shared/hooks/useDebounce';
+import { useSplitterDrag } from '@shared/hooks/useSplitterDrag';
+import { prettyJson, isValidJson } from '@shared/utils/helpers';
+import { SearchMatchBar } from '@shared/components/SearchMatchBar';
+import { useSearchMatchNavigation } from '@shared/hooks/useSearchMatchNavigation';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import { useJsonTreeCollapseState } from '@shared/hooks/useJsonTreeCollapseState';
 
 const collectAllPaths = collectJTreePaths;
 

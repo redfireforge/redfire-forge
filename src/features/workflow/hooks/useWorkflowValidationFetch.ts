@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect, useRef, type MutableRefObject } from 'react';
-import type { Scenario, FailureDetail } from '../../../shared/types';
-import type { FetchErrorDetail } from '../../../shared/components/data-mapper/types';
-import { MapperFetchError } from '../../../shared/components/data-mapper/types';
+import type { Scenario, FailureDetail } from '@shared/types';
+import type { FetchErrorDetail } from '@shared/components/data-mapper/types';
+import { MapperFetchError } from '@shared/components/data-mapper/types';
 import { validate, evaluateAssertions, type AssertionContext } from '../../../engine/validator';
 import { fetchScenarioSample } from '../engine/fetchScenarioSample';
-import { prettyJson, parseJsonOrRaw, isValidJson, toErrorMessage } from '../../../shared/utils/helpers';
-import { getByPath } from '../../../shared/utils/jsonPath';
+import { prettyJson, parseJsonOrRaw, isValidJson, toErrorMessage } from '@shared/utils/helpers';
+import { getByPath } from '@shared/utils/jsonPath';
 import { createResponseVersion, createRulesVersion } from '../../scenarios/utils/versionFactory';
 import { hasActiveRules, hasAssertions, hasExpectedFields, hasSampleJson, getExpectedFields, checkValidationScopeGuards } from '../../scenarios/utils/validationHelpers';
 import { jsonEqual } from '../../scenarios/utils/testEditorUtils';

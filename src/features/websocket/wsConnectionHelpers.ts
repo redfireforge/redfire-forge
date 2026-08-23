@@ -7,9 +7,9 @@
 import {
   type WsFrame,
   createFrame,
-} from '../../shared/websocket/types';
-import type { WsProtocolMode, WsProtocolDetectionResult } from '../../shared/websocket/protocols/protocolTypes';
-import { detectProtocol } from '../../shared/websocket/protocols/protocolDetector';
+} from '@shared/websocket/types';
+import type { WsProtocolMode, WsProtocolDetectionResult } from '@shared/websocket/protocols/protocolTypes';
+import { detectProtocol } from '@shared/websocket/protocols/protocolDetector';
 
 /**
  * Parse a comma-separated subprotocols string into a trimmed, non-empty array.

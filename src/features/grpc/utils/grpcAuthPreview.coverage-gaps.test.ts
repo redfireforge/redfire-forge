@@ -16,7 +16,7 @@ vi.mock('../../../shared/grpc/grpcAuthPolicy', async (importOriginal) => {
   };
 });
 
-import { buildGrpcOAuth2PreviewMetadata, mergeGrpcExecuteMetadata } from '../../../shared/grpc/grpcAuthPolicy';
+import { buildGrpcOAuth2PreviewMetadata, mergeGrpcExecuteMetadata } from '@shared/grpc/grpcAuthPolicy';
 
 describe('grpcAuthPreview coverage gaps', () => {
   beforeEach(async () => {

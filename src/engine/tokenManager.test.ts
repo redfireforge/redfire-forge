@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { AuthConfig, Scenario } from '../shared/types';
+import type { AuthConfig, Scenario } from '@shared/types';
 import { TokenManager } from './tokenManager';
 import { makeScenario as _makeScenario } from '../test-utils/factories';
 
@@ -7,7 +7,7 @@ vi.mock('../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
 }));
 
-import { httpFetch } from '../shared/utils/httpClient';
+import { httpFetch } from '@shared/utils/httpClient';
 
 const mockedFetch = vi.mocked(httpFetch);
 

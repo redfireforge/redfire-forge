@@ -6,7 +6,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { selectOption } from '../../test-utils/customSelectHelper';
 import { WebSocketMockServer, WebSocketMockRulesPane, useMockServerUi } from './WebSocketMockServer';
 import type { UseWebSocketMockServerReturn } from './useWebSocketMockServer';
-import type { WsMockRule, WsMockLogEntry } from '../../shared/websocket/types';
+import type { WsMockRule, WsMockLogEntry } from '@shared/websocket/types';
 
 function makeMockReturn(overrides: Partial<UseWebSocketMockServerReturn> = {}): UseWebSocketMockServerReturn {
   return {

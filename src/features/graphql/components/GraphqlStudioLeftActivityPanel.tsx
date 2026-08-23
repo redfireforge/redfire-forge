@@ -8,7 +8,7 @@ import type {
   GraphqlHistoryItem,
   GraphqlSchemaInfo,
   GraphqlStudioActivityTab,
-} from '../../../shared/types/graphql';
+} from '@shared/types/graphql';
 import { GraphqlHistoryPanel } from './GraphqlHistoryPanel';
 import { GraphqlMockPanel } from './GraphqlMockPanel';
 import { GraphqlCollections } from './GraphqlCollections';

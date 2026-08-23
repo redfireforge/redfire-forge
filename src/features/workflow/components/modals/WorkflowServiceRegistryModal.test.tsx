@@ -9,7 +9,7 @@ import WorkflowServiceRegistryModal, {
   authSummary,
 } from './WorkflowServiceRegistryModal';
 import type { WorkflowService, ServiceEndpoint } from '../../types/workflow';
-import type { Environment, GlobalAuthProfile, Microservice } from '../../../../shared/types';
+import type { Environment, GlobalAuthProfile, Microservice } from '@shared/types';
 import { emptyAuthState } from '../../../requests/utils/requestAuthState';
 
 vi.mock('./WorkflowEditorModalFrame', () => ({

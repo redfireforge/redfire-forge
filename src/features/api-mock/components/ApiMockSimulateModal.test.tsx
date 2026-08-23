@@ -5,8 +5,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ApiMockSimulateModal } from './ApiMockSimulateModal';
-import { DEFAULT_SETTINGS, createDefaultResponse } from '../../../shared/api-mock/defaults';
-import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
+import { DEFAULT_SETTINGS, createDefaultResponse } from '@shared/api-mock/defaults';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
 
 const ts = '2026-08-12T00:00:00.000Z';
 

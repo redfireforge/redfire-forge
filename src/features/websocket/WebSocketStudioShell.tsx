@@ -5,9 +5,9 @@ import {
   type WsStudioMode,
   type WsLeftTab,
   type WsRightTab,
-} from '../../shared/websocket/types';
-import { useSplitPaneResize } from '../../shared/hooks/useSplitPaneResize';
-import { handleTabListArrowKeys } from '../../shared/utils/tabListKeyboard';
+} from '@shared/websocket/types';
+import { useSplitPaneResize } from '@shared/hooks/useSplitPaneResize';
+import { handleTabListArrowKeys } from '@shared/utils/tabListKeyboard';
 
 const WS_SPLIT_STORAGE_KEY = 'redfire-ws-split-v1';
 

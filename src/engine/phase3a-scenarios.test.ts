@@ -8,7 +8,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { buildValidationResult, type ValidationInput } from './validationResult';
-import type { Assertion } from '../shared/types';
+import type { Assertion } from '@shared/types';
 
 const POST_1 = {
   userId: 1,

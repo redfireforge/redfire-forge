@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import type { GraphqlSchemaInfo } from '../../../../shared/types/graphql';
+import type { GraphqlSchemaInfo } from '@shared/types/graphql';
 import type { BuilderState, FieldPath } from '../../hooks/useGraphqlQueryBuilder';
 import {
   findType,

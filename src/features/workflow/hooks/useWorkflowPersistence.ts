@@ -10,7 +10,7 @@ import type {
   WorkflowAuthProfile,
   Workflow,
 } from '../types/workflow';
-import type { SlaTarget } from '../../../shared/types';
+import type { SlaTarget } from '@shared/types';
 import type { WorkflowRFNode, WorkflowRFEdge } from '../utils/workflowNodeFactory';
 import type { useNodeClipboard } from './useNodeClipboard';
 import type { useUndoRedo } from './useUndoRedo';

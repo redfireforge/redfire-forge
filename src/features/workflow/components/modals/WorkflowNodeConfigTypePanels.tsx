@@ -45,7 +45,7 @@ import VariablesSection from '../panels/VariablesSection';
 import StartConfig from '../configs/StartConfig';
 import { KafkaCard } from '../configs/KafkaConfigUi';
 import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionEditor';
-import type { Environment, GlobalAuthProfile } from '../../../../shared/types';
+import type { Environment, GlobalAuthProfile } from '@shared/types';
 import type {
   WorkflowNode,
   HttpNodeData,

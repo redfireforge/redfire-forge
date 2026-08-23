@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getTargetConcurrency } from './loadProfileRunner';
-import type { LoadProfileConfig } from '../shared/types';
+import type { LoadProfileConfig } from '@shared/types';
 
 function makeProfile(overrides: Partial<LoadProfileConfig> = {}): LoadProfileConfig {
   return {

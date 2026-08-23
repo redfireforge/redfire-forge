@@ -1,4 +1,4 @@
-import type { WsMessageTemplate } from '../../shared/websocket/types';
+import type { WsMessageTemplate } from '@shared/websocket/types';
 
 export function formatStorageError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);

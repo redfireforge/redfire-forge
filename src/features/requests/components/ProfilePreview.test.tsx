@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { ProfilePreview } from './ProfilePreview';
-import type { LoadProfileConfig } from '../../../shared/types';
+import type { LoadProfileConfig } from '@shared/types';
 
 vi.mock('../../../engine/executor', () => ({
   getTargetConcurrency: vi.fn().mockReturnValue(5),

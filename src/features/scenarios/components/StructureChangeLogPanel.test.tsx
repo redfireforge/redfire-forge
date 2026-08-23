@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/react';
 import StructureChangeLogPanel from './StructureChangeLogPanel';
-import type { StructureChangeEntry } from '../../../shared/types';
+import type { StructureChangeEntry } from '@shared/types';
 
 function makeEntry(overrides?: Partial<StructureChangeEntry>): StructureChangeEntry {
   return {

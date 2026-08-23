@@ -1,6 +1,6 @@
 /** Full-width history entry preview (request / variables / response tabs). */
 import { useEffect, useState, type ReactNode } from 'react';
-import type { GraphqlHistoryItem } from '../../../shared/types/graphql';
+import type { GraphqlHistoryItem } from '@shared/types/graphql';
 import { buildHistoryPreviewData } from '../utils/historyItemParse';
 
 export interface GraphqlHistoryPreviewPanelProps {

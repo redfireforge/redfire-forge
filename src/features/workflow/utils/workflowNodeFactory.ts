@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { Node, Edge } from '@xyflow/react';
-import type { Scenario } from '../../../shared/types';
+import type { Scenario } from '@shared/types';
 import type {
   WorkflowNode,
   WorkflowNodeType,
