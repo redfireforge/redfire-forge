@@ -469,13 +469,13 @@ All existing test gallery entries use HTTP transport. The following protocol tes
 
 ### 4a. GraphQL Request Samples (add to `galleries/requests/presets.ts`)
 
-All 13 current request entries are HTTP REST. A GraphQL query is technically a POST request, so it fits naturally in the requests gallery.
+All 13 original request entries were HTTP REST. A GraphQL query is technically a POST request, so it fits naturally in the requests gallery. `RequestCategory` extended with `'graphql'`.
 
-**3 planned entries:**
+**3 planned entries (✅ implemented):**
 
 ---
 
-#### RQ-GQL-01 · GraphQL Introspection Query (Easy)
+#### RQ-GQL-01 · GraphQL Introspection Query (Easy) ✅
 - **ID:** `req-graphql-introspect`
 - **Name:** `GraphQL Introspection`
 - **Category:** graphql
@@ -485,10 +485,11 @@ All 13 current request entries are HTTP REST. A GraphQL query is technically a P
 - **Method:** POST
 - **Body:** `{ "query": "{ __typename }" }`
 - **Tags:** `graphql`, `introspection`, `post`
+- **Validation:** status 200, `$.data` exists, `$.errors` absent
 
 ---
 
-#### RQ-GQL-02 · GraphQL Query — Country Info (Easy)
+#### RQ-GQL-02 · GraphQL Query — Country Info (Easy) ✅
 - **ID:** `req-graphql-country`
 - **Name:** `GraphQL: Country Info`
 - **Category:** graphql
@@ -502,17 +503,19 @@ All 13 current request entries are HTTP REST. A GraphQL query is technically a P
   }
   ```
 - **Tags:** `graphql`, `query`, `country`
+- **Validation:** status 200, `$.data.country` exists, name matches regex `.+`
 
 ---
 
-#### RQ-GQL-03 · GraphQL Mutation (Medium)
+#### RQ-GQL-03 · GraphQL Mutation (Medium) ✅
 - **ID:** `req-graphql-mutation`
-- **Name:** `GraphQL: Create Post Mutation`
+- **Name:** `GraphQL: Add Post Mutation`
 - **Category:** graphql
 - **Difficulty:** medium
-- **Description:** A mutation that creates a post via the DummyJSON GraphQL endpoint.
-- **URL:** `https://dummyjson.com/graphql` (or equivalent)
+- **Description:** A mutation that creates a post via the GraphQLZero endpoint.
+- **URL:** `https://graphqlzero.almansi.me/api` (changed from `dummyjson.com` — GraphQLZero has a stable public mutation API)
 - **Tags:** `graphql`, `mutation`, `create`
+- **Validation:** status 200, `$.data.createPost.id` exists, `$.errors` absent
 
 ---
 
@@ -520,22 +523,22 @@ All 13 current request entries are HTTP REST. A GraphQL query is technically a P
 
 ### 5a. GraphQL Assertions (add to `galleries/assertion-presets/presets.ts` + `index.ts`)
 
-**2 planned entries:**
+**2 planned entries (✅ implemented):**
 
 ---
 
-#### AP-GQL-01 · GraphQL No Errors Guard (Easy)
+#### AP-GQL-01 · GraphQL No Errors Guard (Easy) ✅
 - **ID:** `preset-graphql-no-errors`
 - **Name:** `GraphQL No Errors Guard`
 - **Category:** api-validation
 - **Difficulty:** easy
-- **Description:** Two assertions: verify `$.errors` does not exist, verify `$.data` exists.
-- **Assertion Types:** `existence`
+- **Description:** Three assertions: status 200, `$.errors` absent, `$.data` exists.
+- **Assertion Types:** `status`, `existence`
 - **Tags:** `graphql`, `errors`, `contract`
 
 ---
 
-#### AP-GQL-02 · GraphQL Data Shape (Medium)
+#### AP-GQL-02 · GraphQL Data Shape (Medium) ✅
 - **ID:** `preset-graphql-data-shape`
 - **Name:** `GraphQL Data Shape`
 - **Category:** data-quality
@@ -598,8 +601,8 @@ Phase C — Test Gallery Samples (2-3 days)
   C5. Write unit tests for each new preset file
 
 Phase D — Requests + Assertions + API Mock Samples (2-3 days)
-  D1. Add GraphQL request entries to galleries/requests/presets.ts (RQ-GQL-01 → RQ-GQL-03)
-  D2. Add GraphQL + gRPC assertion entries to galleries/assertion-presets/presets.ts + index.ts
+  D1. ✅ Add GraphQL request entries to galleries/requests/presets.ts (RQ-GQL-01 → RQ-GQL-03)
+  D2. ✅ Add GraphQL assertion entries to galleries/assertion-presets/presets.ts + index.ts
   D3. ✅ Add createAuthGatedMock() to galleries/api-mock/presets-matching.ts (AM-AUTH-01)
   D4. ✅ Add createGraphQLMock() to galleries/api-mock/presets-matching.ts (AM-GQL-01)
   D5. ✅ Create galleries/api-mock/presets-state.ts with order flow sample (AM-STATE-01)

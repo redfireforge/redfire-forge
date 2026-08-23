@@ -7,6 +7,8 @@ export {
   createApiContractAssertions,
   createDataTypeGuardAssertions,
   createRequiredFieldsAssertions,
+  createGraphQLNoErrorsAssertions,
+  createGraphQLDataShapeAssertions,
 } from './presets';
 
 import type { AssertionPresetEntry } from './types';
@@ -18,6 +20,8 @@ import {
   createApiContractAssertions,
   createDataTypeGuardAssertions,
   createRequiredFieldsAssertions,
+  createGraphQLNoErrorsAssertions,
+  createGraphQLDataShapeAssertions,
 } from './presets';
 
 export const ASSERTION_PRESET_CATEGORIES: { key: AssertionPresetEntry['category'] | 'all'; label: string }[] = [
@@ -125,5 +129,33 @@ export const assertionPresetCatalog: AssertionPresetEntry[] = [
     assertionCount: 4,
     assertionTypes: ['existence'],
     factory: createRequiredFieldsAssertions,
+  },
+  {
+    id: 'preset-graphql-no-errors',
+    domain: 'assertions',
+    name: 'GraphQL No Errors Guard',
+    description: 'Assert the response returns 200, $.data exists, and $.errors is absent — the baseline GraphQL contract',
+    icon: '⬡',
+    category: 'api-validation',
+    difficulty: 'easy',
+    tags: ['graphql', 'errors', 'contract', 'existence'],
+    liveApis: ['countries.trevorblades.com'],
+    assertionCount: 3,
+    assertionTypes: ['status', 'existence'],
+    factory: createGraphQLNoErrorsAssertions,
+  },
+  {
+    id: 'preset-graphql-data-shape',
+    domain: 'assertions',
+    name: 'GraphQL Data Shape',
+    description: 'Validate $.data is present, $.data.user.id is numeric, and $.data.user.email matches email regex',
+    icon: '📐',
+    category: 'data-quality',
+    difficulty: 'medium',
+    tags: ['graphql', 'data', 'type', 'shape', 'regex'],
+    liveApis: [],
+    assertionCount: 3,
+    assertionTypes: ['existence', 'typeCheck', 'regex'],
+    factory: createGraphQLDataShapeAssertions,
   },
 ];

@@ -271,3 +271,71 @@ export function createMultiEnvProductLookupScenario(): Scenario {
     },
   });
 }
+
+// ─── 14. GraphQL Introspection (Easy) ────────────────────────────────────────
+
+export function createGraphQLIntrospectScenario(): Scenario {
+  return scenario({
+    id: 'req-graphql-introspect',
+    name: 'GraphQL Introspection',
+    url: 'https://countries.trevorblades.com/graphql',
+    method: 'POST',
+    headers: [{ key: 'Content-Type', value: 'application/json' }],
+    body: JSON.stringify({ query: '{ __typename }' }),
+    bodyType: 'json',
+    validation: {
+      mode: 'full',
+      assertions: [
+        { type: 'status', expected: '200' },
+        { type: 'existence', jsonPath: '$.data', expectExists: true },
+        { type: 'existence', jsonPath: '$.errors', expectExists: false },
+      ],
+    },
+  });
+}
+
+// ─── 15. GraphQL Query — Country Info (Easy) ─────────────────────────────────
+
+export function createGraphQLCountryQueryScenario(): Scenario {
+  return scenario({
+    id: 'req-graphql-country',
+    name: 'GraphQL: Country Info',
+    url: 'https://countries.trevorblades.com/graphql',
+    method: 'POST',
+    headers: [{ key: 'Content-Type', value: 'application/json' }],
+    body: JSON.stringify({ query: '{ country(code: "US") { name capital currency } }' }),
+    bodyType: 'json',
+    validation: {
+      mode: 'full',
+      assertions: [
+        { type: 'status', expected: '200' },
+        { type: 'existence', jsonPath: '$.data.country', expectExists: true },
+        { type: 'regex', jsonPath: '$.data.country.name', pattern: '.+' },
+      ],
+    },
+  });
+}
+
+// ─── 16. GraphQL Mutation (Medium) ───────────────────────────────────────────
+
+export function createGraphQLMutationScenario(): Scenario {
+  return scenario({
+    id: 'req-graphql-mutation',
+    name: 'GraphQL: Add Post Mutation',
+    url: 'https://graphqlzero.almansi.me/api',
+    method: 'POST',
+    headers: [{ key: 'Content-Type', value: 'application/json' }],
+    body: JSON.stringify({
+      query: 'mutation { createPost(input: { title: "Hello from RedfireForge", body: "Testing mutation", userId: 1 }) { id title } }',
+    }),
+    bodyType: 'json',
+    validation: {
+      mode: 'full',
+      assertions: [
+        { type: 'status', expected: '200' },
+        { type: 'existence', jsonPath: '$.data.createPost.id', expectExists: true },
+        { type: 'existence', jsonPath: '$.errors', expectExists: false },
+      ],
+    },
+  });
+}
