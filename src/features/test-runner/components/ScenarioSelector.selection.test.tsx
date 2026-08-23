@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOptionByIndex } from '../../../test-utils/customSelectHelper';
+import { selectOptionByIndex } from '@test-utils/customSelectHelper';
 import '@testing-library/jest-dom';
 import ScenarioSelector from './ScenarioSelector';
 import { defaultProps } from './ScenarioSelector.test.utils';

@@ -6,7 +6,7 @@ import { executeKafkaAction } from './kafkaExecution';
 import { evaluateAssertions, type AssertionContext } from './validator';
 import type { Scenario, Assertion } from '@shared/types';
 import type { KafkaNodeOperations } from '@workflow/engine/graphRunnerNodeHandlerContext';
-import { makeScenario as _makeScenario } from '../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 // ---------------------------------------------------------------------------
 // Helpers

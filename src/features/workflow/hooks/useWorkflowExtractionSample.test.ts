@@ -9,7 +9,7 @@ import { useWorkflowExtractionSample } from './useWorkflowExtractionSample';
 vi.mock('../engine/fetchScenarioSample', () => ({
   fetchScenarioSample: vi.fn(),
 }));
-import { fetchScenarioSample } from '../engine/fetchScenarioSample';
+import { fetchScenarioSample } from '@workflow/engine/fetchScenarioSample';
 
 const mockedFetch = vi.mocked(fetchScenarioSample);
 

@@ -5,7 +5,7 @@ import {
   buildFeatureAuthTypeOptions,
   resolveEffectiveAuth,
 } from './scenarioBuilderUtils';
-import { makeScenario as _makeScenario, makeTestScenario as _makeTestScenario } from '../../../test-utils/factories';
+import { makeScenario as _makeScenario, makeTestScenario as _makeTestScenario } from '@test-utils/factories';
 
 function auth(type: AuthConfig['type']): AuthConfig {
   return { type } as AuthConfig;

@@ -6,7 +6,7 @@ import * as grpcTlsPolicy from './grpcTlsPolicy';
 import * as grpcAuthPolicy from './grpcAuthPolicy';
 import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from './contractFixtures';
 import type { Scenario } from '../types';
-import { makeScenario as _makeScenario } from '../../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 import {
   buildGrpcHarnessExecuteSnapshot,
   grpcHarnessExecuteSnapshotTransportFingerprint,

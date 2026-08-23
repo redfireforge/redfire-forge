@@ -6,7 +6,7 @@
 import { useState } from 'react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { selectOption, getCustomSelectOptionLabels } from '../../../../test-utils/customSelectHelper';
+import { selectOption, getCustomSelectOptionLabels } from '@test-utils/customSelectHelper';
 import KafkaSchemaConfigSection from './KafkaSchemaConfigSection';
 import type { KafkaSchemaConfig } from '@shared/kafka/kafkaClient';
 import * as kafkaClientModule from '@shared/kafka/kafkaClient';

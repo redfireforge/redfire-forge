@@ -9,7 +9,7 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
+import { selectOption, getCustomSelectValue } from '@test-utils/customSelectHelper';
 import { GraphqlSubscriptionAssertionPanel } from './GraphqlSubscriptionAssertionPanel';
 import type { GraphqlSubscriptionAssertion } from '@shared/types/graphql';
 

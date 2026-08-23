@@ -1,4 +1,4 @@
-import type { DebugController } from '../engine/debugController';
+import type { DebugController } from '@workflow/engine/debugController';
 
 interface Props {
   debugController: DebugController;

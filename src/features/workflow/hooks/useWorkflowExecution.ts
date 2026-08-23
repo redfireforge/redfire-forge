@@ -11,13 +11,13 @@ import type {
 import type { RequestResult, AuthConfig } from '@shared/types';
 import { isHttpWorkflowNode } from '../utils/workflowVariableHints';
 import { cloneWorkflowNodeDataForStorage } from '../utils/workflowNodeMerge';
-import { runGraph, type GraphRunCallbacks, type SubWorkflowRunSummary } from '../engine/graphRunner';
-import { DebugController } from '../engine/debugController';
-import { RemoteCorrelationStore } from '../engine/remoteCorrelationStore';
+import { runGraph, type GraphRunCallbacks, type SubWorkflowRunSummary } from '@workflow/engine/graphRunner';
+import { DebugController } from '@workflow/engine/debugController';
+import { RemoteCorrelationStore } from '@workflow/engine/remoteCorrelationStore';
 import { buildKafkaNodeOperations } from '@shared/kafka/buildKafkaNodeOperations';
 import { buildWsNodeOperations } from '@shared/websocket/buildWsNodeOperations';
 import { buildGrpcNodeOperations } from '@shared/grpc/buildGrpcNodeOperations';
-import { loadGrpcConnectionProfilesFromStorage } from '../../../engine/grpcConnectionProfileHydration';
+import { loadGrpcConnectionProfilesFromStorage } from '@engine/grpcConnectionProfileHydration';
 import { loadGlobalAuthProfiles } from '@shared/utils/storage';
 import { stripTrailingSlash } from '../utils/workflowHostResolve';
 import { checkEnvReadiness } from '../utils/workflowEnvReadiness';

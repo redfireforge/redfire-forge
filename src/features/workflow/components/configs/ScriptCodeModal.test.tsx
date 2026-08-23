@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useEffect } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption } from '../../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import '@testing-library/jest-dom';
 import ScriptCodeModal from './ScriptCodeModal';
 import type { ScriptNodeData } from '../../types/workflow';

@@ -2,8 +2,8 @@
  * Phase 8F — Acceptance checklist traceability.
  */
 import { describe, expect, it } from 'vitest';
-import { expandDataSource, resolveScenarioFromDataRow } from '../../engine/dataSourceExpander';
-import { executeGrpcAction } from '../../engine/grpcExecution';
+import { expandDataSource, resolveScenarioFromDataRow } from '@engine/dataSourceExpander';
+import { executeGrpcAction } from '@engine/grpcExecution';
 import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from './contractFixtures';
 import { interpolateGrpcHarnessCallAction } from './grpcHarnessDataSourceInterpolation';
 import { buildGrpcHarnessRowTraceKey } from './grpcHarnessRowIdentity';

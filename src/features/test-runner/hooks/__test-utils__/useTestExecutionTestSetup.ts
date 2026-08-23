@@ -11,7 +11,7 @@ import {
   makeScenario,
   makeResult,
   makeConfig,
-} from '../../../../test-utils/factories';
+} from '@test-utils/factories';
 
 export const mockRunTest = vi.fn();
 export const mockRunTestInWorker = vi.fn();

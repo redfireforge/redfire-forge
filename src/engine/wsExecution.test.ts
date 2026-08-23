@@ -3,7 +3,7 @@ import { executeWsAction } from './wsExecution';
 import type { Scenario, WsConnectActionConfig, WsSendActionConfig, WsReceiveActionConfig } from '@shared/types';
 import type { WsNodeOperations } from '@workflow/engine/graphRunnerNodeHandlerContext';
 import { resetResultIdCounter } from './requestExecution';
-import { makeScenario as _makeScenario } from '../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 // ---------------------------------------------------------------------------
 // Factories

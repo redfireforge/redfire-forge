@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { selectOption, selectOptionByIndex, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
+import { selectOption, selectOptionByIndex, getCustomSelectValue } from '@test-utils/customSelectHelper';
 import KafkaConsumeConfig from './KafkaConsumeConfig';
 import type { KafkaConsumeNodeData } from '../../types/workflow';
 

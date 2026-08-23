@@ -28,7 +28,7 @@ import {
   type ScenarioMetrics,
 } from './slaTargets';
 import type { TestSummary, RequestResult, TestRun, TestConfig } from '@shared/types';
-import { makeResult as _makeResult, makeConfig as _makeConfig } from '../../../test-utils/factories';
+import { makeResult as _makeResult, makeConfig as _makeConfig } from '@test-utils/factories';
 
 // ── Helpers ──
 

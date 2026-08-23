@@ -7,7 +7,7 @@ import type { NodeHandlerContext, PassedFlag, KafkaConsumedMessage } from './gra
 import type { RequestResult, KafkaFailureClass, KafkaResultMeta, CapturedKafkaNodeDetails } from '@shared/types';
 import { toErrorMessage, truncate } from '@shared/utils/helpers';
 import { waitWithAbort } from './correlationWaitHelpers';
-import { nextResultId } from '../../../engine/requestExecution';
+import { nextResultId } from '@engine/requestExecution';
 
 // ── Bounded defaults ────────────────────────────────────────
 

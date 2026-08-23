@@ -33,7 +33,7 @@ import {
   prepareGrpcLoadTestProfileHarnessFixture,
 } from './grpcHarnessAdvancedPromotion';
 import { buildGrpcNodeOperations, resetBuildGrpcNodeOperationsForTests } from './buildGrpcNodeOperations';
-import { makeResult } from '../../test-utils/factories';
+import { makeResult } from '@test-utils/factories';
 import {
   buildGrpcSavedRequestSchemaCompareIntent,
   compareGrpcSavedRequestSchema,

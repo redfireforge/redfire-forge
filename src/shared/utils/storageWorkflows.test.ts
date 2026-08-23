@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Workflow, WorkflowFolder, WorkflowVersion } from '@workflow/types/workflow';
-import { makeWorkflow } from '../../test-utils/factories';
+import { makeWorkflow } from '@test-utils/factories';
 
 const { isTauriMock, tauriStoreMap, tauriGetItem, tauriSetItem, workflowsStore } = vi.hoisted(() => {
   const tauriStoreMap = new Map<string, string>();

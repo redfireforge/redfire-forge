@@ -6,7 +6,7 @@
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { selectOption, isCustomSelectDisabled } from '../../../../test-utils/customSelectHelper';
+import { selectOption, isCustomSelectDisabled } from '@test-utils/customSelectHelper';
 import { GqlSubscriptionControls } from './GqlSubscriptionControls';
 
 function defaultProps(overrides = {}) {

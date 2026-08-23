@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOptionByTestId, getCustomSelectValue } from '../../test-utils/customSelectHelper';
+import { selectOptionByTestId, getCustomSelectValue } from '@test-utils/customSelectHelper';
 import { KafkaTopicDetailPanel } from './KafkaTopicDetailPanel';
 import type { KafkaTopicDetail } from './useTopicExplorer';
 import type { UseTopicMessageBrowserReturn } from './useTopicMessageBrowser';

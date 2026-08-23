@@ -21,8 +21,8 @@ import PromoteToSharedModal from './PromoteToSharedModal';
 import DataSourceToolbar from './DataSourceToolbar';
 import DataSourceGridTable from './DataSourceGridTable';
 import { DataMapperModal, createPopulateFromApiAdapter, createColumnMappingAdapter, type PopulateOutput, type ColumnMappingOutput } from '@shared/components/data-mapper';
-import { buildHeaders, proxyFetch } from '../../../engine/executor';
-import { resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
+import { buildHeaders, proxyFetch } from '@engine/executor';
+import { resolveScenarioFromDataRow } from '@engine/dataSourceExpander';
 import { findUnresolvedTokens } from '../utils/populateFromApiUtils';
 import { mergeRowDetailSave, formatErrorBody } from '../utils/dataSourceEditorUtils';
 

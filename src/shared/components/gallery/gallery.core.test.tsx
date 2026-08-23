@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption } from '../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import { DifficultyDots } from './DifficultyDots';
 import { LiveApiBadge } from './LiveApiBadge';
 import { DomainBadge } from './DomainBadge';

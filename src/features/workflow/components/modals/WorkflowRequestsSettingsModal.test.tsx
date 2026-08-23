@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption } from '../../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import WorkflowRequestsSettingsModal from './WorkflowRequestsSettingsModal';
 import type { Workflow, WorkflowNode } from '../../types/workflow';
 import type { Environment, GlobalAuthProfile, Microservice } from '@shared/types';

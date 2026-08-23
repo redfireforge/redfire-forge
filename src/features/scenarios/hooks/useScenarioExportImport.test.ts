@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useScenarioExportImport, type VersionImportOptions } from './useScenarioExportImport';
 import { FeatureGroup, Scenario, SharedDataSource, TestScenario } from '@shared/types';
-import { makeScenario as _makeScenario } from '../../../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 // Mock external dependencies
 vi.mock('../../../shared/utils/fileSaver', () => ({

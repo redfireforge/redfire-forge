@@ -5,7 +5,7 @@ vi.mock('../../engine/tokenManager', () => ({
 }));
 
 import { buildCurlCommand } from './curlGenerator';
-import { acquireOAuth2Token } from '../../engine/tokenManager';
+import { acquireOAuth2Token } from '@engine/tokenManager';
 import type { AuthConfig, Scenario } from '../types';
 
 const mockAcquireOAuth2 = vi.mocked(acquireOAuth2Token);

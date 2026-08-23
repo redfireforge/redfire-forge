@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { Scenario } from '@shared/types';
-import { makeScenario as _makeScenario } from '../../../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 const makeScenario = (overrides?: Partial<Scenario>): Scenario =>
   _makeScenario({ id: 't1', name: 'Get Users', ...overrides });

@@ -2,8 +2,8 @@ import { useState, useCallback, useEffect, useRef, type MutableRefObject } from 
 import type { Scenario, FailureDetail } from '@shared/types';
 import type { FetchErrorDetail } from '@shared/components/data-mapper/types';
 import { MapperFetchError } from '@shared/components/data-mapper/types';
-import { validate, evaluateAssertions, type AssertionContext } from '../../../engine/validator';
-import { fetchScenarioSample } from '../engine/fetchScenarioSample';
+import { validate, evaluateAssertions, type AssertionContext } from '@engine/validator';
+import { fetchScenarioSample } from '@workflow/engine/fetchScenarioSample';
 import { prettyJson, parseJsonOrRaw, isValidJson, toErrorMessage } from '@shared/utils/helpers';
 import { getByPath } from '@shared/utils/jsonPath';
 import { createResponseVersion, createRulesVersion } from '../../scenarios/utils/versionFactory';

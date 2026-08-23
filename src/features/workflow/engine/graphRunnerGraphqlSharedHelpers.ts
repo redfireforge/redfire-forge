@@ -12,7 +12,7 @@ import type {
 import type { NodeHandlerContext } from './graphRunnerNodeHandlerContext';
 import type { RequestResult } from '@shared/types';
 import type { GraphqlAuth } from '@shared/types/graphql';
-import { nextResultId } from '../../../engine/requestExecution';
+import { nextResultId } from '@engine/requestExecution';
 import { buildAuthHeaders } from '@graphql/utils/authUtils';
 
 // ── Bounded defaults ───────────────────────────────────────────────────────────

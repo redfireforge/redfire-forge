@@ -41,7 +41,7 @@ vi.mock('../utils/workflowRunErrors', async (importOriginal) => {
   };
 });
 
-import { runGraph } from '../engine/graphRunner';
+import { runGraph } from '@workflow/engine/graphRunner';
 import { checkEnvReadiness } from '../utils/workflowEnvReadiness';
 import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
 

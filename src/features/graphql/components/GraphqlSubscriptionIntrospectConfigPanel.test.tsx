@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { selectOption } from '../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import GraphqlIntrospectConfigPanel from './GraphqlIntrospectConfigPanel';
 import GraphqlSubscriptionConfigPanel from './GraphqlSubscriptionConfigPanel';
 

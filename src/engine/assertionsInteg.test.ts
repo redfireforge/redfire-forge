@@ -13,7 +13,7 @@ vi.mock('../shared/utils/bodySerializer', () => ({
 import { httpFetch } from '@shared/utils/httpClient';
 import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
-import { makeScenario as _makeScenario } from '../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 const makeScenario = (assertions: Assertion[], overrides?: Partial<Scenario>): Scenario =>
   _makeScenario({

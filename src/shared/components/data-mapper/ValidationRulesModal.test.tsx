@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption, getCustomSelectOptionLabels } from '../../../test-utils/customSelectHelper';
+import { selectOption, getCustomSelectOptionLabels } from '@test-utils/customSelectHelper';
 import { createRef, type RefObject } from 'react';
 import ValidationRulesModal from './ValidationRulesModal';
 let mockEditorInstance: Record<string, unknown>;

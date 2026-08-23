@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { ComponentProps } from 'react';
 import { render, fireEvent, screen } from '@testing-library/react';
-import { selectOption, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
+import { selectOption, getCustomSelectValue } from '@test-utils/customSelectHelper';
 import ConditionConfig from './ConditionConfig';
 
 vi.mock('../expression/SearchableVariableSelect', async (importOriginal) => {

@@ -5,7 +5,7 @@ import {
   selectOption,
   getCustomSelectValue,
   getCustomSelectOptionLabels,
-} from '../../../test-utils/customSelectHelper';
+} from '@test-utils/customSelectHelper';
 import { RunComparisonPanel, TrendChart } from './RunComparisonPanel';
 import type { TestRun, RequestResult } from '@shared/types';
 import type { BaselineMark, RunComparison } from '../utils/runBaselines';

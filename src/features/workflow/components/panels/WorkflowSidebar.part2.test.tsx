@@ -4,8 +4,8 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import WorkflowSidebar from './WorkflowSidebar';
 import { Workflow, WorkflowFolder } from '../../types/workflow';
-import { mockDataTransfer } from '../../../../test-utils/domMocks';
-import { makeWorkflow as _makeWorkflow, makeWorkflowFolder } from '../../../../test-utils/factories';
+import { mockDataTransfer } from '@test-utils/domMocks';
+import { makeWorkflow as _makeWorkflow, makeWorkflowFolder } from '@test-utils/factories';
 
 const ts = Date.now();
 

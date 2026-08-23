@@ -4,11 +4,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { selectOptionByIndex, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
+import { selectOptionByIndex, getCustomSelectValue } from '@test-utils/customSelectHelper';
 import CsvImportModal from './CsvImportModal';
 import type { FeatureGroup, Scenario } from '@shared/types';
 import type { CsvParseResult, ParsedRow } from '../utils/csvTemplateTypes';
-import { makeScenario as _makeScenario } from '../../../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 const parseCsvMock = vi.fn();
 const parseExcelMock = vi.fn();

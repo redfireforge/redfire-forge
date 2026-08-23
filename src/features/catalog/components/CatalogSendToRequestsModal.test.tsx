@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import { selectOption } from '../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import CatalogSendToRequestsModal from './CatalogSendToRequestsModal';
 import { makeEntry, makeFolder, makeEndpoint, makeServer } from './catalogTestFactories';
 import type { Environment, Microservice } from '@shared/types';

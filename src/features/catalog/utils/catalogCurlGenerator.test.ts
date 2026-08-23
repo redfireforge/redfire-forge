@@ -5,7 +5,7 @@ vi.mock('../../../engine/tokenManager', () => ({
   acquireOAuth2Token: vi.fn(),
 }));
 
-import { acquireOAuth2Token } from '../../../engine/tokenManager';
+import { acquireOAuth2Token } from '@engine/tokenManager';
 import type { CatalogEndpoint, CatalogServer, HostConfig } from '../types/catalog';
 import type { AuthConfig, Microservice } from '@shared/types';
 

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { getTargetConcurrency, runLoadProfile } from './loadProfileRunner';
-import { makeScenario, makeResult } from '../test-utils/factories';
+import { makeScenario, makeResult } from '@test-utils/factories';
 
 vi.mock('./requestExecution', () => ({
   prepareScenario: vi.fn(() => ({

@@ -6,8 +6,8 @@
 import { useState, useCallback, useRef } from 'react';
 import type { Scenario, DataSource, DataSourceColumn, DataSourceRow } from '@shared/types';
 import type { HttpResponse } from '@shared/utils/httpClient';
-import { resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
-import { proxyFetch, buildHeaders } from '../../../engine/executor';
+import { resolveScenarioFromDataRow } from '@engine/dataSourceExpander';
+import { proxyFetch, buildHeaders } from '@engine/executor';
 import { extractJsonPath, expandPatternFromResponse, inferPatternsFromColumns } from '../utils/dataSourceImport';
 import { v4 as uuidv4 } from 'uuid';
 import { toErrorMessage, tryParseJson } from '@shared/utils/helpers';

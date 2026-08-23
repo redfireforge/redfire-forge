@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { RenderResult } from '@testing-library/react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { selectOption, getCustomSelectValue } from '../../test-utils/customSelectHelper';
+import { selectOption, getCustomSelectValue } from '@test-utils/customSelectHelper';
 
 import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
 import KafkaSettingsPage from './KafkaSettingsPage';
