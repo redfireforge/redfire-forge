@@ -1,6 +1,6 @@
 import { useEffect, useCallback, type Dispatch, type SetStateAction } from 'react';
-import type { Environment, Microservice, FeatureGroup, SharedDataSource, TestRun } from '../../shared/types';
-import { saveTestRun, loadTestRuns, deleteTestRun } from '../../shared/utils/storage';
+import type { Environment, Microservice, FeatureGroup, SharedDataSource, TestRun } from '@shared/types';
+import { saveTestRun, loadTestRuns, deleteTestRun } from '@shared/utils/storage';
 
 /** Fired after demo seed/delete so ResultsDashboard can reload without a remount. */
 export const DEMO_TEST_RUNS_CHANGED_EVENT = 'demo-test-runs-changed';

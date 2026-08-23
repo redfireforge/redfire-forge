@@ -1,6 +1,6 @@
-import type { GlobalAuthProfile, Microservice } from '../../../shared/types';
-import type { GraphqlAuth, GraphqlEnvironment, GraphqlHeaderRow } from '../../../shared/types/graphql';
-import { buildEnvVarMap } from '../../../shared/utils/envVarUtils';
+import type { GlobalAuthProfile, Microservice } from '@shared/types';
+import type { GraphqlAuth, GraphqlEnvironment, GraphqlHeaderRow } from '@shared/types/graphql';
+import { buildEnvVarMap } from '@shared/utils/envVarUtils';
 import {
   getRowStatus,
   type EndpointRowStatus,

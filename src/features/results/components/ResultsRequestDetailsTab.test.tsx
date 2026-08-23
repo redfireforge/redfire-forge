@@ -4,9 +4,9 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import {
   selectOptionByIndex,
   getCustomSelectOptionLabels,
-} from '../../../test-utils/customSelectHelper';
+} from '@test-utils/customSelectHelper';
 import { ResultsRequestDetailsTab } from './ResultsRequestDetailsTab';
-import { makeResult, makeTestRun } from '../../../test-utils/factories';
+import { makeResult, makeTestRun } from '@test-utils/factories';
 import type { GroupNode } from '../../test-runner/utils/resultsGrouping';
 
 function makeBaseProps() {

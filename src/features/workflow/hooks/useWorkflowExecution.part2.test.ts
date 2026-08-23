@@ -41,7 +41,7 @@ vi.mock('../utils/workflowRunErrors', async (importOriginal) => {
   };
 });
 
-import { runGraph } from '../engine/graphRunner';
+import { runGraph } from '@workflow/engine/graphRunner';
 import { checkEnvReadiness } from '../utils/workflowEnvReadiness';
 
 const mockRunGraph = vi.mocked(runGraph);

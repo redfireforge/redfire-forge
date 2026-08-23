@@ -4,12 +4,12 @@
  * Shared test helpers for WorkflowExecutionCanvas test splits.
  *
  * The vi.hoisted state (viewportState, flowApi, applyNodeChangesStub) and
- * vi.mock calls must remain per-file due to Vitest's per-file hoisting.
+ * mock registrations must remain per-file due to Vitest's per-file hoisting.
  * Everything that is pure data or a pure render helper lives here.
  *
  * IMPORTANT: This module must NOT import `../WorkflowExecutionCanvas`. The
- * tests dynamically import this module inside `vi.mock('@xyflow/react', ...)`
- * factories. WorkflowExecutionCanvas itself imports `@xyflow/react`, so any
+ * tests import this module inside Vitest mock factories for the xyflow package.
+ * WorkflowExecutionCanvas itself imports that package, so any
  * such transitive import would cause a circular mock-resolution hang.
  */
 import type { JSX, ReactNode, MouseEvent } from 'react';
@@ -18,7 +18,7 @@ import { expect, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import type * as XyflowReact from '@xyflow/react';
 import type { Edge, Node, NodeChange, ReactFlowInstance } from '@xyflow/react';
-import type { WorkflowExecutionTrace } from '../../../../shared/types';
+import type { WorkflowExecutionTrace } from '@shared/types';
 
 // ─── Mock @xyflow/react render builders ──────────────────────────────
 

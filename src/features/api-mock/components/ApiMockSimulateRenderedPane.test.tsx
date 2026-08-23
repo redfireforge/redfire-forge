@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import type { ApiMockSimulationResultV1 } from '../../../shared/api-mock/contracts';
+import type { ApiMockSimulationResultV1 } from '@shared/api-mock/contracts';
 import { ApiMockSimulateRenderedPane } from './ApiMockSimulateRenderedPane';
 
 function result(overrides: Partial<ApiMockSimulationResultV1> = {}): ApiMockSimulationResultV1 {

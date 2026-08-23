@@ -2,7 +2,7 @@
  * Schema introspection, mock server wiring, and snapshot management for GraphQL Studio.
  */
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import type { GraphqlSchemaInfo } from '../../../shared/types/graphql';
+import type { GraphqlSchemaInfo } from '@shared/types/graphql';
 import { useGraphqlSchema } from './useGraphqlSchema';
 import { useGraphqlMockServer } from './useGraphqlMockServer';
 import { useGraphqlSchemaSnapshots } from './useGraphqlSchemaSnapshots';
@@ -10,7 +10,7 @@ import { isGraphqlMockEndpoint, resolveMockServerConnectionId } from '../utils/g
 import { loadCachedGraphqlSchemaSdl } from '../utils/graphqlSchemaCache';
 import { computeInvalidCollectionItemIds } from '../utils/graphqlCollectionValidation';
 import { clearGraphqlSchema, setGraphqlSchema } from '../utils/monacoGraphqlSetup';
-import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
+import type { GqlTlsSettings } from '@shared/types/gqlTls';
 import type { CollectionTree } from './useGraphqlCollections';
 
 export interface GraphqlStudioSchemaLayerInput {

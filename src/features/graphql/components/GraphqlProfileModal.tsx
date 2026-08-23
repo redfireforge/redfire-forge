@@ -13,10 +13,10 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useModalEscapeClose } from '../../../shared/hooks/useModalEscapeClose';
-import { useModalDrag } from '../../../shared/hooks/useModalDrag';
-import type { GraphqlAuth } from '../../../shared/types/graphql';
-import type { GlobalAuthProfile } from '../../../shared/types';
+import { useModalEscapeClose } from '@shared/hooks/useModalEscapeClose';
+import { useModalDrag } from '@shared/hooks/useModalDrag';
+import type { GraphqlAuth } from '@shared/types/graphql';
+import type { GlobalAuthProfile } from '@shared/types';
 import type { ConnectionProfile } from '../hooks/useGraphqlConnectionProfiles';
 import { authBadgeLabel, isAuthConfigured } from '../utils/authUtils';
 import { inheritAuthProfileLabel } from '../utils/gqlAuthResolve';

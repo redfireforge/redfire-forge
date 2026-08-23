@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react';
-import type { GraphqlEnvironment, GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlEnvironment, GraphqlResponse } from '@shared/types/graphql';
 import type { ApqInfo, ExecutionStatus } from './useGraphqlExecution';
 import type { GqlStudioTab } from '../utils/tabPersistence';
 import type { ConnectionProfile } from '../utils/connectionProfileStorage';

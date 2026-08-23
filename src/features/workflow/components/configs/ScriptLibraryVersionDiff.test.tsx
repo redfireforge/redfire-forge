@@ -4,8 +4,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ScriptLibraryVersionDiff from './ScriptLibraryVersionDiff';
-import type { ScriptLibraryVersion } from '../../engine/scriptLibraries';
-import type { ScriptLibraryDiffResult } from '../../engine/scriptLibraryVersioning';
+import type { ScriptLibraryVersion } from '@workflow/engine/scriptLibraries';
+import type { ScriptLibraryDiffResult } from '@workflow/engine/scriptLibraryVersioning';
 
 const { mockDifferDiff } = vi.hoisted(() => ({
   mockDifferDiff: vi.fn(() => [[]]),

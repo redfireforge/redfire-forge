@@ -1,7 +1,7 @@
 import { useId, type ReactNode, type RefObject } from 'react';
 import type { DiffResult } from 'json-diff-kit';
-import { useModalFrame } from '../../../../shared/hooks/useModalFrame';
-import ModalResizeHandles from '../../../../shared/components/ModalResizeHandles';
+import { useModalFrame } from '@shared/hooks/useModalFrame';
+import ModalResizeHandles from '@shared/components/ModalResizeHandles';
 import VersionDiffSearchBar from './VersionDiffSearchBar';
 import VersionDiffSelectors from './VersionDiffSelectors';
 import VersionDiffViewerSection from './VersionDiffViewerSection';

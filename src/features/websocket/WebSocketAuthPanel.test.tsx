@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import type { AuthConfig, GlobalAuthProfile } from '../../shared/types';
+import type { AuthConfig, GlobalAuthProfile } from '@shared/types';
 
 // Mock the heavy shared panel — we only need to observe the props it receives
 // and trigger its profile-change callback.

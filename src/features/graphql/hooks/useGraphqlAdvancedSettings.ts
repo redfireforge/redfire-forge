@@ -11,8 +11,8 @@
  * Extracted from GraphqlStudioPage.tsx to reduce its line count.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useAutoDismiss } from '../../../shared/hooks/useAutoDismiss';
-import { readKey, writeKey } from '../../../shared/utils/storage';
+import { useAutoDismiss } from '@shared/hooks/useAutoDismiss';
+import { readKey, writeKey } from '@shared/utils/storage';
 import type { AdvancedSettingsValues } from '../components/GraphqlAdvancedSettings';
 
 // ─── Storage keys ─────────────────────────────────────────────────────────────

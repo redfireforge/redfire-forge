@@ -1,4 +1,4 @@
-import type { AuthConfig, HttpMethod } from '../../../shared/types';
+import type { AuthConfig, HttpMethod } from '@shared/types';
 
 // ─── Environments ────────────────────────────────────────
 

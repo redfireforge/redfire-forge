@@ -21,7 +21,7 @@ import type {
   GraphqlCollection,
   GraphqlCollectionFolder,
   GraphqlCollectionItem,
-} from '../../../shared/types/graphql';
+} from '@shared/types/graphql';
 
 // ─── Module handles (reloaded per test) ──────────────────────────────────────
 

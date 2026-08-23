@@ -4,8 +4,8 @@ import {
   formatDurationCompactMs,
   formatRelativeTime,
   formatTimeWithSeconds,
-} from '../../../../shared/utils/formatRelativeTime';
-import { truncate } from '../../../../shared/utils/helpers';
+} from '@shared/utils/formatRelativeTime';
+import { truncate } from '@shared/utils/helpers';
 
 function groupLabel(ts: number): string {
   const now = new Date();

@@ -16,10 +16,10 @@ import type {
   WsExtractionRule,
 } from '../types/workflow';
 import type { NodeHandlerContext, PassedFlag, WsNodeOperations, WsMessageMatchCriteria } from './graphRunnerNodeHandlerContext';
-import type { RequestResult, CapturedWsNodeDetails, WsFailureClass, TransportType, WsResultMeta } from '../../../shared/types';
-import { toErrorMessage, truncate } from '../../../shared/utils/helpers';
-import { getByPath } from '../../../shared/utils/jsonPath';
-import { nextResultId } from '../../../engine/requestExecution';
+import type { RequestResult, CapturedWsNodeDetails, WsFailureClass, TransportType, WsResultMeta } from '@shared/types';
+import { toErrorMessage, truncate } from '@shared/utils/helpers';
+import { getByPath } from '@shared/utils/jsonPath';
+import { nextResultId } from '@engine/core/requestExecution';
 import { extractPayloadVariables, type ExtractVariableMapping } from './graphRunnerHelpers';
 
 // ── Bounded defaults ────────────────────────────────────────

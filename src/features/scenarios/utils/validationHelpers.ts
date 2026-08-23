@@ -1,4 +1,4 @@
-import type { Scenario, ExpectedField, Assertion, FailureDetail } from '../../../shared/types';
+import type { Scenario, ExpectedField, Assertion, FailureDetail } from '@shared/types';
 
 type Validation = Scenario['validation'];
 

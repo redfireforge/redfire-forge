@@ -2,14 +2,14 @@
  * Shared GraphQL schema cache (IndexedDB on web, storage abstraction on Tauri).
  * Keys must stay in sync with useGraphqlSchema.
  */
-import type { GraphqlSchemaInfo } from '../../../shared/types/graphql';
+import type { GraphqlSchemaInfo } from '@shared/types/graphql';
 import {
   GQL_SCHEMA_CACHE_PREFIX,
   idbGetSchemaCacheRaw,
   idbSetSchemaCacheRaw,
-} from '../../../shared/utils/idbGraphqlStudio';
-import { readKey, writeKey } from '../../../shared/utils/storage';
-import { isTauri } from '../../../shared/utils/platform';
+} from '@shared/utils/idbGraphqlStudio';
+import { readKey, writeKey } from '@shared/utils/storage';
+import { isTauri } from '@shared/utils/platform';
 import { normalizeGraphqlEndpoint } from './graphqlEndpointUtils';
 
 /** DJB2 hash of the endpoint URL — keeps cache keys short */

@@ -5,7 +5,7 @@
  */
 
 import type { GalleryEntry } from '../types';
-import type { FeatureGroup } from '../../../shared/types';
+import type { FeatureGroup } from '@shared/types';
 import {
   createExtractionMappingSample,
   createValidationMappingSample,

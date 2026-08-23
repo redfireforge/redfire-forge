@@ -21,10 +21,10 @@ import type { WorkflowDesignerProps } from '../utils/workflowDesignerShellTypes'
 import type { WorkflowService } from '../types/workflow';
 import { useWorkflowDesignerInspectActions } from './useWorkflowDesignerInspectActions';
 import { useWorkflowPreviewReactFlowInit } from './useWorkflowPreviewReactFlowInit';
-import { useDemoWorkflowConfigModalBridge } from '../../../app/hooks/useDemoWorkflowConfigModalBridge';
-import { useDemoWorkflowCanvasBridge } from '../../../app/hooks/useDemoWorkflowCanvasBridge';
-import { useDemoWorkflowLivePatchSync } from '../../../app/hooks/useDemoWorkflowLivePatchSync';
-import { useDemoWorkflowRunBridge } from '../../../app/hooks/useDemoWorkflowRunBridge';
+import { useDemoWorkflowConfigModalBridge } from '@app/hooks/useDemoWorkflowConfigModalBridge';
+import { useDemoWorkflowCanvasBridge } from '@app/hooks/useDemoWorkflowCanvasBridge';
+import { useDemoWorkflowLivePatchSync } from '@app/hooks/useDemoWorkflowLivePatchSync';
+import { useDemoWorkflowRunBridge } from '@app/hooks/useDemoWorkflowRunBridge';
 import type { WorkflowDesignerControllerPartA } from './useWorkflowDesignerControllerPartA';
 
 /**

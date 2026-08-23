@@ -11,7 +11,7 @@ vi.mock('./scriptSandbox', () => ({
   executeScript: vi.fn(),
 }));
 
-import { httpFetch } from '../../../shared/utils/httpClient';
+import { httpFetch } from '@shared/utils/httpClient';
 import { executeScript } from './scriptSandbox';
 import {
   getMockFetch,

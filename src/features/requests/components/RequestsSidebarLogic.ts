@@ -1,4 +1,4 @@
-import type { Environment, Microservice, RequestCollection, RequestFolder, RequestItem } from '../../../shared/types';
+import type { Environment, Microservice, RequestCollection, RequestFolder, RequestItem } from '@shared/types';
 import { computeEligibleSubColEnvs, type SubColEnvOption } from '../utils/subCollectionEnvs';
 import { findFolderDeep, findReqFolderAncestors, findRequestInCollection, findReqParentFolder } from '../utils/requestTree';
 

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import type { Scenario, BodyType, KeyValue } from '../../../shared/types';
+import type { Scenario, BodyType, KeyValue } from '@shared/types';
 import { CodeTextarea } from './CodeTextarea';
 
 const BODY_TYPE_GROUPS: { label: string; icon: string; types: { value: BodyType; label: string }[] }[] = [

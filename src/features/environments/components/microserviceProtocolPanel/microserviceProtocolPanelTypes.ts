@@ -1,4 +1,4 @@
-import type { Environment, GlobalAuthProfile, Microservice, ProtocolKey } from '../../../../shared/types';
+import type { Environment, GlobalAuthProfile, Microservice, ProtocolKey } from '@shared/types';
 
 export type ProtocolEditTarget =
   | { kind: 'http'; envId: string; value: string }

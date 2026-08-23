@@ -4,16 +4,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { usePopulateFromApi } from './usePopulateFromApi';
-import type { Scenario, DataSource } from '../../../shared/types';
-import { proxyFetch } from '../../../engine/executor';
-import { resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
+import type { Scenario, DataSource } from '@shared/types';
+import { proxyFetch } from '@engine/core/executor';
+import { resolveScenarioFromDataRow } from '@engine/core/dataSourceExpander';
 
-vi.mock('../../../engine/executor', () => ({
+vi.mock('@engine/core/executor', () => ({
   proxyFetch: vi.fn(),
   buildHeaders: vi.fn(() => ({ 'Content-Type': 'application/json' })),
 }));
 
-vi.mock('../../../engine/dataSourceExpander', () => ({
+vi.mock('@engine/core/dataSourceExpander', () => ({
   resolveScenarioFromDataRow: vi.fn((draft) => draft),
 }));
 

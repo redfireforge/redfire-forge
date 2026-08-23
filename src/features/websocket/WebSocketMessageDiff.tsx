@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { WsFrame } from '../../shared/websocket/types';
-import { formatBytes } from '../../shared/websocket/types';
+import type { WsFrame } from '@shared/websocket/types';
+import { formatBytes } from '@shared/websocket/types';
 import { formatWsTimestamp } from './wsMessageUtils';
 import { computeDiff, formatUnifiedDiff, formatDiffValue } from './wsMessageDiffEngine';
 import type { DiffResult } from './wsMessageDiffEngine';

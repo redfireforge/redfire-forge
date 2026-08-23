@@ -4,7 +4,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createEmptyGrpcCollectionsStore,
-} from '../../../shared/grpc/grpcPersistenceSchema';
+} from '@shared/grpc/grpcPersistenceSchema';
 
 const {
   isTauriMock,
@@ -61,8 +61,8 @@ import {
   updateGrpcCollectionInStore,
   updateGrpcSavedRequestInStore,
 } from './grpcCollectionRepository';
-import { createGrpcSavedRequestFromSnapshot } from '../../../shared/grpc/grpcSavedRequest';
-import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
+import { createGrpcSavedRequestFromSnapshot } from '@shared/grpc/grpcSavedRequest';
+import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
 
 const TS = '2026-06-29T12:00:00.000Z';
 

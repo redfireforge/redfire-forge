@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import {
   FIXTURE_DESCRIPTOR,
-} from '../../../../shared/grpc/contractFixtures';
+} from '@shared/grpc/contractFixtures';
 import {
   createEmptyTabDescriptorState,
   createGrpcStudioTab,
@@ -14,7 +14,7 @@ import {
 import {useGrpcStudioAdvancedFeatures,
 } from '../useGrpcStudioAdvancedFeatures';
 import * as advancedCommands from '../../utils/grpcStudioAdvancedCommands';
-import * as advancedFeatureExport from '../../../../shared/grpc/grpcAdvancedFeatureExport';
+import * as advancedFeatureExport from '@shared/grpc/grpcAdvancedFeatureExport';
 import {
   finalizeLoadTestMock,
   flushReactEffects,

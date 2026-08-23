@@ -8,12 +8,12 @@ import {
   FIXTURE_REFLECT_SUCCESS_ENVELOPE,
   FIXTURE_HAPPY_CALL_ENVELOPE,
   FIXTURE_CALL_FAILED_ENVELOPE,
-} from '../../../shared/grpc/contractFixtures';
-import { setGrpcClientTransport } from '../../../shared/grpc/grpcApiClient';
-import * as grpcStreamClient from '../../../shared/grpc/grpcStreamClient';
+} from '@shared/grpc/contractFixtures';
+import { setGrpcClientTransport } from '@shared/grpc/grpcApiClient';
+import * as grpcStreamClient from '@shared/grpc/grpcStreamClient';
 
 const { setGrpcStreamTransport } = grpcStreamClient;
-import { createGrpcSuccessEnvelope } from '../../../shared/grpc/contracts';
+import { createGrpcSuccessEnvelope } from '@shared/grpc/contracts';
 import { useGrpcStudio } from './useGrpcStudio';
 import { PAGE_DEFAULTS, setupUseGrpcStudioHookTest, streamExecuteSnapshot } from './useGrpcStudio.testHelpers';
 

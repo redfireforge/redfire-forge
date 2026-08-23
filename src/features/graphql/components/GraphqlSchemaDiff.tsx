@@ -12,12 +12,12 @@
  */
 
 import { useCallback, useMemo, useState } from 'react';
-import ModalResizeHandles from '../../../shared/components/ModalResizeHandles';
-import { useModalDrag } from '../../../shared/hooks/useModalDrag';
-import { useModalEscapeClose } from '../../../shared/hooks/useModalEscapeClose';
-import { useModalResize } from '../../../shared/hooks/useModalResize';
-import type { GraphqlSchemaDiffChange, GraphqlSchemaDiffResult } from '../../../shared/types/graphql';
-import { saveFile, saveJsonFile } from '../../../shared/utils/fileSaver';
+import ModalResizeHandles from '@shared/components/ModalResizeHandles';
+import { useModalDrag } from '@shared/hooks/useModalDrag';
+import { useModalEscapeClose } from '@shared/hooks/useModalEscapeClose';
+import { useModalResize } from '@shared/hooks/useModalResize';
+import type { GraphqlSchemaDiffChange, GraphqlSchemaDiffResult } from '@shared/types/graphql';
+import { saveFile, saveJsonFile } from '@shared/utils/fileSaver';
 import { generateHtmlReport } from '../utils/graphqlSchemaDiffReport';
 import { AcknowledgedSection, ChangeRow } from './GraphqlSchemaDiffChangeRows';
 import { SdlDiffView } from './GraphqlSchemaDiffSdlView';

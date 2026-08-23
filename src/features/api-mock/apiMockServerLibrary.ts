@@ -6,8 +6,8 @@
  * tabs. Closing a tab only parks the server — deleting is a separate, confirmed
  * action with a 5-second undo. All functions here are pure.
  */
-import type { ApiMockServerDefinitionV1 } from '../../shared/api-mock/contracts';
-import { HARD_CEILINGS } from '../../shared/api-mock/defaults';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
+import { HARD_CEILINGS } from '@shared/api-mock/defaults';
 
 /** Same ceiling as `API_MOCK_MAX_TABS`; read from defaults to keep this module dependency-free. */
 const API_MOCK_MAX_TABS = HARD_CEILINGS.maxOpenTabs;

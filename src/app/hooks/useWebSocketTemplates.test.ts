@@ -4,8 +4,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWebSocketTemplates } from './useWebSocketTemplates';
-import * as wsStorage from '../../shared/websocket/websocketStorage';
-import type { WsMessageTemplate } from '../../shared/websocket/types';
+import * as wsStorage from '@shared/websocket/websocketStorage';
+import type { WsMessageTemplate } from '@shared/websocket/types';
 
 vi.mock('../../shared/websocket/websocketStorage', () => ({
   loadWsTemplates: vi.fn(),

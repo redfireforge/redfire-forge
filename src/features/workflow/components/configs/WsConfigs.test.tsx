@@ -4,7 +4,7 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption } from '../../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import WsSendConfig from './WsSendConfig';
 import WsConnectConfig from './WsConnectConfig';
 import WsReceiveConfig from './WsReceiveConfig';

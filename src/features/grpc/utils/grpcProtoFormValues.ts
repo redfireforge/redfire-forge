@@ -1,7 +1,7 @@
 /**
  * Proto form value helpers — defaults and schema-aware coercion (Phase 1F).
  */
-import type { GrpcFieldSchema, GrpcMessageSchema } from '../../../shared/grpc/contracts';
+import type { GrpcFieldSchema, GrpcMessageSchema } from '@shared/grpc/contracts';
 
 export function groupMessageFields(fields: GrpcFieldSchema[]): {
   regular: GrpcFieldSchema[];
@@ -169,7 +169,7 @@ export function isGrpcWrapperWkt(type: GrpcFieldSchema['type']): boolean {
     || type === 'google.protobuf.Int64Value';
 }
 
-export { GRPC_MAP_PENDING_KEY_PREFIX, isGrpcMapPendingKey } from '../../../shared/grpc/grpcMapPendingKeys';
+export { GRPC_MAP_PENDING_KEY_PREFIX, isGrpcMapPendingKey } from '@shared/grpc/grpcMapPendingKeys';
 
 export function wktFieldBadgeLabel(type: GrpcFieldSchema['type']): string {
   if (!isGrpcWellKnownFieldType(type)) return String(type);

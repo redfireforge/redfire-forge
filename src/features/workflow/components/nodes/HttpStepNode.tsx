@@ -6,7 +6,7 @@ import { NodePausedOverlay } from './NodePausedOverlay';
 import { NodeConfigureButton } from './NodeConfigureButton';
 import { usePublishedCatalogKeys } from '../../contexts/PublishedCatalogContext';
 
-import { WORKFLOW_METHOD_COLORS as METHOD_COLORS } from '../../../../shared/constants/httpMethodColors';
+import { WORKFLOW_METHOD_COLORS as METHOD_COLORS } from '@shared/constants/httpMethodColors';
 
 type HttpWorkflowNode = Node<HttpNodeData, 'http'>;
 type Props = NodeProps<HttpWorkflowNode>;

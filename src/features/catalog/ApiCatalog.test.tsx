@@ -8,7 +8,7 @@ import '@testing-library/jest-dom';
 import ApiCatalog from './ApiCatalog';
 import type { UseCatalogReturn } from './hooks/useCatalog';
 import { makeEntry, makeScheme, makeHostConfig } from './components/catalogTestFactories';
-import type { GlobalAuthProfile, Microservice } from '../../shared/types';
+import type { GlobalAuthProfile, Microservice } from '@shared/types';
 import type { CatalogEndpoint, CatalogEntry } from './types/catalog';
 
 const buildCoverageMap = vi.fn();

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildClientSchema } from 'graphql';
-import type { GraphqlCollectionItem } from '../../../shared/types/graphql';
+import type { GraphqlCollectionItem } from '@shared/types/graphql';
 import { computeInvalidCollectionItemIds } from './graphqlCollectionValidation';
 
 const introspection = {

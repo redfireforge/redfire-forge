@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import type { RequestCollection } from '../../shared/types';
+import type { RequestCollection } from '@shared/types';
 import { findFolderDeep } from '../../features/requests/utils/requestTree';
 import type { useRequests } from '../../features/requests/hooks/useRequests';
 import type { Tab } from '../utils/appTabUtils';

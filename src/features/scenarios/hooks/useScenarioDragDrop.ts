@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { FeatureGroup, TestScenario, Scenario } from '../../../shared/types';
+import type { FeatureGroup, TestScenario, Scenario } from '@shared/types';
 import {
   logScenarioMovedIn, logScenarioMovedOut,
   logTestMovedIn, logTestMovedOut,

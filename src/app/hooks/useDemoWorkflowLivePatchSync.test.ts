@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useDemoWorkflowLivePatchSync } from './useDemoWorkflowLivePatchSync';
-import type { WorkflowRFNode } from '../../features/workflow/utils/workflowNodeFactory';
+import type { WorkflowRFNode } from '@workflow/utils/workflowNodeFactory';
 
 describe('useDemoWorkflowLivePatchSync', () => {
   afterEach(() => {

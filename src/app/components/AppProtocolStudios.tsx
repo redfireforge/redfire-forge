@@ -1,12 +1,12 @@
 import { useRef } from 'react';
 import type { Tab } from '../utils/appTabUtils';
-import type { Microservice, GlobalAuthProfile } from '../../shared/types';
+import type { Microservice, GlobalAuthProfile } from '@shared/types';
 import type { UseKafkaStateReturn } from '../hooks/useKafkaState';
 import { KafkaMessageStudioPage } from '../../features/kafka/KafkaMessageStudioPage';
 import { WebSocketStudioPage } from '../../features/websocket/WebSocketStudioPage';
 import { SseStudioPage } from '../../features/sse/SseStudioPage';
-import { GraphqlStudioPage } from '../../features/graphql/GraphqlStudioPage';
-import { GrpcStudioPage } from '../../features/grpc/GrpcStudioPage';
+import { GraphqlStudioPage } from '@graphql/GraphqlStudioPage';
+import { GrpcStudioPage } from '@grpc/GrpcStudioPage';
 import { ApiMockStudioPage } from '../../features/api-mock/ApiMockStudioPage';
 
 type Props = {

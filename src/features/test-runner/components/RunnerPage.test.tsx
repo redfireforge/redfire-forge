@@ -4,7 +4,7 @@ import { render, screen, fireEvent, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import RunnerPage from './RunnerPage';
 import { STANDARD_VARIANT } from './runnerVariants';
-import type { FeatureGroup } from '../../../shared/types';
+import type { FeatureGroup } from '@shared/types';
 
 const orch = vi.hoisted(() => ({
   overrides: {} as Record<string, unknown>,

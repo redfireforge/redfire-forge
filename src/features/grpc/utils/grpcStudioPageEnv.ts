@@ -1,4 +1,4 @@
-import { validateGrpcTargetAddress } from '../../../shared/grpc/targetValidation';
+import { validateGrpcTargetAddress } from '@shared/grpc/targetValidation';
 
 /** Legacy env map when Microservice/env selectors are unavailable. */
 export function buildLegacyGrpcEnvVarMap(

@@ -2,7 +2,7 @@
  * Coverage gaps — grpcWorkflowOutputRegistry.ts
  */
 import { describe, expect, it } from 'vitest';
-import { VariableContext } from '../engine/variableContext';
+import { VariableContext } from '@workflow/engine/variableContext';
 import { GrpcWorkflowOutputRegistry } from './grpcWorkflowOutputRegistry';
 import type { GrpcWorkflowExecuteSnapshot } from '../types/workflow/grpcWorkflowSnapshot';
 

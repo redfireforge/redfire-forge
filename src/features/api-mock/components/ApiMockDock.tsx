@@ -6,8 +6,8 @@ import type {
   ApiMockServerSettingsV1,
   ApiMockTransactionV1,
   ApiMockVariableV1,
-} from '../../../shared/api-mock/contracts';
-import { handleTabListArrowKeys } from '../../../shared/utils/tabListKeyboard';
+} from '@shared/api-mock/contracts';
+import { handleTabListArrowKeys } from '@shared/utils/tabListKeyboard';
 import {
   exportTransactionsJson,
   filterTransactions,
@@ -21,7 +21,7 @@ import { ApiMockRuntimeGuide } from './ApiMockRuntimeGuide';
 import { ApiMockRuntimeSettingsPanel } from './ApiMockRuntimeSettingsPanel';
 import { ApiMockDiagnosticsPanel } from './ApiMockDiagnosticsPanel';
 import { ApiMockConsolePanel } from './ApiMockConsolePanel';
-import { useSplitPaneResize } from '../../../shared/hooks/useSplitPaneResize';
+import { useSplitPaneResize } from '@shared/hooks/useSplitPaneResize';
 
 export type ApiMockDockTab = 'transactions' | 'conflicts' | 'state' | 'variables' | 'settings' | 'console' | 'diagnostics';
 type DockMode = 'normal' | 'maximized' | 'collapsed';

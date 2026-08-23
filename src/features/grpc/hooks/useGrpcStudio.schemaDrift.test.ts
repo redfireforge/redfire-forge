@@ -6,8 +6,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_REFLECT_SUCCESS_ENVELOPE,
-} from '../../../shared/grpc/contractFixtures';
-import { setGrpcClientTransport } from '../../../shared/grpc/grpcApiClient';
+} from '@shared/grpc/contractFixtures';
+import { setGrpcClientTransport } from '@shared/grpc/grpcApiClient';
 const downloadProtosetFileMock = vi.hoisted(() => vi.fn());
 vi.mock('../utils/downloadProtoset', () => ({
   downloadProtosetFile: (...args: unknown[]) => downloadProtosetFileMock(...args),

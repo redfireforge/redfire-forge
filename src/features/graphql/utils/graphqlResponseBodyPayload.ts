@@ -1,4 +1,4 @@
-import type { GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlResponse } from '@shared/types/graphql';
 
 export interface GraphqlResponseBodyPayloadOptions {
   /** When true, omit `extensions` from the serialized body (data + errors only). */

@@ -7,7 +7,7 @@ import type {
 import type { NodeHandlerContext, PassedFlag } from './graphRunnerNodeHandlerContext';
 import { executeScript } from './scriptSandbox';
 import { loadScriptLibraries, buildLibraryPreamble } from './scriptLibraries';
-import { tryParseJsonArray } from '../../../shared/utils/helpers';
+import { tryParseJsonArray } from '@shared/utils/helpers';
 
 export async function handleSetVariableNode(
   nodeId: string,

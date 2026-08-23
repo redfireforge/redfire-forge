@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveQuickTestHostForRequest } from './workflowRequestHost';
-import type { Environment, Microservice, RequestCollection, RequestItem } from '../../../shared/types';
+import type { Environment, Microservice, RequestCollection, RequestItem } from '@shared/types';
 
 const envT01: Environment = { id: 'e-t01', name: 't01' };
 const envP01: Environment = { id: 'e-p01', name: 'p01' };

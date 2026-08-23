@@ -54,15 +54,15 @@ vi.mock('@tanstack/react-virtual', () => ({
 
 import { WebSocketStudioPage, deriveTabLabel } from './WebSocketStudioPage';
 import * as hookModule from './useWebSocketStudio';
-import * as profilesModule from '../../app/hooks/useWebSocketProfiles';
-import * as templatesModule from '../../app/hooks/useWebSocketTemplates';
-import * as historyModule from '../../app/hooks/useWebSocketHistory';
-import * as storageModule from '../../shared/websocket/websocketStorage';
+import * as profilesModule from '@app/hooks/useWebSocketProfiles';
+import * as templatesModule from '@app/hooks/useWebSocketTemplates';
+import * as historyModule from '@app/hooks/useWebSocketHistory';
+import * as storageModule from '@shared/websocket/websocketStorage';
 import type { UseWebSocketStudioReturn } from './useWebSocketStudio';
-import type { UseWebSocketProfilesReturn } from '../../app/hooks/useWebSocketProfiles';
-import type { UseWebSocketTemplatesReturn } from '../../app/hooks/useWebSocketTemplates';
-import type { UseWebSocketHistoryReturn } from '../../app/hooks/useWebSocketHistory';
-import { createDefaultDraft, createDefaultReconnectState, createDefaultTlsConfig } from '../../shared/websocket/types';
+import type { UseWebSocketProfilesReturn } from '@app/hooks/useWebSocketProfiles';
+import type { UseWebSocketTemplatesReturn } from '@app/hooks/useWebSocketTemplates';
+import type { UseWebSocketHistoryReturn } from '@app/hooks/useWebSocketHistory';
+import { createDefaultDraft, createDefaultReconnectState, createDefaultTlsConfig } from '@shared/websocket/types';
 
 function makeStudioReturn(overrides?: Partial<UseWebSocketStudioReturn>): UseWebSocketStudioReturn {
   return {

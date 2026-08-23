@@ -3,7 +3,7 @@
  */
 import { act, renderHook } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Scenario, FeatureGroup } from '../../../shared/types';
+import type { Scenario, FeatureGroup } from '@shared/types';
 import { useDataSourceSetupState, type DataSourceSetupProps } from './useDataSourceSetupState';
 
 const generateExcelTemplateMock = vi.fn(() => ({ sheet: 'mock' }));
@@ -22,7 +22,7 @@ vi.mock('../utils/csvTemplate', async () => {
   };
 });
 
-vi.mock('../../../engine/executor', () => ({
+vi.mock('@engine/core/executor', () => ({
   proxyFetch: (...args: unknown[]) => sharedMocks.proxyFetchMock(...args),
 }));
 

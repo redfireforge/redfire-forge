@@ -1,4 +1,4 @@
-import type { Workflow } from '../../../features/workflow/types/workflow';
+import type { Workflow } from '@workflow/types/workflow';
 
 /**
  * Sample workflow demonstrating webhook trigger with payload extraction.

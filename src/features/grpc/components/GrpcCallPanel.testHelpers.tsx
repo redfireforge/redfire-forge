@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- shared test helpers */
 import { useState } from 'react';
-import { FIXTURE_DESCRIPTOR } from '../../../shared/grpc/contractFixtures';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
 import type { GrpcStudioTabState } from '../grpcStudioTypes';
 import { GrpcCallPanel } from './GrpcCallPanel';
 

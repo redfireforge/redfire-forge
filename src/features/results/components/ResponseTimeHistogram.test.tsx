@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ResponseTimeHistogram, ResponseTimeOverlayHistogram } from './ResponseTimeHistogram';
-import type { TestRun, RequestResult } from '../../../shared/types';
+import type { TestRun, RequestResult } from '@shared/types';
 
 // Mock recharts to avoid complex SVG rendering issues
 vi.mock('recharts', () => ({

@@ -13,9 +13,9 @@
  */
 
 import { useCallback } from 'react';
-import { isTauri } from '../../../shared/utils/platform';
+import { isTauri } from '@shared/utils/platform';
 import { persistActivityTab } from '../utils/gqlActivityBarUtils';
-import type { GraphqlStudioActivityTab } from '../../../shared/types/graphql';
+import type { GraphqlStudioActivityTab } from '@shared/types/graphql';
 
 export interface GraphqlStudioActivityBarProps {
   activeTab: GraphqlStudioActivityTab | null;

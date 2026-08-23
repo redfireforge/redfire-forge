@@ -8,10 +8,10 @@ import type {
   DataSource,
   AuthConfig,
   TestDefinitionVersion,
-} from '../../../shared/types';
+} from '@shared/types';
 import type { AuthVerifyResult } from '../../requests/hooks/useAuthVerify';
-import type { FetchErrorDetail } from '../../../shared/components/data-mapper/types';
-import type { HttpResponse } from '../../../shared/utils/httpClient';
+import type { FetchErrorDetail } from '@shared/components/data-mapper/types';
+import type { HttpResponse } from '@shared/utils/httpClient';
 import { BodyEditor } from '../../requests/components/BodyEditor';
 import { ParamsEditor, type ParamEntry } from '../../requests/components/ParamsEditor';
 import TestEditorAuthTab from './TestEditorAuthTab';

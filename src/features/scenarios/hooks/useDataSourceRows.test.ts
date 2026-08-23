@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useDataSourceRows } from './useDataSourceRows';
-import type { DataSource } from '../../../shared/types';
+import type { DataSource } from '@shared/types';
 
 vi.mock('uuid', () => ({ v4: () => `uuid-${Math.random().toString(36).slice(2, 8)}` }));
 

@@ -8,7 +8,7 @@ import type {
   WsConnectionDraft,
   WsConnectionSnapshot,
   WsReconnectState,
-} from '../../shared/websocket/types';
+} from '@shared/websocket/types';
 
 const draft: WsConnectionDraft = {
   url: 'ws://localhost:8765',

@@ -1,7 +1,7 @@
 /**
  * JSON structural diff + LCS-based line diff engine for WebSocket message comparison.
  */
-import { tryParseJson } from '../../shared/utils/helpers';
+import { tryParseJson } from '@shared/utils/helpers';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 

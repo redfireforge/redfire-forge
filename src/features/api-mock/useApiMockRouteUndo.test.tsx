@@ -6,8 +6,8 @@ import { renderHook, act, screen, fireEvent } from '@testing-library/react';
 import { render } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { useApiMockRouteUndo } from './useApiMockRouteUndo';
-import { DEFAULT_SETTINGS, createDefaultResponse } from '../../shared/api-mock/defaults';
-import type { ApiMockServerDefinitionV1 } from '../../shared/api-mock/contracts';
+import { DEFAULT_SETTINGS, createDefaultResponse } from '@shared/api-mock/defaults';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
 
 const ts = '2026-08-13T00:00:00.000Z';
 

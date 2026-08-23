@@ -13,9 +13,9 @@ import type {
   WsConnectionSnapshot,
   WsConnectionState,
   WsReconnectState,
-} from '../../shared/websocket/types';
-import type { WsProtocolDetectionResult } from '../../shared/websocket/protocols/protocolTypes';
-import type { GlobalAuthProfile } from '../../shared/types';
+} from '@shared/websocket/types';
+import type { WsProtocolDetectionResult } from '@shared/websocket/protocols/protocolTypes';
+import type { GlobalAuthProfile } from '@shared/types';
 import { describeResolvedAuth } from './wsAuthResolve';
 import { useConsoleBuffer, type UseConsoleBufferReturn } from './useConsoleBuffer';
 import { WS_CONSOLE_SETTINGS_KEY } from './wsConsoleStorage';

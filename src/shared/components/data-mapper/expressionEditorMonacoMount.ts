@@ -1,7 +1,7 @@
 import type { MutableRefObject } from 'react';
 import type { OnMount } from '@monaco-editor/react';
 import type { editor as MonacoEditor, IDisposable, Position } from 'monaco-editor';
-import type { ExpressionFunction } from '../../../features/workflow/utils/expressionFunctions/types';
+import type { ExpressionFunction } from '@workflow/utils/expressionFunctions/types';
 import { buildFunctionSnippet } from './utils/expressionEditorHelpers';
 
 export interface ExpressionEditorMonacoMountOptions {

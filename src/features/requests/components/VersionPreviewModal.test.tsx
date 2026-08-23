@@ -7,8 +7,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import VersionPreviewModal from './VersionPreviewModal';
-import { installClipboardMock } from '../../../test-utils/clipboardMock';
-import { stubScrollIntoView } from '../../../test-utils/domMocks';
+import { installClipboardMock } from '@test-utils/clipboardMock';
+import { stubScrollIntoView } from '@test-utils/domMocks';
 
 describe('VersionPreviewModal', { timeout: 30_000 }, () => {
   const onClose = vi.fn();

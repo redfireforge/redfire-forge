@@ -5,11 +5,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import RequestsSidebar from './RequestsSidebar';
-import type { RequestCollection } from '../../../shared/types';
+import type { RequestCollection } from '@shared/types';
 import {
   getCustomSelectOptionLabels,
   selectOption,
-} from '../../../test-utils/customSelectHelper';
+} from '@test-utils/customSelectHelper';
 
 const h = vi.hoisted(() => ({
   ctx: null as unknown as Record<string, (...a: unknown[]) => unknown>,

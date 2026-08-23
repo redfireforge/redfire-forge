@@ -1,4 +1,4 @@
-import type { DataSource, SharedDataSourceFetchConfig } from '../../../shared/types';
+import type { DataSource, SharedDataSourceFetchConfig } from '@shared/types';
 
 export type MappingKind = 'path' | 'param' | 'header' | 'body' | 'validate';
 

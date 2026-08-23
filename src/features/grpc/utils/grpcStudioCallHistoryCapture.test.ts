@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
+import { FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
 
 const appendMock = vi.fn().mockResolvedValue(undefined);
 const prepareMock = vi.fn((input: unknown) => input);
@@ -26,7 +26,7 @@ import {
 import {
   clearGrpcRpcSessionStatsForTests,
   getGrpcRpcSessionStats,
-} from '../../../shared/grpc/grpcRpcSessionStats';
+} from '@shared/grpc/grpcRpcSessionStats';
 
 const TS = '2026-06-29T12:00:00.000Z';
 

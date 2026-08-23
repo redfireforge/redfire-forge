@@ -1,4 +1,4 @@
-import type { Environment, Microservice, RequestCollection, RequestFolder, RequestItem } from '../../../shared/types';
+import type { Environment, Microservice, RequestCollection, RequestFolder, RequestItem } from '@shared/types';
 import { findAncestorSubCollection } from '../../requests/utils/requestTree';
 import { resolveBaseUrl, type UrlResolverContext } from '../../requests/utils/requestUrlResolver';
 import { stripTrailingSlash } from './workflowHostResolve';

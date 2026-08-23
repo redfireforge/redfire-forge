@@ -3,19 +3,19 @@ import {
   type GrpcErrorBody,
   type GrpcCallResult,
   normalizeGrpcMetadata,
-} from '../../../shared/grpc/contracts';
-import { resolveDescriptorSourceFingerprint } from '../../../shared/grpc/descriptorSourcePolicy';
+} from '@shared/grpc/contracts';
+import { resolveDescriptorSourceFingerprint } from '@shared/grpc/descriptorSourcePolicy';
 import {
   invokeGrpcUnary,
   cancelGrpcUnary,
-} from '../../../shared/grpc/grpcTransportFacade';
+} from '@shared/grpc/grpcTransportFacade';
 import {
   GrpcApiClientError,
-} from '../../../shared/grpc/grpcApiClient';
+} from '@shared/grpc/grpcApiClient';
 import {
   assertGrpcTransportExecutePreflight,
-} from '../../../shared/grpc/grpcWebTransportContracts';
-import { assertGrpcTransportDispatchReady } from '../../../shared/grpc/grpcBrowserTransportRouter';
+} from '@shared/grpc/grpcWebTransportContracts';
+import { assertGrpcTransportDispatchReady } from '@shared/grpc/grpcBrowserTransportRouter';
 import {
   captureGrpcTabExecuteSnapshotFromResolution,
   resolveGrpcStudioTabTransportMode,
@@ -34,11 +34,11 @@ import {
   isGrpcExpressFallbackOffered,
   isGrpcNativePreflightFailure,
   type GrpcExpressFallbackDetails,
-} from '../../../shared/grpc/grpcTransportFallback';
+} from '@shared/grpc/grpcTransportFallback';
 import {
   grpcApiErrorToBrowserExpressFallbackBody,
   isBrowserDirectTransportMode,
-} from '../../../shared/grpc/grpcBrowserTransportErrorMapper';
+} from '@shared/grpc/grpcBrowserTransportErrorMapper';
 import {
   assertTabTlsConfigValid,
   releaseCompletedGrpcCall,
@@ -46,7 +46,7 @@ import {
   resolveTabConnectionWithEnv,
   tabHasPendingUnaryCall,
 } from './grpcStudioSessionHelpers';
-import { resolveGrpcStudioTabFieldsForExecute } from '../../../shared/grpc/grpcStudioExecuteInterpolation';
+import { resolveGrpcStudioTabFieldsForExecute } from '@shared/grpc/grpcStudioExecuteInterpolation';
 import type { GrpcStudioRuntimeContext } from './grpcStudioRuntimeContext';
 import type { GrpcStudioSessionCore } from './useGrpcStudioSessionCore';
 import {

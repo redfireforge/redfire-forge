@@ -2,13 +2,13 @@ import { useMemo } from 'react';
 import { v4 as uuid } from 'uuid';
 import type { KafkaAckMode, KafkaNodeHeaderRow, KafkaNodeMetadataBinding, KafkaProduceNodeData } from '../../types/workflow';
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
-import { useListCrud } from '../../../../shared/hooks/useListCrud';
+import { useListCrud } from '@shared/hooks/useListCrud';
 import InsertVarField from '../expression/InsertVarField';
 import ExpressionInput from '../expression/ExpressionInput';
 import AvailableVariables from '../expression/AvailableVariables';
 import KafkaSchemaConfigSection from './KafkaSchemaConfigSection';
 import { KafkaAddButton, KafkaCard, KafkaEmptyState, KafkaFormRow } from './KafkaConfigUi';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 const ACK_OPTIONS: { value: KafkaAckMode; label: string }[] = [
   { value: 'all', label: 'All' },

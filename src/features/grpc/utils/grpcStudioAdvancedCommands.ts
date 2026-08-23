@@ -1,6 +1,6 @@
-import type { GrpcTabExecuteSnapshot, GrpcCallType, GrpcDescriptor } from '../../../shared/grpc/contracts';
-import type { GrpcStudioTransportMode } from '../../../shared/grpc/grpcWebTransportContracts';
-import { defaultGrpcStudioTransportModeForPlatform } from '../../../shared/grpc/grpcWebTransportContracts';
+import type { GrpcTabExecuteSnapshot, GrpcCallType, GrpcDescriptor } from '@shared/grpc/contracts';
+import type { GrpcStudioTransportMode } from '@shared/grpc/grpcWebTransportContracts';
+import { defaultGrpcStudioTransportModeForPlatform } from '@shared/grpc/grpcWebTransportContracts';
 import {
   captureGrpcLoadTestExecuteSnapshot,
   transitionGrpcAdvancedOperationState,
@@ -10,29 +10,29 @@ import {
   buildGrpcLoadTestRunFailureMessage,
   type GrpcLoadTestConfig,
   type GrpcAdvancedOperationState,
-} from '../../../shared/grpc/grpcAdvancedFeatureContracts';
-import { startGrpcLoadTestSchedulerRun, type GrpcLoadTestSchedulerRun } from '../../../shared/grpc/grpcLoadTestSchedulerCore';
-import { captureAndStartGrpcLoadTestStreamSchedulerRun } from '../../../shared/grpc/grpcLoadTestStreamScheduler';
+} from '@shared/grpc/grpcAdvancedFeatureContracts';
+import { startGrpcLoadTestSchedulerRun, type GrpcLoadTestSchedulerRun } from '@shared/grpc/grpcLoadTestSchedulerCore';
+import { captureAndStartGrpcLoadTestStreamSchedulerRun } from '@shared/grpc/grpcLoadTestStreamScheduler';
 import {
   buildGrpcLoadTestRunSummaryExport,
   type GrpcLoadTestRunSummaryExport,
-} from '../../../shared/grpc/grpcLoadTestMetrics';
-import { invokeGrpcUnary } from '../../../shared/grpc/grpcTransportFacade';
+} from '@shared/grpc/grpcLoadTestMetrics';
+import { invokeGrpcUnary } from '@shared/grpc/grpcTransportFacade';
 import { snapshotToUnaryCallRequest, snapshotToStreamStartRequest } from '../grpcStudioTypes';
-import { collectGrpcWorkflowServerStream } from '../../workflow/utils/grpcWorkflowStreamCollector';
-import { computeGrpcSchemaDiff } from '../../../shared/grpc/grpcSchemaDiffEngine';
-import type { GrpcSchemaDiffReport } from '../../../shared/grpc/grpcSchemaDiffContracts';
+import { collectGrpcWorkflowServerStream } from '@workflow/utils/grpcWorkflowStreamCollector';
+import { computeGrpcSchemaDiff } from '@shared/grpc/grpcSchemaDiffEngine';
+import type { GrpcSchemaDiffReport } from '@shared/grpc/grpcSchemaDiffContracts';
 import {
   resolveGrpcTabMockConfig,
   type GrpcMockConfigSource,
   type GrpcMockResolvedMockConfig,
-} from '../../../shared/grpc/grpcMockConfigResolution';
-import type { GrpcMockLatencyPolicy } from '../../../shared/grpc/grpcMockLatencySimulation';
-import type { GrpcMockRuleSet } from '../../../shared/grpc/grpcMockRuleContracts';
+} from '@shared/grpc/grpcMockConfigResolution';
+import type { GrpcMockLatencyPolicy } from '@shared/grpc/grpcMockLatencySimulation';
+import type { GrpcMockRuleSet } from '@shared/grpc/grpcMockRuleContracts';
 import {
   createGrpcMockRuntimeRegistry,
   type GrpcMockRuntimeRegistry,
-} from '../../../shared/grpc/grpcMockRuntimeRegistry';
+} from '@shared/grpc/grpcMockRuntimeRegistry';
 
 export function resolveFrozenLoadTestTransportMode(
   executeSnapshot: Pick<GrpcTabExecuteSnapshot, 'transportMode'>,

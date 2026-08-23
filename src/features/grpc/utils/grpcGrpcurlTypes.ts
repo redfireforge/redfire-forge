@@ -1,7 +1,7 @@
 /**
  * Phase 5F/5G — shared grpcurl interop types and compatibility matrix.
  */
-import type { GrpcTlsMode } from '../../../shared/grpc/contracts';
+import type { GrpcTlsMode } from '@shared/grpc/contracts';
 
 /** TLS material referenced by filesystem path (never PEM content in grpcurl CLI). */
 export interface GrpcGrpcurlTlsFilePaths {

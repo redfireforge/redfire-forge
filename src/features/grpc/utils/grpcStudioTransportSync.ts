@@ -1,7 +1,7 @@
 import {
   clearGrpcTabTransportRegistration,
   syncGrpcTabTransportMode,
-} from '../../../shared/grpc/grpcTransportTabRouting';
+} from '@shared/grpc/grpcTransportTabRouting';
 import type { GrpcStudioTabState } from '../grpcStudioTypes';
 import { resolveGrpcStudioTabTransportMode } from '../grpcStudioTypes';
 

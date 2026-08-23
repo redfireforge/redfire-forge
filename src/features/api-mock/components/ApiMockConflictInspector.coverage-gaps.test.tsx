@@ -5,8 +5,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ApiMockConflictInspector, conflictPeerLabel } from './ApiMockConflictInspector';
-import { createDefaultResponse, EMPTY_PREDICATE_GROUP } from '../../../shared/api-mock/defaults';
-import type { ApiMockConflictFindingV1, ApiMockRouteV1 } from '../../../shared/api-mock/contracts';
+import { createDefaultResponse, EMPTY_PREDICATE_GROUP } from '@shared/api-mock/defaults';
+import type { ApiMockConflictFindingV1, ApiMockRouteV1 } from '@shared/api-mock/contracts';
 
 const ts = '2026-08-12T00:00:00.000Z';
 

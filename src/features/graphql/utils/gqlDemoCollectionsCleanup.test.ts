@@ -20,8 +20,8 @@ import {
   idbDeleteItem,
   idbLoadCollections,
   idbLoadItems,
-} from '../../../shared/utils/idbGraphqlCollections';
-import { idbClearHistory, idbLoadHistory } from '../../../shared/utils/idbGraphqlHistory';
+} from '@shared/utils/idbGraphqlCollections';
+import { idbClearHistory, idbLoadHistory } from '@shared/utils/idbGraphqlHistory';
 import {
   GQL_COLLECTIONS_RELOAD_EVENT,
   GQL_HISTORY_RELOAD_EVENT,

@@ -1,4 +1,4 @@
-import type { ExpressionFunction } from '../../../features/workflow/utils/expressionFunctions/types';
+import type { ExpressionFunction } from '@workflow/utils/expressionFunctions/types';
 import type { ExpressionSnippet } from './utils/expressionSnippets';
 
 export interface ExpressionEditorDocsPanelProps {

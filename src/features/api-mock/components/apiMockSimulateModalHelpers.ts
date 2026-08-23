@@ -5,9 +5,9 @@ import type {
   ApiMockRouteV1,
   ApiMockSimulationResultV1,
   ApiMockSimulationSampleV1,
-} from '../../../shared/api-mock/contracts';
-import { combinatorLabel } from '../../../shared/api-mock/predicateEvaluatorHelpers';
-import { httpMethodSelectOptions } from '../../../shared/constants/httpMethodColors';
+} from '@shared/api-mock/contracts';
+import { combinatorLabel } from '@shared/api-mock/predicateEvaluatorHelpers';
+import { httpMethodSelectOptions } from '@shared/constants/httpMethodColors';
 import { concreteMockPath } from '../apiMockPageHelpers';
 
 /** Stable 5-digit seed for one Simulate session (weighted picks, templates, jitter). */

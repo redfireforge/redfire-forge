@@ -3,8 +3,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { createGrpcStudioTab } from '../grpcStudioTypes';
-import { GRPC_REDACTED_PLACEHOLDER } from '../../../shared/grpc/grpcRedaction';
-import { createGrpcSavedRequestFromSnapshot } from '../../../shared/grpc/grpcSavedRequest';
+import { GRPC_REDACTED_PLACEHOLDER } from '@shared/grpc/grpcRedaction';
+import { createGrpcSavedRequestFromSnapshot } from '@shared/grpc/grpcSavedRequest';
 import { buildReplayTabState, resolveGrpcSavedRequestReplay } from './grpcReplayResolver';
 
 const VALID_PEM = `-----BEGIN CERTIFICATE-----

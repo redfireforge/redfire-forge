@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { useState } from 'react';
 import GraphqlIntrospectConfigPanel from './GraphqlIntrospectConfigPanel';
-import type { GraphqlIntrospectNodeData } from '../../workflow/types/workflow';
+import type { GraphqlIntrospectNodeData } from '@workflow/types/workflow';
 
 vi.mock('../../../shared/hooks/useListCrud', () => ({
   useListCrud: (items: unknown[], setItems: (next: unknown[]) => void) => ({

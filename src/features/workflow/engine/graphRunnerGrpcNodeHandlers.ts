@@ -12,9 +12,9 @@ import type {
   GrpcWorkflowStepResult,
 } from '../types/workflow/node-grpc';
 import type { NodeHandlerContext, PassedFlag } from './graphRunnerNodeHandlerContext';
-import type { GrpcResultMeta, RequestResult, FailureDetail } from '../../../shared/types';
-import { toErrorMessage, truncate } from '../../../shared/utils/helpers';
-import { nextResultId } from '../../../engine/requestExecution';
+import type { GrpcResultMeta, RequestResult, FailureDetail } from '@shared/types';
+import { toErrorMessage, truncate } from '@shared/utils/helpers';
+import { nextResultId } from '@engine/core/requestExecution';
 import { buildGrpcWorkflowExecuteSnapshot } from '../utils/grpcWorkflowSnapshotBuilder';
 import { createGrpcWorkflowNodeSnapshotContext } from '../utils/grpcWorkflowRuntimeContext';
 import { publishGrpcWorkflowStepOutput } from '../utils/grpcWorkflowStepOutput';

@@ -4,7 +4,7 @@ import { buildFolderTree, getUnfiledWorkflows, getWorkflowsInFolderRecursive, ge
 import type { FolderTreeNode } from '../../utils/workflowFolderTree';
 import { useWorkflowMultiSelect } from '../../hooks/useWorkflowMultiSelect';
 import { useWorkflowSidebarDnD } from '../../hooks/useWorkflowSidebarDnD';
-import { highlightSearchMatch } from '../../../../shared/utils/consoleLogUtils';
+import { highlightSearchMatch } from '@shared/utils/consoleLogUtils';
 
 interface Props {
   workflows: Workflow[];

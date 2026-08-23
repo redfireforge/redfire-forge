@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import type { GrpcMessageSchema } from '../../../../shared/grpc/contracts';
+import type { GrpcMessageSchema } from '@shared/grpc/contracts';
 import {
   isGrpcWrapperWkt,
   isValidWideIntegralString,
@@ -12,7 +12,7 @@ import {
 } from '../../utils/grpcProtoFormFieldLabels';
 import { GrpcProtoJsonObjectEditor } from './GrpcProtoJsonObjectEditor';
 import type { GrpcProtoFieldRowProps } from './grpcProtoFormBuilderTypes';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 export function GrpcProtoWktScalarFieldRow({
   field,

@@ -1,4 +1,4 @@
-import type { GraphqlSchemaSnapshot } from '../../../shared/types/graphql';
+import type { GraphqlSchemaSnapshot } from '@shared/types/graphql';
 
 /** Count GraphQL definition lines when introspection types array is unavailable. */
 export function countTypesFromSdl(sdl: string): number {

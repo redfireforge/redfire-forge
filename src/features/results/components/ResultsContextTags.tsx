@@ -1,4 +1,4 @@
-import type { TestRun } from '../../../shared/types';
+import type { TestRun } from '@shared/types';
 import { thinkTimeLabel } from '../../test-runner/utils/runnerProgressStorage';
 
 interface Props {

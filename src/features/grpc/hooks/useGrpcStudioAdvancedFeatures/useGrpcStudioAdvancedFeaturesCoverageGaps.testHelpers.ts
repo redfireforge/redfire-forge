@@ -4,10 +4,10 @@ import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_DESCRIPTOR_KEY,
   FIXTURE_UNARY_CALL_REQUEST,
-} from '../../../../shared/grpc/contractFixtures';
-import { captureGrpcLoadTestExecuteSnapshot, createInitialGrpcAdvancedOperationState } from '../../../../shared/grpc/grpcAdvancedFeatureContracts';
-import { buildGrpcLoadTestRunSummaryExport } from '../../../../shared/grpc/grpcLoadTestMetrics';
-import type { GrpcLoadTestSchedulerRun } from '../../../../shared/grpc/grpcLoadTestSchedulerCore';
+} from '@shared/grpc/contractFixtures';
+import { captureGrpcLoadTestExecuteSnapshot, createInitialGrpcAdvancedOperationState } from '@shared/grpc/grpcAdvancedFeatureContracts';
+import { buildGrpcLoadTestRunSummaryExport } from '@shared/grpc/grpcLoadTestMetrics';
+import type { GrpcLoadTestSchedulerRun } from '@shared/grpc/grpcLoadTestSchedulerCore';
 import {
   createEmptyTabDescriptorState,
   createGrpcStudioTab,

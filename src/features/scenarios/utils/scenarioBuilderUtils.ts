@@ -1,4 +1,4 @@
-import type { AuthType, Scenario, TestScenario, FeatureGroup, GlobalAuthProfile } from '../../../shared/types';
+import type { AuthType, Scenario, TestScenario, FeatureGroup, GlobalAuthProfile } from '@shared/types';
 
 export const SCENARIO_AUTH_TYPE_OPTIONS: { value: string; label: string }[] = [
   { value: 'inherit', label: 'Inherit from Feature' },

@@ -8,7 +8,7 @@
  *
  * @example
  * ```ts
- * import { stubScrollIntoView } from '../test-utils/domMocks';
+ * import { stubScrollIntoView } from '@test-utils/domMocks';
  *
  * beforeAll(() => stubScrollIntoView());
  * ```

@@ -2,7 +2,7 @@
  * Response time histogram bin computation utilities.
  * Used for distribution visualization and baseline overlay comparison.
  */
-import { computePercentiles, round2 } from '../../../shared/utils/percentiles';
+import { computePercentiles, round2 } from '@shared/utils/percentiles';
 
 export interface HistogramBin {
   /** Lower bound of the bin (inclusive) */

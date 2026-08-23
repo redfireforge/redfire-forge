@@ -12,7 +12,7 @@
  *
  * @example
  * ```ts
- * import { installClipboardMock } from '../test-utils/clipboardMock';
+ * import { installClipboardMock } from '@test-utils/clipboardMock';
  *
  * let writeText: ReturnType<typeof installClipboardMock>;
  * beforeEach(() => { writeText = installClipboardMock(); });

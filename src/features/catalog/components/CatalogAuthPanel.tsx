@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import type { AuthConfig, GlobalAuthProfile } from '../../../shared/types';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import type { AuthConfig, GlobalAuthProfile } from '@shared/types';
 import type { CatalogSecurityScheme } from '../types/catalog';
 import { useAuthVerify } from '../../requests/hooks/useAuthVerify';
 

@@ -2,8 +2,8 @@ import { useState, useCallback, useRef } from 'react';
 import type {
   RequestTab,
   RequestCollection,
-} from '../../../shared/types';
-import { REQUEST_MAX_TABS } from '../../../shared/types/requests';
+} from '@shared/types';
+import { REQUEST_MAX_TABS } from '@shared/types/requests';
 import { findRequestInCollection } from '../utils/requestTree';
 import { autoSaveVersion } from '../utils/requestDefinitionVersioning';
 

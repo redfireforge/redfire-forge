@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import TestEditorModal from './TestEditorModal';
-import type { Scenario, FeatureGroup } from '../../../shared/types';
+import type { Scenario, FeatureGroup } from '@shared/types';
 
 // ─── Hoisted mutable mock state ───────────────────────────────
 const h = vi.hoisted(() => ({

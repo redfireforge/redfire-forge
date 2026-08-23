@@ -3,7 +3,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { selectOption } from '../../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import { resetGrpcMockBuilderNodeIdsForTests, createGrpcMockBuilderNodeId, createDefaultGrpcMockBuilderPredicateLeaf } from '../../utils/grpcMockRuleBuilderModel';
 import * as grpcMockRuleBuilderModel from '../../utils/grpcMockRuleBuilderModel';
 import { buildAdvancedMock } from '../../test-helpers/grpcAdvancedPanel.testHelpers';

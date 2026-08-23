@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
-import type { GrpcCallHistoryEntryV1 } from '../../../shared/grpc/grpcPersistenceSchema';
+import type { GrpcCallHistoryEntryV1 } from '@shared/grpc/grpcPersistenceSchema';
 import {
   previewGrpcCallHistoryEntryForUi,
   serializeGrpcPreviewJson,
-} from '../../../shared/grpc/grpcSafePreview';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+} from '@shared/grpc/grpcSafePreview';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import type { UseGrpcCallHistoryResult } from '../hooks/useGrpcCallHistory';
 
 export interface GrpcConsolePanelProps {

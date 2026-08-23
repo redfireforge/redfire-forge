@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import type { RequestCollection, RequestFolder } from '../../../shared/types';
+import type { RequestCollection, RequestFolder } from '@shared/types';
 
 export function useRequestsSidebarSearch(collections: RequestCollection[]) {
   const [search, setSearch] = useState('');

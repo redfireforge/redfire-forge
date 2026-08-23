@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
-import { CustomSelect } from '../../shared/components/CustomSelect';
-import type { WsMockRule, WsMockMatchType, WsMockResponseType, WsMockFallbackMode } from '../../shared/websocket/types';
-import { formatUptime } from '../../shared/websocket/types';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import type { WsMockRule, WsMockMatchType, WsMockResponseType, WsMockFallbackMode } from '@shared/websocket/types';
+import { formatUptime } from '@shared/websocket/types';
 import type { UseWebSocketMockServerReturn } from './useWebSocketMockServer';
 import { MockActivityLog, MockRuleTester } from './WebSocketMockRulesExtras';
 import { useMockServerUi, type MockUi } from './WebSocketMockServer.ui';

@@ -5,7 +5,7 @@ import type { ComponentProps } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption } from '../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import ValidationVerifyPanel from './ValidationVerifyPanel';
 
 type PanelProps = ComponentProps<typeof ValidationVerifyPanel>;

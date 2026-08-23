@@ -1,4 +1,4 @@
-import type { RequestsData, RequestCollection, RequestFolder } from '../../../shared/types';
+import type { RequestsData, RequestCollection, RequestFolder } from '@shared/types';
 
 export interface EnvKeyReconcileResult {
   data: RequestsData;

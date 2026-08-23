@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { inferCaptureLevel } from './inferCaptureLevel';
-import type { WorkflowExecutionTrace, WorkflowIterationTrace, ExecutionEvent } from '../../../shared/types';
+import type { WorkflowExecutionTrace, WorkflowIterationTrace, ExecutionEvent } from '@shared/types';
 
 function makeTrace(overrides: Partial<WorkflowExecutionTrace> = {}): WorkflowExecutionTrace {
   return {

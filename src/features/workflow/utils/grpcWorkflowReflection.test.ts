@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi } from 'vitest';
-import { FIXTURE_DESCRIPTOR, FIXTURE_DESCRIPTOR_KEY } from '../../../shared/grpc/contractFixtures';
+import { FIXTURE_DESCRIPTOR, FIXTURE_DESCRIPTOR_KEY } from '@shared/grpc/contractFixtures';
 import {
   buildGrpcWorkflowReflectionPatch,
   listGrpcWorkflowMethods,
@@ -13,7 +13,7 @@ vi.mock('../../../shared/grpc/grpcApiClient', () => ({
   postGrpcReflect: vi.fn(),
 }));
 
-import { postGrpcReflect } from '../../../shared/grpc/grpcApiClient';
+import { postGrpcReflect } from '@shared/grpc/grpcApiClient';
 
 describe('grpcWorkflowReflection', () => {
   it('returns empty method list when descriptor or service is missing', () => {

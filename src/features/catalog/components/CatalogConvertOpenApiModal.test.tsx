@@ -35,7 +35,7 @@ vi.mock('../../../shared/utils/fileSaver', () => ({
 import { convertSwaggerToOpenApiYaml, upgradeOpenApi3Yaml } from '../utils/swaggerToOpenApi';
 import { loadConvertPref, saveConvertPref, loadPrettyPref, savePrettyPref } from '../utils/convertPrefs';
 import { prettifyOpenApiYaml } from '../utils/prettyYaml';
-import { saveFile } from '../../../shared/utils/fileSaver';
+import { saveFile } from '@shared/utils/fileSaver';
 import { lintOpenApi } from '../utils/openApiLint';
 import CatalogConvertOpenApiModal from './CatalogConvertOpenApiModal';
 

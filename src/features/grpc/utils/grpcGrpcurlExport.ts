@@ -1,10 +1,10 @@
 /**
  * Phase 5G — grpcurl export builders from Studio contexts + parity helpers.
  */
-import type { GrpcTabExecuteSnapshot } from '../../../shared/grpc/contracts';
-import { normalizeGrpcMetadata } from '../../../shared/grpc/contracts';
-import { prepareGrpcExecuteRequestMetadata } from '../../../shared/grpc/grpcAuthPolicy';
-import type { GrpcSavedRequest } from '../../../shared/grpc/grpcSavedRequest';
+import type { GrpcTabExecuteSnapshot } from '@shared/grpc/contracts';
+import { normalizeGrpcMetadata } from '@shared/grpc/contracts';
+import { prepareGrpcExecuteRequestMetadata } from '@shared/grpc/grpcAuthPolicy';
+import type { GrpcSavedRequest } from '@shared/grpc/grpcSavedRequest';
 import { buildGrpcurlInvokeCommand } from './grpcGrpcurlCore';
 import type {
   GrpcGrpcurlExportContext,

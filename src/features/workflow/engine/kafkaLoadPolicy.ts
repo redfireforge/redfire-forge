@@ -1,4 +1,4 @@
-import type { ExecutionMode } from '../../../shared/types';
+import type { ExecutionMode } from '@shared/types';
 import type { KafkaConsumeLoadTestMode } from '../types/workflow';
 
 export type KafkaLoadPolicyOutcome = {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { inferSchemaFromMessages } from './wsSchemaInference';
-import type { WsFrame } from '../../shared/websocket/types';
+import type { WsFrame } from '@shared/websocket/types';
 
 function makeFrame(data: string, direction: 'sent' | 'received' = 'received'): WsFrame {
   return {

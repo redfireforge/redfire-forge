@@ -12,7 +12,7 @@ import {
 } from './grpcHarnessRuntimeContext';
 import { buildGrpcHarnessSnapshotForScenario } from './grpcHarnessExecutor';
 import { FIXTURE_DESCRIPTOR_KEY } from './contractFixtures';
-import { makeScenario as _makeScenario } from '../../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 const svc: Microservice = {
   id: 'orders',

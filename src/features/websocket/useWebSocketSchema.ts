@@ -2,7 +2,7 @@
  * React hook for WebSocket message schema management and validation.
  */
 import { useCallback, useMemo, useRef, useState } from 'react';
-import type { WsFrame, WsFrameDirection } from '../../shared/websocket/types';
+import type { WsFrame, WsFrameDirection } from '@shared/websocket/types';
 import type {
   WsSchemaDefinition,
   WsSchemaDirection,

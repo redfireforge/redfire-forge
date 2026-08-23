@@ -16,7 +16,7 @@
  * Phase 2.0 Sprint 4 — 2E-2
  */
 
-import { setByPath } from '../../../shared/utils/jsonPath';
+import { setByPath } from '@shared/utils/jsonPath';
 
 export interface FileEntry {
   /** Unique identifier within the current Files tab session (for React keys). */

@@ -1,6 +1,6 @@
 import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
-import type { ApiMockServerDefinitionV1, ApiMockTransactionV1 } from '../../shared/api-mock/contracts';
-import { mergeRecordedDraftsIntoRoutes } from '../../shared/api-mock/proxyRecording';
+import type { ApiMockServerDefinitionV1, ApiMockTransactionV1 } from '@shared/api-mock/contracts';
+import { mergeRecordedDraftsIntoRoutes } from '@shared/api-mock/proxyRecording';
 import { apiMockControlClient } from './apiMockControlClient';
 import type { ScenarioStateSnapshot } from './apiMockControlClient';
 import { mergeRuntimeInfo } from './apiMockPageHelpers';

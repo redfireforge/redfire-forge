@@ -3,7 +3,7 @@ import {
   API_MOCK_OPEN_IN_REQUESTS_EVENT,
   type ApiMockOpenInRequestsDetail,
 } from '../../features/api-mock/apiMockJournalActions';
-import type { RequestCollection, RequestItem } from '../../shared/types';
+import type { RequestCollection, RequestItem } from '@shared/types';
 
 interface RequestsBridge {
   collections: RequestCollection[];

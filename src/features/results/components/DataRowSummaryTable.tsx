@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { RequestResult } from '../../../shared/types';
+import type { RequestResult } from '@shared/types';
 import { formatTransportStatus } from '../utils/transportStatus';
 
 interface Props {

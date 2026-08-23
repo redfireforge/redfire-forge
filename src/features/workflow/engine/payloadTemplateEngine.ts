@@ -18,7 +18,7 @@
  * - {{$requestIndex}} — 0-based request index
  */
 
-import { toErrorMessage } from '../../../shared/utils/helpers';
+import { toErrorMessage } from '@shared/utils/helpers';
 
 export interface PayloadGeneratorContext {
   /** Current request index (0-based). */

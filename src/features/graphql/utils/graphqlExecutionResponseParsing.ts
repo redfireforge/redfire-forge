@@ -1,12 +1,12 @@
-import type { GraphqlError, GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlError, GraphqlResponse } from '@shared/types/graphql';
 import type { ApqInfo } from '../hooks/useGraphqlExecution';
 import {
   describeAuthSentMetadata,
   type AuthSentMetadata,
   type GqlAuthSentSource,
 } from './gqlAuthResolve';
-import type { GraphqlAuth } from '../../../shared/types/graphql';
-import type { GlobalAuthProfile } from '../../../shared/types';
+import type { GraphqlAuth } from '@shared/types/graphql';
+import type { GlobalAuthProfile } from '@shared/types';
 
 /** Parse an HTTP response body into a GraphqlResponse. */
 export function parseHttpBody(

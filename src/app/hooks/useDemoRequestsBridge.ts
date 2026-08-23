@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { RequestCollection, RequestItem } from '../../shared/types';
+import type { RequestCollection, RequestItem } from '@shared/types';
 
 /** Minimal surface needed by the demo collection-delete bridge. */
 export interface DemoRequestsBridgeApi {

@@ -6,7 +6,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { AcknowledgedSection, ChangeRow } from './GraphqlSchemaDiffChangeRows';
 import { ackSectionChangeRowNoop } from '../utils/graphqlSchemaDiffConstants';
-import type { GraphqlSchemaDiffChange } from '../../../shared/types/graphql';
+import type { GraphqlSchemaDiffChange } from '@shared/types/graphql';
 
 const change: GraphqlSchemaDiffChange = {
   path: 'Query.oldField',

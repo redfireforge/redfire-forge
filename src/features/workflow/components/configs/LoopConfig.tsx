@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
 import type { LoopNodeData, LoopMode } from '../../types/workflow';
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
-import type { Scenario } from '../../../../shared/types';
+import type { Scenario } from '@shared/types';
 import InsertVarField from '../expression/InsertVarField';
 import ExpressionInput from '../expression/ExpressionInput';
 import AvailableVariables from '../expression/AvailableVariables';
 import DataSourceEditor from '../../../scenarios/components/DataSourceEditor';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 const MODE_OPTIONS: { value: LoopMode; label: string; desc: string }[] = [
   { value: 'count', label: 'Repeat N times', desc: 'Execute the body a fixed number of times' },

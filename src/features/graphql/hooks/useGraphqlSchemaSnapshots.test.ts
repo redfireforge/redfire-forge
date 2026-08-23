@@ -36,7 +36,7 @@ import { saveSnapshot, loadSnapshots, deleteSnapshot } from '../utils/schemaSnap
 import { computeSchemaDiff } from '../utils/schemaDiff';
 import { addAck, deleteAck } from '../utils/schemaDiffAck';
 import { scanDeprecatedFieldUsages } from '../utils/deprecatedFieldScanner';
-import type { GraphqlSchemaSnapshot } from '../../../shared/types/graphql';
+import type { GraphqlSchemaSnapshot } from '@shared/types/graphql';
 
 // ─── Stable references (MUST be outside renderHook callbacks) ────────────────
 // Passing [] inline creates a new reference each render, causing an infinite

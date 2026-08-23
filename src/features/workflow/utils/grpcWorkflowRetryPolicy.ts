@@ -1,8 +1,8 @@
 /**
  * Phase 6C — gRPC workflow unary retry policy helpers.
  */
-import { GrpcApiClientError } from '../../../shared/grpc/grpcApiClient';
-import type { GrpcTransportErrorDetails } from '../../../shared/grpc/grpcTransportErrors';
+import { GrpcApiClientError } from '@shared/grpc/grpcApiClient';
+import type { GrpcTransportErrorDetails } from '@shared/grpc/grpcTransportErrors';
 import type { GrpcWorkflowRetryPolicy } from '../types/workflow/node-grpc';
 
 /** Default retryable gRPC status codes when retry.retryOnStatuses is omitted. */

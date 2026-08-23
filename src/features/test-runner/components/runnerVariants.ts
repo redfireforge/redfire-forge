@@ -1,4 +1,4 @@
-import type { FeatureGroup } from '../../../shared/types';
+import type { FeatureGroup } from '@shared/types';
 
 export interface RunnerVariant {
   title: string;

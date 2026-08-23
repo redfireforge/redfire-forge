@@ -6,7 +6,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ApiMockExportConfirm } from './ApiMockExportConfirm';
 import type { ApiMockExportResult } from '../apiMockExportActions';
-import { stubScrollIntoView } from '../../../test-utils/domMocks';
+import { stubScrollIntoView } from '@test-utils/domMocks';
 
 // The inline Preview now renders the JSON tree (JsonPreview), which scrolls the
 // active search match into view — jsdom has no scrollIntoView.

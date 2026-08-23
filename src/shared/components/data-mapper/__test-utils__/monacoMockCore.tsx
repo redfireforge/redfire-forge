@@ -91,7 +91,7 @@ export function createFakeEditor(
 /* v8 ignore stop */
 
 /**
- * Async factory body for `vi.mock('@monaco-editor/react', …)`. Returns a
+ * Async factory body for the Monaco editor Vitest mock. Returns a
  * module-shaped object containing the mocked default export (`MockEditor`).
  *
  * The MockEditor renders a `<textarea data-testid="monaco-editor">` and, on

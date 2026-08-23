@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { evaluateMatch, evaluateRules, expandTemplate } from './wsMockRuleEngine';
-import type { WsMockRule, WsMockMatch } from '../../shared/websocket/types';
+import type { WsMockRule, WsMockMatch } from '@shared/websocket/types';
 
 function makeRule(overrides: Partial<WsMockRule> = {}): WsMockRule {
   return {

@@ -3,7 +3,7 @@
  */
 
 import { useMemo, useState, type ReactNode } from 'react';
-import type { GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlResponse } from '@shared/types/graphql';
 import { authSentSourceLabel } from '../utils/gqlAuthResolve';
 import { serializeGraphqlRequestBody } from '../utils/graphqlRequestBodyDisplay';
 import {

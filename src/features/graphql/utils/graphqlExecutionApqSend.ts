@@ -1,5 +1,5 @@
-import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
-import { gqlRequiresTlsProxy, tlsApqGetNeedsPostProxy } from '../../../shared/types/gqlTls';
+import type { GqlTlsSettings } from '@shared/types/gqlTls';
+import { gqlRequiresTlsProxy, tlsApqGetNeedsPostProxy } from '@shared/types/gqlTls';
 import { getProxyBase } from '../utils/graphqlProxyTransports';
 import { gqlFetch } from '../utils/gqlFetch';
 import { parseHttpBody } from '../utils/graphqlExecutionResponseParsing';

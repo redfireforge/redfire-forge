@@ -12,8 +12,8 @@ import {
   validateGrpcLoadTestConfig,
 } from './grpcAdvancedFeatureContracts';
 import { resolveGrpcLoadTestStreamCollectConfig } from './grpcLoadTestStreamScheduler';
-import { validateLoadTestPreconditions } from '../../features/grpc/utils/grpcStudioAdvancedCommands';
-import { formatGrpcLoadTestCallTypeBadge } from '../../features/grpc/utils/grpcStudioAdvancedModel';
+import { validateLoadTestPreconditions } from '@grpc/utils/grpcStudioAdvancedCommands';
+import { formatGrpcLoadTestCallTypeBadge } from '@grpc/utils/grpcStudioAdvancedModel';
 
 const ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 

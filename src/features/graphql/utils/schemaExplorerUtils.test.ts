@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { KIND_LABEL, KIND_CSS, KIND_ABBR, fieldCountText, extractTypeName } from './schemaExplorerUtils';
-import type { GraphqlTypeNode } from '../../../shared/types/graphql';
+import type { GraphqlTypeNode } from '@shared/types/graphql';
 
 function makeType(kind: GraphqlTypeNode['kind'], overrides: Partial<GraphqlTypeNode> = {}): GraphqlTypeNode {
   return { name: 'TestType', kind, ...overrides };

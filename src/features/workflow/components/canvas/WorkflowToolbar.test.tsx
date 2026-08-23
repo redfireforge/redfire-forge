@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { render, screen, fireEvent, within } from '@testing-library/react';
-import { selectOption } from '../../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import WorkflowToolbar from './WorkflowToolbar';

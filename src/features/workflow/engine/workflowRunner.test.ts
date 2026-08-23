@@ -1,17 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Scenario } from '../../../shared/types';
-import type { RunOpts } from '../../../engine/requestExecution';
+import type { Scenario } from '@shared/types';
+import type { RunOpts } from '@engine/core/requestExecution';
 
 vi.mock('../../../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
 }));
 
 import { runWorkflow, runWorkflowLoad } from './workflowRunner';
-import { httpFetch } from '../../../shared/utils/httpClient';
+import { httpFetch } from '@shared/utils/httpClient';
 import { VariableContext } from './variableContext';
-import { TokenManager } from '../../../engine/tokenManager';
-import { CircuitBreaker } from '../../../engine/circuitBreaker';
-import { makeScenario as _makeScenario } from '../../../test-utils/factories';
+import { TokenManager } from '@engine/core/tokenManager';
+import { CircuitBreaker } from '@engine/core/circuitBreaker';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 const mockFetch = vi.mocked(httpFetch);
 

@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import DataTableVerifyModal from './DataTableVerifyModal';
-import type { Scenario, DataSource } from '../../../shared/types';
+import type { Scenario, DataSource } from '@shared/types';
 
 vi.mock('../../../shared/components/AppModalFrame', () => ({
   default: ({ title, children, footer, headerActions, headerContent }: {

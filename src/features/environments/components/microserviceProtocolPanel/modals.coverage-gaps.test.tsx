@@ -4,7 +4,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { describe, expect, it, vi } from 'vitest';
-import type { Microservice } from '../../../../shared/types';
+import type { Microservice } from '@shared/types';
 import { EnvVarsModal } from './EnvVarsModal';
 import { ProtocolVarsModal } from './ProtocolVarsModal';
 

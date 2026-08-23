@@ -6,7 +6,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GraphqlCollectionRunnerPanel } from './GraphqlCollectionRunnerPanel';
 import type { GraphqlCollectionRunnerPanelProps } from './GraphqlCollectionRunnerPanel';
-import type { CollectionRunEvent, GraphqlCollectionItem } from '../../../shared/types/graphql';
+import type { CollectionRunEvent, GraphqlCollectionItem } from '@shared/types/graphql';
 import type { UseGraphqlCollectionRunnerResult } from '../hooks/useGraphqlCollectionRunner';
 
 vi.mock('../../../shared/utils/fileSaver', () => ({

@@ -4,13 +4,13 @@ import { useNodesState, useEdgesState, useReactFlow, type NodeChange, type EdgeC
 import type { WorkflowVersion } from '../types/workflow';
 import { useOnboardingHints } from './useOnboardingHints';
 import { getAutoLayoutNodes } from '../utils/workflowAutoLayout';
-import { useResizablePanels } from '../../../shared/hooks/useResizablePanels';
+import { useResizablePanels } from '@shared/hooks/useResizablePanels';
 import { enrichNodeData, type WorkflowRFNode, type WorkflowRFEdge } from '../utils/workflowNodeFactory';
 import { useWorkflowConsole } from './useWorkflowConsole';
 import { useWorkflowKeyboardShortcuts } from './useWorkflowKeyboardShortcuts';
 import { useWorkflowPersistence } from './useWorkflowPersistence';
 import { useWorkflowVersioning } from './useWorkflowVersioning';
-import { useToast } from '../../../shared/hooks/useToast';
+import { useToast } from '@shared/hooks/useToast';
 import { useUndoRedo } from './useUndoRedo';
 import { useNodeClipboard } from './useNodeClipboard';
 import { useWorkflowRunCache } from './useWorkflowRunCache';

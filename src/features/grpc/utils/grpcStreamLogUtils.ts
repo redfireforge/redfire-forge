@@ -2,8 +2,8 @@ import {
   GRPC_STREAM_MESSAGE_CAP,
   type GrpcStreamEvent,
   type GrpcStreamLogEntry,
-} from '../../../shared/grpc/contracts';
-import { shouldAcceptGrpcStreamSequence } from '../../../shared/grpc/grpcStreamClient';
+} from '@shared/grpc/contracts';
+import { shouldAcceptGrpcStreamSequence } from '@shared/grpc/grpcStreamClient';
 
 export function appendGrpcStreamLogEntry(
   messages: GrpcStreamLogEntry[],

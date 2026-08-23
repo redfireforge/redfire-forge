@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { WorkflowExecutionTrace } from '../../../shared/types';
-import { saveJsonFile, saveCsvFile, savePngFile, saveSvgFile, buildExportFilename } from '../../../shared/utils/fileSaver';
+import type { WorkflowExecutionTrace } from '@shared/types';
+import { saveJsonFile, saveCsvFile, savePngFile, saveSvgFile, buildExportFilename } from '@shared/utils/fileSaver';
 import type { CanvasScreenshotFn, CanvasSvgFn } from '../components/WorkflowExecutionCanvas';
 
 type ReplaySnapshotNode = {
