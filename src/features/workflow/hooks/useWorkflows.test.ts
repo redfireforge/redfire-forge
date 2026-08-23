@@ -32,7 +32,7 @@ vi.mock('../utils/workflowMigrations', () => ({
 }));
 
 import { useWorkflows } from './useWorkflows';
-import { makeWorkflow as _makeWorkflow } from '../../../test-utils/factories';
+import { makeWorkflow as _makeWorkflow } from '@test-utils/factories';
 
 const makeWorkflow = (overrides: Partial<Workflow> = {}): Workflow =>
   _makeWorkflow({

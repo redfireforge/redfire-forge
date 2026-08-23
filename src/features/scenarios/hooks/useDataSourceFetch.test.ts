@@ -6,7 +6,7 @@ import { renderHook, act } from '@testing-library/react';
 import { useDataSourceFetch } from './useDataSourceFetch';
 import { Scenario, DataSource, DataSourceColumn, DataSourceRow } from '@shared/types';
 import { HttpResponse } from '@shared/utils/httpClient';
-import { makeScenario as _makeScenario } from '../../../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 const uuidMock = vi.hoisted(() =>
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('../../../test-utils/uuidMock.ts').hoistedUuidFixed('test-uuid'),

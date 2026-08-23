@@ -10,9 +10,9 @@ import ScriptLibraryManager from './ScriptLibraryManager';
 import ScriptTestResult from './ScriptTestResult';
 import { SCRIPT_MODE_OPTIONS, useScriptTest } from './useScriptTest';
 import { CustomSelect } from '@shared/components/CustomSelect';
-import { saveScriptLibraries } from '../../engine/scriptLibraries';
-import type { ScriptTemplate } from '../../engine/scriptTemplates';
-import type { ScriptLibrary } from '../../engine/scriptLibraries';
+import { saveScriptLibraries } from '@workflow/engine/scriptLibraries';
+import type { ScriptTemplate } from '@workflow/engine/scriptTemplates';
+import type { ScriptLibrary } from '@workflow/engine/scriptLibraries';
 import { KafkaAddButton, KafkaCard, KafkaEmptyState, KafkaFormRow } from './KafkaConfigUi';
 
 export default function ScriptConfig({

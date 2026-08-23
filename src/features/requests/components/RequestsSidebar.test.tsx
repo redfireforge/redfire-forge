@@ -9,7 +9,7 @@ import type { RequestCollection } from '@shared/types';
 import {
   getCustomSelectOptionLabels,
   selectOption,
-} from '../../../test-utils/customSelectHelper';
+} from '@test-utils/customSelectHelper';
 
 const h = vi.hoisted(() => ({
   ctx: null as unknown as Record<string, (...a: unknown[]) => unknown>,

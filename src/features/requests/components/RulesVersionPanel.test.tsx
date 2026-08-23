@@ -6,11 +6,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor} from '@testing-library/react';
 import RulesVersionPanel from './RulesVersionPanel';
 import type { RulesVersion, ValidationConfig } from '@shared/types';
-import { stubScrollIntoView } from '../../../test-utils/domMocks';
+import { stubScrollIntoView } from '@test-utils/domMocks';
 import {
   getCustomSelectOptionLabels,
   selectOptionByIndex,
-} from '../../../test-utils/customSelectHelper';
+} from '@test-utils/customSelectHelper';
 
 const mocks = vi.hoisted(() => ({
   differDiff: vi.fn(),

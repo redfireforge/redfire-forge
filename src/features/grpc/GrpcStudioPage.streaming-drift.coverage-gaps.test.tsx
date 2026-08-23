@@ -3,7 +3,7 @@
  */
 import { fireEvent, render, screen, waitFor, act } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { selectOption } from '../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_CANCEL_SUCCESS_ENVELOPE,

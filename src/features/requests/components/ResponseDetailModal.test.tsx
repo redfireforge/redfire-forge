@@ -4,7 +4,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ResponseDetailModal from './ResponseDetailModal';
 import type { RequestResult } from '@shared/types';
-import { makeResult as _makeResult } from '../../../test-utils/factories';
+import { makeResult as _makeResult } from '@test-utils/factories';
 
 const makeResult = (overrides: Partial<RequestResult> = {}): RequestResult =>
   _makeResult({

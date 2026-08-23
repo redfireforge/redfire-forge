@@ -3,7 +3,7 @@ import { Scenario } from '@shared/types';
 import { executeWithRetry, runSequential, runBatch, runPool, clearPrepCache, buildErrorResult, withTimeout, resetResultIdCounter, nextResultId, type RunOpts } from './requestExecution';
 import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
-import { makeScenario as _makeScenario } from '../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 vi.mock('../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),

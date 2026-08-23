@@ -7,7 +7,7 @@ vi.mock('../../../shared/utils/platform', () => ({
 import { mapRustResult, RustExecutionResult } from './rustBridge';
 import { isTauri } from '@shared/utils/platform';
 import { Scenario } from '@shared/types';
-import { makeScenario as _makeScenario } from '../../../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 const mockIsTauri = vi.mocked(isTauri);
 

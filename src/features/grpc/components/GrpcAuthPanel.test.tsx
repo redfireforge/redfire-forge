@@ -4,7 +4,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { getCustomSelectValue, selectOption } from '../../../test-utils/customSelectHelper';
+import { getCustomSelectValue, selectOption } from '@test-utils/customSelectHelper';
 import { GrpcAuthPanel } from './GrpcAuthPanel';
 import type { GrpcAuthPreviewResult } from '../utils/grpcAuthPreview';
 
@@ -17,7 +17,7 @@ const emptyPreview: GrpcAuthPreviewResult = {
 
 describe('GrpcAuthPanel (Phase 4C)', () => {
   it('switches auth type via dropdown (GraphQL-style)', async () => {
-    const user = userEvent.setup();
+    const _user = userEvent.setup();
     const onChange = vi.fn();
     render(
       <GrpcAuthPanel
@@ -57,7 +57,7 @@ describe('GrpcAuthPanel (Phase 4C)', () => {
   });
 
   it('offers inherit from auth profile when compatible profiles exist', async () => {
-    const user = userEvent.setup();
+    const _user = userEvent.setup();
     const onChange = vi.fn();
     render(
       <GrpcAuthPanel

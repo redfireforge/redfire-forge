@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
-import { installClipboardMock } from '../../../test-utils/clipboardMock';
+import { installClipboardMock } from '@test-utils/clipboardMock';
 import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import RequestEditor from './RequestEditor';

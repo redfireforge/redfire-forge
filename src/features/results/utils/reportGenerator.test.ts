@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { generateReport, downloadReport, type ReportOptions } from './reportGenerator';
 import { TestRun, RequestResult } from '@shared/types';
-import { makeResult as _makeResult } from '../../../test-utils/factories';
+import { makeResult as _makeResult } from '@test-utils/factories';
 
 function makeResult(overrides: Partial<RequestResult> = {}): RequestResult {
   return _makeResult({

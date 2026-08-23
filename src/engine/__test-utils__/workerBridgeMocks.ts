@@ -11,7 +11,7 @@ import {
   makeScenario as _makeScenario,
   makeResult as _makeResult,
   makeConfig as _makeConfig,
-} from '../../test-utils/factories';
+} from '@test-utils/factories';
 import type { MainToWorkerMessage, WorkerToMainMessage } from '../workerProtocol';
 
 export class MockWorker {

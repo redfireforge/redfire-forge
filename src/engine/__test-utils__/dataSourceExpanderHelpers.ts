@@ -2,7 +2,7 @@
  * Shared test helpers for dataSourceExpander tests
  */
 import type { Scenario, DataSource, DataSourceColumn, DataSourceRow, TestScenario, FeatureGroup } from '@shared/types';
-import { makeScenario as _makeScenario } from '../../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 export function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
   return _makeScenario({

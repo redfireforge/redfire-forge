@@ -3,7 +3,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render } from '@testing-library/react';
-import { selectOptionByTestId } from '../../../../test-utils/customSelectHelper';
+import { selectOptionByTestId } from '@test-utils/customSelectHelper';
 import '@testing-library/jest-dom';
 import GrpcWorkflowConnectionSecurityFields from './GrpcWorkflowConnectionSecurityFields';
 

@@ -9,7 +9,7 @@ import type { RequestItem } from '@shared/types';
 import {
   getCustomSelectOptionLabels,
   selectOptionByIndex,
-} from '../../../test-utils/customSelectHelper';
+} from '@test-utils/customSelectHelper';
 import { SpecVersionCompareModal } from './SpecVersionCompareModal';
 
 const computeSpecVersionDiff = vi.fn();

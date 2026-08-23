@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { selectOption, selectOptionByIndex, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
+import { selectOption, selectOptionByIndex, getCustomSelectValue } from '@test-utils/customSelectHelper';
 import TestSlaModal from './TestSlaModal';
 import type { Scenario, SlaTarget } from '@shared/types';
 

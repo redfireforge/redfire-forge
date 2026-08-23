@@ -16,7 +16,7 @@ vi.mock('../../../engine/tokenManager', () => {
 
 import { httpFetch } from '@shared/utils/httpClient';
 import { fetchScenarioSample } from './fetchScenarioSample';
-import { makeScenario as _makeScenario } from '../../../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 const mockedFetch = vi.mocked(httpFetch);
 

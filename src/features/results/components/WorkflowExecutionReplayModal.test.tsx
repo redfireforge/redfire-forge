@@ -9,7 +9,7 @@ import {
   selectOption,
   getCustomSelectValue,
   getCustomSelectOptionLabels,
-} from '../../../test-utils/customSelectHelper';
+} from '@test-utils/customSelectHelper';
 import WorkflowExecutionReplayModal from './WorkflowExecutionReplayModal';
 import type { WorkflowExecutionTrace, WorkflowIterationTrace } from '@shared/types';
 

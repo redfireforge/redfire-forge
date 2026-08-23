@@ -7,7 +7,7 @@ import type { WorkflowNode, WorkflowEdge, HttpNodeData, Workflow } from '../type
 import type { ICorrelationStore } from './correlationStore';
 import type { RequestResult, Scenario } from '@shared/types';
 import type { VariableContext } from './variableContext';
-import type { TokenManager } from '../../../engine/tokenManager';
+import type { TokenManager } from '@engine/tokenManager';
 import type { DebugController } from './debugController';
 import type { GraphRunCallbacks } from './graphRunnerInterfaces';
 import type { CorrelationWaitRunnerConfig, ExecutionTraceOptions, CapturedHttpRequest, CapturedHttpResponse, AssertionResult } from '@shared/types';

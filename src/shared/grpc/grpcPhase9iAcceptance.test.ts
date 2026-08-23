@@ -5,7 +5,7 @@
  * Tests use mocked transport — no live Docker/gRPC server required.
  */
 import { describe, expect, it } from 'vitest';
-import { makeScenario as _makeScenario } from '../../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 import type { Scenario } from '../types';
 import { createGrpcStudioTab, captureGrpcTabExecuteSnapshotFromResolution } from '@grpc/grpcStudioTypes';
 import {

@@ -8,7 +8,7 @@ import {
   createTestEditorExportHandler,
 } from './testEditorModalImportExport';
 import type { Scenario, DataSource } from '@shared/types';
-import { makeScenario as _makeScenario } from '../../../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 vi.mock('../utils/testEditorUtils', () => ({
   pickJsonFile: vi.fn(),

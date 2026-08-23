@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { selectOption, getCustomSelectValue } from '../../test-utils/customSelectHelper';
+import { selectOption, getCustomSelectValue } from '@test-utils/customSelectHelper';
 import ResultsDashboard from './ResultsDashboard';
-import { makeResult, makeSummary, makeTestRun } from '../../test-utils/factories';
+import { makeResult, makeSummary, makeTestRun } from '@test-utils/factories';
 import { generateReport, downloadReport } from './utils/reportGenerator';
 
 const storageMocks = vi.hoisted(() => ({

@@ -10,7 +10,7 @@
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption } from '../../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import HttpConfig from './HttpConfig';
 import type { Scenario } from '@shared/types';
 import type { WorkflowService } from '../../types/workflow';

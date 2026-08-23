@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SlaStatusAccordion } from './SlaStatusAccordion';
 import type { SlaTarget } from '../utils/slaTargets';
-import { makeSummary, makeResult } from '../../../test-utils/factories';
+import { makeSummary, makeResult } from '@test-utils/factories';
 
 const slaHelpers = vi.hoisted(() => ({
   evaluateSlaTreeMock: vi.fn(),

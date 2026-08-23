@@ -8,7 +8,7 @@
  */
 import type { Scenario, DataSource } from '@shared/types';
 import type { RequestDebugInfo, ResponseDebugInfo } from '../utils/populateFromApiUtils';
-import { resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
+import { resolveScenarioFromDataRow } from '@engine/dataSourceExpander';
 
 interface PopulateFetchStepProps {
   draft: Scenario;

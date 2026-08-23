@@ -5,7 +5,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
-import { selectOption } from '../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import { GraphqlSchemaExplorer } from './GraphqlSchemaExplorer';
 import type { GraphqlSchemaInfo, GraphqlTypeNode } from '@shared/types/graphql';
 

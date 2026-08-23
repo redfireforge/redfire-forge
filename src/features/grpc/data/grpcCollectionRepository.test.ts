@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createEmptyGrpcCollectionsStore } from '@shared/grpc/grpcPersistenceSchema';
-import { makeGrpcSavedRequest, GRPC_TEST_TIMESTAMP as TS } from '../../../test-utils/grpcFactories';
+import { makeGrpcSavedRequest, GRPC_TEST_TIMESTAMP as TS } from '@test-utils/grpcFactories';
 
 const saveMock = vi.fn().mockResolvedValue(undefined);
 const loadMock = vi.fn();

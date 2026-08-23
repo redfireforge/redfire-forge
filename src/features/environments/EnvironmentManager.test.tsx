@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useState } from 'react';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { selectOption } from '../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import EnvironmentManager, { type EnvironmentManagerProps } from './EnvironmentManager';
 import type { Environment, Microservice, GlobalAuthProfile, FeatureGroup } from '@shared/types';
 

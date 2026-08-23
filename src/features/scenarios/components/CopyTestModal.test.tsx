@@ -8,7 +8,7 @@ import {
   selectOptionByIndex,
   getCustomSelectValue,
   getCustomSelectOptionLabels,
-} from '../../../test-utils/customSelectHelper';
+} from '@test-utils/customSelectHelper';
 import CopyTestModal from './CopyTestModal';
 import type { Scenario, FeatureGroup } from '@shared/types';
 

@@ -7,7 +7,7 @@ import type { NodeHandlerContext, PassedFlag, CapturedHttpNodeDetails } from './
 import { executeHttpNode, logHttpResult } from './graphRunnerHelpers';
 import { formatHttpNodeRunDetail, summarizeRequestFailure } from '../utils/workflowRunErrors';
 import { humanizeError } from '@shared/utils/helpers';
-import { expandDataSource } from '../../../engine/dataSourceExpander';
+import { expandDataSource } from '@engine/dataSourceExpander';
 import { captureMappingTraces, shouldCaptureMappingTraces } from '@shared/components/data-mapper/utils/mappingTrace';
 import { resolveTraceLevel } from './graphRunnerTraceLevel';
 

@@ -4,7 +4,7 @@ import { runLoadProfile } from './loadProfileRunner';
 import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
 import { clearPrepCache, type RunOpts } from './requestExecution';
-import { makeScenario as _makeScenario } from '../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 vi.mock('../shared/utils/httpClient', () => ({
   httpFetch: vi.fn().mockResolvedValue({ status: 200, statusText: 'OK', headers: {}, body: '{"ok":true}' }),

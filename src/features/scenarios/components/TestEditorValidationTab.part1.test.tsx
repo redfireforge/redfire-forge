@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { getCustomSelectValue } from '../../../test-utils/customSelectHelper';
+import { getCustomSelectValue } from '@test-utils/customSelectHelper';
 import TestEditorValidationTab from './TestEditorValidationTab';
 import { createRef } from 'react';
 import { makeDraft, makeProps } from './TestEditorValidationTab.test-utils';

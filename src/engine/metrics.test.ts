@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { computeMetrics } from './metrics';
-import { makeResult } from '../test-utils/factories';
+import { makeResult } from '@test-utils/factories';
 
 describe('computeMetrics', () => {
   it('returns all zeros for empty results', () => {

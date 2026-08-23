@@ -1,4 +1,4 @@
-import type { AllocationSummary } from '../../../engine/allocationEngine';
+import type { AllocationSummary } from '@engine/allocationEngine';
 
 interface ExecutionPlanPreviewProps {
   allocation: AllocationSummary;

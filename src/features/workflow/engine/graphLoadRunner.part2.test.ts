@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { RequestResult } from '@shared/types';
 import { Workflow, WorkflowNode, WorkflowEdge } from '../types/workflow';
-import { makeResult as _makeResult } from '../../../test-utils/factories';
+import { makeResult as _makeResult } from '@test-utils/factories';
 
 const { syntheticStart, syntheticStop, SyntheticEventInjectorMock } = vi.hoisted(() => {
   const syntheticStart = vi.fn();

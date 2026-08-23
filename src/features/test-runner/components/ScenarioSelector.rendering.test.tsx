@@ -9,7 +9,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import {
   selectOptionByIndex,
   isCustomSelectDisabled,
-} from '../../../test-utils/customSelectHelper';
+} from '@test-utils/customSelectHelper';
 import '@testing-library/jest-dom';
 import ScenarioSelector from './ScenarioSelector';
 import { defaultProps, mockFeatureGroups } from './ScenarioSelector.test.utils';

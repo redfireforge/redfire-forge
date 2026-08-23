@@ -57,7 +57,7 @@ function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
   return _makeScenario(overrides) as Scenario;
 }
 
-import { makeResult as _makeResult, makeScenario as _makeScenario, makeConfig as _makeConfig } from '../test-utils/factories';
+import { makeResult as _makeResult, makeScenario as _makeScenario, makeConfig as _makeConfig } from '@test-utils/factories';
 
 const fixedTimestamp = 1700000000000;
 function makeResult(id: string): RequestResult {

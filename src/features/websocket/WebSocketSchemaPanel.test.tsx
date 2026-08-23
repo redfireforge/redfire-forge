@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption } from '../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import '@testing-library/jest-dom/vitest';
 import { WebSocketSchemaPanel } from './WebSocketSchemaPanel';
 import type { WsSchemaDefinition } from './wsSchemaTypes';

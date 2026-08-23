@@ -7,7 +7,7 @@ import {
   selectOption,
   getCustomSelectValue,
   getCustomSelectOptionLabels,
-} from '../../../test-utils/customSelectHelper';
+} from '@test-utils/customSelectHelper';
 import RunnerSlaOverridePanel from './RunnerSlaOverridePanel';
 import type { SlaTarget } from '@shared/types';
 
