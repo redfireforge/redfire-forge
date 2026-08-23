@@ -22,6 +22,7 @@ artifacts/
 .cursor/demo-live-guard.json
 .idea
 .DS_Store
+.!*
 *.suo
 *.ntvs*
 *.njsproj
