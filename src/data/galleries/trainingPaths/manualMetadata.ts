@@ -370,6 +370,20 @@ export const manualMetadata: ManualMetadata[] = [
   { manualPath: 'grpc/grpc-mock-server-advanced.html', addedAt: date('2026-08-23') },
   { manualPath: 'grpc/grpc-schema-drift-advanced.html', addedAt: date('2026-08-23') },
   { manualPath: 'grpc/grpc-interpolation-advanced.html', addedAt: date('2026-08-23') },
+  // WebSocket Studio — added 2026-08-23
+  { manualPath: 'websocket/websocket.html', addedAt: date('2026-08-23') },
+  { manualPath: 'websocket/websocket-first-connection-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'websocket/websocket-multi-tab-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'websocket/websocket-protocols-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'websocket/websocket-auth-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'websocket/websocket-recording-replay-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'websocket/websocket-stats-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'websocket/websocket-tls-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'websocket/websocket-mock-server-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'websocket/websocket-schema-validation-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'websocket/websocket-diff-console-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'websocket/websocket-load-test-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'websocket/websocket-workflow-runner-advanced.html', addedAt: date('2026-08-23') },
 ];
 
 /** Map of manualPath -> ManualMetadata for fast lookup */

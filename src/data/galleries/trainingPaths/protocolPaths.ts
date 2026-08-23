@@ -213,17 +213,88 @@ export const protocolPaths: TrainingPath[] = [
     id: 'websocket',
     name: 'WebSocket Studio',
     icon: '⚡',
-    description: 'Open persistent WebSocket connections, send and receive frames, set up event-driven assertions, and automate over WS — coming soon.',
-    comingSoon: true,
+    description: 'Open persistent WebSocket connections, send and receive frames, set up event-driven assertions, and automate over WS.',
     phases: [
       {
         id: 1,
-        name: 'Coming Soon',
+        name: 'Getting Started',
         manuals: [
           {
-            title: 'WebSocket Studio — Coming Soon',
-            description: 'Training manuals for WebSocket Studio are in progress.',
+            title: 'WebSocket Studio Overview',
+            description: 'Interface tour, mode switcher, panel layout, protocol support, and learning path map.',
             difficulty: 'easy',
+          },
+          {
+            title: 'Your First Connection',
+            description: 'Connect to a public echo server, send a message, observe the echoed response, and disconnect.',
+            difficulty: 'easy',
+          },
+          {
+            title: 'Multi-Tab Connections',
+            description: 'Run up to 8 independent WebSocket connections simultaneously with isolated state per tab.',
+            difficulty: 'easy',
+          },
+        ],
+      },
+      {
+        id: 2,
+        name: 'Intermediate',
+        manuals: [
+          {
+            title: 'Protocol Adapters',
+            description: 'Switch between Plain WS, Socket.IO, STOMP, and GraphQL-WS with adapter-specific compose UI.',
+            difficulty: 'medium',
+          },
+          {
+            title: 'Authentication',
+            description: 'Configure Bearer, API Key, and Basic auth — injected as HTTP upgrade headers via the built-in proxy.',
+            difficulty: 'medium',
+          },
+          {
+            title: 'Recording & Replay',
+            description: 'Capture a full session to a portable JSON file and replay it at variable speed for bug reproduction and regression testing.',
+            difficulty: 'medium',
+          },
+          {
+            title: 'Connection Stats',
+            description: 'Monitor real-time message rate, bytes in/out, frame count, and uptime for every connection.',
+            difficulty: 'medium',
+          },
+          {
+            title: 'TLS / WSS Configuration',
+            description: 'Configure skip-cert, custom CA, and mutual TLS (mTLS) for wss:// connections via the proxy architecture.',
+            difficulty: 'medium',
+          },
+        ],
+      },
+      {
+        id: 3,
+        name: 'Advanced',
+        manuals: [
+          {
+            title: 'Mock Server',
+            description: 'Run a built-in WebSocket server with match rules, custom responses, latency simulation, and broadcast to all clients.',
+            difficulty: 'advanced',
+          },
+          {
+            title: 'Schema Validation',
+            description: 'Infer JSON schemas from live traffic or define them manually; validate every frame against your schemas in real time.',
+            difficulty: 'advanced',
+          },
+          {
+            title: 'Diff & Console',
+            description: 'Compare any two messages side-by-side with the diff modal; use the console command input for scripted send sequences.',
+            difficulty: 'advanced',
+          },
+          {
+            title: 'Load Testing',
+            description: 'Launch concurrent WebSocket workers to measure throughput, error rate, and P50/P95/P99 latency under load.',
+            difficulty: 'advanced',
+          },
+          {
+            title: 'Workflow Runner Integration',
+            description: 'Automate WS interactions with wsConnect, wsSend, wsReceive, and wsTrigger nodes in the Workflow Runner.',
+            difficulty: 'advanced',
           },
         ],
       },
