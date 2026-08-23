@@ -9,13 +9,13 @@
  * via the `RunOpts.executeNonHttp` callback to avoid circular dependencies.
  */
 import type { Scenario, RequestResult, KafkaResultMeta } from '@shared/types';
-import type { KafkaNodeOperations } from '../features/workflow/engine/graphRunnerNodeHandlerContext';
+import type { KafkaNodeOperations } from '@workflow/engine/graphRunnerNodeHandlerContext';
 import { nextResultId, buildErrorResult } from './requestExecution';
 import { buildValidationResult } from './validationResult';
 import { toErrorMessage, parseJsonSafe } from '@shared/utils/helpers';
 import { round2 as roundMs } from '@shared/utils/percentiles';
 import { resolveKafkaActionType } from '@shared/utils/kafkaScenarioDefaults';
-import { classifyKafkaFailure } from '../features/workflow/engine/graphRunnerKafkaNodeHandlers';
+import { classifyKafkaFailure } from '@workflow/engine/graphRunnerKafkaNodeHandlers';
 
 // ---------------------------------------------------------------------------
 // Public entry point

@@ -6,7 +6,7 @@ import '@testing-library/jest-dom/vitest';
 import { render, screen, within, fireEvent } from '@testing-library/react';
 import { selectOption, getCustomSelectValue, getCustomSelectOptionLabels } from '../../../test-utils/customSelectHelper';
 import GraphqlQueryConfigPanel, { GqlAuthSection, GqlExtractionSection } from './GraphqlQueryConfigPanel';
-import type { GraphqlQueryNodeData } from '../../workflow/types/workflow';
+import type { GraphqlQueryNodeData } from '@workflow/types/workflow';
 
 vi.mock('./GraphqlImportFromCollectionModal', () => ({
   default: vi.fn(({ onImport, onCancel }: {

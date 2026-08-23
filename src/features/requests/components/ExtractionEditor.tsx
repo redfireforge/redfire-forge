@@ -1,10 +1,10 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { Extraction, ExtractionSource } from '@shared/types';
-import type { WorkflowVariableHint } from '../../workflow/utils/workflowVariableHints';
+import type { WorkflowVariableHint } from '@workflow/utils/workflowVariableHints';
 import type { FetchErrorDetail } from '@shared/components/data-mapper/types';
 import { suggestedVariableNameFromJsonPath, buildJsonTree, type JsonTreeNode } from '@shared/utils/jsonTreeModel';
 import { CustomSelect } from '@shared/components/CustomSelect';
-import ExpressionInput from '../../workflow/components/expression/ExpressionInput';
+import ExpressionInput from '@workflow/components/expression/ExpressionInput';
 import FetchErrorBanner from '@shared/components/data-mapper/FetchErrorBanner';
 
 export interface ExtractionFetchSampleProps {

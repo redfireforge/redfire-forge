@@ -29,7 +29,7 @@ vi.mock('../features/workflow/utils/expressionEvaluator', () => ({
   formatExpressionResult: vi.fn((v: unknown) => String(v)),
 }));
 
-import { evaluateExpression } from '../features/workflow/utils/expressionEvaluator';
+import { evaluateExpression } from '@workflow/utils/expressionEvaluator';
 
 const baseCtx: AssertionContext = {
   httpStatus: 200,

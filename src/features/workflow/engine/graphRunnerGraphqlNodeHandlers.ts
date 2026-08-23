@@ -15,7 +15,7 @@
  */
 
 import { buildClientSchema, printSchema, isObjectType } from 'graphql';
-import { INTROSPECTION_QUERY } from '../../graphql/utils/graphqlIntrospectionQuery';
+import { INTROSPECTION_QUERY } from '@graphql/utils/graphqlIntrospectionQuery';
 import type { WorkflowNode } from '../types/workflow';
 import type {
   GraphqlQueryNodeData,
@@ -26,12 +26,12 @@ import type { NodeHandlerContext, PassedFlag } from './graphRunnerNodeHandlerCon
 import { toErrorMessage } from '@shared/utils/helpers';
 import { getByPath } from '@shared/utils/jsonPath';
 import { evaluateFieldOperator } from '../../../engine/fieldOperatorEvaluation';
-import { getProxyBase } from '../../graphql/utils/graphqlProxyTransports';
-import { computeAPQHash } from '../../graphql/utils/apqClient';
+import { getProxyBase } from '@graphql/utils/graphqlProxyTransports';
+import { computeAPQHash } from '@graphql/utils/apqClient';
 import {
   buildExtractedVariableMap,
   buildGraphqlRunSnapshot,
-} from '../../graphql/utils/graphqlConfigTestHelpers';
+} from '@graphql/utils/graphqlConfigTestHelpers';
 import {
   collectGraphqlBindingEntries,
   collectGraphqlNodeVariableNames,

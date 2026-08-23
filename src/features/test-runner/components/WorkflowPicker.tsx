@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import type { Workflow, WorkflowFolder } from '../../workflow/types/workflow';
-import { getFolderPath, buildFolderTree, getUnfiledWorkflows, countNodeWorkflows } from '../../workflow/utils/workflowFolderTree';
-import type { FolderTreeNode } from '../../workflow/utils/workflowFolderTree';
+import type { Workflow, WorkflowFolder } from '@workflow/types/workflow';
+import { getFolderPath, buildFolderTree, getUnfiledWorkflows, countNodeWorkflows } from '@workflow/utils/workflowFolderTree';
+import type { FolderTreeNode } from '@workflow/utils/workflowFolderTree';
 import {
   getWorkflowRunConfigs,
   saveWorkflowRunConfigManually,
@@ -12,7 +12,7 @@ import {
 } from '../utils/workflowRunConfigStorage';
 import { sampleWorkflowCatalog } from '../../../data/galleries/workflows';
 import { highlightSearchMatch } from '@shared/utils/consoleLogUtils';
-import { buildInitialRunnerVariables } from '../../workflow/utils/countWorkflowDesignerVariables';
+import { buildInitialRunnerVariables } from '@workflow/utils/countWorkflowDesignerVariables';
 
 interface Props {
   workflows: Workflow[];

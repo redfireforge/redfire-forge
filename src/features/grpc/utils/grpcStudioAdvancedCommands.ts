@@ -19,7 +19,7 @@ import {
 } from '@shared/grpc/grpcLoadTestMetrics';
 import { invokeGrpcUnary } from '@shared/grpc/grpcTransportFacade';
 import { snapshotToUnaryCallRequest, snapshotToStreamStartRequest } from '../grpcStudioTypes';
-import { collectGrpcWorkflowServerStream } from '../../workflow/utils/grpcWorkflowStreamCollector';
+import { collectGrpcWorkflowServerStream } from '@workflow/utils/grpcWorkflowStreamCollector';
 import { computeGrpcSchemaDiff } from '@shared/grpc/grpcSchemaDiffEngine';
 import type { GrpcSchemaDiffReport } from '@shared/grpc/grpcSchemaDiffContracts';
 import {

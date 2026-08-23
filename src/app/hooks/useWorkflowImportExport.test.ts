@@ -51,8 +51,8 @@ vi.mock('../../features/workflow/utils/workflowFolderTree', () => ({
   ),
 }));
 
-import type { WorkflowHook } from '../../features/workflow/hooks/useWorkflows';
-import type { WorkflowFolder } from '../../features/workflow/types/workflow';
+import type { WorkflowHook } from '@workflow/hooks/useWorkflows';
+import type { WorkflowFolder } from '@workflow/types/workflow';
 import { useWorkflowImportExport } from './useWorkflowImportExport';
 
 describe('useWorkflowImportExport', () => {

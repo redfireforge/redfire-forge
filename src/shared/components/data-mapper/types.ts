@@ -67,7 +67,7 @@ export interface ValidationIssue {
 
 // Re-export the canonical ExpressionFunction type from the workflow engine.
 // Adapter `customFunctions` use the same shape so they plug directly into the evaluator.
-import type { ExpressionFunction } from '../../../features/workflow/utils/expressionFunctions/types';
+import type { ExpressionFunction } from '@workflow/utils/expressionFunctions/types';
 export type { ExpressionFunction };
 
 // ─── Source & Target ──────────────────────────────────────

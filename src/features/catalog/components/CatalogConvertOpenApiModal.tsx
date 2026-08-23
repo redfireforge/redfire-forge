@@ -17,7 +17,7 @@ import {
 import { loadConvertPref, saveConvertPref, loadPrettyPref, savePrettyPref } from '../utils/convertPrefs';
 import { prettifyOpenApiYaml } from '../utils/prettyYaml';
 import { lintOpenApi, type LintResult } from '../utils/openApiLint';
-import type { ToastType } from '../../workflow/components/WorkflowToastProvider';
+import type { ToastType } from '@workflow/components/WorkflowToastProvider';
 import {
   countOperations,
   escapeHtml,

@@ -6,7 +6,7 @@ import {
   formatExpressionResult,
 } from './mapperExpressionEvaluator';
 import type { MapperSource } from '../types';
-import * as expressionEvaluator from '../../../../features/workflow/utils/expressionEvaluator';
+import * as expressionEvaluator from '@workflow/utils/expressionEvaluator';
 
 const sources: MapperSource[] = [
   {

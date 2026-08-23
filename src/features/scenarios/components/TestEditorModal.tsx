@@ -15,7 +15,7 @@ import DataSourceSetupModal from './DataSourceSetupModal';
 import { TestEditorTabs } from './TestEditorTabs';
 import TestEditorPropertyCard from './TestEditorPropertyCard';
 import TestEditorTabContent from './TestEditorTabContent';
-import WorkflowEditorModalFrame from '../../workflow/components/modals/WorkflowEditorModalFrame';
+import WorkflowEditorModalFrame from '@workflow/components/modals/WorkflowEditorModalFrame';
 import type { ImportChoice, ExportChoice } from './ImportExportChoiceModal';
 import TestEditorModalHeaderActions from './TestEditorModalHeaderActions';
 import WsScenarioEditor from './WsScenarioEditor';

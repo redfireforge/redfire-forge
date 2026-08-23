@@ -13,7 +13,7 @@ import type { TraceCaptureLevel } from '../../../types';
 import { evaluateMapperExpression } from './mapperExpressionEvaluator';
 import { getByPath } from '../../../utils/jsonPath';
 import { coerceSampleData } from './mapperParsing';
-import type { ExpressionFunction } from '../../../../features/workflow/utils/expressionFunctions/types';
+import type { ExpressionFunction } from '@workflow/utils/expressionFunctions/types';
 
 // ─── Types ────────────────────────────────────────────────
 

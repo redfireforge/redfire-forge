@@ -13,13 +13,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import type { WorkflowEdge, WorkflowNode } from '../../features/workflow/types/workflow';
-import { runGraph } from '../../features/workflow/engine/graphRunner';
+import type { WorkflowEdge, WorkflowNode } from '@workflow/types/workflow';
+import { runGraph } from '@workflow/engine/graphRunner';
 import {
   endNode,
   makeEdge,
   startNode,
-} from '../../features/workflow/engine/graphRunnerNodeHandlers.test-utils';
+} from '@workflow/engine/graphRunnerNodeHandlers.test-utils';
 import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_DESCRIPTOR_KEY,
@@ -38,7 +38,7 @@ import {
   buildGrpcSavedRequestSchemaCompareIntent,
   compareGrpcSavedRequestSchema,
   detectGrpcHistoryDescriptorDrift,
-} from '../../features/grpc/utils/grpcCollectionSchemaDiffActions';
+} from '@grpc/utils/grpcCollectionSchemaDiffActions';
 import type { GrpcSavedRequest } from './grpcSavedRequest';
 
 vi.mock('../../shared/utils/httpClient', () => ({ httpFetch: vi.fn() }));

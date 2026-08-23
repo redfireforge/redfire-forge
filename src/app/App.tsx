@@ -43,12 +43,12 @@ import ApiCatalog from '../features/catalog/ApiCatalog';
 import SettingsPage from '../features/settings/SettingsModal';
 import KafkaSettingsPage from '../features/kafka/KafkaSettingsPage';
 import EnvironmentManager from '../features/environments/EnvironmentManager';
-import WorkflowDesigner from '../features/workflow/WorkflowDesigner';
-import WorkflowExecutionHistory from '../features/workflow/WorkflowExecutionHistory';
+import WorkflowDesigner from '@workflow/WorkflowDesigner';
+import WorkflowExecutionHistory from '@workflow/WorkflowExecutionHistory';
 import WebhookDeliveryLogs from '../features/webhooks/WebhookDeliveryLogs';
 import { AppDiscoveryPanes } from './components/AppDiscoveryPanes';
-import { useWorkflows } from '../features/workflow/hooks/useWorkflows';
-import { useWorkflowFolders } from '../features/workflow/hooks/useWorkflowFolders';
+import { useWorkflows } from '@workflow/hooks/useWorkflows';
+import { useWorkflowFolders } from '@workflow/hooks/useWorkflowFolders';
 import { useToast } from '@shared/hooks/useToast';
 import {
   type Tab,

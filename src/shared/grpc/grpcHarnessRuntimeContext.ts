@@ -4,7 +4,7 @@
 import type { Microservice } from '../types';
 import { buildEnvVarMap } from '../utils/envVarUtils';
 import type { GrpcTlsConfig } from './contracts';
-import type { GrpcConnectionProfile, GrpcTabConnectionPageDefaults } from '../../features/grpc/utils/resolveGrpcTabConnection';
+import type { GrpcConnectionProfile, GrpcTabConnectionPageDefaults } from '@grpc/utils/resolveGrpcTabConnection';
 import type { GrpcHarnessSnapshotBuildContext } from './grpcHarnessSnapshotBuilder';
 import {
   createGrpcInterpolationTemplateResolver,

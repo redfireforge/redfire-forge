@@ -9,9 +9,9 @@
  */
 
 import { useState, useMemo } from 'react';
-import type { WebhookRateConfig, WebhookRateMode } from '../../workflow/engine/webhookLoadDriver';
-import { calculateTotalRequests } from '../../workflow/engine/webhookLoadDriver';
-import { getAvailableGenerators, validatePayloadTemplate } from '../../workflow/engine/payloadTemplateEngine';
+import type { WebhookRateConfig, WebhookRateMode } from '@workflow/engine/webhookLoadDriver';
+import { calculateTotalRequests } from '@workflow/engine/webhookLoadDriver';
+import { getAvailableGenerators, validatePayloadTemplate } from '@workflow/engine/payloadTemplateEngine';
 
 export interface WebhookLoadConfig {
   /** Full webhook URL (auto-derived from workflow + trigger node). */

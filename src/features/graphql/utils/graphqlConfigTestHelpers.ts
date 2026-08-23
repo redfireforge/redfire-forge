@@ -3,8 +3,8 @@
  */
 import { getByPath } from '@shared/utils/jsonPath';
 import { evaluateFieldOperator } from '../../../engine/fieldOperatorEvaluation';
-import type { NodeRunStatus } from '../../workflow/types/workflow';
-import type { GraphqlExtractionRule, GraphqlWorkflowAssertion } from '../../workflow/types/workflow';
+import type { NodeRunStatus } from '@workflow/types/workflow';
+import type { GraphqlExtractionRule, GraphqlWorkflowAssertion } from '@workflow/types/workflow';
 
 export interface GraphqlRunSnapshot {
   data?: unknown;

@@ -3,8 +3,8 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import type { Workflow } from '../../features/workflow/types/workflow';
-import type { WorkflowHook } from '../../features/workflow/hooks/useWorkflows';
+import type { Workflow } from '@workflow/types/workflow';
+import type { WorkflowHook } from '@workflow/hooks/useWorkflows';
 
 const mockLoadPreviewSampleId = vi.fn();
 const mockSavePreviewSampleId = vi.fn();

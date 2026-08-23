@@ -14,7 +14,7 @@ import {
 import { useDemoWorkflowLivePatchSync } from './useDemoWorkflowLivePatchSync';
 import { resetDemoWorkflowRunState, useDemoWorkflowRunBridge } from './useDemoWorkflowRunBridge';
 import { closeDemoWorkflowConfigModal, useDemoWorkflowConfigModalBridge } from './useDemoWorkflowConfigModalBridge';
-import type { Workflow } from '../../features/workflow/types/workflow';
+import type { Workflow } from '@workflow/types/workflow';
 
 describe('demo workflow bridges coverage', () => {
   afterEach(() => {

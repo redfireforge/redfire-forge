@@ -5,11 +5,11 @@
 import { describe, expect, it } from 'vitest';
 import { createGrpcInterpolationTemplateResolver } from './grpcInterpolationResolver';
 import { resolveGrpcHarnessJsonValue } from './grpcHarnessTemplateResolver';
-import { resolveGrpcWorkflowJsonValue } from '../../features/workflow/utils/grpcWorkflowTemplateResolver';
+import { resolveGrpcWorkflowJsonValue } from '@workflow/utils/grpcWorkflowTemplateResolver';
 import { substituteGrpcHarnessTemplateVars } from './grpcHarnessDataSourceInterpolation';
-import { resolveTabConnectionWithEnv } from '../../features/grpc/hooks/grpcStudioSessionHelpers';
-import { useGrpcTargetValidation } from '../../features/grpc/hooks/useGrpcTargetValidation';
-import { createGrpcStudioTab } from '../../features/grpc/grpcStudioTypes';
+import { resolveTabConnectionWithEnv } from '@grpc/hooks/grpcStudioSessionHelpers';
+import { useGrpcTargetValidation } from '@grpc/hooks/useGrpcTargetValidation';
+import { createGrpcStudioTab } from '@grpc/grpcStudioTypes';
 import { renderHook } from '@testing-library/react';
 
 describe('grpcInterpolation consumer parity (Phase 9B)', () => {

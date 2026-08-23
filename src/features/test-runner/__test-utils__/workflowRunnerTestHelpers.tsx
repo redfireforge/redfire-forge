@@ -16,7 +16,7 @@
  */
 import type { JSX } from 'react';
 import { fireEvent, screen } from '@testing-library/react';
-import type { Workflow } from '../../workflow/types/workflow';
+import type { Workflow } from '@workflow/types/workflow';
 import type { TestSummary } from '@shared/types';
 
 const NOW = 0;

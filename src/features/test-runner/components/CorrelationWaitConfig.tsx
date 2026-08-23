@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
-import type { Workflow, CorrelationWaitNodeData } from '../../workflow/types/workflow';
+import type { Workflow, CorrelationWaitNodeData } from '@workflow/types/workflow';
 import type { CorrelationWaitRunnerConfig } from '@shared/types';
 import { getByPath, setByPath } from '@shared/utils/jsonPath';
 

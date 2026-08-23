@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Scenario, TestConfig, RequestResult, TestSummary, TestRun } from '@shared/types';
-import type { Workflow } from '../../workflow/types/workflow';
+import type { Workflow } from '@workflow/types/workflow';
 import { runTest } from '../../../engine/executor';
 import type { ProgressMeta, StreamingMetrics, WorkflowResolverData } from '../../../engine/executor';
 import { runTestMultiWorker } from '../../../engine/workerBridge';

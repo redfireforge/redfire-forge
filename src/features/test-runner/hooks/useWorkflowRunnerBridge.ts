@@ -1,8 +1,8 @@
 import { useLayoutEffect, type MutableRefObject } from 'react';
 import { flushSync } from 'react-dom';
 import type { TraceCaptureLevel, ExecutionTraceOptions } from '@shared/types';
-import type { Workflow } from '../../workflow/types/workflow';
-import { buildInitialRunnerVariables } from '../../workflow/utils/countWorkflowDesignerVariables';
+import type { Workflow } from '@workflow/types/workflow';
+import { buildInitialRunnerVariables } from '@workflow/utils/countWorkflowDesignerVariables';
 import { getWorkflowRunnerBridgeWindow } from '../workflowRunnerBridge';
 
 export interface UseWorkflowRunnerBridgeParams {

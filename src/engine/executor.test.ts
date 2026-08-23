@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Scenario, TestConfig } from '@shared/types';
-import type { Workflow } from '../features/workflow/types/workflow';
+import type { Workflow } from '@workflow/types/workflow';
 import { buildHeaders, buildUrl, runTest, proxyFetch } from './executor';
 import * as grpcConnectionProfileHydration from './grpcConnectionProfileHydration';
 import { makeScenario as _makeScenario, makeConfig as _makeConfig } from '../test-utils/factories';

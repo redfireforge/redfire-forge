@@ -4,7 +4,7 @@
 import type { GrpcTlsConfig } from '@shared/grpc/contracts';
 import type { GlobalAuthProfile } from '@shared/types';
 import { loadGrpcConnectionProfilesFromStorage } from '../../../engine/grpcConnectionProfileHydration';
-import type { GrpcConnectionProfile, GrpcTabConnectionPageDefaults } from '../../grpc/utils/resolveGrpcTabConnection';
+import type { GrpcConnectionProfile, GrpcTabConnectionPageDefaults } from '@grpc/utils/resolveGrpcTabConnection';
 import type { VariableContext } from '../engine/variableContext';
 import type { GrpcUnaryNodeData, GrpcServerStreamNodeData } from '../types/workflow/node-grpc';
 import type { GrpcWorkflowSnapshotBuildContext } from './grpcWorkflowSnapshotBuilder';

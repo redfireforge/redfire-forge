@@ -1,5 +1,5 @@
 import type { GrpcTlsMode } from '@shared/grpc/contracts';
-import type { GrpcConnectionProfile } from '../features/grpc/utils/resolveGrpcTabConnection';
+import type { GrpcConnectionProfile } from '@grpc/utils/resolveGrpcTabConnection';
 
 export const GRPC_PROFILE_STORAGE_KEYS = [
   'grpc_profiles_v1',

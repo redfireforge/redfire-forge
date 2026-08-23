@@ -13,7 +13,7 @@ import { batchPromoteCollection, promoteToFeatureGroups } from '../../features/r
 import type { PromotionContext } from '../../features/requests/utils/requestToScenario';
 import { catalogEndpointToRequest } from '../../features/catalog/utils/catalogEndpointToRequest';
 import type { UseRequestsReturn } from '../../features/requests/hooks/useRequests';
-import type { ToastApi } from '../../features/workflow/components/WorkflowToastProvider';
+import type { ToastApi } from '@workflow/components/WorkflowToastProvider';
 import type { Tab } from '../utils/appTabUtils';
 
 

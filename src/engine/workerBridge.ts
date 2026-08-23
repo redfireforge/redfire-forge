@@ -1,5 +1,5 @@
 import type { TestConfig, Scenario, RequestResult, WorkflowExecutionTrace } from '@shared/types';
-import type { Workflow } from '../features/workflow/types/workflow';
+import type { Workflow } from '@workflow/types/workflow';
 import type { ProgressMeta, TestResult } from './executor';
 import type { MainToWorkerMessage, WorkerToMainMessage } from './workerProtocol';
 import { httpFetch } from '@shared/utils/httpClient';

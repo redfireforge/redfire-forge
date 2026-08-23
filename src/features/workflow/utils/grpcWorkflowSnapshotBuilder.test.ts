@@ -8,8 +8,8 @@ import { validateResolvedGrpcTargetAddress } from '@shared/grpc/targetValidation
 import {
   captureGrpcTabExecuteSnapshotFromResolution,
   snapshotToUnaryCallRequest,
-} from '../../grpc/grpcStudioTypes';
-import { resolveGrpcTabConnection } from '../../grpc/utils/resolveGrpcTabConnection';
+} from '@grpc/grpcStudioTypes';
+import { resolveGrpcTabConnection } from '@grpc/utils/resolveGrpcTabConnection';
 import type { GrpcServerStreamNodeData, GrpcUnaryNodeData } from '../types/workflow/node-grpc';
 import {
   buildGrpcWorkflowExecuteSnapshot,
