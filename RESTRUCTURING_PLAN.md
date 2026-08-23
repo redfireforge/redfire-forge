@@ -1,7 +1,7 @@
 # Source Restructuring Plan (Living)
 
 > Status: On hold (core restructure not scheduled)
-> Last Updated: 2026-06-20
+> Last Updated: 2026-08-22
 > Purpose: Track only actionable restructuring work.
 
 ## Current Reality
