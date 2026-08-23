@@ -43,19 +43,24 @@ export async function stopAllCompanionListeners(request: APIRequestContext): Pro
   }
 }
 
+async function expectApiMockSurface(page: Page, timeout: number): Promise<void> {
+  const studio = page.locator(API_MOCK.STUDIO);
+  if (await studio.count()) {
+    await expect(studio.first()).toBeVisible({ timeout });
+    return;
+  }
+  await expect(page.locator(API_MOCK.EMPTY).first()).toBeVisible({ timeout });
+}
+
 export async function openApiMockStudio(page: Page): Promise<void> {
   await gotoAppTab(page, 'api-mock-studio');
-  await expect(
-    page.locator(API_MOCK.STUDIO).or(page.locator(API_MOCK.EMPTY)),
-  ).toBeVisible({ timeout: 30_000 });
+  await expectApiMockSurface(page, 30_000);
 }
 
 /** In-app nav back to API Mock without full reload (keeps Studio mounted). */
 export async function switchToApiMockStudio(page: Page): Promise<void> {
   await page.locator(API_MOCK.APP_SUBNAV).click();
-  await expect(
-    page.locator(API_MOCK.STUDIO).or(page.locator(API_MOCK.EMPTY)),
-  ).toBeVisible({ timeout: 15_000 });
+  await expectApiMockSurface(page, 15_000);
 }
 
 /** Wipe persisted workspace and stop orphan listeners (demo bridge + companion). */
@@ -74,7 +79,11 @@ export async function wipeApiMockWorkspace(
   await page.waitForTimeout(400);
   const empty = page.locator(API_MOCK.EMPTY);
   const tabs = page.locator(API_MOCK.SERVER_TABS);
-  await expect(empty.or(tabs)).toBeVisible({ timeout: 10_000 });
+  if (await tabs.count()) {
+    await expect(tabs.first()).toBeVisible({ timeout: 10_000 });
+  } else {
+    await expect(empty.first()).toBeVisible({ timeout: 10_000 });
+  }
 }
 
 export function serverTab(page: Page, name: string) {

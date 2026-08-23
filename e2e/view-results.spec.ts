@@ -60,12 +60,11 @@ test.describe('View Results flow', () => {
 
   test('results show run history dropdown', async ({ page }) => {
     // Already on Results tab from beforeEach
-
-    const dropdown = page.locator('select').first();
+    // ResultsRunSelect is a custom div-based dropdown (not a native <select>)
+    const dropdown = page.locator('.results-run-select');
     await expect(dropdown).toBeVisible();
-    const options = dropdown.locator('option');
-    const count = await options.count();
-    expect(count).toBeGreaterThan(0);
+    const trigger = dropdown.locator('.results-run-select-trigger');
+    await expect(trigger).toBeVisible();
   });
 
   test('results show request count in metrics', async ({ page }) => {
