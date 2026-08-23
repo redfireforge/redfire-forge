@@ -219,6 +219,10 @@ results/
 - Demo server presets (built-in mock APIs)
 - Export mock configuration
 - Expiry scheduling
+- **Auth-gated routes** — `security` predicate: Bearer token (`scheme = Bearer`), API Key header (`apiKeyName` present), returning 401 when absent
+- **GraphQL over HTTP mock** — `POST /graphql` route using `body → jsonPath_equals` on `$.operationName` / `$.query` to dispatch different stub responses per operation; no special GraphQL mode needed
+- **Stateful sequence** — `responseMode: 'state'` with `ApiMockStateTransitionV1`: multi-step lifecycle mocking (e.g. order → payment → confirmation) without any external store
+- **Webhook receiver** — inbound `POST /webhook` route; `json_subset` / `jsonPath_equals` body predicates to gate on `$.event` type; journal to inspect captured payloads; note that HMAC signature verification (`X-Hub-Signature-256`) is a planned engine feature not yet available
 
 ### Planned Files
 
@@ -230,6 +234,10 @@ api-mock/
   api-mock-journal-medium.html              ← inspect request log, replay calls
   api-mock-gallery-import-medium.html       ← import pre-built mock sets from gallery
   api-mock-folder-organization-medium.html  ← folders, route grouping, naming
+  api-mock-auth-gated-medium.html           ← Bearer + API Key security predicates, 401 fallback
+  api-mock-graphql-medium.html              ← POST /graphql, jsonPath body matching per operation
+  api-mock-stateful-sequence-advanced.html  ← state mode, multi-step lifecycle transitions
+  api-mock-webhook-receiver-medium.html     ← inbound webhook capture, event routing, journal
   api-mock-advanced-routing-advanced.html   ← regex paths, dynamic responses, delays
   api-mock-export-library-advanced.html     ← save to library, export, share config
 ```
@@ -317,7 +325,7 @@ gallery/
 | WebSocket | `websocket/` | `websocket.html` | 12 | 🔲 Not started |
 | Environment Manager | `environments/` | `environments.html` | 5 | 🔲 Not started |
 | Results Dashboard | `results/` | `results.html` | 7 | 🔲 Not started |
-| API Mock (HTTP) | `api-mock/` | `api-mock.html` | 7 | 🔲 Not started |
+| API Mock (HTTP) | `api-mock/` | `api-mock.html` | 12 | 🔲 Not started |
 | SSE | `sse/` | `sse.html` | 4 | 🔲 Not started |
 | Webhooks | `webhooks/` | `webhooks.html` | 3 | 🔲 Not started |
 | Gallery | `gallery/` | `gallery.html` | 3 | 🔲 Not started |
