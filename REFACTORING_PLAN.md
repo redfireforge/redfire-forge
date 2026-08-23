@@ -1,7 +1,7 @@
 # Refactoring Plan (Living)
 
 > Status: Mostly complete
-> Last Updated: 2026-06-20
+> Last Updated: 2026-08-22
 > Purpose: Keep only current refactoring direction and remaining actions.
 
 ## Summary
