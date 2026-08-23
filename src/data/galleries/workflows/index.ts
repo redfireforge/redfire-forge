@@ -11,6 +11,7 @@ import { createParallelShowcaseWorkflow } from './parallelShowcase';
 import { createKafkaProduceWorkflow, createKafkaTriggerWorkflow, createKafkaEventPipelineWorkflow, createKafkaAsyncCorrelationWorkflow } from './kafka';
 import { createGraphqlHealthCheckWorkflow, createGraphqlECommerceFlowWorkflow, createGraphqlSchemaWatchdogWorkflow, createGraphqlUserCrudWorkflow } from './graphql';
 import { createGrpcHealthCheckWorkflow, createGrpcUserLookupWorkflow, createGrpcServerStreamWorkflow, createGrpcCrudWorkflow, createGrpcSchemaDiffWorkflow, createGrpcLoadTestWorkflow } from './grpc';
+import { createWsEchoPingWorkflow, createWsJsonExchangeWorkflow, createWsChatFlowWorkflow, createWsTriggerWorkflow, createWsHttpHybridWorkflow } from './websocket';
 import type { SampleWorkflowEntry } from './types';
 
 // Re-export all factory functions
@@ -25,6 +26,7 @@ export { createParallelShowcaseWorkflow } from './parallelShowcase';
 export { createKafkaProduceWorkflow, createKafkaTriggerWorkflow, createKafkaEventPipelineWorkflow, createKafkaAsyncCorrelationWorkflow } from './kafka';
 export { createGraphqlHealthCheckWorkflow, createGraphqlECommerceFlowWorkflow, createGraphqlSchemaWatchdogWorkflow, createGraphqlUserCrudWorkflow } from './graphql';
 export { createGrpcHealthCheckWorkflow, createGrpcUserLookupWorkflow, createGrpcServerStreamWorkflow, createGrpcCrudWorkflow, createGrpcSchemaDiffWorkflow, createGrpcLoadTestWorkflow } from './grpc';
+export { createWsEchoPingWorkflow, createWsJsonExchangeWorkflow, createWsChatFlowWorkflow, createWsTriggerWorkflow, createWsHttpHybridWorkflow } from './websocket';
 
 /** All available sample workflows. */
 export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
@@ -813,5 +815,82 @@ export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
     primaryNodes: ['GrpcLoadTest'],
     secondaryNodes: ['Condition', 'Log', 'Start', 'End'],
     factory: createGrpcLoadTestWorkflow,
+  },
+
+  // ── WebSocket Workflow Samples ───────────────────────────────────────────
+  {
+    id: 'sample-ws-echo',
+    name: 'WebSocket: Echo Ping',
+    description: 'Connect to a public echo WebSocket, send "ping", receive the echo back, and assert the response matches',
+    domain: 'workflows',
+    tags: ['websocket', 'echo', 'send', 'receive', 'easy'],
+    liveApis: ['echo.websocket.org'],
+    category: 'websocket',
+    difficulty: 'easy',
+    icon: '🔌',
+    nodeCount: 7,
+    primaryNodes: ['WsConnect', 'WsSend', 'WsReceive'],
+    secondaryNodes: ['Condition', 'Log', 'Start', 'End'],
+    factory: createWsEchoPingWorkflow,
+  },
+  {
+    id: 'sample-ws-json-exchange',
+    name: 'WebSocket: JSON Message Exchange',
+    description: 'Subscribe to BTC/USDT trade events via Binance WebSocket stream, extract the price, and assert it is greater than zero',
+    domain: 'workflows',
+    tags: ['websocket', 'json', 'subscribe', 'extract', 'easy'],
+    liveApis: ['stream.binance.com'],
+    category: 'websocket',
+    difficulty: 'easy',
+    icon: '🔌',
+    nodeCount: 7,
+    primaryNodes: ['WsConnect', 'WsSend', 'WsReceive'],
+    secondaryNodes: ['Condition', 'Log', 'Start', 'End'],
+    factory: createWsJsonExchangeWorkflow,
+  },
+  {
+    id: 'sample-ws-chat-flow',
+    name: 'WebSocket: Chat Flow',
+    description: 'Auth handshake over WebSocket, send a chat message, receive the broadcast echo, and assert the content matches',
+    domain: 'workflows',
+    tags: ['websocket', 'auth', 'chat', 'send-receive', 'conditional'],
+    liveApis: ['(configurable WebSocket endpoint)'],
+    category: 'websocket',
+    difficulty: 'medium',
+    icon: '🔌',
+    nodeCount: 9,
+    primaryNodes: ['WsConnect', 'WsSend', 'WsReceive'],
+    secondaryNodes: ['Condition', 'Log', 'Start', 'End'],
+    factory: createWsChatFlowWorkflow,
+  },
+  {
+    id: 'sample-ws-trigger',
+    name: 'WebSocket: Inbound Trigger',
+    description: 'Workflow starts when a WebSocket message with event "order.created" arrives; extracts orderId and makes a downstream HTTP GET',
+    domain: 'workflows',
+    tags: ['websocket', 'trigger', 'inbound', 'event-driven', 'http'],
+    liveApis: ['jsonplaceholder.typicode.com'],
+    category: 'websocket',
+    difficulty: 'medium',
+    icon: '🔌',
+    nodeCount: 6,
+    primaryNodes: ['WsTrigger', 'HTTP'],
+    secondaryNodes: ['Condition', 'Log', 'End'],
+    factory: createWsTriggerWorkflow,
+  },
+  {
+    id: 'sample-ws-http-hybrid',
+    name: 'WebSocket: Live Price → HTTP Enrichment',
+    description: 'Connect to a price feed, subscribe to alerts, receive a price_drop event, enrich with an HTTP call, then send an ack over the same WebSocket',
+    domain: 'workflows',
+    tags: ['websocket', 'http', 'hybrid', 'event-driven', 'enrichment', 'advanced'],
+    liveApis: ['fakestoreapi.com'],
+    category: 'websocket',
+    difficulty: 'advanced',
+    icon: '🔌',
+    nodeCount: 8,
+    primaryNodes: ['WsConnect', 'WsSend', 'WsReceive', 'HTTP'],
+    secondaryNodes: ['SetVariable', 'Start', 'End'],
+    factory: createWsHttpHybridWorkflow,
   },
 ];
