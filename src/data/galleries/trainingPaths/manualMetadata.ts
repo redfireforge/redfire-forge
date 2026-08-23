@@ -341,6 +341,23 @@ export const manualMetadata: ManualMetadata[] = [
   { manualPath: 'kafka/kafka-getting-started-easy.html', addedAt: date('2026-06-06') },
   { manualPath: 'kafka/kafka-topic-explorer-medium.html', addedAt: date('2026-06-06') },
   { manualPath: 'kafka/kafka-schema-registry-medium.html', addedAt: date('2026-06-06') },
+
+  // ============================================================================
+  // GraphQL Studio Path (protocolPaths)
+  // ============================================================================
+  { manualPath: 'graphql/graphql.html', addedAt: date('2026-08-23') },
+  { manualPath: 'graphql/graphql-first-query-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'graphql/graphql-schema-explorer-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'graphql/graphql-query-builder-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'graphql/graphql-mutations-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'graphql/graphql-subscriptions-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'graphql/graphql-collections-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'graphql/graphql-auth-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'graphql/graphql-multi-tab-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'graphql/graphql-mock-server-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'graphql/graphql-code-gen-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'graphql/graphql-schema-diff-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'graphql/graphql-workflow-nodes-advanced.html', addedAt: date('2026-08-23') },
 ];
 
 /** Map of manualPath -> ManualMetadata for fast lookup */
