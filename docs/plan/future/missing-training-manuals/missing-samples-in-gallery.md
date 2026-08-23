@@ -251,16 +251,20 @@ The gallery has 7 registered domains (in `src/data/galleries/types.ts` + `regist
 - **Category:** websocket
 - **Difficulty:** easy
 - **Description:** Connect to a public echo WebSocket, send `"ping"`, receive `"ping"` back, assert the echoed message matches.
-- **Nodes:**
+- **Nodes (7 total):**
   1. `start`
-  2. `wsConnect` — `url: "wss://echo.websocket.org"`, binds `connectionId`
-  3. `wsSend` — `message: "ping"`, `connectionId: {{connectionId}}`
-  4. `wsReceive` — `connectionId: {{connectionId}}`, `timeoutMs: 5000`, binds `receivedMessage ← $.data`
-  5. `setVariable` — assert-like: `assert $.receivedMessage === "ping"`
-  6. `end`
+  2. `wsConnect` — `url: "wss://echo.websocket.org"`, `connectionId: "ws-echo"`, `timeoutMs: 5000`, `headers: []`, `queryParams: []`, `subprotocols: []`, `outputBindings: []`
+  3. `wsSend` — `connectionId: "ws-echo"`, `message: "ping"`, `messageType: "text"`, `waitForResponse: false`, `responseTimeoutMs: 3000`, `outputBindings: []`
+  4. `wsReceive` — `connectionId: "ws-echo"`, `timeoutMs: 5000`, `matchCriteria: { messageType: "text" }`, `extractionRules: []`, `outputBindings: [{ field: "messageBody", variableName: "receivedMessage", enabled: true }]`
+  5. `condition` — `left: "{{receivedMessage}}"`, `operator: "=="`, `right: "ping"`
+     - true → `end`
+     - false → `logDebug` (warn) `"Echo mismatch: '{{receivedMessage}}'"` → `end`
+  6. `logDebug` (warn) — see above
+  7. `end`
 - **Tags:** `websocket`, `echo`, `send`, `receive`, `easy`
 - **liveApis:** `echo.websocket.org`
 - **Purpose:** Simplest possible WS workflow — demonstrates the three core node types together.
+- **⚠️ Plan corrections:** `connectionId` is a **literal string key** (`"ws-echo"`), not a variable binding. WsReceive extraction uses `outputBindings` with `field: "messageBody"`. `setVariable` "assert-like" replaced with proper `condition` node (+1 node = 7 total).
 
 ---
 
@@ -269,16 +273,21 @@ The gallery has 7 registered domains (in `src/data/galleries/types.ts` + `regist
 - **Name:** `WebSocket: JSON Message Exchange`
 - **Category:** websocket
 - **Difficulty:** easy
-- **Description:** Send a JSON subscribe message, receive a JSON event response, extract a field using `$.data.price`, assert it is numeric.
-- **Nodes:**
+- **Description:** Connect to a public Binance WebSocket stream, subscribe to BTC/USDT trade events, receive a trade message, extract the price, and assert it is greater than zero.
+- **Nodes (7 total):**
   1. `start`
-  2. `wsConnect` — connects to public demo feed
-  3. `wsSend` — sends `{ "action": "subscribe", "channel": "prices" }`
-  4. `wsReceive` — match criteria: `messageType: "text"`, binds `price ← $.data.price`
-  5. `grpcAssert` (or inline condition) — assert `$.price > 0`
-  6. `end`
-- **Tags:** `websocket`, `json`, `subscribe`, `extract`
-- **Purpose:** Teaches JSON parsing in WS receive + variable extraction from message body.
+  2. `wsConnect` — `url: "wss://stream.binance.com:9443/stream"`, `connectionId: "ws-prices"`, `timeoutMs: 8000`, `headers: []`, `queryParams: []`, `subprotocols: []`
+  3. `wsSend` — `connectionId: "ws-prices"`, `message: '{"method":"SUBSCRIBE","params":["btcusdt@trade"],"id":1}'`, `messageType: "text"`
+  4. `wsReceive` — `connectionId: "ws-prices"`, `timeoutMs: 10000`, `matchCriteria: { jsonPathMatch: "$.data.e", jsonPathValue: "trade" }`, `extractionRules: [{ variableName: "latestPrice", jsonPath: "$.data.p" }]`
+  5. `condition` — `left: "{{latestPrice}}"`, `operator: ">"`, `right: "0"`
+     - true → `logDebug` (info) `"BTC price OK: ${{latestPrice}}"` → `end`
+     - false → `end`
+  6. `logDebug` (info) — see above
+  7. `end`
+- **Tags:** `websocket`, `json`, `subscribe`, `extract`, `easy`
+- **liveApis:** `stream.binance.com`
+- **Purpose:** Teaches JSON parsing in WS receive + `extractionRules`-based variable extraction from message body.
+- **⚠️ Plan corrections:** `grpcAssert` replaced with `condition` node. `extractionRules` (not "binds" shorthand) used for extraction. JSON path updated to `$.data.p` to match Binance stream-combined format. Node count: 7.
 
 ---
 
@@ -288,18 +297,22 @@ The gallery has 7 registered domains (in `src/data/galleries/types.ts` + `regist
 - **Category:** websocket
 - **Difficulty:** medium
 - **Description:** Connect to a WS chat endpoint, send an authentication message, receive acknowledgement, send a chat message, receive the broadcast echo, assert message content.
-- **Nodes:**
+- **Nodes (9 total):**
   1. `start`
-  2. `wsConnect` — `url: "wss://demo-ws-chat.example.com"`
-  3. `wsSend` — `{ "type": "auth", "token": "{{authToken}}" }`
-  4. `wsReceive` — wait for `{ "type": "auth_ok" }` (match on `$.type === "auth_ok"`), `timeoutMs: 3000`
-  5. `wsSend` — `{ "type": "message", "room": "general", "text": "Hello from workflow" }`
-  6. `wsReceive` — wait for broadcast, bind `$.text → receivedText`
-  7. `condition` — `$.receivedText === "Hello from workflow"`
+  2. `wsConnect` — `url: "wss://{{wsHost}}/chat"`, `connectionId: "ws-chat"`, `timeoutMs: 5000`
+  3. `wsSend` — `connectionId: "ws-chat"`, `message: '{"type":"auth","token":"{{authToken}}"}'`, `messageType: "text"`
+  4. `wsReceive` — `connectionId: "ws-chat"`, `timeoutMs: 3000`, `matchCriteria: { jsonPathMatch: "$.type", jsonPathValue: "auth_ok", messageType: "text" }`, `extractionRules: []`
+  5. `wsSend` — `connectionId: "ws-chat"`, `message: '{"type":"message","room":"general","text":"Hello from workflow"}'`, `messageType: "text"`
+  6. `wsReceive` — `connectionId: "ws-chat"`, `timeoutMs: 5000`, `matchCriteria: { jsonPathMatch: "$.type", jsonPathValue: "message" }`, `extractionRules: [{ variableName: "receivedText", jsonPath: "$.text" }]`
+  7. `condition` — `left: "{{receivedText}}"`, `operator: "=="`, `right: "Hello from workflow"`
      - true → `end`
-     - false → `errorHandler`
+     - false → `logDebug` (warn) `"Chat echo mismatch: '{{receivedText}}'"` → `end`
+  8. `logDebug` (warn) — see above
+  9. `end`
 - **Tags:** `websocket`, `auth`, `chat`, `send-receive`, `conditional`
+- **liveApis:** `(configurable WebSocket endpoint)`
 - **Purpose:** Shows multi-step WS interaction with auth handshake, conditional branching on message content.
+- **⚠️ Plan corrections:** `matchCriteria` uses `jsonPathMatch`/`jsonPathValue` (not `$.type === "auth_ok"` expression). Condition false → `logDebug` (warn) instead of `errorHandler`. Node count: 9.
 
 ---
 
@@ -308,15 +321,20 @@ The gallery has 7 registered domains (in `src/data/galleries/types.ts` + `regist
 - **Name:** `WebSocket: Inbound Trigger`
 - **Category:** websocket
 - **Difficulty:** medium
-- **Description:** Workflow starts when a WebSocket message arrives (`wsTrigger`). Extracts the event payload and makes a downstream HTTP call based on the event data.
-- **Nodes:**
-  1. `wsTrigger` — waits for inbound WS message, filter: `$.event === "order.created"`, binds `orderId ← $.data.orderId`
-  2. `http` — `GET https://api.example.com/orders/{{orderId}}`
-  3. `condition` — `$.status === "confirmed"`
-     - true → `logDebug` — "Order confirmed, proceeding" → `end`
-     - false → `logDebug` — "Order not confirmed" → `errorHandler`
+- **Description:** Workflow starts when a WebSocket message arrives (`wsTrigger`). Extracts the event payload and makes a downstream HTTP GET call based on the event data.
+- **Nodes (6 total):**
+  1. `wsTrigger` — `url: "wss://{{wsHost}}/events"`, `connectionId: "ws-trigger"`, `matchCriteria: { jsonPathMatch: "$.event", jsonPathValue: "order.created", messageType: "text" }`, `extractionRules: [{ variableName: "orderId", jsonPath: "$.data.orderId" }, { variableName: "customerId", jsonPath: "$.data.customerId" }]`
+  2. `http` — `GET https://jsonplaceholder.typicode.com/todos/{{orderId}}`
+  3. `condition` — `left: "{{status}}"`, `operator: "=="`, `right: "confirmed"`
+     - true → `logDebug` (info) `"Order {{orderId}} confirmed"` → `end`
+     - false → `logDebug` (warn) `"Order {{orderId}} not confirmed"` → `end`
+  4. `logDebug` (info) — see above
+  5. `logDebug` (warn) — see above
+  6. `end`
 - **Tags:** `websocket`, `trigger`, `inbound`, `event-driven`, `http`
+- **liveApis:** `jsonplaceholder.typicode.com`
 - **Purpose:** Demonstrates `wsTrigger` as a workflow entry point; bridges WS events to HTTP downstream calls.
+- **⚠️ Plan corrections:** `wsTrigger` uses `matchCriteria: {jsonPathMatch, jsonPathValue}` and `extractionRules` (not expression-style filter). HTTP uses JSONPlaceholder. Condition false → `logDebug` (warn) not `errorHandler`. Node count: 6.
 
 ---
 
@@ -326,18 +344,19 @@ The gallery has 7 registered domains (in `src/data/galleries/types.ts` + `regist
 - **Category:** websocket
 - **Difficulty:** advanced
 - **Description:** Connect to a live price feed, wait for a price drop event, extract the product ID, call an HTTP API to get product details, and send a notification back over the same connection.
-- **Nodes:**
+- **Nodes (8 total):**
   1. `start`
-  2. `wsConnect` — live price feed
-  3. `wsSend` — subscribe to product category
-  4. `wsReceive` — wait for `{ "type": "price_drop", "productId": "..." }`, bind `productId ← $.data.productId`, `newPrice ← $.data.price`
+  2. `wsConnect` — `url: "wss://{{priceWsUrl}}"`, `connectionId: "ws-prices"`, `timeoutMs: 8000`, `headers: []`, `queryParams: []`, `subprotocols: []`, `outputBindings: []`
+  3. `wsSend` — `connectionId: "ws-prices"`, `message: '{"type":"subscribe","channel":"price_alerts"}'`, `messageType: "text"`
+  4. `wsReceive` — `connectionId: "ws-prices"`, `timeoutMs: 30000`, `matchCriteria: { jsonPathMatch: "$.type", jsonPathValue: "price_drop" }`, `extractionRules: [{ variableName: "productId", jsonPath: "$.data.productId" }, { variableName: "newPrice", jsonPath: "$.data.price" }]`
   5. `http` — `GET https://fakestoreapi.com/products/{{productId}}`
-  6. `setVariable` — `alertMessage ← "Price drop: {{productId}} now ${{newPrice}}"`
-  7. `wsSend` — send acknowledgement message back
+  6. `setVariable` — `name: "alertMessage"`, `value: "Price drop: {{productId}} now ${{newPrice}}"`
+  7. `wsSend` — `connectionId: "ws-prices"`, `message: '{"type":"ack","productId":"{{productId}}","alert":"{{alertMessage}}"}'`, `messageType: "text"`
   8. `end`
 - **Tags:** `websocket`, `http`, `hybrid`, `event-driven`, `enrichment`, `advanced`
 - **liveApis:** `fakestoreapi.com`
-- **Purpose:** Advanced pattern — WS event triggers an HTTP call for enrichment, then WS send for acknowledgement. Combines all three WS node types plus HTTP in one workflow.
+- **Purpose:** Advanced pattern — WS event triggers HTTP enrichment, then WS send for acknowledgement. Uses all three WS node types plus HTTP in one workflow.
+- **⚠️ Plan corrections:** `wsReceive` uses `extractionRules` (not "bind" shorthand). `setVariable` uses `{ id, name, expression }` fields (`expression` not `value`). `wsSend` ack uses same `connectionId`. Node count: 8.
 
 ---
 
@@ -599,11 +618,11 @@ Phase A — Infrastructure (1-2 days)
 
 Phase B — Workflow Samples (3-4 days)
   B1. ✅ Create galleries/workflows/grpc.ts (6 entries: WF-GRPC-01 → WF-GRPC-06)
-  B2. Create galleries/workflows/websocket.ts (5 entries: WF-WS-01 → WF-WS-05)
+  B2. ✅ Create galleries/workflows/websocket.ts (5 entries: WF-WS-01 → WF-WS-05)
   B3. Add WF-GQL-04 + WF-GQL-05 to galleries/workflows/graphql.ts (subscription samples)
-  B4. ✅ Register new files in galleries/workflows/index.ts (grpc.ts done; websocket/subscription pending)
-  B5. ✅ Write unit tests: galleries/workflows/grpc.test.ts (done); websocket.test.ts pending
-  B6. ✅ Added 'grpc' to SampleCategory + TemplateGalleryModal CATEGORIES filter tab (additive; part of this batch not item 7)
+  B4. ✅ Register new files in galleries/workflows/index.ts (grpc.ts + websocket.ts done; subscription pending)
+  B5. ✅ Write unit tests: galleries/workflows/grpc.test.ts + websocket.test.ts done
+  B6. ✅ Added 'grpc' + 'websocket' to SampleCategory + TemplateGalleryModal CATEGORIES filter tabs
 
 Phase C — Test Gallery Samples (2-3 days)
   C1. Add GraphQL entries to galleries/tests/presets.ts (TG-GQL-01, TG-GQL-02)
