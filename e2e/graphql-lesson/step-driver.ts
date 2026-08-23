@@ -33,7 +33,12 @@ export async function skipDemoReading(page: Page): Promise<void> {
   const badge = page.locator('.demo-live-phase-badge.skippable');
   await badge.waitFor({ state: 'visible', timeout: 30_000 }).catch(() => {});
   if (await badge.isVisible().catch(() => false)) {
-    await badge.click();
+    // Use JS dispatchEvent to avoid Playwright's retry loop when the element
+    // briefly detaches due to React re-renders during lesson transitions.
+    await page.evaluate(() => {
+      const el = document.querySelector('.demo-live-phase-badge.skippable') as HTMLElement | null;
+      el?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
   }
 }
 
