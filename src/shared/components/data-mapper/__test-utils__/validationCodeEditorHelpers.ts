@@ -1,6 +1,6 @@
 /**
  * Pure helper factories shared by the three `ValidationCodeEditor.*.test.tsx`
- * files. The `vi.mock('@monaco-editor/react', …)` factory itself stays in each
+ * files. The Monaco editor mock factory itself stays in each
  * test file because it captures file-local `let` bindings (mockOnChange,
  * mockOnMount, etc.); these helpers don't depend on that file-local state and
  * so can be safely shared.

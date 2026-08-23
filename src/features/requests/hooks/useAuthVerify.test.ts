@@ -6,7 +6,7 @@ import { renderHook, act } from '@testing-library/react';
 import type { AuthConfig } from '@shared/types';
 
 const mockAcquire = vi.fn();
-vi.mock('../../../engine/tokenManager', () => ({
+vi.mock('@engine/core/tokenManager', () => ({
   acquireOAuth2Token: (...args: unknown[]) => mockAcquire(...args),
 }));
 

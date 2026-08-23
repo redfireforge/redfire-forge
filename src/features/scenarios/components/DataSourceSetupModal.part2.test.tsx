@@ -53,7 +53,7 @@ vi.mock('../../../shared/utils/templateHelpers', async () => {
   return h.makeTemplateHelpersMock();
 });
 
-vi.mock('../../../engine/executor', async () => {
+vi.mock('@engine/core/executor', async () => {
   const h = await import('./__test-utils__/dataSourceSetupModalTestHelpers');
   return h.makeExecutorMock();
 });

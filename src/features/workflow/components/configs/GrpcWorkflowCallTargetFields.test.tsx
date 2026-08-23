@@ -46,11 +46,11 @@ vi.mock('../../utils/grpcWorkflowReflection', () => ({
   listGrpcWorkflowMethods: () => methodsToReturn,
 }));
 
-vi.mock('../../../../shared/grpc/targetValidation', () => ({
+vi.mock('@shared/grpc/targetValidation', () => ({
   validateResolvedGrpcTargetAddress: () => ({ valid: targetValid }),
 }));
 
-vi.mock('../../../../engine/grpcConnectionProfileHydration', () => ({
+vi.mock('@engine/grpc/grpcConnectionProfileHydration', () => ({
   loadGrpcConnectionProfilesFromStorage: () => [
     {
       id: 'local-echo',
