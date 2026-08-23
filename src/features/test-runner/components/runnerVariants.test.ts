@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { STANDARD_VARIANT, PARAMETERIZED_VARIANT } from './runnerVariants';
-import type { FeatureGroup } from '../../../shared/types';
+import type { FeatureGroup } from '@shared/types';
 
 const makeFg = (overrides: Partial<FeatureGroup> = {}): FeatureGroup => ({
   id: 'fg1',

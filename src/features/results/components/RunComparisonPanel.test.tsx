@@ -7,9 +7,9 @@ import {
   getCustomSelectOptionLabels,
 } from '../../../test-utils/customSelectHelper';
 import { RunComparisonPanel, TrendChart } from './RunComparisonPanel';
-import type { TestRun, RequestResult } from '../../../shared/types';
+import type { TestRun, RequestResult } from '@shared/types';
 import type { BaselineMark, RunComparison } from '../utils/runBaselines';
-import * as saveFileMod from '../../../shared/utils/fileSaver';
+import * as saveFileMod from '@shared/utils/fileSaver';
 import * as comparisonReportMod from '../utils/comparisonReport';
 import * as runBaselines from '../utils/runBaselines';
 

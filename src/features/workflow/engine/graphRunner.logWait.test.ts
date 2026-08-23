@@ -6,7 +6,7 @@ vi.mock('../../../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
 }));
 
-import { httpFetch } from '../../../shared/utils/httpClient';
+import { httpFetch } from '@shared/utils/httpClient';
 import { httpNode } from './graphRunnerNodeHandlers.test-utils';
 
 const mockFetch = vi.mocked(httpFetch);

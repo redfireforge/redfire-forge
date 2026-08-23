@@ -1,7 +1,7 @@
 /**
  * gRPC Studio — stream message log JSON export (Phase 2 mockup 02).
  */
-import type { GrpcStreamLogEntry } from '../../../shared/grpc/contracts';
+import type { GrpcStreamLogEntry } from '@shared/grpc/contracts';
 
 export interface GrpcStreamLogExportMeta {
   exportedAt: string;

@@ -5,9 +5,9 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
-import { selectOption, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import { GraphqlSchemaExplorer } from './GraphqlSchemaExplorer';
-import type { GraphqlSchemaInfo, GraphqlTypeNode } from '../../../shared/types/graphql';
+import type { GraphqlSchemaInfo, GraphqlTypeNode } from '@shared/types/graphql';
 
 function makeType(name: string, kind: GraphqlTypeNode['kind'] = 'OBJECT', overrides: Partial<GraphqlTypeNode> = {}): GraphqlTypeNode {
   return {

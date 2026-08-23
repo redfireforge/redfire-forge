@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
-import type { GrpcCallResult } from '../../../shared/grpc/contracts';
-import type { GrpcCollectionV1 } from '../../../shared/grpc/grpcPersistenceSchema';
-import type { GrpcSavedRequest } from '../../../shared/grpc/grpcSavedRequest';
+import type { GrpcCallResult } from '@shared/grpc/contracts';
+import type { GrpcCollectionV1 } from '@shared/grpc/grpcPersistenceSchema';
+import type { GrpcSavedRequest } from '@shared/grpc/grpcSavedRequest';
 import type { GrpcStudioTabState } from '../grpcStudioTypes';
 import { buildGrpcCollectionServiceMethodTree } from '../utils/grpcCollectionTree';
 import {

@@ -9,8 +9,8 @@ import {
   migrateLegacySseConfig,
   saveSseTabState,
 } from './sseStorage';
-import type { GlobalAuthProfile, Microservice } from '../../shared/types';
-import ConfirmModal from '../../shared/components/ConfirmModal';
+import type { GlobalAuthProfile, Microservice } from '@shared/types';
+import ConfirmModal from '@shared/components/ConfirmModal';
 import '../../styles/sse-studio.css';
 
 interface SseStudioPageProps {

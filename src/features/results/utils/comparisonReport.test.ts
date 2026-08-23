@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { generateComparisonMarkdown, generateComparisonJson } from './comparisonReport';
 import type { RunComparison } from './runBaselines';
-import type { TestRun } from '../../../shared/types';
+import type { TestRun } from '@shared/types';
 
 function makeSummary(overrides: Partial<TestRun['summary']> = {}): TestRun['summary'] {
   return {

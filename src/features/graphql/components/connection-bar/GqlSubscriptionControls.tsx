@@ -1,5 +1,5 @@
-import type { SubscriptionState } from '../../../../shared/types/graphql';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import type { SubscriptionState } from '@shared/types/graphql';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 export interface GqlSubscriptionControlsProps {
   subscriptionTransport?:         'auto' | 'graphql-transport-ws' | 'graphql-ws' | 'sse';

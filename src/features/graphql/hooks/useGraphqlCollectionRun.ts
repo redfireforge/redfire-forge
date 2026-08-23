@@ -5,15 +5,15 @@
  * Extracted from GraphqlStudioPage.tsx to reduce its line count.
  */
 import { useCallback } from 'react';
-import type { GlobalAuthProfile } from '../../../shared/types';
-import type { GraphqlCollectionItem, GraphqlEnvironment } from '../../../shared/types/graphql';
-import type { GraphqlAuth } from '../../../shared/types/graphql';
-import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
+import type { GlobalAuthProfile } from '@shared/types';
+import type { GraphqlCollectionItem, GraphqlEnvironment } from '@shared/types/graphql';
+import type { GraphqlAuth } from '@shared/types/graphql';
+import type { GqlTlsSettings } from '@shared/types/gqlTls';
 import type { UseGraphqlCollectionRunnerResult } from './useGraphqlCollectionRunner';
 import { buildAuthHeaders } from '../utils/authUtils';
 import { resolveVars } from '../utils/envUtils';
 
-import type { GraphqlCollection } from '../../../shared/types/graphql';
+import type { GraphqlCollection } from '@shared/types/graphql';
 
 type CollectionTree = {
   collection: GraphqlCollection;

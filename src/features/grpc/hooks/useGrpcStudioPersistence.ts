@@ -6,7 +6,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import type { GrpcStudioSessionState } from './grpcStudioSessionHelpers';
 import type { GrpcStudioTabState, GrpcTabDescriptorState } from '../grpcStudioTypes';
-import type { GrpcDescriptor, GrpcDescriptorSourceFingerprint } from '../../../shared/grpc/contracts';
+import type { GrpcDescriptor, GrpcDescriptorSourceFingerprint } from '@shared/grpc/contracts';
 
 const GRPC_STUDIO_SESSION_STORAGE_KEY = 'grpc-studio-session-v1';
 const GRPC_STUDIO_DESCRIPTORS_STORAGE_KEY = 'grpc-studio-descriptors-v1';

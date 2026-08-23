@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { RequestFolder, RequestItem, RequestCollection } from '../../../shared/types';
+import type { RequestFolder, RequestItem, RequestCollection } from '@shared/types';
 import {
   buildSpecVersion,
   applySpecVersion,

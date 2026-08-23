@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import Papa from 'papaparse';
 import { generateCsvTemplate, parseCsvToScenarios, downloadCsv } from './csvTemplateCsv';
-import type { Scenario } from '../../../shared/types';
+import type { Scenario } from '@shared/types';
 import { META_LINE_PREFIX } from './csvTemplateTypes';
 
 function minimalScenario(overrides: Partial<Scenario> = {}): Scenario {

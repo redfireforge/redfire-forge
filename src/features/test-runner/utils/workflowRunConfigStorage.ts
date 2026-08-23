@@ -3,7 +3,7 @@
  * Tracks which variable values were used in past runs for each workflow.
  */
 
-import { formatRelativeTime as formatRelativeTimeShared } from '../../../shared/utils/formatRelativeTime';
+import { formatRelativeTime as formatRelativeTimeShared } from '@shared/utils/formatRelativeTime';
 
 export interface WorkflowRunConfig {
   id: string;

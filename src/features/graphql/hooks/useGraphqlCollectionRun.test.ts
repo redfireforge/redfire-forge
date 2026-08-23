@@ -17,7 +17,7 @@ vi.mock('../utils/envUtils', () => ({
 import { useGraphqlCollectionRun } from './useGraphqlCollectionRun';
 import { buildAuthHeaders } from '../utils/authUtils';
 import { resolveVars } from '../utils/envUtils';
-import type { GraphqlCollectionItem, GraphqlCollection, GraphqlEnvironment } from '../../../shared/types/graphql';
+import type { GraphqlCollectionItem, GraphqlCollection, GraphqlEnvironment } from '@shared/types/graphql';
 
 const makeItem = (
   id: string,

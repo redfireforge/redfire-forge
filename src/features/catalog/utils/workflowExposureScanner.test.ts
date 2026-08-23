@@ -12,7 +12,7 @@ vi.mock('../../../shared/utils/storage', () => ({
   saveWorkflows: vi.fn(),
 }));
 
-import * as storage from '../../../shared/utils/storage';
+import * as storage from '@shared/utils/storage';
 import {
   scanWorkflowsForCatalogRef,
   removeCatalogNodesFromWorkflows,

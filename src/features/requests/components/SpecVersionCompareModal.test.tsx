@@ -5,7 +5,7 @@ import '@testing-library/jest-dom';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { RequestItem } from '../../../shared/types';
+import type { RequestItem } from '@shared/types';
 import {
   getCustomSelectOptionLabels,
   selectOptionByIndex,

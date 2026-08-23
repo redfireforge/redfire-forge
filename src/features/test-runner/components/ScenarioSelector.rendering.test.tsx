@@ -13,7 +13,7 @@ import {
 import '@testing-library/jest-dom';
 import ScenarioSelector from './ScenarioSelector';
 import { defaultProps, mockFeatureGroups } from './ScenarioSelector.test.utils';
-import type { FeatureGroup } from '../../../shared/types';
+import type { FeatureGroup } from '@shared/types';
 
 describe('ScenarioSelector - Rendering', () => {
   it('renders feature groups', () => {

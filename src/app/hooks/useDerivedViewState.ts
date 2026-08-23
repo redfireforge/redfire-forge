@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { Environment, Microservice, FeatureGroup, GlobalAuthProfile } from '../../shared/types';
+import type { Environment, Microservice, FeatureGroup, GlobalAuthProfile } from '@shared/types';
 
 interface UseDerivedViewStateArgs {
   environments: Environment[];

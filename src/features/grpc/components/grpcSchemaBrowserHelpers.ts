@@ -1,4 +1,4 @@
-import type { GrpcDescriptor, GrpcFieldSchema, GrpcMethodInfo } from '../../../shared/grpc/contracts';
+import type { GrpcDescriptor, GrpcFieldSchema, GrpcMethodInfo } from '@shared/grpc/contracts';
 import { lookupMessageSchema } from '../utils/grpcSchemaBrowserModel';
 
 export const GRPCURL_COPY_HINT_SEEN_KEY = 'grpc-schema-copy-grpcurl-hint-seen';

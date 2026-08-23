@@ -1,7 +1,7 @@
 /**
  * Phase 6G — batch group + tab checklist inside Advanced Settings → Batch tab.
  */
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import type { GqlStudioTab } from '../utils/tabPersistence';
 import type { ConnectionProfile } from '../utils/connectionProfileStorage';
 import type { BatchEndpointGroup } from '../utils/batchEndpointUtils';

@@ -1,4 +1,4 @@
-import type { Microservice } from '../../../shared/types';
+import type { Microservice } from '@shared/types';
 import { stripEnvFromProtocolEndpoints } from './protocolEndpointUtils';
 
 export function applyToggleDeploy(

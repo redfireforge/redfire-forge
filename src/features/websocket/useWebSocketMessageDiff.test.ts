@@ -6,7 +6,7 @@ import { renderHook, act } from '@testing-library/react';
 import { useRef } from 'react';
 
 import { useWebSocketMessageDiff } from './useWebSocketMessageDiff';
-import type { WsFrame } from '../../shared/websocket/types';
+import type { WsFrame } from '@shared/websocket/types';
 
 function frame(id: string, overrides: Partial<WsFrame> = {}): WsFrame {
   return {

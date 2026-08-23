@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { SearchMatchBar } from '../../../shared/components/SearchMatchBar';
-import { useSearchMatchNavigation } from '../../../shared/hooks/useSearchMatchNavigation';
+import { SearchMatchBar } from '@shared/components/SearchMatchBar';
+import { useSearchMatchNavigation } from '@shared/hooks/useSearchMatchNavigation';
 import {
   annotateSplitDiffHunks,
   buildSplitDiffRows,

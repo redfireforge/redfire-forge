@@ -5,7 +5,7 @@ import '@testing-library/jest-dom';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { Environment, Microservice, RequestFolder } from '../../../shared/types';
+import { Environment, Microservice, RequestFolder } from '@shared/types';
 import BatchSendToHarnessModal, { type BatchSendToHarnessPayload } from './BatchSendToHarnessModal';
 
 afterEach(() => {

@@ -6,7 +6,7 @@
  * remain in each test file (hoisting requirement).
  */
 import { vi } from 'vitest';
-import type { TestConfig } from '../../shared/types';
+import type { TestConfig } from '@shared/types';
 import {
   makeScenario as _makeScenario,
   makeResult as _makeResult,

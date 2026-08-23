@@ -1,4 +1,4 @@
-import type { FieldOperator } from '../shared/types';
+import type { FieldOperator } from '@shared/types';
 
 export interface FieldEvalResult {
   pass: boolean;

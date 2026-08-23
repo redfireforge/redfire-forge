@@ -1,23 +1,23 @@
 /**
  * Phase 11M — web companion server mock listener API client.
  */
-import { httpFetch } from '../../../shared/utils/httpClient';
-import { isTauri } from '../../../shared/utils/platform';
+import { httpFetch } from '@shared/utils/httpClient';
+import { isTauri } from '@shared/utils/platform';
 import type {
   GrpcMockListenerCommitRequest,
   GrpcMockListenerCommitResult,
   GrpcMockListenerLogsResult,
   GrpcMockListenerStartRequest,
   GrpcMockListenerStatus,
-} from '../../../shared/grpc/grpcMockListenerContracts';
-import type { GrpcExportProtosetResult, GrpcRouteEnvelope } from '../../../shared/grpc/contracts';
+} from '@shared/grpc/grpcMockListenerContracts';
+import type { GrpcExportProtosetResult, GrpcRouteEnvelope } from '@shared/grpc/contracts';
 import {
   invokeGrpcMockListenerCommitNative,
   invokeGrpcMockListenerLogNative,
   invokeGrpcMockListenerStartNative,
   invokeGrpcMockListenerStatusNative,
   invokeGrpcMockListenerStopNative,
-} from '../../../shared/grpc/grpcNativeTauriMockListener';
+} from '@shared/grpc/grpcNativeTauriMockListener';
 
 interface MockApiEnvelope<T> {
   ok: boolean;

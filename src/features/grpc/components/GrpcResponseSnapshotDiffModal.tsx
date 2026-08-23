@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { GrpcCallResult } from '../../../shared/grpc/contracts';
-import type { GrpcResponseSnapshotBaseline } from '../../../shared/grpc/grpcSavedRequest';
-import { serializeGrpcPreviewJson } from '../../../shared/grpc/grpcSafePreview';
+import type { GrpcCallResult } from '@shared/grpc/contracts';
+import type { GrpcResponseSnapshotBaseline } from '@shared/grpc/grpcSavedRequest';
+import { serializeGrpcPreviewJson } from '@shared/grpc/grpcSafePreview';
 import type { GrpcResponseSnapshotDiffEntry } from '../utils/grpcResponseSnapshot';
 
 export interface GrpcResponseSnapshotDiffModalProps {

@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import type { HttpResponse } from '../../../shared/utils/httpClient';
+import type { HttpResponse } from '@shared/utils/httpClient';
 import {
   useResponseCache,
   pruneResponseCache,

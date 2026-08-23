@@ -1,4 +1,4 @@
-import type { FailureDetail } from '../shared/types';
+import type { FailureDetail } from '@shared/types';
 
 export function deepCompare(
   expected: unknown,

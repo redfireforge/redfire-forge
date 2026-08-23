@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { GrpcDescriptor, GrpcFieldSchema, GrpcMethodInfo } from '../../../shared/grpc/contracts';
+import type { GrpcDescriptor, GrpcFieldSchema, GrpcMethodInfo } from '@shared/grpc/contracts';
 import {
   buildGrpcurlBodyTemplate,
   fieldTypeLabel,

@@ -1,6 +1,6 @@
 import { act, fireEvent, screen } from '@testing-library/react';
-import { FIXTURE_DESCRIPTOR } from '../../../../shared/grpc/contractFixtures';
-import type { GrpcDescriptor } from '../../../../shared/grpc/contracts';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
+import type { GrpcDescriptor } from '@shared/grpc/contracts';
 
 export const DESCRIPTOR_WITH_ENUM: GrpcDescriptor = {
   ...FIXTURE_DESCRIPTOR,

@@ -1,12 +1,12 @@
 import { useState, useMemo, useRef } from 'react';
-import type { RequestResult } from '../../../shared/types';
-import { useJsonTreeCollapseState, useMatchCountChange } from '../../../shared/hooks/useJsonTreeCollapseState';
+import type { RequestResult } from '@shared/types';
+import { useJsonTreeCollapseState, useMatchCountChange } from '@shared/hooks/useJsonTreeCollapseState';
 import WaterfallBar from '../../test-runner/components/WaterfallBar';
 import WorkflowEditorModalFrame from '../../workflow/components/modals/WorkflowEditorModalFrame';
-import JsonTreeViewer from '../../../shared/components/JsonTreeViewer';
+import JsonTreeViewer from '@shared/components/JsonTreeViewer';
 import JsonPreview, { buildJTreeFromBody, collectJTreePaths } from './JsonTreePreview';
 import ResponseBodySearchBar from './ResponseBodySearchBar';
-import { useSearchMatchNavigation } from '../../../shared/hooks/useSearchMatchNavigation';
+import { useSearchMatchNavigation } from '@shared/hooks/useSearchMatchNavigation';
 import { formatTransportStatus, getTransportMethodLabel, getTransportFamily } from '../../results/utils/transportStatus';
 
 type ResponseDetailModalProps = {

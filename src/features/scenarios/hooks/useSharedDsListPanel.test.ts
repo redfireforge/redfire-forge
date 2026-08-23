@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useSharedDsListPanel } from './useSharedDsListPanel';
-import type { SharedDataSource } from '../../../shared/types';
+import type { SharedDataSource } from '@shared/types';
 
 function createMockSharedDs(id: string, name: string): SharedDataSource {
   return {

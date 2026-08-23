@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
+import AppModalFrame from '@shared/components/AppModalFrame';
 import {
   TEMPLATE_HELPER_CATALOG,
   copyTemplateSnippet,
@@ -11,7 +11,7 @@ import {
   templateHelperNavItems,
   type TemplateHelperEntry,
   type TemplateHelperNavId,
-} from '../../../shared/api-mock/templateHelperCatalog';
+} from '@shared/api-mock/templateHelperCatalog';
 import { ChevronDownIcon, ChevronUpIcon } from './ApiMockIcons';
 
 interface Props {

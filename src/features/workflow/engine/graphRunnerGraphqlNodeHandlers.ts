@@ -23,8 +23,8 @@ import type {
   GraphqlAssertNodeData,
 } from '../types/workflow';
 import type { NodeHandlerContext, PassedFlag } from './graphRunnerNodeHandlerContext';
-import { toErrorMessage } from '../../../shared/utils/helpers';
-import { getByPath } from '../../../shared/utils/jsonPath';
+import { toErrorMessage } from '@shared/utils/helpers';
+import { getByPath } from '@shared/utils/jsonPath';
 import { evaluateFieldOperator } from '../../../engine/fieldOperatorEvaluation';
 import { getProxyBase } from '../../graphql/utils/graphqlProxyTransports';
 import { computeAPQHash } from '../../graphql/utils/apqClient';

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { ApiMockTransactionV1 } from '../../../shared/api-mock/contracts';
+import type { ApiMockTransactionV1 } from '@shared/api-mock/contracts';
 import {
   copyTextToClipboard,
   copyTransactionToClipboard,

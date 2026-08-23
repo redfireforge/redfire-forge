@@ -1,5 +1,5 @@
-import type { RequestResult } from '../../../shared/types';
-import { humanizeError, prettyJson } from '../../../shared/utils/helpers';
+import type { RequestResult } from '@shared/types';
+import { humanizeError, prettyJson } from '@shared/utils/helpers';
 import type { WorkflowRunStepSummary } from '../hooks/useWorkflowRunCache';
 export { formatGrpcNodeRunDetail, buildGrpcNodeStatusMeta, grpcStatusLabel } from './grpcWorkflowOutputAdapter';
 

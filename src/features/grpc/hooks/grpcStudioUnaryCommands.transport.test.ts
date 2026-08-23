@@ -2,19 +2,19 @@
  * @vitest-environment jsdom
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { GRPC_ERROR_CODES } from '../../../shared/grpc/contracts';
-import { GrpcApiClientError } from '../../../shared/grpc/grpcApiClient';
+import { GRPC_ERROR_CODES } from '@shared/grpc/contracts';
+import { GrpcApiClientError } from '@shared/grpc/grpcApiClient';
 import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_DESCRIPTOR_KEY,
   FIXTURE_UNARY_CALL_RESULT,
-} from '../../../shared/grpc/contractFixtures';
+} from '@shared/grpc/contractFixtures';
 import {
   resetGrpcTabTransportRoutingForTests,
   syncGrpcTabTransportMode,
-} from '../../../shared/grpc/grpcTransportFacade';
-import { withGrpcExpressFallbackOffer } from '../../../shared/grpc/grpcTransportFallback';
-import { buildBrowserTransportGrpcApiError } from '../../../shared/grpc/grpcBrowserTransportErrorMapper';
+} from '@shared/grpc/grpcTransportFacade';
+import { withGrpcExpressFallbackOffer } from '@shared/grpc/grpcTransportFallback';
+import { buildBrowserTransportGrpcApiError } from '@shared/grpc/grpcBrowserTransportErrorMapper';
 import {
   createEmptyTabDescriptorState,
   createGrpcStudioTab,
@@ -25,7 +25,7 @@ import {
   createPrepareExecuteSnapshotHandler,
 } from './grpcStudioUnaryCommands';
 import type { GrpcStudioRuntimeContext } from './grpcStudioRuntimeContext';
-import * as transportFacade from '../../../shared/grpc/grpcTransportFacade';
+import * as transportFacade from '@shared/grpc/grpcTransportFacade';
 
 vi.mock('../../../shared/utils/platform', () => ({
   isTauri: vi.fn(() => false),
@@ -40,7 +40,7 @@ vi.mock('../../../shared/grpc/grpcTransportFacade', async (importOriginal) => {
   };
 });
 
-import { isTauri } from '../../../shared/utils/platform';
+import { isTauri } from '@shared/utils/platform';
 
 function makeRuntime(sessionRef: { current: ReturnType<typeof createInitialSessionState> }): GrpcStudioRuntimeContext {
   const updateTab = vi.fn((tabId, patch) => {

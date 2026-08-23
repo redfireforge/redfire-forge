@@ -3,7 +3,7 @@
  */
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { createEmptyGrpcCollectionsStore } from '../../../shared/grpc/grpcPersistenceSchema';
+import { createEmptyGrpcCollectionsStore } from '@shared/grpc/grpcPersistenceSchema';
 
 const loadMock = vi.fn();
 const mutateMock = vi.fn();

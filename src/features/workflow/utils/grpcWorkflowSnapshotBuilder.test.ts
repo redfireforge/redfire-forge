@@ -2,9 +2,9 @@
  * Phase 6B — gRPC workflow snapshot builder tests.
  */
 import { describe, expect, it } from 'vitest';
-import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
+import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
 import { VariableContext } from '../engine/variableContext';
-import { validateResolvedGrpcTargetAddress } from '../../../shared/grpc/targetValidation';
+import { validateResolvedGrpcTargetAddress } from '@shared/grpc/targetValidation';
 import {
   captureGrpcTabExecuteSnapshotFromResolution,
   snapshotToUnaryCallRequest,

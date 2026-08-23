@@ -1,8 +1,8 @@
-import type { RequestCollection, Environment, Microservice, GlobalAuthProfile } from '../../../shared/types';
+import type { RequestCollection, Environment, Microservice, GlobalAuthProfile } from '@shared/types';
 import type { CatalogEntry } from '../../catalog/types/catalog';
 import type { Workflow, WorkflowFolder } from '../types/workflow';
 import type { WorkflowHook } from '../hooks/useWorkflows';
-import type { WorkflowPreviewEntry } from '../../../shared/utils/workflowPreviewStorage';
+import type { WorkflowPreviewEntry } from '@shared/utils/workflowPreviewStorage';
 
 export interface WorkflowDesignerProps {
   collections: RequestCollection[];

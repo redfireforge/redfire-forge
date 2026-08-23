@@ -10,7 +10,7 @@ import { GraphqlStudioDemoBridges } from './GraphqlStudioDemoBridges';
 import { GraphqlStudioPageOverlays } from './GraphqlStudioPageOverlays';
 import { GraphqlStudioLeftActivityPanel } from './GraphqlStudioLeftActivityPanel';
 import { GraphqlStudioSplitWorkspace } from './GraphqlStudioSplitWorkspace';
-import type { SplitPaneDividerProps } from '../../../shared/hooks/useSplitPaneResize';
+import type { SplitPaneDividerProps } from '@shared/hooks/useSplitPaneResize';
 import type { GraphqlStudioPageToolbarSections } from '../utils/graphqlStudioPageToolbarProps';
 
 type DemoBridgesProps = ComponentProps<typeof GraphqlStudioDemoBridges>;

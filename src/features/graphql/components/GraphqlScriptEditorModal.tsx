@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useModalEscapeClose } from '../../../shared/hooks/useModalEscapeClose';
-import { useModalDrag } from '../../../shared/hooks/useModalDrag';
-import { useModalResize } from '../../../shared/hooks/useModalResize';
-import ModalResizeHandles from '../../../shared/components/ModalResizeHandles';
+import { useModalEscapeClose } from '@shared/hooks/useModalEscapeClose';
+import { useModalDrag } from '@shared/hooks/useModalDrag';
+import { useModalResize } from '@shared/hooks/useModalResize';
+import ModalResizeHandles from '@shared/components/ModalResizeHandles';
 import Editor, { useMonaco, type BeforeMount } from '@monaco-editor/react';
 import type * as MonacoType from 'monaco-editor';
-import type { GraphqlScriptConfig, RfResponseContext, ScriptLogEntry, CollectionRunTestResult } from '../../../shared/types/graphql';
+import type { GraphqlScriptConfig, RfResponseContext, ScriptLogEntry, CollectionRunTestResult } from '@shared/types/graphql';
 import { createRfContext, runScript, NO_OP_STORE } from '../utils/preRequestScriptRunner';
 import { defineGraphqlTheme, GRAPHQL_THEME_ID } from '../utils/monacoGraphqlSetup';
 

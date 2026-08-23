@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Semaphore } from '../../../../shared/utils/semaphore';
+import { Semaphore } from '@shared/utils/semaphore';
 
 describe('Poll throttling integration', () => {
   it('semaphore limits concurrent poll operations', async () => {

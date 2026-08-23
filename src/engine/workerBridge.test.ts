@@ -28,8 +28,8 @@ const tracker: WorkerTracker = { current: undefined, all: [] };
 vi.stubGlobal('Worker', createWorkerCtor(tracker));
 
 import { runTestInWorker, getWorkerCount } from './workerBridge';
-import { httpFetch } from '../shared/utils/httpClient';
-import { isTauri } from '../shared/utils/platform';
+import { httpFetch } from '@shared/utils/httpClient';
+import { isTauri } from '@shared/utils/platform';
 
 const mockedHttpFetch = vi.mocked(httpFetch);
 const mockedIsTauri = vi.mocked(isTauri);

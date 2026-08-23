@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { getGrpcStatus } from '../../../shared/grpc/grpcApiClient';
+import { getGrpcStatus } from '@shared/grpc/grpcApiClient';
 import {
   probeGrpcTargetConnection,
   resetTargetConnectionSession,

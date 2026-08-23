@@ -3,8 +3,8 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import type { RequestCollection, RequestItem } from '../../../shared/types';
-import { REQUEST_MAX_TABS } from '../../../shared/types/requests';
+import type { RequestCollection, RequestItem } from '@shared/types';
+import { REQUEST_MAX_TABS } from '@shared/types/requests';
 import { useRequestTabs } from './useRequestTabs';
 
 // ── Factories ────────────────────────────────────────────────────

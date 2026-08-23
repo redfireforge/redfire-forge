@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import type { Scenario, FeatureGroup, SharedDataSource, DataSource } from '../../../shared/types';
+import type { Scenario, FeatureGroup, SharedDataSource, DataSource } from '@shared/types';
 import { useSharedDataSourceHandlers } from './useSharedDataSourceHandlers';
 
 function makeFg(overrides: Partial<FeatureGroup> = {}): FeatureGroup {

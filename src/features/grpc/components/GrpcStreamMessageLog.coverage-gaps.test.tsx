@@ -3,7 +3,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { GRPC_STREAM_MESSAGE_CAP, type GrpcStreamLogEntry } from '../../../shared/grpc/contracts';
+import { GRPC_STREAM_MESSAGE_CAP, type GrpcStreamLogEntry } from '@shared/grpc/contracts';
 import { GrpcStreamMessageLog } from './GrpcStreamMessageLog';
 
 vi.mock('@tanstack/react-virtual', () => ({

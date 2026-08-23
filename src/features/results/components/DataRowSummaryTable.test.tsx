@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { DataRowSummaryTable } from './DataRowSummaryTable';
-import type { RequestResult } from '../../../shared/types';
+import type { RequestResult } from '@shared/types';
 import { makeResult as _makeResult } from '../../../test-utils/factories';
 
 function makeResult(

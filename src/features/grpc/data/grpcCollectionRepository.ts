@@ -10,19 +10,19 @@ import {
   validateGrpcCollectionsStore,
   type GrpcCollectionV1,
   type GrpcCollectionsStoreV1,
-} from '../../../shared/grpc/grpcPersistenceSchema';
-import { prepareGrpcCollectionsStoreForPersistSafe } from '../../../shared/grpc/grpcPersistRedactionMiddleware';
-import { migrateGrpcCollectionsStore } from '../../../shared/grpc/grpcPersistenceMigration';
-import type { GrpcSavedRequest } from '../../../shared/grpc/grpcSavedRequest';
-import { isTauri } from '../../../shared/utils/platform';
-import { readKey, writeKey } from '../../../shared/utils/storage';
+} from '@shared/grpc/grpcPersistenceSchema';
+import { prepareGrpcCollectionsStoreForPersistSafe } from '@shared/grpc/grpcPersistRedactionMiddleware';
+import { migrateGrpcCollectionsStore } from '@shared/grpc/grpcPersistenceMigration';
+import type { GrpcSavedRequest } from '@shared/grpc/grpcSavedRequest';
+import { isTauri } from '@shared/utils/platform';
+import { readKey, writeKey } from '@shared/utils/storage';
 import {
   GRPC_COLLECTIONS_STORAGE_KEY,
   idbLoadGrpcCollectionsStore,
   idbSaveGrpcCollectionsStore,
   idbSyncGrpcCollectionsFromLocalStorage,
-} from '../../../shared/utils/idbGrpcCollections';
-import { idbAvailable } from '../../../shared/utils/idbHelpers';
+} from '@shared/utils/idbGrpcCollections';
+import { idbAvailable } from '@shared/utils/idbHelpers';
 
 let persistQueue: Promise<void> = Promise.resolve();
 

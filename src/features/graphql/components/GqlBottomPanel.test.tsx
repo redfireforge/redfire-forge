@@ -7,7 +7,7 @@ import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { GqlBottomPanel } from './GqlBottomPanel';
-import type { GraphqlHeaderRow } from '../../../shared/types/graphql';
+import type { GraphqlHeaderRow } from '@shared/types/graphql';
 
 vi.mock('../utils/monacoGraphqlSetup', () => ({
   buildModelUri: (id: string) => `inmemory://graphql/${id}`,

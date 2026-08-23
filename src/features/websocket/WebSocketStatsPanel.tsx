@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import type { WsMetricsSnapshot } from './useWebSocketMetrics';
-import { formatBytes } from '../../shared/websocket/types';
+import { formatBytes } from '@shared/websocket/types';
 
 function Sparkline({ data, width = 120, height = 24 }: { data: number[]; width?: number; height?: number }) {
   if (data.length < 2) return null;

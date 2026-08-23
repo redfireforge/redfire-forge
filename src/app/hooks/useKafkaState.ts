@@ -6,18 +6,18 @@ import {
   saveKafkaAutoConnectOnStartup,
   saveKafkaClusters,
   saveSelectedKafkaClusterId,
-} from '../../shared/kafka/kafkaStorage';
+} from '@shared/kafka/kafkaStorage';
 import {
   dispatchKafkaOperation,
   type KafkaUiSafeError,
   toKafkaUiSafeError,
-} from '../../shared/kafka/kafkaClient';
+} from '@shared/kafka/kafkaClient';
 import type {
   KafkaClusterConfig,
   KafkaConnectionSnapshot,
   KafkaConnectionState,
   KafkaTopicSummary,
-} from '../../shared/kafka/kafkaConfig';
+} from '@shared/kafka/kafkaConfig';
 
 const DEFAULT_CONNECTION_SNAPSHOT: KafkaConnectionSnapshot = {
   state: 'disconnected',

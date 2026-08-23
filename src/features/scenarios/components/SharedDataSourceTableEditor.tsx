@@ -3,8 +3,8 @@
  * Phase 4: Table display, inline editing, row/column CRUD
  */
 import { useState, useCallback, useMemo } from 'react';
-import type { DataSource, DataSourceColumn } from '../../../shared/types';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import type { DataSource, DataSourceColumn } from '@shared/types';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import { createEmptyRow, createEmptyColumn } from '../utils/dataSourceUtils';
 
 interface SharedDataSourceTableEditorProps {

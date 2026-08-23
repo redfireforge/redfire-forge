@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import type { FeatureGroup, Scenario } from '../../../shared/types';
+import type { FeatureGroup, Scenario } from '@shared/types';
 import { useSharedDataSourceHandlers } from './useSharedDataSourceHandlers';
 
 function makeFg(): FeatureGroup {

@@ -1,6 +1,6 @@
-import type { WsProtocolMode, WsProtocolDetectionResult } from '../../shared/websocket/protocols/protocolTypes';
-import { PROTOCOL_REGISTRY, getProtocolInfo } from '../../shared/websocket/protocols/protocolTypes';
-import { CustomSelect } from '../../shared/components/CustomSelect';
+import type { WsProtocolMode, WsProtocolDetectionResult } from '@shared/websocket/protocols/protocolTypes';
+import { PROTOCOL_REGISTRY, getProtocolInfo } from '@shared/websocket/protocols/protocolTypes';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 interface WebSocketProtocolSelectorProps {
   protocolMode: WsProtocolMode;

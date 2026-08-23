@@ -1,13 +1,13 @@
 import { useState, useMemo, useRef, useCallback } from 'react';
-import type { RequestCollection, RequestFolder, RequestItem } from '../../../../shared/types';
+import type { RequestCollection, RequestFolder, RequestItem } from '@shared/types';
 import type { CatalogEntry, CatalogFolder } from '../../../catalog/types/catalog';
 import type { WorkflowNodeType } from '../../types/workflow';
-import type { WorkflowPreviewEntry } from '../../../../shared/utils/workflowPreviewStorage';
+import type { WorkflowPreviewEntry } from '@shared/utils/workflowPreviewStorage';
 import { isPublicationStale } from '../../../catalog/utils/publicationDrift';
 import { NodeIcon } from '../nodes/NodeIcon';
-import { highlightSearchMatch } from '../../../../shared/utils/consoleLogUtils';
+import { highlightSearchMatch } from '@shared/utils/consoleLogUtils';
 
-import { WORKFLOW_METHOD_COLORS as METHOD_COLORS } from '../../../../shared/constants/httpMethodColors';
+import { WORKFLOW_METHOD_COLORS as METHOD_COLORS } from '@shared/constants/httpMethodColors';
 
 function countRequests(col: RequestCollection): number {
   let n = col.requests.length;

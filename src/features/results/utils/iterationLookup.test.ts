@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getIterationByIndex, buildIterationIndexMap, getSortedIterationIndices } from './iterationLookup';
-import type { WorkflowExecutionTrace, WorkflowIterationTrace } from '../../../shared/types';
+import type { WorkflowExecutionTrace, WorkflowIterationTrace } from '@shared/types';
 
 function makeTrace(iterations: WorkflowIterationTrace[]): WorkflowExecutionTrace {
   return {

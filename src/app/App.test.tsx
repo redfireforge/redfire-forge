@@ -656,7 +656,7 @@ vi.mock('./demo/DemoShellHost', () => ({
 
 import App from './App';
 import { demoHubRuntimeRef } from './demo/demoHubRuntimeRef';
-import { readKey, ensureBrowserLargeDataMigrated } from '../shared/utils/storage';
+import { readKey, ensureBrowserLargeDataMigrated } from '@shared/utils/storage';
 
 // real sample workflow id for the load-template happy path
 (h as unknown as { realSampleId: string }).realSampleId = sampleWorkflowCatalog[0]?.id ?? 'unknown';

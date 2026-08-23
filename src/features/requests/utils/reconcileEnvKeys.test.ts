@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { RequestsData, RequestCollection, RequestFolder } from '../../../shared/types';
+import type { RequestsData, RequestCollection, RequestFolder } from '@shared/types';
 import { reconcileRequestsEnvKeys } from './reconcileEnvKeys';
 
 function makeFolder(overrides: Partial<RequestFolder> = {}): RequestFolder {

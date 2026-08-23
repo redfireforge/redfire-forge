@@ -6,8 +6,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ApiMockRouteExplorer } from './ApiMockRouteExplorer';
-import { createDefaultResponse } from '../../../shared/api-mock/defaults';
-import type { ApiMockRouteV1 } from '../../../shared/api-mock/contracts';
+import { createDefaultResponse } from '@shared/api-mock/defaults';
+import type { ApiMockRouteV1 } from '@shared/api-mock/contracts';
 
 const ts = '2026-08-12T00:00:00.000Z';
 

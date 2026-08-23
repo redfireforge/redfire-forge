@@ -1,17 +1,17 @@
 import { useState, useCallback, useEffect, useRef, useMemo, type MouseEvent, type ReactNode } from 'react';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import { SWAGGER_METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
-import { useCopyToClipboard } from '../../../shared/hooks/useCopyToClipboard';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import { SWAGGER_METHOD_COLORS } from '@shared/constants/httpMethodColors';
+import { useCopyToClipboard } from '@shared/hooks/useCopyToClipboard';
 import type { CatalogEndpoint, CatalogServer, HostConfig, CatalogResponse, CatalogParameter, SavedEndpointValues, CatalogEnvironment } from '../types/catalog';
-import type { AuthConfig, Microservice } from '../../../shared/types';
+import type { AuthConfig, Microservice } from '@shared/types';
 import type { EndpointCoverage } from '../utils/coverageChecker';
 import type { PublishPermission } from '../hooks/usePublishPermission';
 import { generateStubJson } from '../utils/schemaStubGenerator';
-import { prettyJson, toErrorMessage } from '../../../shared/utils/helpers';
+import { prettyJson, toErrorMessage } from '@shared/utils/helpers';
 import { buildCatalogCurlCommand, buildCatalogCurlSingleLine, buildDefaultCurlCommand, resolveBaseUrl, buildFullUrl } from '../utils/catalogCurlGenerator';
-import { httpFetch } from '../../../shared/utils/httpClient';
-import { applyAuthHeaders } from '../../../shared/utils/applyAuthHeaders';
-import { highlightJson } from '../../../shared/utils/jsonHighlighter';
+import { httpFetch } from '@shared/utils/httpClient';
+import { applyAuthHeaders } from '@shared/utils/applyAuthHeaders';
+import { highlightJson } from '@shared/utils/jsonHighlighter';
 
 interface Props {
   endpoint: CatalogEndpoint;

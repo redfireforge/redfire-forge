@@ -2,8 +2,8 @@
  * VerifyRowCard — Shared row card component for verify modals.
  * Renders a single data row's verification status, request variables, and validation fields.
  */
-import type { DataSourceColumn, DataSourceRow } from '../../../shared/types';
-import { prettyJson } from '../../../shared/utils/helpers';
+import type { DataSourceColumn, DataSourceRow } from '@shared/types';
+import { prettyJson } from '@shared/utils/helpers';
 import type { VerifyResult } from '../hooks/useVerifyEngine';
 
 interface VerifyRowCardProps {

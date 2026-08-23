@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import AuthConfigPanel, { type AuthConfigPanelProps } from './AuthConfigPanel';
-import type { AuthConfig, GlobalAuthProfile } from '../../../shared/types';
+import type { AuthConfig, GlobalAuthProfile } from '@shared/types';
 import type { AuthVerifyResult } from '../hooks/useAuthVerify';
 
 const AUTH_TYPE_OPTIONS = [

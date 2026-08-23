@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
-import type { RequestFolder, RequestCollection, RequestEnv, AuthConfig, GlobalAuthProfile, Microservice } from '../../../shared/types';
-import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
+import type { RequestFolder, RequestCollection, RequestEnv, AuthConfig, GlobalAuthProfile, Microservice } from '@shared/types';
+import { useEscapeKey } from '@shared/hooks/useEscapeKey';
+import AppModalFrame from '@shared/components/AppModalFrame';
 import WfDarkSelect from '../../workflow/components/modals/WfDarkSelect';
 import { resolveCollectionBaseUrls, usedEnvIdsInCollection } from '../utils/subCollectionEnvs';
 

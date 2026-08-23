@@ -6,7 +6,7 @@ import {
   formatProtoFileSize,
 } from '../utils/grpcProtoIngestUtils';
 import type { GrpcTabProtoIngestState } from '../grpcStudioTypes';
-import type { GrpcProtoRootInput } from '../../../shared/grpc/contracts';
+import type { GrpcProtoRootInput } from '@shared/grpc/contracts';
 
 interface DragStateHandlers {
   onDragEnter: (event: DragEvent<HTMLDivElement>) => void;
@@ -232,6 +232,7 @@ export function GrpcProtoFilesPanel({
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function estimateBase64DecodedBytes(base64: string): number {
   const compact = base64.trim().replace(/\s+/g, '');
   if (!compact) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { FailureDetail } from '../shared/types';
+import type { FailureDetail } from '@shared/types';
 import { deepCompare } from './deepCompare';
 
 describe('deepCompare', () => {

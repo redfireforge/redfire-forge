@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_MULTI_SERVICE_DESCRIPTOR,
-} from '../../../shared/grpc/contractFixtures';
+} from '@shared/grpc/contractFixtures';
 import {
   filterGrpcExplorerTree,
   findGrpcMethod,

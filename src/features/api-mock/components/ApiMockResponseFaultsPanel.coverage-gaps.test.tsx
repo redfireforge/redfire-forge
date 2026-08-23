@@ -6,8 +6,8 @@ import { useState } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ApiMockResponseFaultsPanel } from './ApiMockResponseFaultsPanel';
-import { createDefaultResponse } from '../../../shared/api-mock/defaults';
-import type { ApiMockResponseVariantV1 } from '../../../shared/api-mock/contracts';
+import { createDefaultResponse } from '@shared/api-mock/defaults';
+import type { ApiMockResponseVariantV1 } from '@shared/api-mock/contracts';
 
 function makeVariant(overrides: Partial<ApiMockResponseVariantV1> = {}): ApiMockResponseVariantV1 {
   return { ...createDefaultResponse('resp-1'), ...overrides };

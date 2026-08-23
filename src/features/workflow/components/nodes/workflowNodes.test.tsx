@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { render, screen} from '@testing-library/react';
 import '@testing-library/jest-dom';
-import type { Scenario } from '../../../../shared/types';
+import type { Scenario } from '@shared/types';
 import { ReactFlowProvider } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 

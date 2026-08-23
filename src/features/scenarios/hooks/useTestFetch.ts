@@ -1,14 +1,14 @@
 import { useState, useCallback, useEffect, type MutableRefObject } from 'react';
-import type { Scenario, AuthConfig, FailureDetail, FeatureGroup, GlobalAuthProfile } from '../../../shared/types';
-import { serializeWithContentType, getEffectiveBodyType } from '../../../shared/utils/bodySerializer';
-import { toErrorMessage, prettyJson, parseJsonOrRaw } from '../../../shared/utils/helpers';
+import type { Scenario, AuthConfig, FailureDetail, FeatureGroup, GlobalAuthProfile } from '@shared/types';
+import { serializeWithContentType, getEffectiveBodyType } from '@shared/utils/bodySerializer';
+import { toErrorMessage, prettyJson, parseJsonOrRaw } from '@shared/utils/helpers';
 import { proxyFetch } from '../../../engine/executor';
 import { acquireOAuth2Token } from '../../../engine/tokenManager';
-import { resolveAuthHeaders } from '../../../shared/utils/authHeaders';
-import { MapperFetchError, type FetchErrorDetail } from '../../../shared/components/data-mapper/types';
+import { resolveAuthHeaders } from '@shared/utils/authHeaders';
+import { MapperFetchError, type FetchErrorDetail } from '@shared/components/data-mapper/types';
 import { validate, evaluateAssertions, type AssertionContext } from '../../../engine/validator';
 import { jsonEqual } from '../utils/testEditorUtils';
-import { getByPath } from '../../../shared/utils/jsonPath';
+import { getByPath } from '@shared/utils/jsonPath';
 import { hasExpectedFields, hasActiveRules, hasAssertions, hasSampleJson, getExpectedFields, checkValidationScopeGuards } from '../utils/validationHelpers';
 
 // ─── Shared helpers ──────────────────────────────────────────

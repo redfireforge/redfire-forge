@@ -2,7 +2,7 @@
 // slash-command dispatcher (`useConsoleCommands`) to the live studio actions.
 // Extracted from `WsConnectionTabContent` so the command-mapping logic can be
 // unit-tested in isolation.
-import type { WsCloseDetail, WsMessageFormat } from '../../shared/websocket/types';
+import type { WsCloseDetail, WsMessageFormat } from '@shared/websocket/types';
 import type { ConsoleCommandCapabilities } from './useConsoleCommands';
 import type { WsTransportMode } from './useWebSocketStudioTypes';
 

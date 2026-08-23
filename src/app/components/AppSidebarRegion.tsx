@@ -1,5 +1,5 @@
 import { type Dispatch, type SetStateAction, useCallback, useEffect, useState } from 'react';
-import type { Environment, FeatureGroup, Microservice, RequestCollection } from '../../shared/types';
+import type { Environment, FeatureGroup, Microservice, RequestCollection } from '@shared/types';
 import type { Tab } from '../utils/appTabUtils';
 import { domainOf, isApiMockTab, isApiTab, isHarnessTab, isWorkflowTab } from '../utils/appTabUtils';
 import type { UseCatalogReturn } from '../../features/catalog/hooks/useCatalog';
@@ -19,7 +19,7 @@ import {
   isDemoAppSidebarSession,
   markDemoAppSidebarUserCollapsed,
   markDemoAppSidebarUserExpanded,
-} from '../../shared/demoAppSidebarSession';
+} from '@shared/demoAppSidebarSession';
 
 export interface AppSidebarRegionProps {
   activeTab: Tab;

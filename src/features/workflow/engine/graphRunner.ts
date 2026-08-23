@@ -1,14 +1,14 @@
 import type { WorkflowNode, WorkflowEdge, HttpNodeData, WorkflowErrorConfig, Workflow } from '../types/workflow';
 import { isHttpWorkflowNode } from '../utils/workflowVariableHints';
-import type { RequestResult, Scenario } from '../../../shared/types';
+import type { RequestResult, Scenario } from '@shared/types';
 import { TokenManager } from '../../../engine/tokenManager';
 import { VariableContext } from './variableContext';
 import { summarizeRequestFailure } from '../utils/workflowRunErrors';
-import { humanizeError, toErrorMessage } from '../../../shared/utils/helpers';
+import { humanizeError, toErrorMessage } from '@shared/utils/helpers';
 import type { DebugController } from './debugController';
 import type { ICorrelationStore } from './correlationStore';
 import { findStartNodes } from './graphRunnerHelpers';
-import type { Semaphore } from '../../../shared/utils/semaphore';
+import type { Semaphore } from '@shared/utils/semaphore';
 import {
   handleHttpNode,
   handleConditionNode,

@@ -10,7 +10,7 @@ import type {
   Microservice,
   FeatureGroup,
   GlobalAuthProfile,
-} from '../../shared/types';
+} from '@shared/types';
 import { useDerivedViewState } from './useDerivedViewState';
 
 /** Minimal Scenario list type not needed beyond empty array */

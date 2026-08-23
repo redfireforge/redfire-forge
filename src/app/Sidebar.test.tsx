@@ -2,7 +2,7 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import Sidebar from './Sidebar';
-import type { Environment, Microservice, FeatureGroup } from '../shared/types';
+import type { Environment, Microservice, FeatureGroup } from '@shared/types';
 import { makeFeatureGroup } from '../test-utils/factories';
 
 afterEach(() => cleanup());

@@ -5,11 +5,11 @@ import { useState } from 'react';
 import { ComponentProps } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { selectOption, selectOptionByIndex, getCustomSelectValue, getCustomSelectOptionLabels } from '../../../test-utils/customSelectHelper';
 import SharedDataSourceModal from './SharedDataSourceModal';
-import { SharedDataSource, FeatureGroup, DataSource, GlobalAuthProfile } from '../../../shared/types';
+import { SharedDataSource, FeatureGroup, DataSource, GlobalAuthProfile } from '@shared/types';
 import { proxyFetch } from '../../../engine/executor';
 // Mock uuid to return predictable IDs
 vi.mock('uuid', () => ({

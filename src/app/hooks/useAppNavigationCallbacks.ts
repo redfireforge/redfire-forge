@@ -4,7 +4,7 @@ import { DEMO_HUB_ENABLED } from '../../config/features';
 import { demoHubRuntimeRef } from '../demo/demoHubRuntimeRef';
 import { shouldExitLiveDemoForTabChange } from '../demo/liveDemoTabGuard';
 import type { UseRequestsReturn } from '../../features/requests/hooks/useRequests';
-import type { RequestItem } from '../../shared/types';
+import type { RequestItem } from '@shared/types';
 import { sampleWorkflowCatalog } from '../../data/galleries/workflows';
 
 export interface UseAppNavigationCallbacksOptions {

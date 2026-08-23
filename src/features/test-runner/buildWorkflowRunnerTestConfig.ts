@@ -6,7 +6,7 @@ import type {
   ErrorPolicy,
   SlaTarget,
   ExecutionTraceOptions,
-} from '../../shared/types';
+} from '@shared/types';
 import type { Workflow } from '../workflow/types/workflow';
 
 export interface BuildWorkflowRunnerTestConfigParams {

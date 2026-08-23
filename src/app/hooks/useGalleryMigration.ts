@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import type { Environment, Microservice } from '../../shared/types';
+import type { Environment, Microservice } from '@shared/types';
 
 interface Options {
   loading: boolean;

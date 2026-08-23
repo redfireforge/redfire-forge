@@ -8,7 +8,7 @@ import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_DESCRIPTOR_KEY,
   FIXTURE_UNARY_CALL_REQUEST,
-} from '../../../../shared/grpc/contractFixtures';
+} from '@shared/grpc/contractFixtures';
 import {
   createEmptyTabDescriptorState,
   createGrpcStudioTab,
@@ -19,7 +19,7 @@ import {
   useGrpcStudioAdvancedFeatures,
 } from '../useGrpcStudioAdvancedFeatures';
 import * as advancedCommands from '../../utils/grpcStudioAdvancedCommands';
-import * as advancedFeatureExport from '../../../../shared/grpc/grpcAdvancedFeatureExport';
+import * as advancedFeatureExport from '@shared/grpc/grpcAdvancedFeatureExport';
 import {
   finalizeLoadTestMock,
   flushReactEffects,

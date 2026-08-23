@@ -13,7 +13,7 @@ vi.mock('./scriptLibraries', () => ({
   buildLibraryPreamble: vi.fn(() => ''),
 }));
 
-import type { RequestResult } from '../../../shared/types';
+import type { RequestResult } from '@shared/types';
 import { handleErrorHandlerNode } from './graphRunnerErrorHandler';
 import { handleLogDebugNode } from './graphRunnerNodeHandlers';
 import {

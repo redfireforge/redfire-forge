@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
-import { highlightJson } from '../../../shared/utils/jsonHighlighter';
-import { syncHighlightedTextareaScroll } from '../../../shared/utils/highlightedTextareaScroll';
+import { highlightJson } from '@shared/utils/jsonHighlighter';
+import { syncHighlightedTextareaScroll } from '@shared/utils/highlightedTextareaScroll';
 
 export interface GrpcHighlightedJsonTextareaProps {
   value: string;

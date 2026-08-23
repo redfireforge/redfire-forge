@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import type { FeatureGroup, GlobalAuthProfile, Microservice, Scenario, SlaTarget, TestConfig, ScenarioWeight, SharedDataSource, ScenarioKind, ExecutionMode, ArrivalRateConfig } from '../../../shared/types';
-import { buildGrpcHarnessEnvFromRunnerContext } from '../../../shared/grpc/grpcHarnessRuntimeContext';
-import type { LoadProfileConfig } from '../../../shared/types';
+import type { FeatureGroup, GlobalAuthProfile, Microservice, Scenario, SlaTarget, TestConfig, ScenarioWeight, SharedDataSource, ScenarioKind, ExecutionMode, ArrivalRateConfig } from '@shared/types';
+import { buildGrpcHarnessEnvFromRunnerContext } from '@shared/grpc/grpcHarnessRuntimeContext';
+import type { LoadProfileConfig } from '@shared/types';
 import type { AllocationSummary } from '../../../engine/allocationEngine';
 import { useTestExecution } from './useTestExecution';
 import { useRunnerConfig } from './useRunnerConfig';

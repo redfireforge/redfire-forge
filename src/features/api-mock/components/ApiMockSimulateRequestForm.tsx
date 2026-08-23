@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import { ApiMockExpandableText } from './ApiMockExpandableText';
 import { SIMULATE_METHOD_OPTIONS } from './apiMockSimulateModalHelpers';
 

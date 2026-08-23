@@ -1,8 +1,8 @@
 /**
  * Shared builders for API Mock gallery sample factories.
  */
-import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
-import { EMPTY_PREDICATE_GROUP } from '../../../shared/api-mock/defaults';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
+import { EMPTY_PREDICATE_GROUP } from '@shared/api-mock/defaults';
 
 export const TS = '2026-08-13T00:00:00.000Z';
 

@@ -1,5 +1,5 @@
-import type { GraphqlResponse } from '../../../shared/types/graphql';
-import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
+import type { GraphqlResponse } from '@shared/types/graphql';
+import type { GqlTlsSettings } from '@shared/types/gqlTls';
 import type { DedupChoice } from '../utils/dedupExecution';
 import type { AuthSentStampInput } from '../utils/graphqlExecutionResponseParsing';
 

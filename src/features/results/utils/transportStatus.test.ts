@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { formatTransportStatus, getTransportMethodLabel, isHttpResult, getTransportFamily } from './transportStatus';
-import type { RequestResult } from '../../../shared/types';
+import type { RequestResult } from '@shared/types';
 import { makeResult as _makeResult } from '../../../test-utils/factories';
 
 const makeResult = (overrides: Partial<RequestResult> = {}): RequestResult =>

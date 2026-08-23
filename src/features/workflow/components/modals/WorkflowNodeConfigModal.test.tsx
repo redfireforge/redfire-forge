@@ -6,7 +6,7 @@ import '@testing-library/jest-dom';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import WorkflowNodeConfigModal from './WorkflowNodeConfigModal';
 import { WorkflowNode, HttpNodeData } from '../../types/workflow';
-import { Scenario } from '../../../../shared/types';
+import { Scenario } from '@shared/types';
 import { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import { makeScenario as _makeScenario } from '../../../../test-utils/factories';
 import {

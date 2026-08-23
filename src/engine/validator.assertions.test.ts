@@ -7,7 +7,7 @@ import {
   toDayString,
   formatOp,
 } from './validator';
-import type { Assertion } from '../shared/types';
+import type { Assertion } from '@shared/types';
 
 // ---------------------------------------------------------------------------
 // evaluateAssertions – branch coverage for header operators

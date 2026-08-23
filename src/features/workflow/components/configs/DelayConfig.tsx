@@ -1,5 +1,5 @@
 import type { DelayNodeData } from '../../types/workflow';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import { KafkaCard, KafkaFormRow } from './KafkaConfigUi';
 
 const MODE_OPTIONS = [

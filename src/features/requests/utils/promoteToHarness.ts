@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { FeatureGroup, RequestCollection, RequestFolder, Scenario, TestScenario } from '../../../shared/types';
+import type { FeatureGroup, RequestCollection, RequestFolder, Scenario, TestScenario } from '@shared/types';
 import type { PromotionContext, PromotionOptions } from './requestToScenario';
 import { createScenarioFromRequest } from './requestToScenario';
 

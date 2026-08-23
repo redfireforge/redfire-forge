@@ -6,8 +6,8 @@
  * Node.js proxy on port 3001.
  */
 
-import type { HttpResponse } from '../../../shared/utils/httpClient';
-import { serializeGqlTlsForProxy, type GqlTlsSettings } from '../../../shared/types/gqlTls';
+import type { HttpResponse } from '@shared/utils/httpClient';
+import { serializeGqlTlsForProxy, type GqlTlsSettings } from '@shared/types/gqlTls';
 
 interface GqlHttpFetchResponse {
   status: number;

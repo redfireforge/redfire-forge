@@ -26,31 +26,31 @@ import {
   type GrpcTargetConnectionSession,
   type GrpcTlsConfig,
   type GrpcTlsMode,
-} from '../../shared/grpc/contracts';
-import type { GrpcCompressionConfig } from '../../shared/grpc/contracts';
-import { prepareGrpcCallMetadata } from '../../shared/grpc/grpcCompressionPolicy';
+} from '@shared/grpc/contracts';
+import type { GrpcCompressionConfig } from '@shared/grpc/contracts';
+import { prepareGrpcCallMetadata } from '@shared/grpc/grpcCompressionPolicy';
 import type { GrpcGrpcurlExportContext } from './utils/grpcGrpcurlTypes';
-import { createDefaultDescriptorSourceSelection, normalizeDescriptorSourceSelection, resolveDescriptorSourceFingerprint } from '../../shared/grpc/descriptorSourcePolicy';
-import { hasGrpcStreamTransportBinding } from '../../shared/grpc/grpcTransportFallback';
-import { isGrpcStreamLifecycleInFlight } from '../../shared/grpc/streamLifecycle';
+import { createDefaultDescriptorSourceSelection, normalizeDescriptorSourceSelection, resolveDescriptorSourceFingerprint } from '@shared/grpc/descriptorSourcePolicy';
+import { hasGrpcStreamTransportBinding } from '@shared/grpc/grpcTransportFallback';
+import { isGrpcStreamLifecycleInFlight } from '@shared/grpc/streamLifecycle';
 import {
   type GrpcTransportMode,
-} from '../../shared/grpc/grpcTransportTabRouting';
+} from '@shared/grpc/grpcTransportTabRouting';
 import {
   captureGrpcTransportExecuteSnapshotFields,
   defaultGrpcStudioTransportModeForPlatform,
   type GrpcStudioTransportMode,
-} from '../../shared/grpc/grpcWebTransportContracts';
+} from '@shared/grpc/grpcWebTransportContracts';
 import {
   createInitialStreamLifecycleState,
   type GrpcStreamLifecycle,
-} from '../../shared/grpc/streamLifecycle';
+} from '@shared/grpc/streamLifecycle';
 import {
   resolutionToGrpcTarget,
   type GrpcTabConnectionResolution,
 } from './utils/resolveGrpcTabConnection';
 import type { GrpcMaskedSecretFields } from './utils/grpcSecretFieldUi';
-import { validateResolvedGrpcTargetAddress, withGrpcTargetValidationMessage } from '../../shared/grpc/targetValidation';
+import { validateResolvedGrpcTargetAddress, withGrpcTargetValidationMessage } from '@shared/grpc/targetValidation';
 import { DEFAULT_PROTO_ROOT_ID, DEFAULT_PROTO_ROOT_MOUNT, ensureProtoRootsDraft } from './utils/grpcProtoIngestUtils';
 
 export type GrpcRequestLifecycle =
@@ -226,7 +226,7 @@ function normalizeDescriptorSourceSelectionForTab(
 }
 
 /** Immutable snapshot captured when Execute is clicked (tab-scoped). */
-export type { GrpcTabExecuteSnapshot } from '../../shared/grpc/contracts';
+export type { GrpcTabExecuteSnapshot } from '@shared/grpc/contracts';
 
 export type { GrpcStreamLifecycle, GrpcStreamLogEntry };
 
@@ -257,7 +257,7 @@ export function clearedGrpcStreamSessionPatch(): Pick<
   };
 }
 
-export type { GrpcStudioTransportMode } from '../../shared/grpc/grpcWebTransportContracts';
+export type { GrpcStudioTransportMode } from '@shared/grpc/grpcWebTransportContracts';
 
 /** @deprecated Use GrpcStudioTransportMode from grpcWebTransportContracts — alias for Phase 7 routing subset. */
 export type GrpcLegacyTransportMode = GrpcTransportMode;

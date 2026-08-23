@@ -1,8 +1,8 @@
 /**
  * Getting-started API Mock gallery factories (health, users, store library).
  */
-import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
-import { DEFAULT_SETTINGS, createDefaultResponse } from '../../../shared/api-mock/defaults';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
+import { DEFAULT_SETTINGS, createDefaultResponse } from '@shared/api-mock/defaults';
 import { TS, emptyGroup, jsonBody, jsonHeader, storeRoute } from './presets-helpers';
 
 /** Single GET /health — Track A first Start + journal. */

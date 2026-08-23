@@ -5,7 +5,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { resolveScenarioFromDataRow } from './dataSourceExpander';
-import { DataSourceColumn, DataSourceRow } from '../shared/types';
+import { DataSourceColumn, DataSourceRow } from '@shared/types';
 import { makeScenario, makeColumns, makeRow, makeDataSource } from './__test-utils__/dataSourceExpanderHelpers';
 
 describe('resolveScenarioFromDataRow', () => {

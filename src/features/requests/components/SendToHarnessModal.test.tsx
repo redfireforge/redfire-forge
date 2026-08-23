@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import SendToHarnessModal from './SendToHarnessModal';
-import type { Environment, FeatureGroup, Microservice, RequestItem } from '../../../shared/types';
+import type { Environment, FeatureGroup, Microservice, RequestItem } from '@shared/types';
 import type { PromotionContext } from '../utils/requestToScenario';
 
 interface CascadeProps {

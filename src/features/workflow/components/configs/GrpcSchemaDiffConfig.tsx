@@ -1,5 +1,5 @@
 import type { GrpcSchemaDiffNodeData } from '../../types/workflow/node-grpc-advanced';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 export default function GrpcSchemaDiffConfig({
   data,

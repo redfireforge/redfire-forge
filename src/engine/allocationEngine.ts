@@ -1,4 +1,4 @@
-import type { Scenario, ScenarioKind } from '../shared/types';
+import type { Scenario, ScenarioKind } from '@shared/types';
 
 export interface AllocationResult {
   testId: string;

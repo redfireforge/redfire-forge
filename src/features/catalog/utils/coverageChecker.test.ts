@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildCoverageMap, getEndpointCoverage, coverageKey } from './coverageChecker';
-import type { RequestCollection, RequestItem } from '../../../shared/types';
+import type { RequestCollection, RequestItem } from '@shared/types';
 
 function makeReq(overrides: Partial<RequestItem> = {}): RequestItem {
   return {

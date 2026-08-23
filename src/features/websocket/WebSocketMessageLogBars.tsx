@@ -1,6 +1,6 @@
-import { CustomSelect } from '../../shared/components/CustomSelect';
-import { formatUptime } from '../../shared/websocket/types';
-import type { WsReplaySpeed } from '../../shared/websocket/types';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import { formatUptime } from '@shared/websocket/types';
+import type { WsReplaySpeed } from '@shared/websocket/types';
 
 export function WebSocketMessagesStatusBar({
   isConnected,

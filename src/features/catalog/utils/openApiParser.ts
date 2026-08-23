@@ -6,7 +6,7 @@ import type {
   CatalogServer, CatalogSecurityScheme, CatalogContentType,
   SchemaObject, ParsedSpec,
 } from '../types/catalog';
-import type { HttpMethod } from '../../../shared/types';
+import type { HttpMethod } from '@shared/types';
 
 const SUPPORTED_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 

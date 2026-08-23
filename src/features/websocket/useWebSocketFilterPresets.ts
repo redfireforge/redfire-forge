@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { WsFilterPreset } from '../../shared/websocket/types';
+import type { WsFilterPreset } from '@shared/websocket/types';
 import type { WsSearchMode, WsSizeFilter, WsTimeFilter, WsContentTypeFilter } from './useWebSocketStudioTypes';
-import { loadWsFilterPresets, saveWsFilterPresets } from '../../shared/websocket/websocketStorage';
+import { loadWsFilterPresets, saveWsFilterPresets } from '@shared/websocket/websocketStorage';
 
 export interface FilterPresetActions {
   filterPresets: WsFilterPreset[];

@@ -2,15 +2,15 @@ import { useCallback } from 'react';
 import type {
   RequestCollection, RequestItem,
   GlobalAuthProfile, Scenario, AuthConfig,
-} from '../../../shared/types';
-import { httpFetch } from '../../../shared/utils/httpClient';
-import { serializeWithContentType } from '../../../shared/utils/bodySerializer';
-import { applyAuthHeaders } from '../../../shared/utils/applyAuthHeaders';
-import type { HttpResponse } from '../../../shared/utils/httpClient';
-import { isClientManagedRequestHeader } from '../../../shared/utils/outboundRequestHeaders';
+} from '@shared/types';
+import { httpFetch } from '@shared/utils/httpClient';
+import { serializeWithContentType } from '@shared/utils/bodySerializer';
+import { applyAuthHeaders } from '@shared/utils/applyAuthHeaders';
+import type { HttpResponse } from '@shared/utils/httpClient';
+import { isClientManagedRequestHeader } from '@shared/utils/outboundRequestHeaders';
 import type { ConsoleLine, ResponseHistoryEntry } from './useResponseCache';
 import { resolveFullSendUrl } from '../utils/requestUrlResolver';
-import { formatBytes, toErrorMessage } from '../../../shared/utils/helpers';
+import { formatBytes, toErrorMessage } from '@shared/utils/helpers';
 import type { UrlResolverContext } from '../utils/requestUrlResolver';
 
 export interface UseRequestSendOptions {

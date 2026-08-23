@@ -3,7 +3,7 @@ import type {
   GrpcDescriptorDriftState,
   GrpcMessageSchema,
   GrpcMethodInfo,
-} from '../../../shared/grpc/contracts';
+} from '@shared/grpc/contracts';
 import { findGrpcMethod } from './grpcExplorerUtils';
 import { syncBodyWithSchema } from './grpcProtoFormValues';
 

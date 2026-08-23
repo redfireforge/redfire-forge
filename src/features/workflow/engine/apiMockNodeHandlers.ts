@@ -9,8 +9,8 @@ import type {
   ApiMockResetStateNodeData,
   ApiMockAssertCallsNodeData,
 } from '../types/workflow/node-api-mock';
-import type { ApiMockServerDefinitionV1, ApiMockTransactionV1 } from '../../../shared/api-mock/contracts';
-import { assertMockCalls } from '../../../shared/api-mock/assertMockCalls';
+import type { ApiMockServerDefinitionV1, ApiMockTransactionV1 } from '@shared/api-mock/contracts';
+import { assertMockCalls } from '@shared/api-mock/assertMockCalls';
 import { resolveApiMockDefinition } from '../utils/apiMockWorkflowDefinitionResolver';
 
 export interface ApiMockNodeContext {

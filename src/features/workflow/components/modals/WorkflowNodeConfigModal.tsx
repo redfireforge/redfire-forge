@@ -17,7 +17,7 @@ import {
   mergeHttpVariableHintsWithStepInitialVars,
   type WorkflowVariableHint,
 } from '../../utils/workflowVariableHints';
-import { snapshot } from '../../../../shared/utils/helpers';
+import { snapshot } from '@shared/utils/helpers';
 import { useVariableInsertModal } from '../../hooks/useVariableInsertModal';
 import type { HttpTab } from '../configs/HttpConfig';
 import type { WorkflowPickerItem } from '../configs/SubWorkflowConfig';
@@ -32,7 +32,7 @@ import WorkflowEditorModalFrame from './WorkflowEditorModalFrame';
 import WorkflowNodeConfigTypePanels from './WorkflowNodeConfigTypePanels';
 import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionEditor';
 import { useWorkflowValidationFetch } from '../../hooks/useWorkflowValidationFetch';
-import type { Environment, Scenario, GlobalAuthProfile } from '../../../../shared/types';
+import type { Environment, Scenario, GlobalAuthProfile } from '@shared/types';
 
 type ConfigPanelTab = 'config' | 'input' | 'output' | 'logs';
 

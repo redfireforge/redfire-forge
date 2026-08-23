@@ -5,7 +5,7 @@ import '@testing-library/jest-dom/vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GraphqlHistoryPreviewPanel } from './GraphqlHistoryPreviewPanel';
-import type { GraphqlHistoryItem } from '../../../shared/types/graphql';
+import type { GraphqlHistoryItem } from '@shared/types/graphql';
 
 function makeItem(overrides: Partial<GraphqlHistoryItem> = {}): GraphqlHistoryItem {
   return {

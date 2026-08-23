@@ -1,7 +1,7 @@
 /**
  * Apollo tracing waterfall helpers — pure functions (no React).
  */
-import type { ApolloTracingData } from '../../../shared/types/graphql';
+import type { ApolloTracingData } from '@shared/types/graphql';
 
 export type PhaseVariant = 'parse' | 'validate' | 'execution' | 'overhead';
 

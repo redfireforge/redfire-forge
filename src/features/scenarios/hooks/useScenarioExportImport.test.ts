@@ -5,7 +5,7 @@ import { SetStateAction } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useScenarioExportImport, type VersionImportOptions } from './useScenarioExportImport';
-import { FeatureGroup, Scenario, SharedDataSource, TestScenario } from '../../../shared/types';
+import { FeatureGroup, Scenario, SharedDataSource, TestScenario } from '@shared/types';
 import { makeScenario as _makeScenario } from '../../../test-utils/factories';
 
 // Mock external dependencies
@@ -35,10 +35,10 @@ vi.mock('../../../shared/utils/wsScenarioDefaults', () => ({
   validateWsActionConfig: vi.fn(() => []),
 }));
 
-import { validateWsActionConfig } from '../../../shared/utils/wsScenarioDefaults';
+import { validateWsActionConfig } from '@shared/utils/wsScenarioDefaults';
 const mockValidateWsActionConfig = vi.mocked(validateWsActionConfig);
 
-import { saveJsonFile } from '../../../shared/utils/fileSaver';
+import { saveJsonFile } from '@shared/utils/fileSaver';
 import { pickJsonFile, hasVersionData, stripVersions } from '../utils/scenarioImportExport';
 
 const mockPickJsonFile = vi.mocked(pickJsonFile);

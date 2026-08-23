@@ -5,7 +5,7 @@
  * - Response: empty body with status 0 (OK) and a placeholder body built from the response schema
  */
 
-import type { GrpcDescriptor, GrpcMessageSchema, GrpcFieldSchema } from '../../../shared/grpc/contracts';
+import type { GrpcDescriptor, GrpcMessageSchema, GrpcFieldSchema } from '@shared/grpc/contracts';
 import {
   createDefaultGrpcMockBuilderRuleRow,
   createDefaultGrpcMockBuilderPredicateLeaf,

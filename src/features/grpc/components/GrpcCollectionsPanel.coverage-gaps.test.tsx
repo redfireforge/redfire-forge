@@ -6,9 +6,9 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import {
   FIXTURE_DESCRIPTOR_KEY,
   FIXTURE_UNARY_CALL_REQUEST,
-} from '../../../shared/grpc/contractFixtures';
-import { createGrpcSavedRequestFromSnapshot } from '../../../shared/grpc/grpcSavedRequest';
-import type { GrpcCollectionV1 } from '../../../shared/grpc/grpcPersistenceSchema';
+} from '@shared/grpc/contractFixtures';
+import { createGrpcSavedRequestFromSnapshot } from '@shared/grpc/grpcSavedRequest';
+import type { GrpcCollectionV1 } from '@shared/grpc/grpcPersistenceSchema';
 import type { GrpcStudioTabState } from '../grpcStudioTypes';
 import type { UseGrpcCollectionsResult } from '../hooks/useGrpcCollections';
 import { GrpcCollectionsPanel } from './GrpcCollectionsPanel';

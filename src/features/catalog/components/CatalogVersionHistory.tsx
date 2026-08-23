@@ -1,10 +1,10 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { CatalogEntry, CatalogVersion, CatalogSpecDiff } from '../types/catalog';
 import { parseOpenApiSpec } from '../utils/openApiParser';
-import { formatBytes } from '../../../shared/utils/helpers';
+import { formatBytes } from '@shared/utils/helpers';
 import { diffCatalogEntries } from '../utils/catalogSpecDiff';
 import CatalogVersionDiff from './CatalogVersionDiff';
-import FullPanelModal from '../../../shared/components/FullPanelModal';
+import FullPanelModal from '@shared/components/FullPanelModal';
 
 const VERSION_ICON = (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="cat-vh-title-icon">

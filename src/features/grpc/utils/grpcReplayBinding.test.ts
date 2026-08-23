@@ -6,11 +6,11 @@ import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_DESCRIPTOR_KEY,
   FIXTURE_UNARY_CALL_REQUEST,
-} from '../../../shared/grpc/contractFixtures';
-import { createGrpcSavedRequestFromSnapshot } from '../../../shared/grpc/grpcSavedRequest';
-import type { GrpcCallHistoryEntryV1 } from '../../../shared/grpc/grpcPersistenceSchema';
+} from '@shared/grpc/contractFixtures';
+import { createGrpcSavedRequestFromSnapshot } from '@shared/grpc/grpcSavedRequest';
+import type { GrpcCallHistoryEntryV1 } from '@shared/grpc/grpcPersistenceSchema';
 import { createGrpcStudioTab } from '../grpcStudioTypes';
-import { createDefaultDescriptorSourceSelection } from '../../../shared/grpc/descriptorSourcePolicy';
+import { createDefaultDescriptorSourceSelection } from '@shared/grpc/descriptorSourcePolicy';
 import {
   analyzeReplaySchemaDrift,
   applyGrpcReplaySafeFallbackBody,

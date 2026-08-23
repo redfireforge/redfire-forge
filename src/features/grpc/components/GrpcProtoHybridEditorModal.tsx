@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
-import type { GrpcMessageSchema, GrpcMethodInfo } from '../../../shared/grpc/contracts';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
+import type { GrpcMessageSchema, GrpcMethodInfo } from '@shared/grpc/contracts';
+import AppModalFrame from '@shared/components/AppModalFrame';
 import type { GrpcProtoHybridEvent, GrpcProtoHybridModalState } from '../utils/grpcProtoHybridState';
 import { groupMessageFields } from '../utils/grpcProtoFormValues';
 import { GrpcJsonCodeToolbar } from './GrpcJsonCodeToolbar';

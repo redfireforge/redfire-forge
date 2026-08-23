@@ -1,13 +1,13 @@
-import type { Scenario, RequestResult, TimingBreakdown } from '../shared/types';
-import { buildGrpcHarnessRowTraceKey } from '../shared/grpc/grpcHarnessRowIdentity';
-import { httpFetch } from '../shared/utils/httpClient';
-import { serializeWithContentType } from '../shared/utils/bodySerializer';
+import type { Scenario, RequestResult, TimingBreakdown } from '@shared/types';
+import { buildGrpcHarnessRowTraceKey } from '@shared/grpc/grpcHarnessRowIdentity';
+import { httpFetch } from '@shared/utils/httpClient';
+import { serializeWithContentType } from '@shared/utils/bodySerializer';
 import { buildHeaders, buildUrl, type ProgressMeta } from './executor';
 import type { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
 import { applyThinkTime } from './thinkTime';
 import { buildValidationResult } from './validationResult';
-import { toErrorMessage, parseJsonOrRaw } from '../shared/utils/helpers';
+import { toErrorMessage, parseJsonOrRaw } from '@shared/utils/helpers';
 
 let _resultIdCounter = 0;
 let _resultIdPrefix = 'r';

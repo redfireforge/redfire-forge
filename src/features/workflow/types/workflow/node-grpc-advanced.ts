@@ -1,7 +1,7 @@
 /**
  * Phase 11N — gRPC advanced workflow node contracts (load test, schema diff, mock assert).
  */
-import type { GrpcLoadTestConfig } from '../../../../shared/grpc/grpcAdvancedFeatureContracts';
+import type { GrpcLoadTestConfig } from '@shared/grpc/grpcAdvancedFeatureContracts';
 import type { GrpcWorkflowBaseConfig } from './node-grpc';
 
 export interface GrpcLoadTestNodeData extends GrpcWorkflowBaseConfig {

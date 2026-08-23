@@ -6,7 +6,7 @@
  * useTestExecution.test.ts).
  */
 import { vi, beforeEach, afterEach } from 'vitest';
-import type { TestConfig, RequestResult, TestSummary } from '../../../../shared/types';
+import type { TestConfig, RequestResult, TestSummary } from '@shared/types';
 import {
   makeScenario,
   makeResult,

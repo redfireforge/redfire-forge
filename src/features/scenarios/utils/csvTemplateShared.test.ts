@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildTemplateMetaAndSample, buildScenarioFromRow } from './csvTemplateShared';
 import type { ExportOptions } from './csvTemplateTypes';
-import type { Scenario } from '../../../shared/types';
+import type { Scenario } from '@shared/types';
 import { makeScenario as _makeScenario } from '../../../test-utils/factories';
 
 // ---------------------------------------------------------------------------

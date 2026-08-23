@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { WsReceiveNodeData, WsReceiveOutputBinding, WsMatchCriteria } from '../../types/workflow';
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
-import { useListCrud } from '../../../../shared/hooks/useListCrud';
+import { useListCrud } from '@shared/hooks/useListCrud';
 import AvailableVariables from '../expression/AvailableVariables';
 import { WsConnectionIdField, WsMatchCriteriaSection, WsExtractionRulesSection, WsOutputBindingsSection } from './WsConfigShared';
 import { KafkaCard, KafkaFormRow } from './KafkaConfigUi';

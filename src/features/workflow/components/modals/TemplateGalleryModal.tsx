@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { sampleWorkflowCatalog, type SampleWorkflowEntry, type SampleCategory } from '../../../../data/galleries/workflows';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 const CATEGORIES: { key: SampleCategory | 'all'; label: string }[] = [
   { key: 'all', label: 'All Templates' },

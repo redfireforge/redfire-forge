@@ -6,7 +6,7 @@
  * PopulateFetchStep — Fetch step UI for PopulateFromApiModal.
  * Shows request preview, sends request, and displays debug info.
  */
-import type { Scenario, DataSource } from '../../../shared/types';
+import type { Scenario, DataSource } from '@shared/types';
 import type { RequestDebugInfo, ResponseDebugInfo } from '../utils/populateFromApiUtils';
 import { resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
 

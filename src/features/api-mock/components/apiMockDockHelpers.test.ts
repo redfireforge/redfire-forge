@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { deriveScenarioModel, httpStatusTone, timeOf } from './apiMockDockHelpers';
-import type { ApiMockRouteV1 } from '../../../shared/api-mock/contracts';
+import type { ApiMockRouteV1 } from '@shared/api-mock/contracts';
 
 describe('apiMockDockHelpers', () => {
   it('maps HTTP status bands and missing status', () => {

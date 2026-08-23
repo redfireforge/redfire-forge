@@ -3,8 +3,8 @@
  */
 import { fireEvent, render, screen, act } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { FIXTURE_UNARY_CALL_RESULT } from '../../../shared/grpc/contractFixtures';
-import { GRPC_ERROR_CODES } from '../../../shared/grpc/contracts';
+import { FIXTURE_UNARY_CALL_RESULT } from '@shared/grpc/contractFixtures';
+import { GRPC_ERROR_CODES } from '@shared/grpc/contracts';
 import { GrpcResponsePanel } from './GrpcResponsePanel';
 import { resetGrpcStudioHintsForTests } from '../hooks/useGrpcStudioHints';
 

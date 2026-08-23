@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it, vi } from 'vitest';
-import { FIXTURE_DESCRIPTOR } from '../../../shared/grpc/contractFixtures';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
 import { createEmptyTabDescriptorState, createGrpcStudioTab } from '../grpcStudioTypes';
 import { createInitialSessionState } from './grpcStudioSessionHelpers';
 import {
@@ -26,7 +26,7 @@ import type { GrpcStudioRuntimeContext } from './grpcStudioRuntimeContext';
 import {
   GRPC_DEFAULT_CALL_TIMEOUT_MS,
   GRPC_DEFAULT_STREAM_CALL_TIMEOUT_MS,
-} from '../../../shared/grpc/contracts';
+} from '@shared/grpc/contracts';
 
 vi.mock('../utils/grpcTabSecretVault', () => ({
   clearTabSessionVaultSecrets: vi.fn().mockResolvedValue(undefined),

@@ -1,9 +1,9 @@
 /**
  * Phase 11K — emit RPC stats events from existing execute capture points.
  */
-import type { GrpcCallResult, GrpcErrorBody, GrpcCallType, GrpcTabExecuteSnapshot } from '../../../shared/grpc/contracts';
-import type { GrpcLoadTestRunSummaryExport } from '../../../shared/grpc/grpcLoadTestMetrics';
-import { recordGrpcRpcStatsEvent, recordGrpcRpcStatsEvents, type GrpcRpcStatsEvent } from '../../../shared/grpc/grpcRpcSessionStats';
+import type { GrpcCallResult, GrpcErrorBody, GrpcCallType, GrpcTabExecuteSnapshot } from '@shared/grpc/contracts';
+import type { GrpcLoadTestRunSummaryExport } from '@shared/grpc/grpcLoadTestMetrics';
+import { recordGrpcRpcStatsEvent, recordGrpcRpcStatsEvents, type GrpcRpcStatsEvent } from '@shared/grpc/grpcRpcSessionStats';
 
 function extractGrpcStatusFromError(error: GrpcErrorBody): number {
   const details = error.details;

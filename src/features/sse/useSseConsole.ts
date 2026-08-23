@@ -12,7 +12,7 @@ import type {
   SseConnectionSnapshot,
   SseConnectionState,
 } from './sseTypes';
-import type { GlobalAuthProfile } from '../../shared/types';
+import type { GlobalAuthProfile } from '@shared/types';
 import { describeResolvedAuth } from '../websocket/wsAuthResolve';
 import { useConsoleBuffer, type UseConsoleBufferReturn } from '../websocket/useConsoleBuffer';
 import { SSE_CONSOLE_SETTINGS_KEY } from '../websocket/wsConsoleStorage';

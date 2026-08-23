@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
 import HttpStepNode from './HttpStepNode';
 import type { HttpNodeData } from '../../types/workflow';
-import type { Scenario } from '../../../../shared/types';
+import type { Scenario } from '@shared/types';
 import { makeScenario as _makeScenario } from '../../../../test-utils/factories';
 
 const openStepDetail = vi.fn();

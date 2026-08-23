@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
-import type { AuthConfig, AuthType, Scenario } from '../../../../shared/types';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import type { AuthConfig, AuthType, Scenario } from '@shared/types';
 import type { WorkflowService } from '../../types/workflow';
 
 // eslint-disable-next-line react-refresh/only-export-components

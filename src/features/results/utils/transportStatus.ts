@@ -1,4 +1,4 @@
-import type { RequestResult, TransportType } from '../../../shared/types';
+import type { RequestResult, TransportType } from '@shared/types';
 
 /**
  * Format the status column value for a RequestResult based on its transport type.

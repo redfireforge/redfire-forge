@@ -5,7 +5,7 @@ vi.mock('../../../shared/utils/platform', () => ({
   isTauri: vi.fn(() => false),
 }));
 
-import { isTauri } from '../../../shared/utils/platform';
+import { isTauri } from '@shared/utils/platform';
 
 describe('normalizeGraphqlEndpoint', () => {
   beforeEach(() => {

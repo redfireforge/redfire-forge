@@ -5,7 +5,7 @@ vi.mock('../../../shared/utils/storage', () => ({
   writeKey: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { readKey, writeKey } from '../../../shared/utils/storage';
+import { readKey, writeKey } from '@shared/utils/storage';
 import {
   loadConvertPref,
   saveConvertPref,

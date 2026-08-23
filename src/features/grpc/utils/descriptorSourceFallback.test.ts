@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { GRPC_ERROR_CODES } from '../../../shared/grpc/contracts';
-import { createDefaultDescriptorSourceSelection } from '../../../shared/grpc/descriptorSourcePolicy';
-import { GrpcApiClientError } from '../../../shared/grpc/grpcApiClient';
-import { FIXTURE_DESCRIPTOR } from '../../../shared/grpc/contractFixtures';
+import { GRPC_ERROR_CODES } from '@shared/grpc/contracts';
+import { createDefaultDescriptorSourceSelection } from '@shared/grpc/descriptorSourcePolicy';
+import { GrpcApiClientError } from '@shared/grpc/grpcApiClient';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
 import { createDefaultProtoIngestState } from '../grpcStudioTypes';
 import {
   buildDescribeRequestForSource,

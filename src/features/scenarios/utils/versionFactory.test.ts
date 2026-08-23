@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createResponseVersion, createRulesVersion } from './versionFactory';
-import { Scenario } from '../../../shared/types';
+import { Scenario } from '@shared/types';
 const uuidMock = vi.hoisted(() =>
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('../../../test-utils/uuidMock.ts').hoistedUuidFixed('test-uuid-1234'),

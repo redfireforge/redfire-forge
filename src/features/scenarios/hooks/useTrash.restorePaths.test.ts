@@ -12,7 +12,7 @@ import type {
   FeatureGroup,
   SharedDataSource,
   TrashItem,
-} from '../../../shared/types';
+} from '@shared/types';
 import {
   makeScenario,
   makeTestScenario,

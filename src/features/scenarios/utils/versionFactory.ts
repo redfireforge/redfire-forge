@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { ResponseVersion, RulesVersion, Scenario } from '../../../shared/types';
+import type { ResponseVersion, RulesVersion, Scenario } from '@shared/types';
 
 type Validation = Scenario['validation'];
 

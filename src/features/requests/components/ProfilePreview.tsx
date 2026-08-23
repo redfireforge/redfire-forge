@@ -1,4 +1,4 @@
-import type { LoadProfileConfig } from '../../../shared/types';
+import type { LoadProfileConfig } from '@shared/types';
 import { getTargetConcurrency } from '../../../engine/executor';
 
 export function ProfilePreview({ profile }: { profile: LoadProfileConfig }) {

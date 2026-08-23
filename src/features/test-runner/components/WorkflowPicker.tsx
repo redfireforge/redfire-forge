@@ -11,7 +11,7 @@ import {
   type WorkflowRunConfig,
 } from '../utils/workflowRunConfigStorage';
 import { sampleWorkflowCatalog } from '../../../data/galleries/workflows';
-import { highlightSearchMatch } from '../../../shared/utils/consoleLogUtils';
+import { highlightSearchMatch } from '@shared/utils/consoleLogUtils';
 import { buildInitialRunnerVariables } from '../../workflow/utils/countWorkflowDesignerVariables';
 
 interface Props {

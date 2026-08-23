@@ -1,19 +1,19 @@
 import { useState, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, TestScenario, FeatureGroup, SharedDataSource, AuthConfig, ScenarioKind, SlaTarget } from '../../../shared/types';
-import type { TestDefinitionVersion } from '../../../shared/types';
-import { isWsActionType } from '../../../shared/types';
+import type { Scenario, TestScenario, FeatureGroup, SharedDataSource, AuthConfig, ScenarioKind, SlaTarget } from '@shared/types';
+import type { TestDefinitionVersion } from '@shared/types';
+import { isWsActionType } from '@shared/types';
 import { emptyTest } from '../utils/testEditorUtils';
 import { createDataSourceWithTemplatizedUrl, createEmptyDataSource } from '../utils/dataSourceUtils';
 import { autoSaveVersion } from '../utils/testDefinitionVersioning';
-import { toggleSetItem } from '../../../shared/utils/setToggle';
+import { toggleSetItem } from '@shared/utils/setToggle';
 import {
   logScenarioAdded, logScenarioRemoved, logScenarioRenamed,
   logTestAdded, logTestRemoved, logTestCopied, logFgRenamed,
   logTestRenamed,
 } from '../utils/structureChangeLog';
-import { saveFeatureGroups } from '../../../shared/utils/storage';
-import { useToast } from '../../../shared/hooks/useToast';
+import { saveFeatureGroups } from '@shared/utils/storage';
+import { useToast } from '@shared/hooks/useToast';
 import type { TestEditorInputMode, TestEditorTab } from '../components/TestEditorModal';
 
 export interface ConfirmDialog {

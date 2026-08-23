@@ -8,11 +8,11 @@
  */
 import { useState, useMemo, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, DataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
-import type { HttpResponse } from '../../../shared/utils/httpClient';
+import type { Scenario, DataSource, DataSourceColumn, DataSourceRow } from '@shared/types';
+import type { HttpResponse } from '@shared/utils/httpClient';
 import { proxyFetch, buildHeaders } from '../../../engine/executor';
 import { resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
-import { toErrorMessage } from '../../../shared/utils/helpers';
+import { toErrorMessage } from '@shared/utils/helpers';
 import {
   detectArrays,
   resolvePath,

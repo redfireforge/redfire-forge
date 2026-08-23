@@ -3,9 +3,9 @@ import {
   formatGrpcAcceptEncodingHeader,
   normalizeGrpcCompressionConfig,
   resolveGrpcCompressionEncoding,
-} from '../../../shared/grpc/grpcCompressionPolicy';
-import type { GrpcCompressionAlgorithm, GrpcCompressionConfig } from '../../../shared/grpc/contracts';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+} from '@shared/grpc/grpcCompressionPolicy';
+import type { GrpcCompressionAlgorithm, GrpcCompressionConfig } from '@shared/grpc/contracts';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 const ALGORITHM_LABELS: Record<GrpcCompressionAlgorithm, string> = {
   identity: 'identity (none)',

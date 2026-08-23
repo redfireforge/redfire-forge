@@ -10,7 +10,7 @@ import {
   getCustomSelectOptionLabels,
 } from '../../../test-utils/customSelectHelper';
 import ResultsExplorerDetailPanel from './ResultsExplorerDetailPanel';
-import type { ExecutionEvent, WorkflowIterationTrace } from '../../../shared/types';
+import type { ExecutionEvent, WorkflowIterationTrace } from '@shared/types';
 import { mockEvents, mockIterations } from './__test-utils__/resultsExplorerDetailPanelTestHelpers';
 
 describe('ResultsExplorerDetailPanel', () => {

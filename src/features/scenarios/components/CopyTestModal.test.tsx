@@ -10,7 +10,7 @@ import {
   getCustomSelectOptionLabels,
 } from '../../../test-utils/customSelectHelper';
 import CopyTestModal from './CopyTestModal';
-import type { Scenario, FeatureGroup } from '../../../shared/types';
+import type { Scenario, FeatureGroup } from '@shared/types';
 
 vi.mock('../../../shared/components/PopupModal', () => ({
   __esModule: true,

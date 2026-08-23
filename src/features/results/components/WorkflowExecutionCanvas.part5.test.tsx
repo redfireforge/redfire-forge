@@ -13,7 +13,7 @@ import WorkflowExecutionCanvas, {
 import {
   createMockTrace,
 } from './__test-utils__/workflowExecutionCanvasTestHelpers';
-import type { WorkflowExecutionTrace } from '../../../shared/types';
+import type { WorkflowExecutionTrace } from '@shared/types';
 import { captureCanvasScreenshot, captureCanvasSvg } from '../utils/canvasScreenshot';
 
 const _mockedCaptureScreenshot = vi.mocked(captureCanvasScreenshot);

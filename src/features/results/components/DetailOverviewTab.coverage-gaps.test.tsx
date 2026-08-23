@@ -5,7 +5,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import OverviewTab, { type OverviewTabProps } from './DetailOverviewTab';
-import type { ExecutionEvent } from '../../../shared/types';
+import type { ExecutionEvent } from '@shared/types';
 
 vi.mock('../../../shared/components/JsonTreeViewer', () => ({
   default: ({ data }: { data: unknown }) => (

@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { GrpcTargetPanel } from './GrpcTargetPanel';
-import { GRPC_INTERPOLATION_ERROR_CODES } from '../../../shared/grpc/grpcInterpolationConstants';
+import { GRPC_INTERPOLATION_ERROR_CODES } from '@shared/grpc/grpcInterpolationConstants';
 
 describe('GrpcTargetPanel (Phase 4J-A validation strip)', () => {
   it('shows ready state when target resolves via env fallback', () => {

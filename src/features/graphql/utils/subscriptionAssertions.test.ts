@@ -13,7 +13,7 @@ import {
   isNoValueOperator,
   ASSERTION_OPERATORS,
 } from './subscriptionAssertions';
-import type { GraphqlSubscriptionAssertion, GraphqlSubscriptionMessage } from '../../../shared/types/graphql';
+import type { GraphqlSubscriptionAssertion, GraphqlSubscriptionMessage } from '@shared/types/graphql';
 
 // ─── Factories ────────────────────────────────────────────────────────────────
 

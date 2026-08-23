@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { GrpcDescriptor, GrpcServiceInfo, GrpcTlsMode } from '../../../shared/grpc/contracts';
-import { validateResolvedGrpcTargetAddress } from '../../../shared/grpc/targetValidation';
+import type { GrpcDescriptor, GrpcServiceInfo, GrpcTlsMode } from '@shared/grpc/contracts';
+import { validateResolvedGrpcTargetAddress } from '@shared/grpc/targetValidation';
 import { reflectGrpcWorkflowTarget } from '../utils/grpcWorkflowReflection';
 import { resolveGrpcDesignTimeTarget } from '../utils/resolveGrpcDesignTimeTarget';
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GrpcApiClientError } from '../../../shared/grpc/grpcApiClient';
+import { GrpcApiClientError } from '@shared/grpc/grpcApiClient';
 import {
   DEFAULT_GRPC_WORKFLOW_RETRY_ON_STATUSES,
   resolveGrpcWorkflowRetryPolicy,

@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWebSocketLoadTest, embedNonce, extractNonce, computeRampExpected } from './useWebSocketLoadTest';
 import { createDefaultLoadTestConfig } from './wsLoadTestMetrics';
-import type { WsFrame, WsLoadTestResult } from '../../shared/websocket/types';
+import type { WsFrame, WsLoadTestResult } from '@shared/websocket/types';
 
 vi.mock('./wsLoadTestMetrics', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./wsLoadTestMetrics')>();

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
-import type { RequestTab } from '../../../shared/types';
-import { REQUEST_MAX_TABS } from '../../../shared/types/requests';
-import { METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
-import { useTabDragReorder } from '../../../shared/components/studio-tabs/useTabDragReorder';
+import type { RequestTab } from '@shared/types';
+import { REQUEST_MAX_TABS } from '@shared/types/requests';
+import { METHOD_COLORS } from '@shared/constants/httpMethodColors';
+import { useTabDragReorder } from '@shared/components/studio-tabs/useTabDragReorder';
 import {
   buildContextMenuItems,
   useTabContextMenu,
-} from '../../../shared/components/studio-tabs/TabContextMenu';
+} from '@shared/components/studio-tabs/TabContextMenu';
 
 export interface RequestTabBarProps {
   tabs: RequestTab[];

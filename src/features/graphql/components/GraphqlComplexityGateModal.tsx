@@ -11,7 +11,7 @@
  */
 
 import { useState } from 'react';
-import { useModalEscapeClose } from '../../../shared/hooks/useModalEscapeClose';
+import { useModalEscapeClose } from '@shared/hooks/useModalEscapeClose';
 import type { ComplexityResult } from '../utils/complexityEstimator';
 
 // ─── Props ────────────────────────────────────────────────────────────────────

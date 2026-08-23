@@ -1,18 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { GrpcCallHistoryEntryV1 } from '../../../shared/grpc/grpcPersistenceSchema';
-import { grpcErrorCategoryForCode } from '../../../shared/grpc/contracts';
+import type { GrpcCallHistoryEntryV1 } from '@shared/grpc/grpcPersistenceSchema';
+import { grpcErrorCategoryForCode } from '@shared/grpc/contracts';
 import {
   previewGrpcCallHistoryEntryForUi,
   serializeGrpcPreviewJson,
-} from '../../../shared/grpc/grpcSafePreview';
+} from '@shared/grpc/grpcSafePreview';
 import { resolveGrpcHistoryEntryReplay } from '../utils/grpcReplayBinding';
 import type { UseGrpcCallHistoryResult } from '../hooks/useGrpcCallHistory';
 import type { UseGrpcStudioReturn } from '../hooks/useGrpcStudio';
 import type { GrpcTabConnectionPageDefaults, GrpcConnectionProfile } from '../utils/resolveGrpcTabConnection';
-import { prepareGrpcCallMetadata } from '../../../shared/grpc/grpcCompressionPolicy';
-import { redactGrpcMetadataForHistory } from '../../../shared/grpc/grpcRedaction';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { prepareGrpcCallMetadata } from '@shared/grpc/grpcCompressionPolicy';
+import { redactGrpcMetadataForHistory } from '@shared/grpc/grpcRedaction';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 export interface GrpcHistoryPanelProps {
   history: UseGrpcCallHistoryResult;

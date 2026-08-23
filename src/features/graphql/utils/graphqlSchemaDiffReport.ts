@@ -1,4 +1,4 @@
-import type { GraphqlSchemaDiffResult } from '../../../shared/types/graphql';
+import type { GraphqlSchemaDiffResult } from '@shared/types/graphql';
 
 export function escapeHtml(s: string): string {
   return s

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 
-import type { WsFrame } from '../../shared/websocket/types';
+import type { WsFrame } from '@shared/websocket/types';
 
 export interface UseWebSocketMessageDiffParams {
   /** The full (unfiltered) message list, used to resolve compare/diff targets. */

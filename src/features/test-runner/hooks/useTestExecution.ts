@@ -1,21 +1,21 @@
 import { useState, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, TestConfig, RequestResult, TestSummary, TestRun } from '../../../shared/types';
+import type { Scenario, TestConfig, RequestResult, TestSummary, TestRun } from '@shared/types';
 import type { Workflow } from '../../workflow/types/workflow';
 import { runTest } from '../../../engine/executor';
 import type { ProgressMeta, StreamingMetrics, WorkflowResolverData } from '../../../engine/executor';
 import { runTestMultiWorker } from '../../../engine/workerBridge';
 import { computeMetrics } from '../../../engine/metrics';
-import { saveTestRun, forceSaveTestRun } from '../../../shared/utils/storage';
-import { supportsWorkers } from '../../../shared/utils/platform';
+import { saveTestRun, forceSaveTestRun } from '@shared/utils/storage';
+import { supportsWorkers } from '@shared/utils/platform';
 import { isRustExecutorAvailable, canUseRustExecutor, runTestViaRust } from '../utils/rustBridge';
-import { toErrorMessage } from '../../../shared/utils/helpers';
-import { buildKafkaNodeOperations } from '../../../shared/kafka/buildKafkaNodeOperations';
-import { buildWsNodeOperations } from '../../../shared/websocket/buildWsNodeOperations';
-import { buildGrpcNodeOperations } from '../../../shared/grpc/buildGrpcNodeOperations';
-import { resolveGrpcHarnessEnv } from '../../../shared/grpc/grpcHarnessRuntimeContext';
-import type { KafkaResultsPublishConfig } from '../../../shared/types';
-import { publishRunResults } from '../../../shared/kafka/kafkaResultsPublisher';
+import { toErrorMessage } from '@shared/utils/helpers';
+import { buildKafkaNodeOperations } from '@shared/kafka/buildKafkaNodeOperations';
+import { buildWsNodeOperations } from '@shared/websocket/buildWsNodeOperations';
+import { buildGrpcNodeOperations } from '@shared/grpc/buildGrpcNodeOperations';
+import { resolveGrpcHarnessEnv } from '@shared/grpc/grpcHarnessRuntimeContext';
+import type { KafkaResultsPublishConfig } from '@shared/types';
+import { publishRunResults } from '@shared/kafka/kafkaResultsPublisher';
 import {
   applyApiMockFixtureBaseUrl,
   setupApiMockFixture,

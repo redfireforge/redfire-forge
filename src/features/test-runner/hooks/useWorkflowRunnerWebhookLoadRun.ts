@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
-import type { TestConfig, RequestResult, WorkflowExecutionTrace, ExecutionTraceOptions } from '../../../shared/types';
+import type { TestConfig, RequestResult, WorkflowExecutionTrace, ExecutionTraceOptions } from '@shared/types';
 import type { Workflow, WorkflowNode } from '../../workflow/types/workflow';
 import { runWebhookLoadTest, calculateTotalRequests } from '../../workflow/engine/webhookLoadDriver';
-import { toErrorMessage } from '../../../shared/utils/helpers';
+import { toErrorMessage } from '@shared/utils/helpers';
 import { saveWorkflowRunConfig } from '../utils/workflowRunConfigStorage';
 import type { WebhookLoadConfig } from '../components/WebhookLoadDriverPanel';
 

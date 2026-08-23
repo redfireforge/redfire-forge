@@ -1,4 +1,4 @@
-import type { GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlResponse } from '@shared/types/graphql';
 import type { ApqInfo, ExecuteParams, ExecutionStatus } from '../hooks/useGraphqlExecution';
 
 /** Notify studio layer of a terminal execution result for the request's owning tab. */

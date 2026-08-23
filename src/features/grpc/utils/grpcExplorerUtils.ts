@@ -6,7 +6,7 @@ import type {
   GrpcDescriptor,
   GrpcMethodInfo,
   GrpcServiceInfo,
-} from '../../../shared/grpc/contracts';
+} from '@shared/grpc/contracts';
 
 export interface GrpcExplorerServiceNode {
   service: GrpcServiceInfo;

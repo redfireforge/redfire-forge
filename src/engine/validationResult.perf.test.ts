@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildValidationResult } from './validationResult';
 import type { ValidationInput } from './validationResult';
-import type { Assertion, ExpectedField, ValidationConfig } from '../shared/types';
+import type { Assertion, ExpectedField, ValidationConfig } from '@shared/types';
 
 const SHOULD_RUN = process.env.PERF === '1';
 

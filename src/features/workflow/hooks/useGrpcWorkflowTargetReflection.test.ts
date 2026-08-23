@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { FIXTURE_DESCRIPTOR } from '../../../shared/grpc/contractFixtures';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
 import { useGrpcWorkflowTargetReflection } from './useGrpcWorkflowTargetReflection';
 
 vi.mock('../utils/grpcWorkflowReflection', () => ({

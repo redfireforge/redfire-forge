@@ -4,7 +4,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { selectOption, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
 import AssertionRowEditor from './AssertionRowEditor';
-import type { Assertion } from '../../../shared/types';
+import type { Assertion } from '@shared/types';
 import { installClipboardReadMock, installEmptyClipboard } from '../../../test-utils/clipboardMock';
 
 const mockOnUpdate = vi.fn();

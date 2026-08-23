@@ -2,8 +2,8 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
-import { GRPC_CALL_HISTORY_MAX_ENTRIES } from '../../../shared/grpc/grpcPersistenceSchema';
+import { FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
+import { GRPC_CALL_HISTORY_MAX_ENTRIES } from '@shared/grpc/grpcPersistenceSchema';
 
 const appendMock = vi.fn().mockResolvedValue(undefined);
 const loadMock = vi.fn().mockResolvedValue([]);
@@ -44,8 +44,8 @@ import {
   queryGrpcCallHistory,
   resetGrpcCallHistoryPersistQueueForTests,
 } from './grpcCallHistoryRecorder';
-import { prepareGrpcCallHistoryEntryForPersist } from '../../../shared/grpc/grpcPersistenceSchema';
-import { readKey } from '../../../shared/utils/storage';
+import { prepareGrpcCallHistoryEntryForPersist } from '@shared/grpc/grpcPersistenceSchema';
+import { readKey } from '@shared/utils/storage';
 
 const TS = '2026-06-29T12:00:00.000Z';
 

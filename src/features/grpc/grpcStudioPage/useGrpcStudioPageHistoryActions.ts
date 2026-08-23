@@ -1,14 +1,14 @@
 import { useCallback } from 'react';
-import type { GrpcCallHistoryEntryV1 } from '../../../shared/grpc/grpcPersistenceSchema';
-import type { GrpcSavedRequest } from '../../../shared/grpc/grpcSavedRequest';
+import type { GrpcCallHistoryEntryV1 } from '@shared/grpc/grpcPersistenceSchema';
+import type { GrpcSavedRequest } from '@shared/grpc/grpcSavedRequest';
 import {
   mergeHistoryMetadataForGrpcurl,
   resolveSiblingRuntimeHistoryMetadata,
   sanitizeHistoryAuthForGrpcurl,
 } from './grpcStudioPageHistoryMetadata';
-import { prepareGrpcExecuteRequestMetadata } from '../../../shared/grpc/grpcAuthPolicy';
-import { resolveGrpcStudioTabFieldsForExecute } from '../../../shared/grpc/grpcStudioExecuteInterpolation';
-import { postGrpcDescriptorLookup } from '../../../shared/grpc/grpcApiClient';
+import { prepareGrpcExecuteRequestMetadata } from '@shared/grpc/grpcAuthPolicy';
+import { resolveGrpcStudioTabFieldsForExecute } from '@shared/grpc/grpcStudioExecuteInterpolation';
+import { postGrpcDescriptorLookup } from '@shared/grpc/grpcApiClient';
 import type { useGrpcCallHistory } from '../hooks/useGrpcCallHistory';
 import type { useGrpcCollections } from '../hooks/useGrpcCollections';
 import type { UseGrpcStudioAdvancedFeaturesReturn } from '../hooks/useGrpcStudioAdvancedFeatures';

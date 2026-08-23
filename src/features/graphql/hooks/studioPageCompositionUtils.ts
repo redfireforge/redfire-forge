@@ -1,11 +1,11 @@
 import type { MutableRefObject } from 'react';
-import type { GraphqlAuth } from '../../../shared/types/graphql';
+import type { GraphqlAuth } from '@shared/types/graphql';
 import type { GraphqlResponseViewerTab } from '../components/GraphqlResponseViewer';
 import type { useGraphqlCollections } from './useGraphqlCollections';
 import { syncBatchResultsToTabResponses } from '../utils/syncBatchResultsToTabResponses';
 import type { GqlStudioTab } from '../utils/tabPersistence';
 import type { BottomPanelTabExtended } from '../graphqlStudioPageTypes';
-import type { GraphqlStudioActivityTab } from '../../../shared/types/graphql';
+import type { GraphqlStudioActivityTab } from '@shared/types/graphql';
 
 export function createUpdateLinkedProfileAuth(
   updateProfile: (profileId: string, patch: { auth: GraphqlAuth | null }) => void,

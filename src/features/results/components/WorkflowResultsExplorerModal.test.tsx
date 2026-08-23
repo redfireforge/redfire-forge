@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import type { WorkflowExecutionTrace } from '../../../shared/types';
+import type { WorkflowExecutionTrace } from '@shared/types';
 import type { BottleneckInsight } from '../utils/bottleneckAnalysis';
 
 import { stubResizeObserver } from '../../../test-utils/domMocks';

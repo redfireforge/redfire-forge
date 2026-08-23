@@ -3,7 +3,7 @@
  * No React imports — all functions are unit-testable in isolation.
  */
 
-import { saveJsonFile } from '../../shared/utils/fileSaver';
+import { saveJsonFile } from '@shared/utils/fileSaver';
 import type { KafkaConsumeCursor, KafkaConsumeDraft, KafkaConsumeResultRow, KafkaHeaderRow, KafkaPublishDraft } from './types';
 
 // ── JSON helpers ───────────────────────────────────────────────────────────

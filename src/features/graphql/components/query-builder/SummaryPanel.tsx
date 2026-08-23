@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
-import type { GraphqlSchemaInfo } from '../../../../shared/types/graphql';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import type { GraphqlSchemaInfo } from '@shared/types/graphql';
 import type { BuilderFieldDirectives, BuilderFragment, BuilderState, FieldPath } from '../../hooks/useGraphqlQueryBuilder';
 import {
   findType,

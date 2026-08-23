@@ -8,9 +8,9 @@
  */
 
 import { useCallback, useMemo, useState } from 'react';
-import type { CollectionRunEvent, GraphqlCollectionItem } from '../../../shared/types/graphql';
+import type { CollectionRunEvent, GraphqlCollectionItem } from '@shared/types/graphql';
 import type { UseGraphqlCollectionRunnerResult } from '../hooks/useGraphqlCollectionRunner';
-import { saveJsonFile } from '../../../shared/utils/fileSaver';
+import { saveJsonFile } from '@shared/utils/fileSaver';
 import {
   buildRunnerConsoleEntries,
   buildRunnerExportPayload,

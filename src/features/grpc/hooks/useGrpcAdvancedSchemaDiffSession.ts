@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { GrpcDescriptor } from '../../../shared/grpc/contracts';
-import type { GrpcSchemaDiffChange } from '../../../shared/grpc/grpcSchemaDiffContracts';
-import type { GrpcSchemaDiffReport } from '../../../shared/grpc/grpcSchemaDiffContracts';
+import type { GrpcDescriptor } from '@shared/grpc/contracts';
+import type { GrpcSchemaDiffChange } from '@shared/grpc/grpcSchemaDiffContracts';
+import type { GrpcSchemaDiffReport } from '@shared/grpc/grpcSchemaDiffContracts';
 import type { GrpcSchemaDiffSeverityFilter, GrpcTabAdvancedFeaturesUiState } from '../grpcStudioAdvancedTypes';
 import {
   computeGrpcStudioSchemaDiffReport,

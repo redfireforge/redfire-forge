@@ -1,13 +1,13 @@
-import type { Scenario } from '../../../shared/types';
-import { httpFetch } from '../../../shared/utils/httpClient';
-import { serializeWithContentType } from '../../../shared/utils/bodySerializer';
+import type { Scenario } from '@shared/types';
+import { httpFetch } from '@shared/utils/httpClient';
+import { serializeWithContentType } from '@shared/utils/bodySerializer';
 import { buildHeaders, buildUrl } from '../../../engine/executor';
 import { TokenManager } from '../../../engine/tokenManager';
 import { VariableContext } from './variableContext';
 import { resolveScenario } from './resolveScenario';
 import { ensureAbsoluteUrlWithBase } from './absoluteUrl';
 import { stripTrailingSlash } from '../utils/workflowHostResolve';
-import { prettyJson } from '../../../shared/utils/helpers';
+import { prettyJson } from '@shared/utils/helpers';
 
 export type FetchScenarioSampleResult =
   | { ok: true; body: string; rawBody: string; httpStatus: number; finalUrl: string; responseHeaders: Record<string, string>; responseTimeMs: number }

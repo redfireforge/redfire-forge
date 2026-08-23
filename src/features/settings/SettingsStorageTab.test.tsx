@@ -39,7 +39,7 @@ import {
   loadTestRunsLite,
   cleanupStaleStorageKeys,
   compactWorkflowStorage,
-} from '../../shared/utils/storage';
+} from '@shared/utils/storage';
 import { purgeGqlDemoEphemeralStorage } from '@redfireforge/demo-hub/lessons/gql-demo-storage-cleanup';
 
 const mGetUsage = vi.mocked(getStorageUsage);
