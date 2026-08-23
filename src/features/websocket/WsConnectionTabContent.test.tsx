@@ -9,8 +9,8 @@ import * as hookModule from './useWebSocketStudio';
 import type { UseWebSocketStudioReturn } from './useWebSocketStudio';
 import * as recordingModule from './useWebSocketRecording';
 import type { UseWebSocketRecordingReturn } from './useWebSocketRecording';
-import type { UseWebSocketProfilesReturn } from '../../app/hooks/useWebSocketProfiles';
-import type { UseWebSocketTemplatesReturn } from '../../app/hooks/useWebSocketTemplates';
+import type { UseWebSocketProfilesReturn } from '@app/hooks/useWebSocketProfiles';
+import type { UseWebSocketTemplatesReturn } from '@app/hooks/useWebSocketTemplates';
 import * as mockServerModule from './useWebSocketMockServer';
 import type { UseWebSocketMockServerReturn } from './useWebSocketMockServer';
 import {

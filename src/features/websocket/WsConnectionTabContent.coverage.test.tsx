@@ -13,7 +13,7 @@ import * as hookModule from './useWebSocketStudio';
 import type { UseWebSocketStudioReturn } from './useWebSocketStudio';
 import * as recordingModule from './useWebSocketRecording';
 import type { UseWebSocketRecordingReturn } from './useWebSocketRecording';
-import type { UseWebSocketProfilesReturn } from '../../app/hooks/useWebSocketProfiles';
+import type { UseWebSocketProfilesReturn } from '@app/hooks/useWebSocketProfiles';
 import * as mockServerModule from './useWebSocketMockServer';
 import { createDefaultDraft } from '@shared/websocket/types';
 import {

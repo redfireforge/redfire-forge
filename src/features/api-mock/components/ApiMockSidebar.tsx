@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApiMockServerList, type ApiMockServerListEntry } from '../ApiMockServerListBridge';
-import { useConfirmDialog } from '../../../app/hooks/useConfirmDialog';
+import { useConfirmDialog } from '@app/hooks/useConfirmDialog';
 import {
   ApiMockSidebarContextMenus,
   ApiMockSidebarFolderCreateRow,

@@ -4,7 +4,7 @@ import {
   toKafkaUiSafeError,
   type KafkaUiSafeError,
 } from '@shared/kafka/kafkaClient';
-import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
+import type { UseKafkaStateReturn } from '@app/hooks/useKafkaState';
 import type { KafkaTopicSummary } from '@shared/kafka/kafkaConfig';
 
 export type TopicHealthFilter = 'all' | 'healthy' | 'degraded' | 'unknown';

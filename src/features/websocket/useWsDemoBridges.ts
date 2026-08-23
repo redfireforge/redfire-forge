@@ -1,6 +1,6 @@
 import { useEffect, type Dispatch, type RefObject, type SetStateAction } from 'react';
-import type { UseWebSocketProfilesReturn } from '../../app/hooks/useWebSocketProfiles';
-import type { UseWebSocketTemplatesReturn } from '../../app/hooks/useWebSocketTemplates';
+import type { UseWebSocketProfilesReturn } from '@app/hooks/useWebSocketProfiles';
+import type { UseWebSocketTemplatesReturn } from '@app/hooks/useWebSocketTemplates';
 import type { WsStudioLocation } from '@shared/websocket/types';
 import type { ConnectionStateHint, WsConnectionTabInfo } from './WsConnectionTabBar';
 import type { WsConnectionTabContentHandle } from './WsConnectionTabContent.types';

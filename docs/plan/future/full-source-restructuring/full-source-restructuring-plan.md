@@ -8,7 +8,7 @@
 > **Risk**: Low — TypeScript catches every broken import immediately; no runtime behavior changes
 > **Branch**: `feature/full-source-restructuring`
 > **Demo-hub impact**: None. Demo-hub only imports `@shared/*` which is unchanged throughout.
-> **Status**: NOT YET STARTED — this is the implementation plan
+> **Status**: COMPLETE on `feature/full-source-restructuring` (pending merge to `develop`)
 
 ---
 
@@ -21,6 +21,7 @@
    - [A2: Migrate @shared/* imports](#a2-migrate-shared-imports-3443-occurrences)
    - [A3: Migrate already-aliased features](#a3-migrate-graphql--grpc--workflow-to-their-aliases-1213-occurrences)
    - [A4: Migrate @engine/* and @test-utils/*](#a4-migrate-engine-and-test-utils-imports-506-occurrences)
+   - [A5: Migrate @app/* imports](#a5-migrate-app-imports-63-occurrences)
 4. [Phase B — Engine Sub-Bucketing](#4-phase-b--engine-sub-bucketing)
 5. [Safety Rules](#5-safety-rules)
 6. [Commit Structure](#6-commit-structure)
@@ -348,6 +349,23 @@ npx tsc -b --noEmit
 
 ---
 
+### A5: Migrate `@app/*` imports (~63 occurrences)
+
+Alias was added in A1 but migration was deferred until feature modules stabilized. Replace cross-boundary relative paths into `src/app/`:
+
+```bash
+find src \( -name "*.ts" -o -name "*.tsx" \) -print0 | xargs -0 sed -i '' \
+  -e "s|from '\.\./\.\./\.\./app/|from '@app/|g" \
+  -e "s|from '\.\./\.\./app/|from '@app/|g" \
+  -e "s|from \"\.\./\.\./\.\./app/|from \"@app/|g" \
+  -e "s|from \"\.\./\.\./app/|from \"@app/|g"
+npx tsc -b --noEmit
+```
+
+**Commit**: `chore: migrate @app/* imports (replace all relative paths)`
+
+---
+
 ## 4. Phase B — Engine Sub-Bucketing
 
 > **Prerequisite**: Phase A complete and committed.
@@ -428,6 +446,7 @@ A1  chore: add @engine, @test-utils, @app path aliases
 A2  chore: migrate @shared/* imports (replace all relative paths)
 A3  chore: migrate @graphql/@grpc/@workflow relative imports to aliases
 A4  chore: migrate @engine/* and @test-utils/* to aliases
+A5  chore: migrate @app/* imports (replace all relative paths)
 B   refactor: split src/engine/ into core/, grpc/, load/ subdirectories
 ```
 
@@ -453,8 +472,20 @@ After every batch and at final merge:
 
 | Phase | Description | Status | Commit |
 |-------|-------------|--------|--------|
-| A1 | Add @engine, @test-utils, @app aliases | 🔲 Not started | — |
-| A2 | Migrate @shared/* imports | 🔲 Not started | — |
-| A3 | Migrate @graphql/@grpc/@workflow to aliases | 🔲 Not started | — |
-| A4 | Migrate @engine/* and @test-utils/* to aliases | 🔲 Not started | — |
-| B  | Engine sub-bucketing (core/grpc/load/) | 🔲 Not started | — |
+| A1 | Add @engine, @test-utils, @app aliases | ✅ Done | `32b53e51` |
+| A2 | Migrate @shared/* imports | ✅ Done | `ae3b81b8` |
+| A3 | Migrate @graphql/@grpc/@workflow to aliases | ✅ Done | `e5cea480` |
+| A4 | Migrate @engine/* and @test-utils/* to aliases | ✅ Done | `26f19617` |
+| A5 | Migrate @app/* imports | ✅ Done | *(this branch)* |
+| B  | Engine sub-bucketing (core/grpc/load/) | ✅ Done | `c820645f` |
+
+### Remaining / deferred (out of scope)
+
+| Item | Notes |
+|------|-------|
+| Per-feature aliases (`@catalog/*`, `@requests/*`, …) | Explicitly excluded — low cross-feature import volume |
+| ~136 `../features/...` cross-feature relative imports | Only graphql/grpc/workflow were in scope for A3 |
+| Global legacy directory sweep | Deferred — see `RESTRUCTURING_PLAN.md` |
+| `src-server/` + `cli/` alias migration | Not in original plan scope |
+| Legacy `src/engine/__test-utils__/` (3 files) | Minor cleanup — duplicates `core/__test-utils__/` |
+| Merge gates (full vitest + E2E) | Required before merge to `develop` |
