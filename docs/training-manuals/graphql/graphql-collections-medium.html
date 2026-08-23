@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GraphQL: Collections — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } h1 { font-size: 20pt; } h2 { font-size: 16pt; } h3 { font-size: 13pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 85vh; text-align: center; }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📚</div>
+    <h1>GraphQL Collections</h1>
+    <div class="subtitle">Medium — Training Guide</div>
+    <p>Organise your GraphQL queries into named collections for quick reuse. Save queries you run often, rename and nest them into folders, then share collections across your team by exporting to JSON.</p>
+    <div class="meta">
+      RedfireForge v0.6.0<br />
+      Difficulty: ★★☆<br />
+      GraphQL Studio · Collections panel
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>As you work with an API you'll build up a library of useful queries — health checks, user lookups, order queries, mutations for test data setup. Collections let you save and organise these so you don't have to re-type or re-paste them each time.</p>
+  <p>Collections are stored locally per-app and can be exported to JSON for team sharing or version control.</p>
+
+  <h2>2. Step-by-Step Walkthrough</h2>
+
+  <h3>Step 1 — Write a Query to Save</h3>
+  <p>Connect to <code>https://countries.trevorblades.com/graphql</code>, introspect, and write the following query in the editor:</p>
+  <pre>query GetCountry($code: ID!) {
+  country(code: $code) {
+    name
+    capital
+    currency
+    emoji
+    languages { name }
+  }
+}</pre>
+  <p>Variables:</p>
+  <pre>{ "code": "US" }</pre>
+
+  <h3>Step 2 — Open the Collections Panel</h3>
+  <p>Click the <strong>Collections</strong> icon in the left activity sidebar (looks like a stack of books or a bookmark). The Collections panel opens to the left of the editor. If this is your first session it will show an empty state with a prompt to create a collection.</p>
+
+  <h3>Step 3 — Create a New Collection</h3>
+  <p>Click the <strong>New Collection</strong> button (folder+ icon) at the top of the Collections panel. A text input appears. Type <code>Countries API</code> and press <strong>Enter</strong>. The new collection appears in the list.</p>
+
+  <h3>Step 4 — Save the Current Query</h3>
+  <p>Click <strong>Save Current Query</strong> (the floppy disk or save icon in the Collections toolbar). A dialog appears asking for a name. Type <code>Get Country by Code</code>. In the collection picker, choose <strong>Countries API</strong>. Click <strong>Save</strong>.</p>
+  <p>The query now appears as an item under the <strong>Countries API</strong> collection node in the tree.</p>
+
+  <h3>Step 5 — Save a Second Query</h3>
+  <p>Replace the editor content with:</p>
+  <pre>query ListEuropeanCountries {
+  countries(filter: { continent: { eq: "EU" } }) {
+    name
+    capital
+    emoji
+  }
+}</pre>
+  <p>Save this as <code>List EU Countries</code> to the same <strong>Countries API</strong> collection. Now the collection has two entries.</p>
+
+  <h3>Step 6 — Load a Saved Query</h3>
+  <p>Clear the editor (or open a new tab). In the Collections panel, double-click <strong>Get Country by Code</strong>. The query loads back into the editor along with any saved variables. Click Execute to confirm it works.</p>
+
+  <h3>Step 7 — Rename a Collection Item</h3>
+  <p>Right-click on <strong>List EU Countries</strong> in the Collections panel (or click the three-dot menu icon on hover). Select <strong>Rename</strong>. Type <code>EU Countries Overview</code> and confirm. The tree updates immediately.</p>
+
+  <h3>Step 8 — Export the Collection</h3>
+  <p>Right-click the <strong>Countries API</strong> collection folder and choose <strong>Export</strong>. A JSON file is downloaded containing all saved queries in the collection. Share this file with teammates or commit it to your repository.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Import a collection</strong>
+    To import, click the <strong>Import</strong> button in the Collections panel header and select a previously exported JSON. The imported collection appears alongside any existing collections.
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>3. Collection Structure</h2>
+  <p>Collections can be nested up to two levels deep: <em>Collection folder</em> → <em>Sub-folder</em> → <em>Saved query</em>. This allows you to organise by feature area:</p>
+  <pre>Countries API/
+  ├── Queries/
+  │   ├── Get Country by Code
+  │   └── EU Countries Overview
+  └── Mutations/
+      └── (future mutations when writable API is available)</pre>
+
+  <h2>4. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Build a Personal API Library</h3>
+  <p>Create three collections: <strong>Auth Queries</strong>, <strong>User Queries</strong>, <strong>Order Mutations</strong>. Save at least one query to each. You'll thank yourself the next time you need that token-refresh mutation.</p>
+
+  <h3>Exercise 2 — Export and Import Round-Trip</h3>
+  <p>Export your <strong>Countries API</strong> collection to JSON. Open the exported file in a text editor and confirm the query text is preserved. Then delete the collection from RedfireForge and re-import it from the JSON file.</p>
+
+  <h3>Exercise 3 — Duplicate a Collection</h3>
+  <p>Duplicate the <strong>Countries API</strong> collection (right-click → Duplicate). Rename the copy to <strong>Countries API (v2 Draft)</strong>. Modify one of the saved queries in the copy. The original remains untouched.</p>
+
+  <footer>
+    RedfireForge Training Manual — GraphQL: Collections · August 2026
+  </footer>
+
+</body>
+</html>
