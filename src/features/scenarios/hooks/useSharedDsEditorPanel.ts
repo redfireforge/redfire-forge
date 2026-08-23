@@ -8,7 +8,7 @@ import type { HttpResponse } from '@shared/utils/httpClient';
 import { buildMappingSummary, extractTemplateVariables } from '../utils/dataSourceContract';
 import { parseCurl } from '@shared/utils/curlParser';
 import { buildScenarioFromFetchConfig } from '../utils/dataSourceSetupUtils';
-import { proxyFetch } from '../../../engine/executor';
+import { proxyFetch } from '@engine/executor';
 import { applyAuthHeaders } from '@shared/utils/applyAuthHeaders';
 
 export type FetchTabId = 'params' | 'auth' | 'headers' | 'body';

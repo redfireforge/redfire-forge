@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption, isCustomSelectDisabled } from '../../test-utils/customSelectHelper';
+import { selectOption, isCustomSelectDisabled } from '@test-utils/customSelectHelper';
 import { WebSocketMessageLog } from './WebSocketMessageLog';
 import type { WsFrame, WsMessageTemplate } from '@shared/websocket/types';
 

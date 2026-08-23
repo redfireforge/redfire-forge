@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
-import { selectOption, selectOptionByIndex, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
+import { selectOption, selectOptionByIndex, getCustomSelectValue } from '@test-utils/customSelectHelper';
 import LoopConfig from './LoopConfig';
 import { LoopNodeData } from '../../types/workflow';
 

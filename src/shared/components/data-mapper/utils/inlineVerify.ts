@@ -1,5 +1,5 @@
 import { parseDsl, dslToModel, DSL_ASSERTION_TYPES } from './validationDsl';
-import { evaluateFieldOperator, evaluateAssertions } from '../../../../engine/validator';
+import { evaluateFieldOperator, evaluateAssertions } from '@engine/validator';
 import { getByPath } from '../../../utils/jsonPath';
 import { debugExpression, type EvalStep } from './expressionStepDebugger';
 import type { MapperSource } from '../types';

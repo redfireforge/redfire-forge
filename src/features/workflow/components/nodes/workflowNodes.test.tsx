@@ -68,7 +68,7 @@ import _HttpStepNode from './HttpStepNode';
 import _WebhookTriggerNode from './WebhookTriggerNode';
 import _ScheduleTriggerNode from './ScheduleTriggerNode';
 import _WaitForConditionNode from './WaitForConditionNode';
-import { stubScrollIntoView } from '../../../../test-utils/domMocks';
+import { stubScrollIntoView } from '@test-utils/domMocks';
 
 beforeAll(() => {
   stubScrollIntoView();

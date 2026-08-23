@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Scenario, KeyValue } from '../types';
 import { getEffectiveBodyType, serializeWithContentType, serializeBody, getContentType, bodyFormToString, stringToBodyForm, } from './bodySerializer';
-import { makeScenario as _makeScenario } from '../../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
   return _makeScenario({

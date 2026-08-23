@@ -6,7 +6,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import ResponseVersionPanel from './ResponseVersionPanel';
 import { ResponseVersion, ValidationConfig } from '@shared/types';
-import { selectOptionByIndex } from '../../../test-utils/customSelectHelper';
+import { selectOptionByIndex } from '@test-utils/customSelectHelper';
 
 const diffKitCtl = vi.hoisted(() => ({
   throwOnSecondDiffInRender: false,

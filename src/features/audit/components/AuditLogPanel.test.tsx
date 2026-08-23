@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import AuditLogPanel from './AuditLogPanel';
-import { selectOption } from '../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 
 // Mock platform
 vi.mock('../../../shared/utils/platform', () => ({ isTauri: () => false }));

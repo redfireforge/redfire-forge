@@ -4,7 +4,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
 import type { Scenario } from '@shared/types';
-import { makeScenario as _makeScenario } from '../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 import { executeGrpcAction } from './grpcExecution';
 import type { GrpcHarnessOperations } from '@shared/grpc/buildGrpcHarnessOperations';
 import * as buildOpsModule from '@shared/grpc/buildGrpcHarnessOperations';

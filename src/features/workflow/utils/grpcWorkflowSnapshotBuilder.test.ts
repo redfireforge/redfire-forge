@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
-import { VariableContext } from '../engine/variableContext';
+import { VariableContext } from '@workflow/engine/variableContext';
 import { validateResolvedGrpcTargetAddress } from '@shared/grpc/targetValidation';
 import {
   captureGrpcTabExecuteSnapshotFromResolution,

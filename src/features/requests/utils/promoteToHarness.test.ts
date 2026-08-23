@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { promoteToFeatureGroups, batchPromoteCollection } from './promoteToHarness';
 import type { FeatureGroup, RequestCollection, Scenario } from '@shared/types';
 import type { PromotionContext } from './requestToScenario';
-import { makeScenario as _makeScenario } from '../../../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 const makeScenario = (overrides?: Partial<Scenario>): Scenario =>
   _makeScenario({ id: 'test-1', name: 'Get Users', ...overrides });

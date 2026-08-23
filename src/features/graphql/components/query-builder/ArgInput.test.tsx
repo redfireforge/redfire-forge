@@ -6,7 +6,7 @@
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { selectOption, getCustomSelectOptionLabels } from '../../../../test-utils/customSelectHelper';
+import { selectOption, getCustomSelectOptionLabels } from '@test-utils/customSelectHelper';
 import { ArgInput } from './ArgInput';
 import type { GraphqlTypeNode } from '@shared/types/graphql';
 

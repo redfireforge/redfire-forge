@@ -11,7 +11,7 @@
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { selectOption } from '../../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import HttpConfig from './HttpConfig';
 import { WorkflowService } from '../../types/workflow';
 import { Scenario, KeyValue } from '@shared/types';

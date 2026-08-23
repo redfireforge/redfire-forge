@@ -11,7 +11,7 @@ import {
   getCustomSelectValue,
   isCustomSelectDisabled,
   selectOptionByTestId,
-} from '../../../test-utils/customSelectHelper';
+} from '@test-utils/customSelectHelper';
 import ApiMockFixturePanel from './ApiMockFixturePanel';
 
 const loadApiMockFixtureServers = vi.fn();

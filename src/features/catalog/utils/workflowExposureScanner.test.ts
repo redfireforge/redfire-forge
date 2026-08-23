@@ -5,7 +5,7 @@ import {
   makeWorkflow,
   makeWorkflowNode,
   makeWorkflowEdge,
-} from '../../../test-utils/factories';
+} from '@test-utils/factories';
 
 vi.mock('../../../shared/utils/storage', () => ({
   loadWorkflows: vi.fn(),

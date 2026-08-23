@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import { selectOption, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
+import { selectOption, getCustomSelectValue } from '@test-utils/customSelectHelper';
 import TargetTreeNode from './TargetTreeNode';
 import { JsonTreeNode } from '../../utils/jsonTreeModel';
 import { Mapping } from './types';

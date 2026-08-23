@@ -3,7 +3,7 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it } from 'vitest';
-import { makeScenario as _makeScenario } from '../../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 import type { Scenario } from '../types';
 import { createGrpcStudioTab, captureGrpcTabExecuteSnapshotFromResolution } from '@grpc/grpcStudioTypes';
 import { resolveTabConnectionWithEnv, bindTabInterpolationEnvForExecute } from '@grpc/hooks/grpcStudioSessionHelpers';

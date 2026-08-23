@@ -5,7 +5,7 @@
  */
 import { render, fireEvent, screen } from '@testing-library/react';
 import { vi, describe, it, expect } from 'vitest';
-import { selectOption, getCustomSelectValue, getCustomSelectOptionLabels } from '../../../test-utils/customSelectHelper';
+import { selectOption, getCustomSelectValue, getCustomSelectOptionLabels } from '@test-utils/customSelectHelper';
 import { GraphqlAuthForm } from './GraphqlAuthForm';
 import { popoverShowsAuthOverride } from '../utils/gqlAuthPopoverUtils';
 import type { GraphqlAuth } from '@shared/types/graphql';

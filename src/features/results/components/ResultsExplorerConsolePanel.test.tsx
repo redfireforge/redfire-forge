@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act, within } from '@testing-library/react';
-import { selectOption, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
+import { selectOption, getCustomSelectValue } from '@test-utils/customSelectHelper';
 import ResultsExplorerConsolePanel from './ResultsExplorerConsolePanel';
 import type { WorkflowExecutionTrace, WorkflowIterationTrace, ExecutionEvent } from '@shared/types';
 import * as reconstructLogLinesModule from '../utils/reconstructLogLines';

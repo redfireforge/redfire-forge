@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeAll, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import JsonPreview, { buildJTree, collectJTreePaths, nodeMatches, collectMatchNodes, type JNode } from './JsonTreePreview';
-import { stubScrollIntoView } from '../../../test-utils/domMocks';
+import { stubScrollIntoView } from '@test-utils/domMocks';
 
 // Mock scrollIntoView
 beforeAll(() => {

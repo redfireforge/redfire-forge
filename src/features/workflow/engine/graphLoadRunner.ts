@@ -10,7 +10,7 @@ import { runGraph, resolveTraceLevel, type GraphRunCallbacks, type CorrelationWa
 import type { KafkaNodeOperations, WsNodeOperations, GrpcNodeOperations } from './graphRunnerNodeHandlerContext';
 import { buildWsNodeOperations } from '@shared/websocket/buildWsNodeOperations';
 import { resolveKafkaConsumeLoadPolicy } from './kafkaLoadPolicy';
-import { CircuitBreaker } from '../../../engine/circuitBreaker';
+import { CircuitBreaker } from '@engine/circuitBreaker';
 import { toErrorMessage } from '@shared/utils/helpers';
 
 function buildWorkflowMarkerResult(
@@ -39,12 +39,12 @@ function buildWorkflowMarkerResult(
     cancelled: opts.cancelled,
   };
 }
-import type { ProgressMeta } from '../../../engine/executor';
+import type { ProgressMeta } from '@engine/executor';
 import { RemoteCorrelationStore } from './remoteCorrelationStore';
 import { InMemoryCorrelationStore } from './correlationStore';
 import { SyntheticEventInjector } from './syntheticEventInjector';
 import { Semaphore } from '@shared/utils/semaphore';
-import { nextResultId } from '../../../engine/requestExecution';
+import { nextResultId } from '@engine/requestExecution';
 
 // Re-export the type for consumers
 export type { CorrelationWaitRunnerConfig } from './graphRunner';

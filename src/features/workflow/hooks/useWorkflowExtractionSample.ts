@@ -2,7 +2,7 @@ import { useCallback, useEffect } from 'react';
 import type { FetchErrorDetail } from '@shared/components/data-mapper/types';
 import { isHttpWorkflowNode } from '../utils/workflowVariableHints';
 import { resolveHttpNodeBaseUrl } from '../utils/workflowHostResolve';
-import { fetchScenarioSample } from '../engine/fetchScenarioSample';
+import { fetchScenarioSample } from '@workflow/engine/fetchScenarioSample';
 import type {
   StartNodeData,
   ScheduleTriggerNodeData,

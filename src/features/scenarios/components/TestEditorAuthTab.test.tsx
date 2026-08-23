@@ -7,7 +7,7 @@ import '@testing-library/jest-dom';
 import TestEditorAuthTab from './TestEditorAuthTab';
 import type { TestEditorAuthTabProps } from './TestEditorAuthTab';
 import type { AuthConfig, FeatureGroup, GlobalAuthProfile, Scenario } from '@shared/types';
-import { makeScenario as _makeScenario } from '../../../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 const makeScenario = (auth: AuthConfig): Scenario =>
   _makeScenario({

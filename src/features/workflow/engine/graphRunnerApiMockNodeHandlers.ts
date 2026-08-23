@@ -23,7 +23,7 @@ import {
 import { isolateApiMockServerId, resolveApiMockDefinition } from '../utils/apiMockWorkflowDefinitionResolver';
 import { listApiMockServersForRun, registerApiMockServerForRun } from '../utils/apiMockRunIsolation';
 import { buildCombinedResolver } from './graphRunnerHelpers';
-import { nextResultId } from '../../../engine/requestExecution';
+import { nextResultId } from '@engine/requestExecution';
 import type { RequestResult } from '@shared/types';
 import { toErrorMessage } from '@shared/utils/helpers';
 import { httpFetch } from '@shared/utils/httpClient';

@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
-import { selectOption, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
+import { selectOption, getCustomSelectValue } from '@test-utils/customSelectHelper';
 import { GraphqlMockPanel, FieldResolverRow } from './GraphqlMockPanel';
 import type { UseGraphqlMockServerResult } from '../hooks/useGraphqlMockServer';
 import type { GraphqlSchemaInfo } from '@shared/types/graphql';

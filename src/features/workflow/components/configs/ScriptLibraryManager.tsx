@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
-import type { ScriptLibrary } from '../../engine/scriptLibraries';
-import { createScriptLibrary, updateScriptLibrary, deleteScriptLibrary } from '../../engine/scriptLibraries';
-import { autoSaveVersion, findLibraryUsages } from '../../engine/scriptLibraryVersioning';
-import type { LibraryUsage } from '../../engine/scriptLibraryVersioning';
+import type { ScriptLibrary } from '@workflow/engine/scriptLibraries';
+import { createScriptLibrary, updateScriptLibrary, deleteScriptLibrary } from '@workflow/engine/scriptLibraries';
+import { autoSaveVersion, findLibraryUsages } from '@workflow/engine/scriptLibraryVersioning';
+import type { LibraryUsage } from '@workflow/engine/scriptLibraryVersioning';
 import ScriptLibraryVersionPanel from './ScriptLibraryVersionPanel';
 
 interface Props {

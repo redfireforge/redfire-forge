@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import type { FeatureGroup } from '@shared/types';
-import { BUILT_IN_SCENARIO_TAGS, collectAllScenarioTags, countScenariosByTag, normalizeTag } from '../../../engine/dataSourceExpander';
+import { BUILT_IN_SCENARIO_TAGS, collectAllScenarioTags, countScenariosByTag, normalizeTag } from '@engine/dataSourceExpander';
 
 interface UseScenarioTagsResult {
   /** Add a tag to a scenario */

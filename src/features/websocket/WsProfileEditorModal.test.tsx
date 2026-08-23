@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption } from '../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import { ProfileEditorModal } from './WsProfileEditorModal';
 import type { WsConnectionProfile } from '@shared/websocket/types';
 

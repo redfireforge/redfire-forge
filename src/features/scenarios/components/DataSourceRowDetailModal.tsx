@@ -2,8 +2,8 @@ import { useState, useCallback, useMemo } from 'react';
 import WorkflowEditorModalFrame from '@workflow/components/modals/WorkflowEditorModalFrame';
 import type { Scenario, DataSource, DataSourceColumn, DataSourceRow, ExpectedField } from '@shared/types';
 import type { HttpResponse } from '@shared/utils/httpClient';
-import { resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
-import { proxyFetch, buildHeaders } from '../../../engine/executor';
+import { resolveScenarioFromDataRow } from '@engine/dataSourceExpander';
+import { proxyFetch, buildHeaders } from '@engine/executor';
 import { expandPatternFromResponse } from '../utils/dataSourceImport';
 import {
   DataMapperModal,
