@@ -10,6 +10,7 @@ import { createPerfSimpleWorkflow, createPerfBranchingWorkflow, createPerfParall
 import { createParallelShowcaseWorkflow } from './parallelShowcase';
 import { createKafkaProduceWorkflow, createKafkaTriggerWorkflow, createKafkaEventPipelineWorkflow, createKafkaAsyncCorrelationWorkflow } from './kafka';
 import { createGraphqlHealthCheckWorkflow, createGraphqlECommerceFlowWorkflow, createGraphqlSchemaWatchdogWorkflow, createGraphqlUserCrudWorkflow } from './graphql';
+import { createGrpcHealthCheckWorkflow, createGrpcUserLookupWorkflow, createGrpcServerStreamWorkflow, createGrpcCrudWorkflow, createGrpcSchemaDiffWorkflow, createGrpcLoadTestWorkflow } from './grpc';
 import type { SampleWorkflowEntry } from './types';
 
 // Re-export all factory functions
@@ -23,6 +24,7 @@ export { createPerfSimpleWorkflow, createPerfBranchingWorkflow, createPerfParall
 export { createParallelShowcaseWorkflow } from './parallelShowcase';
 export { createKafkaProduceWorkflow, createKafkaTriggerWorkflow, createKafkaEventPipelineWorkflow, createKafkaAsyncCorrelationWorkflow } from './kafka';
 export { createGraphqlHealthCheckWorkflow, createGraphqlECommerceFlowWorkflow, createGraphqlSchemaWatchdogWorkflow, createGraphqlUserCrudWorkflow } from './graphql';
+export { createGrpcHealthCheckWorkflow, createGrpcUserLookupWorkflow, createGrpcServerStreamWorkflow, createGrpcCrudWorkflow, createGrpcSchemaDiffWorkflow, createGrpcLoadTestWorkflow } from './grpc';
 
 /** All available sample workflows. */
 export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
@@ -719,5 +721,97 @@ export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
     primaryNodes: ['GraphqlMutation', 'GraphqlQuery', 'GraphqlAssert'],
     secondaryNodes: ['Start', 'End'],
     factory: createGraphqlUserCrudWorkflow,
+  },
+
+  // ── gRPC Workflow Samples ────────────────────────────────────────────────
+  {
+    id: 'sample-grpc-health-check',
+    name: 'gRPC: Health Check',
+    description: 'Calls grpc.health.v1.Health/Check on a configurable gRPC endpoint and asserts the service status is SERVING',
+    domain: 'workflows',
+    tags: ['grpc', 'health', 'unary', 'assert', 'easy'],
+    liveApis: ['grpcb.in'],
+    category: 'grpc',
+    difficulty: 'easy',
+    icon: '♡',
+    nodeCount: 4,
+    primaryNodes: ['GrpcUnary', 'GrpcAssert'],
+    secondaryNodes: ['Start', 'End'],
+    factory: createGrpcHealthCheckWorkflow,
+  },
+  {
+    id: 'sample-grpc-user-lookup',
+    name: 'gRPC: User Lookup',
+    description: 'Fetches a user by ID via a unary gRPC call and asserts expected field values; teaches saveAs output binding',
+    domain: 'workflows',
+    tags: ['grpc', 'unary', 'extract', 'variable', 'saveAs'],
+    liveApis: ['(configurable gRPC endpoint)'],
+    category: 'grpc',
+    difficulty: 'easy',
+    icon: '👤',
+    nodeCount: 4,
+    primaryNodes: ['GrpcUnary', 'GrpcAssert'],
+    secondaryNodes: ['Start', 'End'],
+    factory: createGrpcUserLookupWorkflow,
+  },
+  {
+    id: 'sample-grpc-server-stream',
+    name: 'gRPC: Server Stream — Order Feed',
+    description: 'Calls a server-streaming ListOrders RPC, collects up to 20 messages with a 5-second cap, then asserts the stream is non-empty',
+    domain: 'workflows',
+    tags: ['grpc', 'streaming', 'server-stream', 'collect', 'assert'],
+    liveApis: ['(configurable gRPC endpoint)'],
+    category: 'grpc',
+    difficulty: 'medium',
+    icon: '📡',
+    nodeCount: 4,
+    primaryNodes: ['GrpcServerStream', 'GrpcAssert'],
+    secondaryNodes: ['Start', 'End'],
+    factory: createGrpcServerStreamWorkflow,
+  },
+  {
+    id: 'sample-grpc-crud',
+    name: 'gRPC: Create → Fetch → Delete',
+    description: 'Three chained unary gRPC calls with saveAs variable binding threading productId between steps; mirrors the HTTP CRUD sample',
+    domain: 'workflows',
+    tags: ['grpc', 'crud', 'chain', 'variable-binding', 'saveAs', 'unary'],
+    liveApis: ['(configurable gRPC endpoint)'],
+    category: 'grpc',
+    difficulty: 'medium',
+    icon: '🔄',
+    nodeCount: 7,
+    primaryNodes: ['GrpcUnary', 'GrpcAssert'],
+    secondaryNodes: ['Start', 'End'],
+    factory: createGrpcCrudWorkflow,
+  },
+  {
+    id: 'sample-grpc-schema-diff',
+    name: 'gRPC: Schema Drift Watchdog',
+    description: 'Hourly schedule-triggered workflow that compares baseline and live proto descriptors; logs an error alert on any breaking change',
+    domain: 'workflows',
+    tags: ['grpc', 'schema-diff', 'watchdog', 'schedule', 'breaking-change', 'proto'],
+    liveApis: ['(configurable gRPC endpoint)'],
+    category: 'grpc',
+    difficulty: 'advanced',
+    icon: '🔍',
+    nodeCount: 6,
+    primaryNodes: ['GrpcSchemaDiff'],
+    secondaryNodes: ['ScheduleTrigger', 'Condition', 'Log'],
+    factory: createGrpcSchemaDiffWorkflow,
+  },
+  {
+    id: 'sample-grpc-load-test',
+    name: 'gRPC: Load Test — Bounded Unary',
+    description: 'Runs a 50-concurrency / 10-second bounded load test then gates on p95 ≤ 200ms via a condition node',
+    domain: 'workflows',
+    tags: ['grpc', 'load-test', 'performance', 'p95', 'sla', 'concurrency'],
+    liveApis: ['(configurable gRPC endpoint)'],
+    category: 'grpc',
+    difficulty: 'advanced',
+    icon: '⚡',
+    nodeCount: 6,
+    primaryNodes: ['GrpcLoadTest'],
+    secondaryNodes: ['Condition', 'Log', 'Start', 'End'],
+    factory: createGrpcLoadTestWorkflow,
   },
 ];
