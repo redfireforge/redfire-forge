@@ -311,6 +311,7 @@ export function useDemoHubLiveDemo({
 
       if (lesson.steps[0]) {
         await executeCurrentStep(lesson.steps[0], state.speed, { stepIndex: 0 });
+        setStepPhase('done');
         progress.setLessonStep(lesson.id, 0);
       }
     } finally {
