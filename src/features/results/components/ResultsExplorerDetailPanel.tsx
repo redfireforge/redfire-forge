@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
-import type { ExecutionEvent, WorkflowIterationTrace, WorkflowExecutionTrace } from '../../../shared/types';
-import JsonTreeViewer from '../../../shared/components/JsonTreeViewer';
-import { formatDurationMs } from '../../../shared/utils/formatDuration';
-import { truncate } from '../../../shared/utils/helpers';
-import type { MappingTrace } from '../../../shared/components/data-mapper/utils/mappingTrace';
-import { formatTraceValue, isTraceError } from '../../../shared/components/data-mapper/utils/mappingTrace';
+import type { ExecutionEvent, WorkflowIterationTrace, WorkflowExecutionTrace } from '@shared/types';
+import JsonTreeViewer from '@shared/components/JsonTreeViewer';
+import { formatDurationMs } from '@shared/utils/formatDuration';
+import { truncate } from '@shared/utils/helpers';
+import type { MappingTrace } from '@shared/components/data-mapper/utils/mappingTrace';
+import { formatTraceValue, isTraceError } from '@shared/components/data-mapper/utils/mappingTrace';
 import { formatNodeTypeExplorer as formatNodeType } from '../utils/nodeTypeLabels';
 import {
   computeBranchStats,
@@ -14,7 +14,7 @@ import {
   type ForkJoinTopology,
 } from '../utils/forkJoinDetection';
 import OverviewTab from './DetailOverviewTab';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 type TabId = 'overview' | 'request' | 'response' | 'variables' | 'assertions';
 

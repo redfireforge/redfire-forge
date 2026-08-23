@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import type { FeatureGroup, Environment, Microservice } from '../../../shared/types';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import type { FeatureGroup, Environment, Microservice } from '@shared/types';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 interface Props {
   unassociatedFeatureGroups: FeatureGroup[];

@@ -7,7 +7,7 @@ import {
   extractQueryKeys,
   buildMappingSummary,
 } from './dataSourceContract';
-import type { DataSource, SharedDataSourceFetchConfig } from '../../../shared/types';
+import type { DataSource, SharedDataSourceFetchConfig } from '@shared/types';
 
 describe('extractTemplateVariables', () => {
   it('returns empty for empty string', () => {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import type { HttpResponse } from '../../../shared/utils/httpClient';
+import type { HttpResponse } from '@shared/utils/httpClient';
 import JsonPreview from './JsonTreePreview';
-import { useJsonTreeCollapseState } from '../../../shared/hooks/useJsonTreeCollapseState';
+import { useJsonTreeCollapseState } from '@shared/hooks/useJsonTreeCollapseState';
 
 export default function MultiEnvResultRow({ envName, response, time }: { envName: string; response: HttpResponse; time: number }) {
   const [expanded, setExpanded] = useState(false);

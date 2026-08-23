@@ -6,8 +6,8 @@ import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom';
 import type { SetStateAction } from 'react';
 import DataSourceVerifyModal from './DataSourceVerifyModal';
-import type { Scenario, DataSource } from '../../../shared/types';
-import type { HttpResponse } from '../../../shared/utils/httpClient';
+import type { Scenario, DataSource } from '@shared/types';
+import type { HttpResponse } from '@shared/utils/httpClient';
 import type { VerifyResult } from '../hooks/useVerifyEngine';
 
 vi.mock('../../../shared/components/AppModalFrame', () => ({
@@ -94,7 +94,7 @@ vi.mock('../hooks/useVerifyEngine', () => ({
 }));
 
 const mockProxyFetch = vi.fn();
-vi.mock('../../../engine/executor', () => ({
+vi.mock('@engine/core/executor', () => ({
   proxyFetch: (...args: unknown[]) => mockProxyFetch(...args),
 }));
 

@@ -1,4 +1,4 @@
-import type { GlobalAuthProfile } from '../../../shared/types';
+import type { GlobalAuthProfile } from '@shared/types';
 import { GrpcAdvancedFeaturesShell } from '../components/GrpcAdvancedFeaturesShell';
 import { GrpcCollectionsPanel } from '../components/GrpcCollectionsPanel';
 import { GrpcExplorerPane } from '../components/GrpcExplorerPane';

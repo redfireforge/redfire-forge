@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { useFloatingPanel } from '../../../shared/hooks/useFloatingPanel';
-import { useModalExpand } from '../../../shared/hooks/useModalExpand';
-import ModalExpandButton from '../../../shared/components/ModalExpandButton';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { useFloatingPanel } from '@shared/hooks/useFloatingPanel';
+import { useModalExpand } from '@shared/hooks/useModalExpand';
+import ModalExpandButton from '@shared/components/ModalExpandButton';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 export interface GrpcConsoleWireEvent {
   id: string;

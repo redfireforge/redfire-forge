@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_DESCRIPTOR_KEY,
-} from '../../../shared/grpc/contractFixtures';
-import { createGrpcSavedRequestFromSnapshot } from '../../../shared/grpc/grpcSavedRequest';
+} from '@shared/grpc/contractFixtures';
+import { createGrpcSavedRequestFromSnapshot } from '@shared/grpc/grpcSavedRequest';
 import { createGrpcStudioTab } from '../grpcStudioTypes';
-import { createDefaultDescriptorSourceSelection } from '../../../shared/grpc/descriptorSourcePolicy';
+import { createDefaultDescriptorSourceSelection } from '@shared/grpc/descriptorSourcePolicy';
 import {
   analyzeReplaySchemaDrift,
   applyGrpcReplaySafeFallbackBody,

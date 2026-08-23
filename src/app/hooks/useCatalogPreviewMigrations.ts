@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import { loadWorkflowPreviews, getPreviewEntriesForPalette } from '../../shared/utils/workflowPreviewStorage';
-import type { WorkflowPreviewEntry } from '../../shared/utils/workflowPreviewStorage';
-import { migratePreviewsToLocalStorage, migratePublishedToWorkflowPublication } from '../../shared/utils/workflowPreviewMigration';
+import { loadWorkflowPreviews, getPreviewEntriesForPalette } from '@shared/utils/workflowPreviewStorage';
+import type { WorkflowPreviewEntry } from '@shared/utils/workflowPreviewStorage';
+import { migratePreviewsToLocalStorage, migratePublishedToWorkflowPublication } from '@shared/utils/workflowPreviewMigration';
 import type { UseCatalogReturn } from '../../features/catalog/hooks/useCatalog';
 
 type CatalogBridge = Pick<UseCatalogReturn, 'loaded' | 'entries' | 'updateEntry'>;

@@ -1,13 +1,13 @@
 /**
  * Shared test factories for HttpConfig.test.tsx splits.
  *
- * The `vi.mock(...)` declarations remain in each test file because vi.mock must
+ * The mock declarations remain in each test file because Vitest mock calls must
  * be hoisted to the top of the importing file. Mock implementations live in
  * `httpConfigTestMocks.ts`.
  */
 import { vi } from 'vitest';
 import type { HttpNodeData } from '../../../types/workflow';
-import type { Scenario } from '../../../../../shared/types';
+import type { Scenario } from '@shared/types';
 
 export function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
   return {

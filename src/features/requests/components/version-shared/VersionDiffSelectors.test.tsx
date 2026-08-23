@@ -6,7 +6,7 @@ import {
   selectOptionByIndex,
   getCustomSelectValue,
   getCustomSelectOptionLabels,
-} from '../../../../test-utils/customSelectHelper';
+} from '@test-utils/customSelectHelper';
 import VersionDiffSelectors from './VersionDiffSelectors';
 
 afterEach(() => cleanup());

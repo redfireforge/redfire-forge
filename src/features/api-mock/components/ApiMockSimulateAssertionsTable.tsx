@@ -2,7 +2,7 @@ import type {
   ApiMockSimulationResultV1,
   ApiMockSimulationSampleV1,
   ApiMockTransactionOutcome,
-} from '../../../shared/api-mock/contracts';
+} from '@shared/api-mock/contracts';
 
 type Expected = NonNullable<ApiMockSimulationSampleV1['expected']>;
 

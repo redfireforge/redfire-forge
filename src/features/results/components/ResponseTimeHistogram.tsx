@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
 
-import type { TestRun } from '../../../shared/types';
+import type { TestRun } from '@shared/types';
 import { computeHistogramBins, computeOverlayHistogram, computeDistributionStats } from '../utils/responseTimeHistogram';
 
 // ── Single-run histogram ──

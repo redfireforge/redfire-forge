@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { GraphqlBatchResponseContext, GraphqlBatchResult, GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlBatchResponseContext, GraphqlBatchResult, GraphqlResponse } from '@shared/types/graphql';
 import {
   batchLatencyStatusLabel,
   batchOperationSlotLabel,

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import type { AuthConfig, GlobalAuthProfile } from '../../shared/types';
+import type { AuthConfig, GlobalAuthProfile } from '@shared/types';
 import AuthConfigPanel from '../requests/components/AuthConfigPanel';
 import { useAuthVerify } from '../requests/hooks/useAuthVerify';
 import { buildFeatureAuthTypeOptions } from '../scenarios/utils/scenarioBuilderUtils';

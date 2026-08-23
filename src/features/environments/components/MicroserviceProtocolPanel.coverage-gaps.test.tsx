@@ -8,7 +8,7 @@ import {
   MicroserviceProtocolPanel,
   type MicroserviceProtocolPanelProps,
 } from './MicroserviceProtocolPanel';
-import type { Environment, GlobalAuthProfile, Microservice } from '../../../shared/types';
+import type { Environment, GlobalAuthProfile, Microservice } from '@shared/types';
 
 function makeProps(overrides: Partial<MicroserviceProtocolPanelProps> = {}): MicroserviceProtocolPanelProps {
   const svc: Microservice = {

@@ -15,9 +15,9 @@
  */
 
 import { useState, useCallback } from 'react';
-import type { KafkaSchemaConfig } from '../../../../shared/kafka/kafkaClient';
-import { dispatchKafkaOperation } from '../../../../shared/kafka/kafkaClient';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import type { KafkaSchemaConfig } from '@shared/kafka/kafkaClient';
+import { dispatchKafkaOperation } from '@shared/kafka/kafkaClient';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 const FORMAT_OPTIONS: { value: KafkaSchemaConfig['format']; label: string }[] = [
   { value: 'avro', label: 'Avro' },

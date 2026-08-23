@@ -3,10 +3,10 @@
  * Single-column top-down layout with collapsible sections.
  */
 import { useState } from 'react';
-import type { Scenario } from '../../../shared/types';
+import type { Scenario } from '@shared/types';
 import type { PathSegmentChoice } from '../utils/csvTemplateTypes';
 import { sanitizeVariableName } from '../utils/dataSourceSetupUtils';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 interface HeaderCandidate {
   key: string;

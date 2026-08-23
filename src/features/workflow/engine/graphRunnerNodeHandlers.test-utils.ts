@@ -4,10 +4,10 @@ import type { TraceCollector } from './traceCollector';
 import type { NodeHandlerContext, PassedFlag } from './graphRunnerNodeHandlers';
 import { GrpcWorkflowOutputRegistry } from '../utils/grpcWorkflowOutputRegistry';
 import { GrpcWorkflowStepResultStore } from '../utils/grpcWorkflowStepResultStore';
-import { httpFetch } from '../../../shared/utils/httpClient';
+import { httpFetch } from '@shared/utils/httpClient';
 import { executeScript } from './scriptSandbox';
 import { VariableContext } from './variableContext';
-import { TokenManager } from '../../../engine/tokenManager';
+import { TokenManager } from '@engine/core/tokenManager';
 
 /** Typed mock for `httpFetch` — use after the same `vi.mock` for `httpClient` as in your test file. */
 export function getMockFetch() {

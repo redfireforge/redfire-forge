@@ -1,6 +1,6 @@
 import type { WorkflowPausedState } from '../types/workflow';
 import type { NodeHandlerContext } from './graphRunnerNodeHandlers';
-import type { RequestResult } from '../../../shared/types';
+import type { RequestResult } from '@shared/types';
 
 /**
  * Serialize the current workflow execution state so it can be persisted

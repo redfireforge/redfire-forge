@@ -3,7 +3,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { selectOption, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import GrpcAssertConfig from './GrpcAssertConfig';
 import type { GrpcAssertNodeData } from '../../types/workflow/node-grpc';
 

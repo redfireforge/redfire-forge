@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { FeatureGroup, StructureChangeEntry, StructureChangeAction } from '../../../shared/types';
+import type { FeatureGroup, StructureChangeEntry, StructureChangeAction } from '@shared/types';
 
 const MAX_LOG_ENTRIES = 50;
 

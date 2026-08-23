@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { FIXTURE_MULTI_SERVICE_DESCRIPTOR } from '../../../shared/grpc/contractFixtures';
-import { postGrpcCall } from '../../../shared/grpc/grpcApiClient';
+import { FIXTURE_MULTI_SERVICE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
+import { postGrpcCall } from '@shared/grpc/grpcApiClient';
 import { releaseCompletedGrpcCall } from '../hooks/grpcStudioSessionHelpers';
 import {
   descriptorHasHealthWatch,

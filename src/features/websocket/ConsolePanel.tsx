@@ -26,7 +26,7 @@ import {
   parseRawConsoleLines,
 } from './wsConsoleEntries';
 import { navigateHistory } from './wsConsoleCommands';
-import { saveFile } from '../../shared/utils/fileSaver';
+import { saveFile } from '@shared/utils/fileSaver';
 import '../../styles/console-panel.css';
 
 export interface ConsolePanelProps {

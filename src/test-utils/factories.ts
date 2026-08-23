@@ -4,8 +4,8 @@
  * Import from this module instead of re-defining `makeScenario`, `makeResult`,
  * `makeConfig`, etc. in every test file.
  */
-import type { RequestResult, Scenario, TestConfig, TestSummary, TestRun, TestScenario, FeatureGroup, TrashItem } from '../shared/types';
-import type { Workflow, WorkflowNode, WorkflowEdge, WorkflowFolder } from '../features/workflow/types/workflow';
+import type { RequestResult, Scenario, TestConfig, TestSummary, TestRun, TestScenario, FeatureGroup, TrashItem } from '@shared/types';
+import type { Workflow, WorkflowNode, WorkflowEdge, WorkflowFolder } from '@workflow/types/workflow';
 
 export function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
   return {

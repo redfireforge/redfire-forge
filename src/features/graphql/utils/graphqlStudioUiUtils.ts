@@ -1,4 +1,4 @@
-import type { GraphqlEnvironment, GraphqlHistoryItem, RfResponseContext } from '../../../shared/types/graphql';
+import type { GraphqlEnvironment, GraphqlHistoryItem, RfResponseContext } from '@shared/types/graphql';
 
 /** Default name for Save-to-Collection when operation metadata is sparse. */
 export function resolveSaveToCollectionDefaultName(operation: {

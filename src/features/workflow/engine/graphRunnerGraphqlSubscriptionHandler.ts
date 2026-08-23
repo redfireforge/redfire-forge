@@ -6,14 +6,14 @@
 
 import type { WorkflowNode, GraphqlSubscriptionNodeData } from '../types/workflow';
 import type { NodeHandlerContext, PassedFlag } from './graphRunnerNodeHandlerContext';
-import { toErrorMessage } from '../../../shared/utils/helpers';
-import { getByPath } from '../../../shared/utils/jsonPath';
-import { createWsProxyTransport, createSseProxyTransport } from '../../graphql/utils/graphqlProxyTransports';
-import { deriveWsEndpoint } from '../../graphql/utils/graphqlClient';
+import { toErrorMessage } from '@shared/utils/helpers';
+import { getByPath } from '@shared/utils/jsonPath';
+import { createWsProxyTransport, createSseProxyTransport } from '@graphql/utils/graphqlProxyTransports';
+import { deriveWsEndpoint } from '@graphql/utils/graphqlClient';
 import {
   buildExtractedVariableMap,
   buildGraphqlRunSnapshot,
-} from '../../graphql/utils/graphqlConfigTestHelpers';
+} from '@graphql/utils/graphqlConfigTestHelpers';
 import {
   collectGraphqlBindingEntries,
   collectGraphqlNodeVariableNames,

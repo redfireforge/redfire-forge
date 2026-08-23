@@ -1,5 +1,5 @@
-import AppModalFrame from '../../../shared/components/AppModalFrame';
-import type { ApiMockRouteFolderV1, ApiMockServerDefinitionV1, ApiMockSimulationSampleV1 } from '../../../shared/api-mock/contracts';
+import AppModalFrame from '@shared/components/AppModalFrame';
+import type { ApiMockRouteFolderV1, ApiMockServerDefinitionV1, ApiMockSimulationSampleV1 } from '@shared/api-mock/contracts';
 import { ApiMockServerSettingsModal } from './ApiMockServerSettingsModal';
 import { ApiMockSimulateModal } from './ApiMockSimulateModal';
 import { ApiMockImportReview } from './ApiMockImportReview';

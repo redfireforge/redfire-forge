@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { summarizeRequestFailure, formatHttpNodeRunDetail, buildQuickTestFailureReport, filterQuickTestVariableSnapshot, isExecutableWorkflowNodeType } from './workflowRunErrors';
-import { RequestResult } from '../../../shared/types';
+import { RequestResult } from '@shared/types';
 
 function baseResult(over: Partial<RequestResult> = {}): RequestResult {
   return {

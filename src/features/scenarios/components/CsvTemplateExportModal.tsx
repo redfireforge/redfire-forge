@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import type { Scenario } from '../../../shared/types';
+import type { Scenario } from '@shared/types';
 import {
   analyzeUrlPath,
   buildColumnDefs,
@@ -7,7 +7,7 @@ import {
   downloadExcel,
 } from '../utils/csvTemplate';
 import type { ExportOptions, ColumnDef } from '../utils/csvTemplate';
-import FullPanelModal from '../../../shared/components/FullPanelModal';
+import FullPanelModal from '@shared/components/FullPanelModal';
 
 interface Props {
   test: Scenario;

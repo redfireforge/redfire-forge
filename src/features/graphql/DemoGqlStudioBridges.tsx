@@ -1,4 +1,4 @@
-import type { GqlTlsSettings } from '../../shared/types/gqlTls';
+import type { GqlTlsSettings } from '@shared/types/gqlTls';
 import { useDemoGqlAuthBridge } from './hooks/useDemoGqlAuthBridge';
 import { useDemoGqlEnvBridge } from './hooks/useDemoGqlEnvBridge';
 import { useDemoGqlQueryBridge } from './hooks/useDemoGqlQueryBridge';

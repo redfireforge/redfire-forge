@@ -3,8 +3,8 @@
  */
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { FIXTURE_DESCRIPTOR, FIXTURE_DESCRIPTOR_KEY } from '../../../shared/grpc/contractFixtures';
-import type { GrpcSchemaDiffChange } from '../../../shared/grpc/grpcSchemaDiffContracts';
+import { FIXTURE_DESCRIPTOR, FIXTURE_DESCRIPTOR_KEY } from '@shared/grpc/contractFixtures';
+import type { GrpcSchemaDiffChange } from '@shared/grpc/grpcSchemaDiffContracts';
 import { createInitialGrpcTabAdvancedFeaturesUiState } from '../grpcStudioAdvancedTypes';
 import { createEmptyTabDescriptorState, createGrpcStudioTab } from '../grpcStudioTypes';
 import * as schemaDiffAck from '../utils/grpcSchemaDiffAck';

@@ -4,9 +4,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { selectOption, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
+import { selectOption, getCustomSelectValue } from '@test-utils/customSelectHelper';
 import DataSourcePastePreview from './DataSourcePastePreview';
-import type { DataSourceColumn } from '../../../shared/types';
+import type { DataSourceColumn } from '@shared/types';
 
 const existingColumns: DataSourceColumn[] = [
   { id: 'col-userid', name: 'userId', type: 'path', mapping: 'userId' },

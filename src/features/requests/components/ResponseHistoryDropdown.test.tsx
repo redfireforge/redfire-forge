@@ -6,7 +6,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ResponseHistoryDropdown } from './ResponseHistoryDropdown';
 import type { ResponseHistoryEntry } from '../hooks/useResponseCache';
-import type { HttpResponse } from '../../../shared/utils/httpClient';
+import type { HttpResponse } from '@shared/utils/httpClient';
 
 function http(bodyLen: number, status: number, statusText: string): HttpResponse {
   return {

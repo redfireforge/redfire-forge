@@ -5,13 +5,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import AppSidebarRegion from './AppSidebarRegion';
 import type { AppSidebarRegionProps } from './AppSidebarRegion';
-import type { RequestCollection } from '../../shared/types';
+import type { RequestCollection } from '@shared/types';
 import {
   beginDemoAppSidebarSession,
   DEMO_SIDEBAR_PIN_KEY,
   DEMO_SIDEBAR_SESSION_KEY,
   isDemoAppSidebarPinned,
-} from '../../shared/demoAppSidebarSession';
+} from '@shared/demoAppSidebarSession';
 
 const h = vi.hoisted(() => {
   const call = (p: Record<string, unknown>, k: string, ...args: unknown[]) => {

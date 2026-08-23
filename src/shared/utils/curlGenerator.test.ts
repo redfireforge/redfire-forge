@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../../engine/tokenManager', () => ({
+vi.mock('@engine/core/tokenManager', () => ({
   acquireOAuth2Token: vi.fn(),
 }));
 
 import { buildCurlCommand } from './curlGenerator';
-import { acquireOAuth2Token } from '../../engine/tokenManager';
+import { acquireOAuth2Token } from '@engine/core/tokenManager';
 import type { AuthConfig, Scenario } from '../types';
 
 const mockAcquireOAuth2 = vi.mocked(acquireOAuth2Token);

@@ -8,9 +8,9 @@ import {
   getCustomSelectValue,
   getCustomSelectOptionLabels,
   isCustomSelectDisabled,
-} from '../../test-utils/customSelectHelper';
+} from '@test-utils/customSelectHelper';
 import { WebSocketProtocolSelector } from './WebSocketProtocolSelector';
-import type { WsProtocolDetectionResult } from '../../shared/websocket/protocols/protocolTypes';
+import type { WsProtocolDetectionResult } from '@shared/websocket/protocols/protocolTypes';
 
 describe('WebSocketProtocolSelector', () => {
   const defaultProps = {

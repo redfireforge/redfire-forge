@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { WsFrame } from '../../shared/websocket/types';
+import type { WsFrame } from '@shared/websocket/types';
 
 const HISTORY_SIZE = 60;
 const SAMPLE_INTERVAL_MS = 1000;

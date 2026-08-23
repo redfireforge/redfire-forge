@@ -7,7 +7,7 @@ import { makeNode } from './graphRunnerNodeHandlers.test-utils';
 import { GrpcWorkflowOutputRegistry } from '../utils/grpcWorkflowOutputRegistry';
 import { GrpcWorkflowStepResultStore } from '../utils/grpcWorkflowStepResultStore';
 import { VariableContext } from './variableContext';
-import { FIXTURE_DESCRIPTOR, FIXTURE_DESCRIPTOR_KEY } from '../../../shared/grpc/contractFixtures';
+import { FIXTURE_DESCRIPTOR, FIXTURE_DESCRIPTOR_KEY } from '@shared/grpc/contractFixtures';
 
 function makeHandlerContext(overrides: Record<string, unknown> = {}) {
   const ctx = new VariableContext({});
@@ -17,7 +17,7 @@ function makeHandlerContext(overrides: Record<string, unknown> = {}) {
     nodeMap: new Map(),
     outgoing: new Map(),
     ctx,
-    tokenManager: {} as import('../../../engine/tokenManager').TokenManager,
+    tokenManager: {} as import('@engine/core/tokenManager').TokenManager,
     results,
     allPassed: true,
     visited: new Set<string>(),

@@ -2,9 +2,9 @@
  * Pure utility functions for DataSourceSetupModal wizard.
  * Extracted to keep the modal component lean and enable unit testing.
  */
-import type { Scenario, ExpectedField, SharedDataSourceFetchConfig, DataSource } from '../../../shared/types';
+import type { Scenario, ExpectedField, SharedDataSourceFetchConfig, DataSource } from '@shared/types';
 import type { ColumnDef } from './csvTemplate';
-import { decodeTemplateBraces, isTemplateToken } from '../../../shared/utils/templateHelpers';
+import { decodeTemplateBraces, isTemplateToken } from '@shared/utils/templateHelpers';
 
 export type SetupMode = 'configure' | 'export' | 'parameterize';
 

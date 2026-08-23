@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useToast } from './useToast';
-import WorkflowToastProvider from '../../features/workflow/components/WorkflowToastProvider';
+import WorkflowToastProvider from '@workflow/components/WorkflowToastProvider';
 import type { ReactNode } from 'react';
 
 function wrapper({ children }: { children: ReactNode }) {

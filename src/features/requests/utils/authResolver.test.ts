@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { resolveAuth } from './authResolver';
-import type { Scenario, TestScenario, FeatureGroup, GlobalAuthProfile, AuthConfig } from '../../../shared/types';
+import type { Scenario, TestScenario, FeatureGroup, GlobalAuthProfile, AuthConfig } from '@shared/types';
 
 function makeTest(auth: AuthConfig): Scenario {
   return {

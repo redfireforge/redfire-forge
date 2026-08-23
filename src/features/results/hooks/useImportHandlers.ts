@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { WorkflowExecutionTrace, TestRun } from '../../../shared/types';
-import { validateTrace } from '../../../shared/utils/traceCompression';
+import type { WorkflowExecutionTrace, TestRun } from '@shared/types';
+import { validateTrace } from '@shared/utils/traceCompression';
 import { validateImportedRun } from '../utils/importRun';
-import { saveTestRun, loadTestRunsLite } from '../../../shared/utils/storage';
+import { saveTestRun, loadTestRunsLite } from '@shared/utils/storage';
 
 export function useImportHandlers(
   setAllRuns: React.Dispatch<React.SetStateAction<TestRun[]>>,

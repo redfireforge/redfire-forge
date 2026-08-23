@@ -4,8 +4,8 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
-import * as compressionPolicy from '../../../shared/grpc/grpcCompressionPolicy';
+import { FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
+import * as compressionPolicy from '@shared/grpc/grpcCompressionPolicy';
 import { createGrpcStudioTab } from '../grpcStudioTypes';
 import type { UseGrpcStudioReturn } from '../hooks/useGrpcStudio';
 import { useGrpcStudioPageConsole } from './useGrpcStudioPageConsole';

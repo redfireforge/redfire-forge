@@ -4,7 +4,7 @@
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { selectOption, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
+import { selectOption, getCustomSelectValue } from '@test-utils/customSelectHelper';
 import CorrelationWaitConfig from './CorrelationWaitConfig';
 import type { CorrelationWaitNodeData } from '../../types/workflow';
 

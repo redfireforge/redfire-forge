@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { ApiMockServerDefinitionV1 } from '../../shared/api-mock/contracts';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
 import { buildRuntimeActionBindings } from './apiMockRuntimeActionBindings';
 
 function makeServer(id: string): ApiMockServerDefinitionV1 {

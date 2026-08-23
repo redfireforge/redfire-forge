@@ -3,8 +3,8 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { WorkflowNode, WorkflowEdge } from '../types/workflow';
-import type { ExecutionTraceOptions } from '../../../shared/types';
-import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
+import type { ExecutionTraceOptions } from '@shared/types';
+import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
 import { runGraph } from './graphRunner';
 import { endNode, makeEdge, startNode } from './graphRunnerNodeHandlers.test-utils';
 
@@ -12,7 +12,7 @@ vi.mock('../../../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
 }));
 
-import { httpFetch } from '../../../shared/utils/httpClient';
+import { httpFetch } from '@shared/utils/httpClient';
 
 const mockHttpFetch = vi.mocked(httpFetch);
 

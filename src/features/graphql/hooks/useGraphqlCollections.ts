@@ -27,13 +27,13 @@ import {
   idbImportCollections,
   type CollectionExportData,
   type ImportConflict,
-} from '../../../shared/utils/idbGraphqlCollections';
+} from '@shared/utils/idbGraphqlCollections';
 import type {
   GraphqlCollection,
   GraphqlCollectionFolder,
   GraphqlCollectionItem,
   GraphqlOperation,
-} from '../../../shared/types/graphql';
+} from '@shared/types/graphql';
 import { GQL_COLLECTIONS_RELOAD_EVENT } from '../utils/gqlDemoCollectionsCleanup';
 
 export interface CollectionTree {

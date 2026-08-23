@@ -3,8 +3,8 @@
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import type { GlobalAuthProfile } from '../../shared/types';
-import { saveGlobalAuthProfiles } from '../../shared/utils/storage';
+import type { GlobalAuthProfile } from '@shared/types';
+import { saveGlobalAuthProfiles } from '@shared/utils/storage';
 import { useDemoGlobalAuthBridge } from './useDemoGlobalAuthBridge';
 
 vi.mock('../../shared/utils/storage', () => ({

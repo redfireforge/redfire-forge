@@ -5,11 +5,11 @@ import '@testing-library/jest-dom';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { RequestItem } from '../../../shared/types';
+import type { RequestItem } from '@shared/types';
 import {
   getCustomSelectOptionLabels,
   selectOptionByIndex,
-} from '../../../test-utils/customSelectHelper';
+} from '@test-utils/customSelectHelper';
 import { SpecVersionCompareModal } from './SpecVersionCompareModal';
 
 const computeSpecVersionDiff = vi.fn();

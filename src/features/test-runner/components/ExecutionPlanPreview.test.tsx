@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import ExecutionPlanPreview from './ExecutionPlanPreview';
-import type { AllocationSummary } from '../../../engine/allocationEngine';
+import type { AllocationSummary } from '@engine/core/allocationEngine';
 
 function makeSummary(overrides: Partial<AllocationSummary> = {}): AllocationSummary {
   return {

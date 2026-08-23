@@ -3,7 +3,7 @@
  */
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { FIXTURE_DESCRIPTOR, FIXTURE_DESCRIPTOR_KEY } from '../../../shared/grpc/contractFixtures';
+import { FIXTURE_DESCRIPTOR, FIXTURE_DESCRIPTOR_KEY } from '@shared/grpc/contractFixtures';
 import { createInitialGrpcTabAdvancedFeaturesUiState } from '../grpcStudioAdvancedTypes';
 import {
   createEmptyTabDescriptorState,
@@ -13,7 +13,7 @@ import {
 import { useGrpcStudioAdvancedMockActions } from './useGrpcStudioAdvancedMockActions';
 import * as mockListenerClient from '../utils/grpcMockListenerClient';
 import * as advancedCommands from '../utils/grpcStudioAdvancedCommands';
-import { isTauri } from '../../../shared/utils/platform';
+import { isTauri } from '@shared/utils/platform';
 
 vi.mock('../../../shared/utils/platform', () => ({
   isTauri: vi.fn(() => false),

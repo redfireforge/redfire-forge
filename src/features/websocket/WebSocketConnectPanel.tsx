@@ -7,18 +7,18 @@ import type {
   WsConnectionSnapshot,
   WsKeyValueEntry,
   WsReconnectState,
-} from '../../shared/websocket/types';
-import { formatUptime, WS_CLOSE_CODE_PRESETS } from '../../shared/websocket/types';
-import type { WsProtocolMode, WsProtocolDetectionResult } from '../../shared/websocket/protocols/protocolTypes';
+} from '@shared/websocket/types';
+import { formatUptime, WS_CLOSE_CODE_PRESETS } from '@shared/websocket/types';
+import type { WsProtocolMode, WsProtocolDetectionResult } from '@shared/websocket/protocols/protocolTypes';
 import type { SioServerParams } from './wsProtocolHelpers';
-import { CustomSelect } from '../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import { WebSocketProtocolSelector } from './WebSocketProtocolSelector';
-import { resolveEffectiveProtocol } from '../../shared/websocket/protocols/protocolDetector';
-import { getProtocolInfo } from '../../shared/websocket/protocols/protocolTypes';
+import { resolveEffectiveProtocol } from '@shared/websocket/protocols/protocolDetector';
+import { getProtocolInfo } from '@shared/websocket/protocols/protocolTypes';
 import { isValidWsUrl, byteLength, hasUnresolvedVars, resolveEnvVars } from './wsMessageUtils';
 import { KeyValueEditor } from './KeyValueEditor';
 import type { EndpointRowStatus } from '../environments/utils/protocolEndpointUtils';
-import { ProtocolEndpointPreview } from '../../shared/components/ProtocolEndpointPreview';
+import { ProtocolEndpointPreview } from '@shared/components/ProtocolEndpointPreview';
 import { MAX_REASON_BYTES, STATE_LABELS, useReconnectCountdown } from './WebSocketConnectPanel.helpers';
 import { WebSocketCloseCodeModal } from './WebSocketCloseCodeModal';
 

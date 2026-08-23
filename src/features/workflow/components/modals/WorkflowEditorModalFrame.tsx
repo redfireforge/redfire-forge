@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect } from 'react';
-import { useModalFrame, type UseModalFrameOptions } from '../../../../shared/hooks/useModalFrame';
-import ModalExpandButton from '../../../../shared/components/ModalExpandButton';
-import ModalResizeHandles from '../../../../shared/components/ModalResizeHandles';
+import { useModalFrame, type UseModalFrameOptions } from '@shared/hooks/useModalFrame';
+import ModalExpandButton from '@shared/components/ModalExpandButton';
+import ModalResizeHandles from '@shared/components/ModalResizeHandles';
 import WorkflowModalScrollBody from './WorkflowModalScrollBody';
 
 interface Props extends UseModalFrameOptions {

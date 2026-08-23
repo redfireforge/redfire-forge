@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { GrpcCallResult, GrpcErrorBody, GrpcAuthConfig, GrpcMethodInfo } from '../../../shared/grpc/contracts';
+import type { GrpcCallResult, GrpcErrorBody, GrpcAuthConfig, GrpcMethodInfo } from '@shared/grpc/contracts';
 import type { GrpcRequestLifecycle } from '../grpcStudioTypes';
 import { isGrpcLifecycleInFlight } from '../grpcStudioTypes';
 import {
@@ -20,14 +20,14 @@ import {
   grpcTimingBarWidthPercent,
   resolveGrpcTimingBarDenominatorMs,
 } from '../utils/grpcTimingBreakdown';
-import { redactGrpcErrorBody, redactGrpcMetadataForDisplay } from '../../../shared/grpc/grpcRedaction';
+import { redactGrpcErrorBody, redactGrpcMetadataForDisplay } from '@shared/grpc/grpcRedaction';
 import { useGrpcStudioHints } from '../hooks/useGrpcStudioHints';
 import { shouldShowPermissionDeniedHint } from '../utils/grpcSpringHints';
 import { GrpcSpringHintCard } from './GrpcSpringHintCard';
-import { isGrpcExpressFallbackOffered } from '../../../shared/grpc/grpcTransportFallback';
-import { highlightJson } from '../../../shared/utils/jsonHighlighter';
+import { isGrpcExpressFallbackOffered } from '@shared/grpc/grpcTransportFallback';
+import { highlightJson } from '@shared/utils/jsonHighlighter';
 import { GrpcJsonCodeToolbar } from './GrpcJsonCodeToolbar';
-import { computePercentiles, round2 } from '../../../shared/utils/percentiles';
+import { computePercentiles, round2 } from '@shared/utils/percentiles';
 
 export type GrpcResponseTab = 'body' | 'headers' | 'trailers' | 'metadata' | 'tracing' | 'timing';
 type GrpcResponseTopTab = 'response' | 'proto';

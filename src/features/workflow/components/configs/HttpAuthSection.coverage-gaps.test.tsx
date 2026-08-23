@@ -5,7 +5,7 @@ import '@testing-library/jest-dom';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { effectiveAuthLabel, HttpAuthSection } from './HttpAuthSection';
-import type { AuthConfig, Scenario } from '../../../../shared/types';
+import type { AuthConfig, Scenario } from '@shared/types';
 import type { WorkflowService } from '../../types/workflow';
 
 vi.mock('../../../../shared/components/CustomSelect', () => ({

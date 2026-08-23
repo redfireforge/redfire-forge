@@ -6,7 +6,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Requests, { type PreviewRequest } from './Requests';
 import type { UseRequestsReturn } from './hooks/useRequests';
-import type { RequestCollection, RequestItem } from '../../shared/types';
+import type { RequestCollection, RequestItem } from '@shared/types';
 
 const findAncestorSubCollection = vi.fn();
 const findRequestInCollection = vi.fn();
@@ -87,7 +87,7 @@ function makeWb(overrides: Partial<UseRequestsReturn> = {}): UseRequestsReturn {
   } as unknown as UseRequestsReturn;
 }
 
-import type { RequestTab } from '../../shared/types';
+import type { RequestTab } from '@shared/types';
 
 const defaultTabProps = {
   tabs: [] as RequestTab[],

@@ -1,10 +1,10 @@
 /**
  * Phase 6A — gRPC workflow node schema validators and error catalog.
  */
-import type { GrpcAuthConfig } from '../../../shared/grpc/contracts';
-import { validateGrpcAuthForExecute } from '../../../shared/grpc/grpcAuthPolicy';
-import { validateGrpcMetadataRecord } from '../../../shared/grpc/metadataValidation';
-import { validateGrpcTargetAddress } from '../../../shared/grpc/targetValidation';
+import type { GrpcAuthConfig } from '@shared/grpc/contracts';
+import { validateGrpcAuthForExecute } from '@shared/grpc/grpcAuthPolicy';
+import { validateGrpcMetadataRecord } from '@shared/grpc/metadataValidation';
+import { validateGrpcTargetAddress } from '@shared/grpc/targetValidation';
 import type {
   GrpcAssertNodeData,
   GrpcServerStreamNodeData,

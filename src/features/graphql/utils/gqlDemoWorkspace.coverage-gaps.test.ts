@@ -34,7 +34,7 @@ import {
   DEMO_SESSION_KEY,
 } from './gqlDemoWorkspace';
 import { makeBlankTab, makeDemoTab, STORAGE_KEY } from './tabPersistence';
-import { readKey, writeKey } from '../../../shared/utils/storage';
+import { readKey, writeKey } from '@shared/utils/storage';
 
 const mockReadKey = vi.mocked(readKey);
 const mockWriteKey = vi.mocked(writeKey);

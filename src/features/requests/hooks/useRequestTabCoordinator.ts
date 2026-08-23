@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import type { RequestDefinitionVersion, RequestItem } from '../../../shared/types';
+import type { RequestDefinitionVersion, RequestItem } from '@shared/types';
 import type { UseRequestsReturn } from './useRequests';
 import { useRequestTabs } from './useRequestTabs';
 import { scheduleSave, flushSave, loadPersistedTabs, migrateFromLegacySelection } from './useRequestTabPersistence';

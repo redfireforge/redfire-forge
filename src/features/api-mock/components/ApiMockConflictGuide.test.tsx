@@ -4,7 +4,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { ApiMockConflictGuide } from './ApiMockConflictGuide';
-import type { ApiMockRouteV1, ApiMockServerSettingsV1 } from '../../../shared/api-mock/contracts';
+import type { ApiMockRouteV1, ApiMockServerSettingsV1 } from '@shared/api-mock/contracts';
 
 describe('ApiMockConflictGuide', () => {
   it('renders analysis CTAs and policy summary', () => {

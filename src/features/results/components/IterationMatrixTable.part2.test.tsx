@@ -5,7 +5,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup} from '@testing-library/react';
 import '@testing-library/jest-dom';
 import IterationMatrixTable from './IterationMatrixTable';
-import type { WorkflowIterationTrace } from '../../../shared/types';
+import type { WorkflowIterationTrace } from '@shared/types';
 
 const mockNodes = [
   { id: 'n1', type: 'start', data: { label: 'Start' } },

@@ -17,10 +17,10 @@ import {
   idbLoadHistory,
   idbDeleteHistoryItem,
   idbClearHistory,
-} from '../../../shared/utils/idbGraphqlHistory';
+} from '@shared/utils/idbGraphqlHistory';
 import { useGraphqlHistory } from './useGraphqlHistory';
 import { GQL_HISTORY_RELOAD_EVENT } from '../utils/gqlDemoCollectionsCleanup';
-import type { GraphqlOperation, GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlOperation, GraphqlResponse } from '@shared/types/graphql';
 
 const op: GraphqlOperation = {
   id: 'op-1',

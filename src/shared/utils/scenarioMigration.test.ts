@@ -6,7 +6,7 @@ import {
   normalizeGroupActionTypes,
 } from './scenarioMigration';
 import type { FeatureGroup, TestScenario, Scenario, DataSource, ScenarioKind } from '../types';
-import { makeScenario as _makeScenario } from '../../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 function makeTest(id: string, overrides: Partial<Scenario> = {}): Scenario {
   return _makeScenario({

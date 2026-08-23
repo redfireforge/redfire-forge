@@ -2,8 +2,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useDataSourceTags } from './useDataSourceTags';
-import type { Scenario, DataSource } from '../../../shared/types';
-import { makeScenario as _makeScenario } from '../../../test-utils/factories';
+import type { Scenario, DataSource } from '@shared/types';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 function makeScenario(rows: DataSource['rows'] = [], subsets?: DataSource['subsets']): Scenario {
   const ds: DataSource = {

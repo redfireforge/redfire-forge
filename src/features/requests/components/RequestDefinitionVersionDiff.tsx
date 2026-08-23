@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import type { RequestDefinitionVersion } from '../../../shared/types';
-import { formatTimestamp } from '../../../shared/utils/formatRelativeTime';
+import type { RequestDefinitionVersion } from '@shared/types';
+import { formatTimestamp } from '@shared/utils/formatRelativeTime';
 import { computeSnapshotDiff } from '../utils/requestDefinitionVersioning';
 import {
   HeadersDiffView,
@@ -8,7 +8,7 @@ import {
   AuthDiffView,
   OverviewDiffView,
   DefinitionVersionDiffModal,
-} from '../../../shared/components/version-diff';
+} from '@shared/components/version-diff';
 
 type DiffTab = 'overview' | 'headers' | 'body' | 'auth';
 

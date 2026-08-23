@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { generateCsvTemplate, parseCsvToScenarios } from './csvTemplateCsv';
-import { Scenario } from '../../../shared/types';
+import { Scenario } from '@shared/types';
 import { META_LINE_PREFIX, type ExportOptions } from './csvTemplateTypes';
 
 function makeTest(overrides: Partial<Scenario> = {}): Scenario {

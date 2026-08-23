@@ -1,7 +1,7 @@
 /**
  * Shared test fixtures for useScenarioMutations test files.
  *
- * Factories + `renderHook` setup helpers. `vi.mock(...)` calls remain in each
+ * Factories + `renderHook` setup helpers. Vitest mock registrations remain in each
  * test file because they need to be hoisted there.
  */
 import { vi } from 'vitest';
@@ -11,7 +11,7 @@ import type {
   FeatureGroup,
   Scenario,
   TestDefinitionSnapshot,
-} from '../../../../shared/types';
+} from '@shared/types';
 import { useScenarioMutations } from '../useScenarioMutations';
 
 export function emptySnapshot(): TestDefinitionSnapshot {

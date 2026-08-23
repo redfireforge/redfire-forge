@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { isTauri } from '../../../shared/utils/platform';
+import { isTauri } from '@shared/utils/platform';
 import {
   supportsGrpcMockNetworkListener,
   startGrpcMockNetworkListener,
 } from './grpcMockListenerClient';
-import { invokeGrpcMockListenerStartNative } from '../../../shared/grpc/grpcNativeTauriMockListener';
+import { invokeGrpcMockListenerStartNative } from '@shared/grpc/grpcNativeTauriMockListener';
 
 vi.mock('../../../shared/utils/platform', () => ({
   isTauri: vi.fn(() => false),

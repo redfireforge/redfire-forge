@@ -6,7 +6,7 @@
 import { renderHook } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useMonacoExecutionMarkers } from './useMonacoExecutionMarkers';
-import type { GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlResponse } from '@shared/types/graphql';
 
 const makeMonaco = (model: object | null = {}) => ({
   editor: {

@@ -1,7 +1,7 @@
 /**
  * Phase 6F — collision-safe gRPC workflow output namespace publisher.
  */
-import type { VariableContext } from '../engine/variableContext';
+import type { VariableContext } from '@workflow/engine/variableContext';
 import type { GrpcWorkflowStepResult } from '../types/workflow/node-grpc';
 import type { GrpcWorkflowExecuteSnapshot } from '../types/workflow/grpcWorkflowSnapshot';
 

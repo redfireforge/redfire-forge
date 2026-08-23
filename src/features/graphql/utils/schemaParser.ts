@@ -25,7 +25,7 @@ import type {
   GraphqlTypeNode,
   GraphqlFieldNode,
   GraphqlArgNode,
-} from '../../../shared/types/graphql';
+} from '@shared/types/graphql';
 
 // Built-in scalar names excluded from the displayed type list
 const BUILT_IN_SCALARS = new Set(['String', 'Int', 'Float', 'Boolean', 'ID']);

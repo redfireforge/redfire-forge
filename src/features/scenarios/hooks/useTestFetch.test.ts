@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { resolveEffectiveAuthFromHierarchy, buildResponseVersion, buildRulesVersion, buildAuthedRequest, } from './useTestFetch';
-import { Scenario, FeatureGroup, GlobalAuthProfile, AuthConfig } from '../../../shared/types';
+import { Scenario, FeatureGroup, GlobalAuthProfile, AuthConfig } from '@shared/types';
 
 // Mock dependencies
-vi.mock('../../../engine/tokenManager', () => ({
+vi.mock('@engine/core/tokenManager', () => ({
   acquireOAuth2Token: vi.fn().mockResolvedValue('mocked-oauth-token'),
 }));
 
@@ -343,7 +343,7 @@ describe('buildAuthedRequest', () => {
   });
 
   it('acquires oauth2 token and adds Authorization header', async () => {
-    const { acquireOAuth2Token } = await import('../../../engine/tokenManager');
+    const { acquireOAuth2Token } = await import('@engine/core/tokenManager');
     const draft = makeDraft();
     const result = await buildAuthedRequest(draft, {
       type: 'oauth2',

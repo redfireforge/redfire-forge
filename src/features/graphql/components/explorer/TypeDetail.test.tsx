@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { TypeDetail } from './TypeDetail';
-import type { GraphqlTypeNode } from '../../../../shared/types/graphql';
+import type { GraphqlTypeNode } from '@shared/types/graphql';
 
 function makeObjectType(overrides: Partial<GraphqlTypeNode> = {}): GraphqlTypeNode {
   return {

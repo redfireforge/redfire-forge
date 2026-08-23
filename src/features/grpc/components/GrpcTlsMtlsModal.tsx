@@ -4,11 +4,11 @@
  */
 
 import { createPortal } from 'react-dom';
-import type { GrpcTlsConfig, GrpcTlsMode } from '../../../shared/grpc/contracts';
-import type { GrpcTlsValidationIssue } from '../../../shared/grpc/grpcTlsPolicy';
+import type { GrpcTlsConfig, GrpcTlsMode } from '@shared/grpc/contracts';
+import type { GrpcTlsValidationIssue } from '@shared/grpc/grpcTlsPolicy';
 import type { GrpcMaskedSecretFields, GrpcTlsSecretFieldKey } from '../utils/grpcSecretFieldUi';
 import { GrpcTlsConfigBody, type GrpcTlsTestResult } from './GrpcTlsConfigBody';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
+import AppModalFrame from '@shared/components/AppModalFrame';
 
 export interface GrpcTlsMtlsModalProps {
   open: boolean;

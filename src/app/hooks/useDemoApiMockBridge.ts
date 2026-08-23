@@ -4,9 +4,9 @@
  */
 import { useEffect, useLayoutEffect } from 'react';
 import { apiMockSampleCatalog } from '../../data/galleries/api-mock';
-import type { ApiMockServerDefinitionV1 } from '../../shared/api-mock/contracts';
-import { mockClientOrigin } from '../../shared/api-mock/harExport';
-import { httpFetch } from '../../shared/utils/httpClient';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
+import { mockClientOrigin } from '@shared/api-mock/harExport';
+import { httpFetch } from '@shared/utils/httpClient';
 import { apiMockControlClient } from '../../features/api-mock/apiMockControlClient';
 import {
   API_MOCK_WORKSPACE_CHANGED_EVENT,
@@ -15,8 +15,8 @@ import {
 } from '../../features/api-mock/apiMockGalleryImport';
 import { beginApiMockDemoPersistence, dropApiMockDemoLessonServers, loadApiMockWorkspace, rememberApiMockDemoImportedServer, restoreApiMockUserWorkspace, resumeApiMockDemoPersistenceIfNeeded, saveApiMockWorkspace } from '../../features/api-mock/apiMockPersistence';
 import { isApiMockDemoServerName } from '../../features/api-mock/apiMockDemoServers';
-import { DEFAULT_SETTINGS } from '../../shared/api-mock/defaults';
-import { isTauri } from '../../shared/utils/platform';
+import { DEFAULT_SETTINGS } from '@shared/api-mock/defaults';
+import { isTauri } from '@shared/utils/platform';
 
 function parkedLibrary(ws: { servers: ApiMockServerDefinitionV1[] }) {
   return {

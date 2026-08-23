@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import ScriptTestResult from './ScriptTestResult';
-import type { ScriptResult } from '../../engine/scriptSandbox';
+import type { ScriptResult } from '@workflow/engine/scriptSandbox';
 
 function makeResult(overrides: Partial<ScriptResult> = {}): ScriptResult {
   return {

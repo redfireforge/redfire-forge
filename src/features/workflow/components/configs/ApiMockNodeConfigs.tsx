@@ -16,12 +16,12 @@ import {
   loadApiMockWorkspace,
   peekApiMockWorkspaceSnapshot,
 } from '../../../api-mock/apiMockPersistence';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import {
   GqlWfFormCard,
   GqlWfFormRow,
   GqlWfSectionToolbar,
-} from '../../../graphql/components/GraphqlWfConfigLayout';
+} from '@graphql/components/GraphqlWfConfigLayout';
 import { pickHealedMockServerId } from './apiMockNodeConfigHelpers';
 
 interface ServerOpt { id: string; name: string; port: number }

@@ -1,5 +1,5 @@
-import type { WsKeyValueEntry } from '../../shared/websocket/types';
-import { useListDragReorder } from '../../shared/hooks/useListDragReorder';
+import type { WsKeyValueEntry } from '@shared/websocket/types';
+import { useListDragReorder } from '@shared/hooks/useListDragReorder';
 import '../../styles/key-value-editor.css';
 
 interface KeyValueEditorProps {

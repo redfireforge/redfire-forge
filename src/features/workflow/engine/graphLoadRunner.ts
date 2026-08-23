@@ -5,13 +5,13 @@
  */
 
 import type { Workflow, HttpNodeData, KafkaConsumeNodeData } from '../types/workflow';
-import type { Scenario, RequestResult, WorkflowIterationTrace, WorkflowExecutionTrace, ExecutionTraceOptions } from '../../../shared/types';
+import type { Scenario, RequestResult, WorkflowIterationTrace, WorkflowExecutionTrace, ExecutionTraceOptions } from '@shared/types';
 import { runGraph, resolveTraceLevel, type GraphRunCallbacks, type CorrelationWaitRunnerConfig } from './graphRunner';
 import type { KafkaNodeOperations, WsNodeOperations, GrpcNodeOperations } from './graphRunnerNodeHandlerContext';
-import { buildWsNodeOperations } from '../../../shared/websocket/buildWsNodeOperations';
+import { buildWsNodeOperations } from '@shared/websocket/buildWsNodeOperations';
 import { resolveKafkaConsumeLoadPolicy } from './kafkaLoadPolicy';
-import { CircuitBreaker } from '../../../engine/circuitBreaker';
-import { toErrorMessage } from '../../../shared/utils/helpers';
+import { CircuitBreaker } from '@engine/core/circuitBreaker';
+import { toErrorMessage } from '@shared/utils/helpers';
 
 function buildWorkflowMarkerResult(
   workflowName: string,
@@ -39,12 +39,12 @@ function buildWorkflowMarkerResult(
     cancelled: opts.cancelled,
   };
 }
-import type { ProgressMeta } from '../../../engine/executor';
+import type { ProgressMeta } from '@engine/core/executor';
 import { RemoteCorrelationStore } from './remoteCorrelationStore';
 import { InMemoryCorrelationStore } from './correlationStore';
 import { SyntheticEventInjector } from './syntheticEventInjector';
-import { Semaphore } from '../../../shared/utils/semaphore';
-import { nextResultId } from '../../../engine/requestExecution';
+import { Semaphore } from '@shared/utils/semaphore';
+import { nextResultId } from '@engine/core/requestExecution';
 
 // Re-export the type for consumers
 export type { CorrelationWaitRunnerConfig } from './graphRunner';

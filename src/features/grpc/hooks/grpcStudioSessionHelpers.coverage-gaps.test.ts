@@ -4,8 +4,8 @@ vi.mock('../../../shared/grpc/grpcTransportFacade', () => ({
   cancelGrpcUnary: vi.fn(() => Promise.resolve()),
 }));
 
-import { FIXTURE_DESCRIPTOR } from '../../../shared/grpc/contractFixtures';
-import { cancelGrpcUnary } from '../../../shared/grpc/grpcTransportFacade';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
+import { cancelGrpcUnary } from '@shared/grpc/grpcTransportFacade';
 import * as grpcMetadataEditor from '../utils/grpcMetadataEditor';
 import type { GrpcStudioTabState } from '../grpcStudioTypes';
 import {

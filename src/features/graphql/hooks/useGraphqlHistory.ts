@@ -17,9 +17,9 @@ import {
   idbDeleteHistoryItem,
   idbClearHistory,
   RESPONSE_CAP_BYTES,
-} from '../../../shared/utils/idbGraphqlHistory';
+} from '@shared/utils/idbGraphqlHistory';
 import { GQL_HISTORY_RELOAD_EVENT } from '../utils/gqlDemoCollectionsCleanup';
-import type { GraphqlHistoryItem, GraphqlOperation, GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlHistoryItem, GraphqlOperation, GraphqlResponse } from '@shared/types/graphql';
 import { filterHistoryItems } from '../utils/historyCompare';
 import { deriveExecutionStatusFromGraphqlResponse } from '../utils/syncBatchResultsToTabResponses';
 

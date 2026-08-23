@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption } from '../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import OperatorValueEditor from './OperatorValueEditor';
 import type { Mapping } from './types';
 import type { OperatorMeta } from './utils/operatorRegistry';

@@ -1,7 +1,7 @@
-import type { FailureDetail, RequestResult, Scenario, ValidationMode } from '../../../shared/types';
-import { buildGrpcHarnessRowTraceKey } from '../../../shared/grpc/grpcHarnessRowIdentity';
-import { buildValidationResult } from '../../../engine/validationResult';
-import { evaluateAssertions } from '../../../engine/validator';
+import type { FailureDetail, RequestResult, Scenario, ValidationMode } from '@shared/types';
+import { buildGrpcHarnessRowTraceKey } from '@shared/grpc/grpcHarnessRowIdentity';
+import { buildValidationResult } from '@engine/core/validationResult';
+import { evaluateAssertions } from '@engine/core/validator';
 import type { RustExecutionResult } from './rustBridge';
 
 function buildBaseRequestResult(

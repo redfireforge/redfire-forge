@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import JsonPreview, { buildJTree, type JNode } from '../requests/components/JsonTreePreview';
-import type { ExecutionResult } from '../../shared/types/server-api';
+import type { ExecutionResult } from '@shared/types/server-api';
 import { formatTimestamp } from '../test-runner/utils/serverFormatters';
-import { toErrorMessage } from '../../shared/utils/helpers';
-import { CustomSelect } from '../../shared/components/CustomSelect';
+import { toErrorMessage } from '@shared/utils/helpers';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import '../../styles/execution-history.css';
 
 // ── Paused correlation type (from /api/correlations) ──

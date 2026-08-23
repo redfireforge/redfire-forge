@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { GRPC_ADVANCED_FEATURE_TABS } from '../../features/grpc/grpcStudioAdvancedTypes';
+import { GRPC_ADVANCED_FEATURE_TABS } from '@grpc/grpcStudioAdvancedTypes';
 
 const ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 

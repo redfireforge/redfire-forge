@@ -1,10 +1,10 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { TestScenario, FeatureGroup, Scenario } from '../../../shared/types';
+import type { TestScenario, FeatureGroup, Scenario } from '@shared/types';
 import {
   redactGrpcAuthConfig,
   redactGrpcMetadataForExport,
-} from '../../../shared/grpc/grpcRedaction';
-import { assertGrpcCrossFeatureExportSafe } from '../../../shared/grpc/grpcPersistRedactionMiddleware';
+} from '@shared/grpc/grpcRedaction';
+import { assertGrpcCrossFeatureExportSafe } from '@shared/grpc/grpcPersistRedactionMiddleware';
 
 export interface VersionExportOptions {
   includeResponseVersions: boolean;

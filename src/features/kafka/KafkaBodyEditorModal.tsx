@@ -1,10 +1,10 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { SearchMatchBar } from '../../shared/components/SearchMatchBar';
-import { useSearchMatchNavigation } from '../../shared/hooks/useSearchMatchNavigation';
-import { useModalDrag } from '../../shared/hooks/useModalDrag';
-import { useModalResize } from '../../shared/hooks/useModalResize';
-import ModalResizeHandles from '../../shared/components/ModalResizeHandles';
+import { SearchMatchBar } from '@shared/components/SearchMatchBar';
+import { useSearchMatchNavigation } from '@shared/hooks/useSearchMatchNavigation';
+import { useModalDrag } from '@shared/hooks/useModalDrag';
+import { useModalResize } from '@shared/hooks/useModalResize';
+import ModalResizeHandles from '@shared/components/ModalResizeHandles';
 
 interface Props {
   value: string;

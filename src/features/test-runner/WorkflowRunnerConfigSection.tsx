@@ -6,7 +6,7 @@ import type {
   LoadProfileConfig,
   SlaTarget,
   ThinkTimeConfig,
-} from '../../shared/types';
+} from '@shared/types';
 import type { Workflow, WorkflowNode, WebhookTriggerNodeData } from '../workflow/types/workflow';
 import RunnerSlaOverridePanel from './components/RunnerSlaOverridePanel';
 import CorrelationWaitConfigPanel from './components/CorrelationWaitConfig';

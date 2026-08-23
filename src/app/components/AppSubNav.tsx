@@ -1,7 +1,7 @@
 import { type Domain, type Tab, domainOf } from '../utils/appTabUtils';
 import { DEMO_HUB_ENABLED } from '../../config/features';
 import MigrationBanner from '../../features/test-runner/components/MigrationBanner';
-import ServerStatusIndicator from '../../features/workflow/components/panels/ServerStatusIndicator';
+import ServerStatusIndicator from '@workflow/components/panels/ServerStatusIndicator';
 
 interface AppSubNavProps {
   activeTab: Tab;

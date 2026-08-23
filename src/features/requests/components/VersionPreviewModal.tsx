@@ -1,10 +1,10 @@
 import { useEffect, useCallback, useRef, useState, useMemo } from 'react';
-import { prettyJson } from '../../../shared/utils/helpers';
-import { SearchMatchBar } from '../../../shared/components/SearchMatchBar';
-import { useSearchMatchNavigation } from '../../../shared/hooks/useSearchMatchNavigation';
-import { useCopyToClipboard } from '../../../shared/hooks/useCopyToClipboard';
-import { useModalFrame } from '../../../shared/hooks/useModalFrame';
-import ModalResizeHandles from '../../../shared/components/ModalResizeHandles';
+import { prettyJson } from '@shared/utils/helpers';
+import { SearchMatchBar } from '@shared/components/SearchMatchBar';
+import { useSearchMatchNavigation } from '@shared/hooks/useSearchMatchNavigation';
+import { useCopyToClipboard } from '@shared/hooks/useCopyToClipboard';
+import { useModalFrame } from '@shared/hooks/useModalFrame';
+import ModalResizeHandles from '@shared/components/ModalResizeHandles';
 
 interface Props {
   title: string;

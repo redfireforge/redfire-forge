@@ -1,4 +1,4 @@
-import type { GrpcMethodInfo } from '../../../shared/grpc/contracts';
+import type { GrpcMethodInfo } from '@shared/grpc/contracts';
 
 export type GrpcProtoHybridFieldLevel = 'error' | 'warning' | 'info' | 'none';
 

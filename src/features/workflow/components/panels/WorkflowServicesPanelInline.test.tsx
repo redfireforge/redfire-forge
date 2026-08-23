@@ -6,7 +6,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import WorkflowServicesPanelInline from './WorkflowServicesPanelInline';
 import type { WorkflowService } from '../../types/workflow';
-import type { Environment, GlobalAuthProfile, Microservice } from '../../../../shared/types';
+import type { Environment, GlobalAuthProfile, Microservice } from '@shared/types';
 
 vi.mock('../modals/WorkflowServiceRegistryModal', () => ({
   resolveInheritLabel: () => 'Inherited Auth',

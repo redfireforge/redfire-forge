@@ -1,5 +1,5 @@
-import { redactGrpcErrorBody } from '../../../../shared/grpc/grpcRedaction';
-import { isGrpcExpressFallbackOffered } from '../../../../shared/grpc/grpcTransportFallback';
+import { redactGrpcErrorBody } from '@shared/grpc/grpcRedaction';
+import { isGrpcExpressFallbackOffered } from '@shared/grpc/grpcTransportFallback';
 import { formatDescriptorSourceLabel } from '../../utils/grpcExplorerUtils';
 import { GrpcSpringHintCard } from '../GrpcSpringHintCard';
 import { GrpcResponsePanel } from '../GrpcResponsePanel';

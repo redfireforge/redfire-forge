@@ -7,7 +7,7 @@ import { useGrpcRpcSessionStats } from './useGrpcRpcSessionStats';
 import {
   clearGrpcRpcSessionStatsForTests,
   recordGrpcRpcStatsEvent,
-} from '../../../shared/grpc/grpcRpcSessionStats';
+} from '@shared/grpc/grpcRpcSessionStats';
 
 describe('useGrpcRpcSessionStats', () => {
   beforeEach(() => {

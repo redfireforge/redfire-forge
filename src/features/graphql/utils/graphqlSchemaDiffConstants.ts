@@ -1,4 +1,4 @@
-import type { GraphqlSchemaDiffChange } from '../../../shared/types/graphql';
+import type { GraphqlSchemaDiffChange } from '@shared/types/graphql';
 
 export const SEVERITY_CSS: Record<GraphqlSchemaDiffChange['criticality'], string> = {
   BREAKING:   'gql-diff-badge--breaking',

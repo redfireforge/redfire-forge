@@ -2,9 +2,9 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it, vi} from 'vitest';
-import * as grpcApiClient from '../../../../shared/grpc/grpcApiClient';
-import { GrpcApiClientError } from '../../../../shared/grpc/grpcApiClient';
-import { FIXTURE_DESCRIPTOR } from '../../../../shared/grpc/contractFixtures';
+import * as grpcApiClient from '@shared/grpc/grpcApiClient';
+import { GrpcApiClientError } from '@shared/grpc/grpcApiClient';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
 import { createDefaultProtoIngestState, createEmptyTabDescriptorState } from '../../grpcStudioTypes';
 import * as descriptorFallback from '../../utils/descriptorSourceFallback';
 import * as resolveGrpcTabConnection from '../../utils/resolveGrpcTabConnection';

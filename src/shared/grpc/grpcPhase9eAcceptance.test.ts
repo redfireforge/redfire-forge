@@ -73,7 +73,7 @@ describe('Phase 9E acceptance checklist', () => {
 
   it('harness execution classifies cycle failures as serialization', async () => {
     const source = await import('fs/promises').then((fs) =>
-      fs.readFile(new URL('../../engine/grpcExecution.ts', import.meta.url), 'utf8'),
+      fs.readFile(new URL('../../engine/grpc/grpcExecution.ts', import.meta.url), 'utf8'),
     );
     expect(source).toContain('resolveGrpcInterpolationHarnessPreTransportCategory');
   });

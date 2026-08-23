@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { SetStateAction } from 'react';
 import { renderHook, act } from '@testing-library/react';
-import { FeatureGroup, Scenario, TestDefinitionVersion, TestDefinitionSnapshot, TestScenario } from '../../../shared/types';
+import { FeatureGroup, Scenario, TestDefinitionVersion, TestDefinitionSnapshot, TestScenario } from '@shared/types';
 
 vi.mock('../utils/structureChangeLog', () => ({
   logScenarioAdded: vi.fn((fg: FeatureGroup, _scenarioName: string) => fg),

@@ -1,4 +1,4 @@
-import type { ApiMockResponseVariantV1 } from '../../../shared/api-mock/contracts';
+import type { ApiMockResponseVariantV1 } from '@shared/api-mock/contracts';
 import { formatEligibilitySummary, formatTimingSpread } from '../apiMockExpiresFormat';
 import { ApiMockResponseExpiresPicker } from './ApiMockResponseExpiresPicker';
 

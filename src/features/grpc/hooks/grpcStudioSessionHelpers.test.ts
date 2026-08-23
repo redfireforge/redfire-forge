@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { FIXTURE_DESCRIPTOR } from '../../../shared/grpc/contractFixtures';
-import { buildDescriptorSourceFingerprint } from '../../../shared/grpc/descriptorSourcePolicy';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
+import { buildDescriptorSourceFingerprint } from '@shared/grpc/descriptorSourcePolicy';
 import type { GrpcStudioTabState } from '../grpcStudioTypes';
 import {
   buildDescriptorLoadFailureUpdates,

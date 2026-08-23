@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWebSocketHistory } from './useWebSocketHistory';
-import * as storageModule from '../../shared/websocket/websocketStorage';
+import * as storageModule from '@shared/websocket/websocketStorage';
 
 vi.mock('../../shared/websocket/websocketStorage', () => ({
   loadWsHistory: vi.fn(),

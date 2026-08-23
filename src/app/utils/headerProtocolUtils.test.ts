@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { Microservice } from '../../shared/types';
+import type { Microservice } from '@shared/types';
 import {
   buildHeaderProtocolTooltip,
   resolveHeaderProtocolIndicator,

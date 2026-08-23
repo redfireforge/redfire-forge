@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import FromSharedDsPickerModal from './FromSharedDsPickerModal';
-import type { SharedDataSource } from '../../../shared/types';
+import type { SharedDataSource } from '@shared/types';
 
 vi.mock('../../../shared/components/PopupModal', () => ({
   __esModule: true,

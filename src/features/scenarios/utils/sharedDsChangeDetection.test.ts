@@ -5,7 +5,7 @@ import {
   getAffectedDsIds,
   type ChangeLogEntry,
 } from './sharedDsChangeDetection';
-import type { SharedDataSource, DataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
+import type { SharedDataSource, DataSource, DataSourceColumn, DataSourceRow } from '@shared/types';
 
 function makeCol(id: string, name: string): DataSourceColumn {
   return { id, name, parameterized: false };

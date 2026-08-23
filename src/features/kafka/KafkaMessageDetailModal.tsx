@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useModalDrag } from '../../shared/hooks/useModalDrag';
-import { useModalResize } from '../../shared/hooks/useModalResize';
-import ModalResizeHandles from '../../shared/components/ModalResizeHandles';
+import { useModalDrag } from '@shared/hooks/useModalDrag';
+import { useModalResize } from '@shared/hooks/useModalResize';
+import ModalResizeHandles from '@shared/components/ModalResizeHandles';
 import type { KafkaConsumeResultRow } from './types';
 import { parseKafkaTimestamp, formatTimestampTooltip, formatRelativeAge } from './kafkaTimestamp';
 

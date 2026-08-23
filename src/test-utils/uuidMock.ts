@@ -5,15 +5,8 @@
  * file (top level), then pass the result to `vi.mock`:
  *
  * @example
- * ```ts
- * import { vi } from 'vitest';
- * import { mockUuidFixed } from '../../test-utils/uuidMock';
- *
- * const uuidMock = vi.hoisted(() =>
- *   require('../../test-utils/uuidMock.ts').hoistedUuidFixed('test-uuid'),
- * );
- * vi.mock('uuid', () => uuidMock);
- * ```
+ * In the test file: call vi.hoisted to get the factory, then register it via
+ * vi-dot-mock('uuid', ...) — see uuidMock.test.ts for a full working example.
  */
 
 export type UuidMockModule = { v4: () => string };

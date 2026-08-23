@@ -2,7 +2,7 @@
  * Coverage gaps — grpcWorkflowTransportAdapter.ts
  */
 import { describe, expect, it } from 'vitest';
-import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
+import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
 import { buildGrpcWorkflowExecuteSnapshot } from './grpcWorkflowSnapshotBuilder';
 import {
   buildGrpcWorkflowRuntimeCallBoundary,

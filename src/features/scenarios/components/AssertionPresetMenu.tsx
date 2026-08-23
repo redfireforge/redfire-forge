@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { assertionPresetCatalog, ASSERTION_PRESET_CATEGORIES } from '../../../data/galleries/assertion-presets';
 import type { AssertionPresetEntry } from '../../../data/galleries/assertion-presets';
-import type { Assertion } from '../../../shared/types';
+import type { Assertion } from '@shared/types';
 
 interface Props {
   onImport: (assertions: Assertion[]) => void;

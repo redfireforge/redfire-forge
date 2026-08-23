@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Ref } from 'react';
-import type { GrpcMessageSchema } from '../../../shared/grpc/contracts';
+import type { GrpcMessageSchema } from '@shared/grpc/contracts';
 import { GrpcProtoFieldRow } from './protoFormBuilder/GrpcProtoFieldRow';
 import { GrpcProtoOneofGroupRow } from './protoFormBuilder/GrpcProtoOneofGroupRow';
 import { buildGrpcMessageSchemaIndex } from '../utils/grpcBodyComposer';

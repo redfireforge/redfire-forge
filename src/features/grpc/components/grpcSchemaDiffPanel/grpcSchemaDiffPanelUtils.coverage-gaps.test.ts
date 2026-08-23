@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { GrpcDescriptor } from '../../../../shared/grpc/contracts';
-import type { GrpcSchemaDiffChange } from '../../../../shared/grpc/grpcSchemaDiffContracts';
-import { FIXTURE_DESCRIPTOR } from '../../../../shared/grpc/contractFixtures';
+import type { GrpcDescriptor } from '@shared/grpc/contracts';
+import type { GrpcSchemaDiffChange } from '@shared/grpc/grpcSchemaDiffContracts';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
 import {
   buildChangeDrivenProtoText,
   buildChangeSnippet,

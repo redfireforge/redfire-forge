@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
-import type { AuthConfig, AuthType, FeatureGroup, GlobalAuthProfile, Scenario } from '../../../shared/types';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import type { AuthConfig, AuthType, FeatureGroup, GlobalAuthProfile, Scenario } from '@shared/types';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 export interface TestEditorAuthEditingContext {
   fgId: string;

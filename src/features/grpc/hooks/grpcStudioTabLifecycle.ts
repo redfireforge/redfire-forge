@@ -4,16 +4,16 @@
  * Centralizes native transport retain/release and tab-close cleanup helpers.
  */
 import type { MutableRefObject } from 'react';
-import { isTauri } from '../../../shared/utils/platform';
-import type { GrpcTransportMode } from '../../../shared/grpc/grpcTransportTabRouting';
-import type { GrpcStudioTransportMode } from '../../../shared/grpc/grpcWebTransportContracts';
+import { isTauri } from '@shared/utils/platform';
+import type { GrpcTransportMode } from '@shared/grpc/grpcTransportTabRouting';
+import type { GrpcStudioTransportMode } from '@shared/grpc/grpcWebTransportContracts';
 import {
   cancelGrpcUnary,
   cleanupGrpcTabNative,
   mountGrpcStudioNativeTransport,
   releaseGrpcNativeTransport,
   retainGrpcNativeTransport,
-} from '../../../shared/grpc/grpcTransportFacade';
+} from '@shared/grpc/grpcTransportFacade';
 import type { GrpcStudioTabState } from '../grpcStudioTypes';
 import {
   abortTabActiveStream,

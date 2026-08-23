@@ -1,9 +1,9 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { CustomSelect } from '../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import type { SseEvent, SseStats } from './sseTypes';
 import { SseEventDetail } from './SseEventDetail';
-import { saveJsonFile } from '../../shared/utils/fileSaver';
+import { saveJsonFile } from '@shared/utils/fileSaver';
 
 const ROW_HEIGHT = 28;
 const VIRTUALIZER_OVERSCAN = 15;

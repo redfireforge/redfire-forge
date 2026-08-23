@@ -1,7 +1,7 @@
 /**
  * Phase 9C — workflow template resolver bridging Phase 9A/9B grammar with VariableContext.
  */
-import type { VariableContext } from '../../features/workflow/engine/variableContext';
+import type { VariableContext } from '@workflow/engine/variableContext';
 import {
   inspectGrpcInterpolationTemplate,
   type GrpcInterpolationInspectResult,

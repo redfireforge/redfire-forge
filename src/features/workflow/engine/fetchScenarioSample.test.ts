@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Scenario } from '../../../shared/types';
+import { Scenario } from '@shared/types';
 
 vi.mock('../../../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
 }));
 
-vi.mock('../../../engine/tokenManager', () => {
+vi.mock('@engine/core/tokenManager', () => {
   const getToken = vi.fn().mockResolvedValue(undefined);
   return {
     TokenManager: class {
@@ -14,9 +14,9 @@ vi.mock('../../../engine/tokenManager', () => {
   };
 });
 
-import { httpFetch } from '../../../shared/utils/httpClient';
+import { httpFetch } from '@shared/utils/httpClient';
 import { fetchScenarioSample } from './fetchScenarioSample';
-import { makeScenario as _makeScenario } from '../../../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 const mockedFetch = vi.mocked(httpFetch);
 

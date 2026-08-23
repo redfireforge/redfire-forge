@@ -5,7 +5,7 @@
  * Extracted from GraphqlStudioPage.tsx to reduce its line count.
  */
 import { useCallback } from 'react';
-import type { GraphqlCollectionItem, GraphqlHistoryItem } from '../../../shared/types/graphql';
+import type { GraphqlCollectionItem, GraphqlHistoryItem } from '@shared/types/graphql';
 
 interface GqlItemLoadersArgs {
   editorMountRef: React.MutableRefObject<{ setValue: (v: string) => void } | null>;

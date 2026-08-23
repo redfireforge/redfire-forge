@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { WorkflowExecutionTrace, WorkflowIterationTrace } from '../../../shared/types';
+import type { WorkflowExecutionTrace, WorkflowIterationTrace } from '@shared/types';
 import { isSampledIteration } from '../utils/sampledIterations';
 import {
   buildTimelineBars,

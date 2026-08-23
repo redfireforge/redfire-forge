@@ -1,10 +1,10 @@
 import { useState, useCallback } from 'react';
 import type { Node, Edge } from '@xyflow/react';
-import type { Workflow } from '../../features/workflow/types/workflow';
-import type { WorkflowHook } from '../../features/workflow/hooks/useWorkflows';
+import type { Workflow } from '@workflow/types/workflow';
+import type { WorkflowHook } from '@workflow/hooks/useWorkflows';
 import { sampleWorkflowCatalog } from '../../data/galleries/workflows';
-import { getAutoLayoutNodes } from '../../features/workflow/utils/workflowAutoLayout';
-import { loadPreviewSampleId, savePreviewSampleId } from '../../shared/utils/storage';
+import { getAutoLayoutNodes } from '@workflow/utils/workflowAutoLayout';
+import { loadPreviewSampleId, savePreviewSampleId } from '@shared/utils/storage';
 
 function buildInitialPreviewWorkflow(): Workflow | null {
   const savedId = loadPreviewSampleId();

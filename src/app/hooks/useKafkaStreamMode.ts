@@ -4,7 +4,7 @@ import {
   envelopeErrorToUiError,
   toKafkaUiSafeError,
   type KafkaUiSafeError,
-} from '../../shared/kafka/kafkaClient';
+} from '@shared/kafka/kafkaClient';
 import type { UseKafkaStateReturn } from './useKafkaState';
 import type { KafkaConsumeDraft, KafkaConsumeResultRow } from '../../features/kafka/types';
 import { buildSubscribeRequest } from '../../features/kafka/kafkaMessageStudioUtils';

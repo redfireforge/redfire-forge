@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import type { GlobalAuthProfile } from '../../../shared/types';
+import type { GlobalAuthProfile } from '@shared/types';
 import type { ProtoModalTab } from '../components/GrpcProtoManageModal';
 import type { GrpcConnectionSettingsNav } from '../components/GrpcConnectionSettingsDrawer';
 import { isGrpcLifecycleInFlight, createDefaultProtoIngestState, normalizeProtoIngestState } from '../grpcStudioTypes';
@@ -22,9 +22,9 @@ import {
 import type { GrpcAuthSecretFieldKey, GrpcTlsSecretFieldKey } from '../utils/grpcSecretFieldUi';
 import { resolveEffectiveGrpcAuth } from '../utils/grpcAuthProfileResolve';
 import { findGrpcMethod } from '../utils/grpcExplorerUtils';
-import { isGrpcStreamLifecycleInFlight } from '../../../shared/grpc/streamLifecycle';
-import { mergeGrpcTabInterpolationEnv } from '../../../shared/grpc/grpcInterpolationPrecedence';
-import { resolveGrpcStudioEndpointPreviewDraft } from '../../../shared/grpc/grpcStudioTargetPreview';
+import { isGrpcStreamLifecycleInFlight } from '@shared/grpc/streamLifecycle';
+import { mergeGrpcTabInterpolationEnv } from '@shared/grpc/grpcInterpolationPrecedence';
+import { resolveGrpcStudioEndpointPreviewDraft } from '@shared/grpc/grpcStudioTargetPreview';
 import type { GrpcTabConnectionPageDefaults } from '../utils/resolveGrpcTabConnection';
 
 export interface UseGrpcStudioPageConnectionStateOptions {

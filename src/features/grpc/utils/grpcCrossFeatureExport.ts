@@ -1,24 +1,24 @@
 /**
  * Phase 4H — redacted export bundles for workflow/harness/collection consumers.
  */
-import type { GrpcTabExecuteSnapshot } from '../../../shared/grpc/contracts';
-import type { GrpcHarnessExecuteSnapshot } from '../../../shared/types/grpc-harness-snapshot';
+import type { GrpcTabExecuteSnapshot } from '@shared/grpc/contracts';
+import type { GrpcHarnessExecuteSnapshot } from '@shared/types/grpc-harness-snapshot';
 import {
   prepareGrpcCallHistoryRecord,
   redactGrpcExecuteSnapshotForExport,
   type GrpcCallHistoryRecord,
-} from '../../../shared/grpc/grpcRedaction';
-import type { GrpcSavedRequest } from '../../../shared/grpc/grpcSavedRequest';
-import { createGrpcSavedRequestFromSnapshot } from '../../../shared/grpc/grpcSavedRequest';
-import type { GrpcSavedRequestTabContext } from '../../../shared/grpc/grpcReplayTemplateCompatibility';
+} from '@shared/grpc/grpcRedaction';
+import type { GrpcSavedRequest } from '@shared/grpc/grpcSavedRequest';
+import { createGrpcSavedRequestFromSnapshot } from '@shared/grpc/grpcSavedRequest';
+import type { GrpcSavedRequestTabContext } from '@shared/grpc/grpcReplayTemplateCompatibility';
 import {
   applyGrpcCallHistoryTemplateContext,
   type GrpcCallHistoryTemplateContext,
-} from '../../../shared/grpc/grpcReplayTemplateCompatibility';
-import { assertGrpcCrossFeatureExportSafe } from '../../../shared/grpc/grpcPersistRedactionMiddleware';
-import { prepareGrpcHarnessResultReportExport } from '../../../shared/grpc/grpcHarnessExport';
+} from '@shared/grpc/grpcReplayTemplateCompatibility';
+import { assertGrpcCrossFeatureExportSafe } from '@shared/grpc/grpcPersistRedactionMiddleware';
+import { prepareGrpcHarnessResultReportExport } from '@shared/grpc/grpcHarnessExport';
 
-export type { GrpcHarnessResultReportExport } from '../../../shared/grpc/grpcHarnessExport';
+export type { GrpcHarnessResultReportExport } from '@shared/grpc/grpcHarnessExport';
 
 export interface GrpcWorkflowNodeExport {
   kind: 'grpc_call';
@@ -80,11 +80,11 @@ export { prepareGrpcHarnessResultReportExport };
 export {
   prepareGrpcHarnessResultReportExportWithAdvanced,
   prepareGrpcLoadTestProfileHarnessFixture,
-} from '../../../shared/grpc/grpcHarnessAdvancedPromotion';
+} from '@shared/grpc/grpcHarnessAdvancedPromotion';
 export type {
   GrpcHarnessResultReportExportWithAdvanced,
   GrpcLoadTestHarnessProfileFixture,
-} from '../../../shared/grpc/grpcHarnessAdvancedPromotion';
+} from '@shared/grpc/grpcHarnessAdvancedPromotion';
 
 export function prepareGrpcExportBundle(input: {
   snapshot: GrpcTabExecuteSnapshot;

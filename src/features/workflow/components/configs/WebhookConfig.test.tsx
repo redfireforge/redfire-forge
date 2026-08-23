@@ -4,10 +4,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Mock } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import { selectOption, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
+import { selectOption, getCustomSelectValue } from '@test-utils/customSelectHelper';
 import WebhookConfig from './WebhookConfig';
 import { WebhookTriggerNodeData } from '../../types/workflow';
-import { installClipboardMock } from '../../../../test-utils/clipboardMock';
+import { installClipboardMock } from '@test-utils/clipboardMock';
 
 function makeData(overrides: Partial<WebhookTriggerNodeData> = {}): WebhookTriggerNodeData {
   return {

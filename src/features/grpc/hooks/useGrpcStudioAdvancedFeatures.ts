@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   createInitialGrpcAdvancedFeatureRuntimeState,
   type GrpcLoadTestConfig,
-} from '../../../shared/grpc/grpcAdvancedFeatureContracts';
-import type { GrpcAdvancedFeatureSourceMetadata } from '../../../shared/grpc/grpcAdvancedFeatureExport';
+} from '@shared/grpc/grpcAdvancedFeatureContracts';
+import type { GrpcAdvancedFeatureSourceMetadata } from '@shared/grpc/grpcAdvancedFeatureExport';
 import type { GrpcTabConnectionPageDefaults } from '../utils/resolveGrpcTabConnection';
 import {
   createInitialGrpcTabAdvancedFeaturesUiState,
@@ -12,7 +12,7 @@ import {
   type GrpcTabAdvancedFeaturesUiState,
 } from '../grpcStudioAdvancedTypes';
 import { isGrpcAdvancedOperationInFlight } from '../utils/grpcStudioAdvancedCommands';
-import type { GrpcLoadTestSchedulerRun } from '../../../shared/grpc/grpcLoadTestSchedulerCore';
+import type { GrpcLoadTestSchedulerRun } from '@shared/grpc/grpcLoadTestSchedulerCore';
 import { stopGrpcMockNetworkListener, supportsGrpcMockNetworkListener } from '../utils/grpcMockListenerClient';
 import { useGrpcRpcSessionStats } from './useGrpcRpcSessionStats';
 import { useGrpcAdvancedExportCallbacks } from './useGrpcAdvancedExportCallbacks';

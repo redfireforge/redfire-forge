@@ -1,4 +1,4 @@
-import type { DataSource } from '../../../shared/types';
+import type { DataSource } from '@shared/types';
 
 interface ContractPattern {
   pattern: string;

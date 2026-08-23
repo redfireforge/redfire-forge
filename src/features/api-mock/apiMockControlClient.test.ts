@@ -4,11 +4,11 @@
  * RuntimeDiagnostics.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { isTauri } from '../../shared/utils/platform';
+import { isTauri } from '@shared/utils/platform';
 import { apiMockControlClient } from './apiMockControlClient';
-import { setNativeInvokeForTests } from '../../shared/api-mock/nativeTauriControl';
-import { DEFAULT_SETTINGS, HARD_CEILINGS } from '../../shared/api-mock/defaults';
-import type { ApiMockServerDefinitionV1 } from '../../shared/api-mock/contracts';
+import { setNativeInvokeForTests } from '@shared/api-mock/nativeTauriControl';
+import { DEFAULT_SETTINGS, HARD_CEILINGS } from '@shared/api-mock/defaults';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
 
 vi.mock('../../shared/utils/platform', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../shared/utils/platform')>();

@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
-import type { GlobalAuthProfile } from '../../../shared/types';
-import type { GraphqlAuth } from '../../../shared/types/graphql';
+import type { GlobalAuthProfile } from '@shared/types';
+import type { GraphqlAuth } from '@shared/types/graphql';
 import { useGraphqlExecution } from '../hooks/useGraphqlExecution';
 import type { ExecuteParams } from '../hooks/useGraphqlExecution';
 import { stampAuthHeaders } from '../utils/authUtils';

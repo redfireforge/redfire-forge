@@ -7,7 +7,7 @@ import {
   selectOption,
   getCustomSelectValue,
   getCustomSelectOptionLabels,
-} from '../../../test-utils/customSelectHelper';
+} from '@test-utils/customSelectHelper';
 import { SlaTargetEditor } from './SlaTargetEditor';
 import { validateRow, METRIC_OPTIONS } from './slaEditorUtils';
 import type { SlaTarget } from '../utils/slaTargets';
@@ -425,7 +425,7 @@ describe('SlaTargetEditor', () => {
   it('deduplicates scenario name in dropdown options', () => {
     // scenarioName='Login' and scenarioNames includes 'Login' → Set deduplication
     const draft = [makeDraft({ scenarioName: 'Login' })];
-    const { container } = render(
+    const { container: _container } = render(
       <SlaTargetEditor draft={draft} onChange={vi.fn()} {...defaultProps} scenarioNames={['Login', 'Signup']} />
     );
     const labels = getCustomSelectOptionLabels(nameSelectEl());
@@ -435,7 +435,7 @@ describe('SlaTargetEditor', () => {
 
   it('deduplicates feature group name in dropdown options', () => {
     const draft = [makeDraft({ featureGroupName: 'Auth' })];
-    const { container } = render(
+    const { container: _container } = render(
       <SlaTargetEditor draft={draft} onChange={vi.fn()} {...defaultProps} featureGroupNames={['Auth', 'API']} />
     );
     const labels = getCustomSelectOptionLabels(nameSelectEl());
@@ -463,7 +463,7 @@ describe('SlaTargetEditor', () => {
 
   it('falls back to empty string when scenarioNames is empty and scope changed to scenario', () => {
     const onChange = vi.fn();
-    const { container } = render(
+    const { container: _container } = render(
       <SlaTargetEditor draft={[makeDraft()]} onChange={onChange} {...defaultProps} scenarioNames={[]} />
     );
     selectOption(levelSelectEl(), 'Scenario');

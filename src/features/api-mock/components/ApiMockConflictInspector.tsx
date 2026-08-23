@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import type { ApiMockConflictFindingV1, ApiMockRouteV1, ApiMockServerSettingsV1 } from '../../../shared/api-mock/contracts';
+import type { ApiMockConflictFindingV1, ApiMockRouteV1, ApiMockServerSettingsV1 } from '@shared/api-mock/contracts';
 import { ApiMockConflictGuide } from './ApiMockConflictGuide';
 import { ArrowUpDownIcon, CheckIcon, FlaskIcon } from './ApiMockIcons';
 

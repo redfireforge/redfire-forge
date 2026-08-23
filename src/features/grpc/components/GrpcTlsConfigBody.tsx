@@ -4,8 +4,8 @@
  * both protocols share identical visual layout.
  */
 import type { ChangeEvent } from 'react';
-import type { GrpcTlsConfig, GrpcTlsMode } from '../../../shared/grpc/contracts';
-import type { GrpcTlsValidationIssue } from '../../../shared/grpc/grpcTlsPolicy';
+import type { GrpcTlsConfig, GrpcTlsMode } from '@shared/grpc/contracts';
+import type { GrpcTlsValidationIssue } from '@shared/grpc/grpcTlsPolicy';
 import type { GrpcMaskedSecretFields, GrpcTlsSecretFieldKey } from '../utils/grpcSecretFieldUi';
 import { GRPC_SECRET_STORED_LABEL } from '../utils/grpcSecretFieldUi';
 

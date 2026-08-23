@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ApiMockResponseTimingPanel } from './ApiMockResponseTimingPanel';
-import { createDefaultResponse } from '../../../shared/api-mock/defaults';
+import { createDefaultResponse } from '@shared/api-mock/defaults';
 
 describe('ApiMockResponseTimingPanel', () => {
   it('updates delay, jitter, max matches, probability, and expiry', () => {

@@ -1,10 +1,10 @@
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import type { GraphqlAuth } from '../../../shared/types/graphql';
-import type { WorkflowVariableHint } from '../../workflow/utils/workflowVariableHints';
-import { useListCrud } from '../../../shared/hooks/useListCrud';
-import InsertVarField from '../../workflow/components/expression/InsertVarField';
-import ExpressionInput from '../../workflow/components/expression/ExpressionInput';
-import type { GraphqlNodeHeaderRow } from '../../workflow/types/workflow';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import type { GraphqlAuth } from '@shared/types/graphql';
+import type { WorkflowVariableHint } from '@workflow/utils/workflowVariableHints';
+import { useListCrud } from '@shared/hooks/useListCrud';
+import InsertVarField from '@workflow/components/expression/InsertVarField';
+import ExpressionInput from '@workflow/components/expression/ExpressionInput';
+import type { GraphqlNodeHeaderRow } from '@workflow/types/workflow';
 import {
   GqlWfFormRow,
 } from './GraphqlWfConfigLayout';

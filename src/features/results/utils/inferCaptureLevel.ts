@@ -1,4 +1,4 @@
-import type { TraceCaptureLevel, WorkflowExecutionTrace } from '../../../shared/types';
+import type { TraceCaptureLevel, WorkflowExecutionTrace } from '@shared/types';
 
 /**
  * Infer the capture level from trace content for backward compatibility.

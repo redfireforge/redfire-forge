@@ -35,7 +35,7 @@ import {
   NoOpStore,
   type CreateRfContextParams,
 } from './preRequestScriptRunner';
-import { ScriptAbortError, ScriptSkipError, GraphqlAssertionError } from '../../../shared/types/graphql';
+import { ScriptAbortError, ScriptSkipError, GraphqlAssertionError } from '@shared/types/graphql';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
-import type { GlobalAuthProfile, Microservice, ProtocolKey } from '../../../../shared/types';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import type { GlobalAuthProfile, Microservice, ProtocolKey } from '@shared/types';
 import {
   PROTOCOL_TABS,
   getExplicitBaseUrl,

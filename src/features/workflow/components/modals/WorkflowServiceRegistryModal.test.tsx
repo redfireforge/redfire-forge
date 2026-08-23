@@ -3,13 +3,13 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption } from '../../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import WorkflowServiceRegistryModal, {
   resolveInheritLabel,
   authSummary,
 } from './WorkflowServiceRegistryModal';
 import type { WorkflowService, ServiceEndpoint } from '../../types/workflow';
-import type { Environment, GlobalAuthProfile, Microservice } from '../../../../shared/types';
+import type { Environment, GlobalAuthProfile, Microservice } from '@shared/types';
 import { emptyAuthState } from '../../../requests/utils/requestAuthState';
 
 vi.mock('./WorkflowEditorModalFrame', () => ({

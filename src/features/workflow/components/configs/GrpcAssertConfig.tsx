@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { GrpcAssertNodeData } from '../../types/workflow/node-grpc';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 export default function GrpcAssertConfig({
   data,

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { groupedExpressionFunctions, EXPRESSION_CATEGORIES } from '../../../../features/workflow/utils/expressionFunctions';
-import type { ExpressionFunction } from '../../../../features/workflow/utils/expressionFunctions/types';
+import { groupedExpressionFunctions, EXPRESSION_CATEGORIES } from '@workflow/utils/expressionFunctions';
+import type { ExpressionFunction } from '@workflow/utils/expressionFunctions/types';
 import { TRANSFORMATION_LIBRARY, searchTemplates } from '../utils/transformationLibrary';
 import { extractTemplateFunctionNames } from '../utils/expressionEditorHelpers';
 

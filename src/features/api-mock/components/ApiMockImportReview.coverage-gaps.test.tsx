@@ -4,7 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { loadCatalogEntries, loadRequests } from '../../../shared/utils/storage';
+import { loadCatalogEntries, loadRequests } from '@shared/utils/storage';
 
 vi.mock('../../../shared/utils/storage', () => ({
   loadCatalogEntries: vi.fn(),

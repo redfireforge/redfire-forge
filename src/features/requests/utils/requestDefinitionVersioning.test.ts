@@ -14,7 +14,7 @@ import {
   deleteVersion,
   renameVersion,
 } from './requestDefinitionVersioning';
-import type { RequestItem, RequestDefinitionVersion, RequestDefinitionSnapshot } from '../../../shared/types';
+import type { RequestItem, RequestDefinitionVersion, RequestDefinitionSnapshot } from '@shared/types';
 
 const baseRequest: RequestItem = {
   id: 'req-1',
