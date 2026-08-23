@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../../engine/tokenManager', () => ({
+vi.mock('@engine/core/tokenManager', () => ({
   acquireOAuth2Token: vi.fn(),
 }));
 

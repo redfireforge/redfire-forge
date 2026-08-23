@@ -68,7 +68,7 @@ function makeProps(overrides: Partial<AnyObj> = {}) {
 
 describe('SharedDsFetchPanel coverage gaps', () => {
   beforeEach(() => {
-    resetAllMocks();
+    vi.clearAllMocks();
   });
 
   it('toggles cURL view and copies stored command', async () => {

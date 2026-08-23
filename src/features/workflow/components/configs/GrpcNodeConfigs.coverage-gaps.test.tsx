@@ -25,7 +25,7 @@ vi.mock('../../hooks/useGrpcWorkflowTargetReflection', () => ({
   }),
 }));
 
-vi.mock('../../../../engine/grpcConnectionProfileHydration', () => ({
+vi.mock('../../../../engine/grpc/grpcConnectionProfileHydration', () => ({
   loadGrpcConnectionProfilesFromStorage: () => [],
 }));
 

@@ -8,7 +8,7 @@ vi.mock('../../../shared/utils/httpClient', () => ({
 
 const mockGetToken = vi.fn();
 
-vi.mock('../../../engine/tokenManager', () => ({
+vi.mock('@engine/core/tokenManager', () => ({
   TokenManager: class MockTokenManager {
     getToken = mockGetToken;
   },

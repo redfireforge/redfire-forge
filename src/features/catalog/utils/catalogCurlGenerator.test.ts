@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { buildCatalogCurlCommand, buildCatalogCurlSingleLine, buildDefaultCurlCommand, resolveBaseUrl, buildFullUrl, extractServerPathPrefix } from './catalogCurlGenerator';
 
-vi.mock('../../../engine/tokenManager', () => ({
+vi.mock('@engine/core/tokenManager', () => ({
   acquireOAuth2Token: vi.fn(),
 }));
 

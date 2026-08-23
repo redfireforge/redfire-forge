@@ -13,25 +13,25 @@ import { renderHook, act } from '@testing-library/react';
 import { useTestExecution } from './useTestExecution';
 import { RequestResult } from '@shared/types';
 
-vi.mock('../../../engine/executor', async () => {
+vi.mock('@engine/core/executor', async () => {
   const { mockRunTest } = await import('./__test-utils__/useTestExecutionTestSetup');
   return { runTest: mockRunTest };
 });
-vi.mock('../../../engine/workerBridge', async () => {
+vi.mock('@engine/core/workerBridge', async () => {
   const { mockRunTestInWorker } = await import('./__test-utils__/useTestExecutionTestSetup');
   return { runTestMultiWorker: mockRunTestInWorker };
 });
-vi.mock('../../../engine/metrics', async () => {
+vi.mock('@engine/core/metrics', async () => {
   const { mockComputeMetrics } = await import('./__test-utils__/useTestExecutionTestSetup');
   return { computeMetrics: mockComputeMetrics };
 });
-vi.mock('../../../shared/utils/storage', async () => {
+vi.mock('@shared/utils/storage', async () => {
   const { mockSaveTestRun, mockForceSaveTestRun } = await import(
     './__test-utils__/useTestExecutionTestSetup'
   );
   return { saveTestRun: mockSaveTestRun, forceSaveTestRun: mockForceSaveTestRun };
 });
-vi.mock('../../../shared/utils/platform', async () => {
+vi.mock('@shared/utils/platform', async () => {
   const { mockSupportsWorkers } = await import('./__test-utils__/useTestExecutionTestSetup');
   return { supportsWorkers: mockSupportsWorkers, isTauri: vi.fn(() => false) };
 });

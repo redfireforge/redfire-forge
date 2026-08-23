@@ -19,7 +19,7 @@ describe('Phase 8F acceptance checklist', () => {
 
   it('dataSourceExpander wires grpc interpolation', async () => {
     const source = await import('fs/promises').then((fs) =>
-      fs.readFile(new URL('../../engine/dataSourceExpander.ts', import.meta.url), 'utf8'),
+      fs.readFile(new URL('../../engine/core/dataSourceExpander.ts', import.meta.url), 'utf8'),
     );
     expect(source).toContain('interpolateGrpcHarnessCallAction');
     expect(source).toContain('grpcCallAction');
