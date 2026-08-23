@@ -10,7 +10,7 @@ import {
   scenarioWithExtraValidateColumn,
   ensurePathVariableChecked,
 } from './__test-utils__/dataSourceSetupModalTestHelpers';
-import { proxyFetch } from '@engine/executor';
+import { proxyFetch } from '@engine/core/executor';
 import { applyAuthHeaders } from '@shared/utils/applyAuthHeaders';
 import { downloadExcel, generateExcelTemplate } from '../utils/csvTemplate';
 vi.mock('../../../shared/components/FullPanelModal', async () => {

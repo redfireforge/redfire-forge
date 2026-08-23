@@ -17,7 +17,7 @@ import { RemoteCorrelationStore } from '@workflow/engine/remoteCorrelationStore'
 import { buildKafkaNodeOperations } from '@shared/kafka/buildKafkaNodeOperations';
 import { buildWsNodeOperations } from '@shared/websocket/buildWsNodeOperations';
 import { buildGrpcNodeOperations } from '@shared/grpc/buildGrpcNodeOperations';
-import { loadGrpcConnectionProfilesFromStorage } from '@engine/grpcConnectionProfileHydration';
+import { loadGrpcConnectionProfilesFromStorage } from '@engine/grpc/grpcConnectionProfileHydration';
 import { loadGlobalAuthProfiles } from '@shared/utils/storage';
 import { stripTrailingSlash } from '../utils/workflowHostResolve';
 import { checkEnvReadiness } from '../utils/workflowEnvReadiness';

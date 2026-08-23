@@ -11,11 +11,11 @@ import type { MainToWorkerMessage, WorkerToMainMessage } from './workerProtocol'
 import type { ProgressMeta } from './executor';
 
 
-vi.mock('../shared/utils/platform', () => ({
+vi.mock('@shared/utils/platform', () => ({
   isTauri: vi.fn(() => false),
 }));
 
-vi.mock('../shared/utils/httpClient', () => ({
+vi.mock('@shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
 }));
 

@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import { createValidationAdapter } from './validationAdapter';
 import type { Mapping } from '../types';
 import type { FieldOperator, ExpectedField } from '../../../types';
-import { evaluateFieldOperator } from '@engine/fieldOperatorEvaluation';
+import { evaluateFieldOperator } from '@engine/core/fieldOperatorEvaluation';
 import { getByPath } from '../../../utils/jsonPath';
 // ─── Sample response data ────────────────────────────────
 const RESPONSE = {

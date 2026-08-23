@@ -1,4 +1,4 @@
-import { acquireOAuth2Token } from '@engine/tokenManager';
+import { acquireOAuth2Token } from '@engine/core/tokenManager';
 import type { AuthConfig, Scenario } from '../types';
 import { getEffectiveBodyType, serializeWithContentType } from './bodySerializer';
 import { resolveAuthHeaders } from './authHeaders';

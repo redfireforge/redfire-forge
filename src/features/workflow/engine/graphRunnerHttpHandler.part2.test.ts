@@ -13,7 +13,7 @@ vi.mock('./scriptLibraries', () => ({
   buildLibraryPreamble: vi.fn(() => ''),
 }));
 
-import * as dataSourceExpander from '@engine/dataSourceExpander';
+import * as dataSourceExpander from '@engine/core/dataSourceExpander';
 import * as graphRunnerHelpers from './graphRunnerHelpers';
 import { handleHttpNode } from './graphRunnerHttpHandler';
 import * as workflowRunErrors from '../utils/workflowRunErrors';

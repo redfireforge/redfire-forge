@@ -5,7 +5,7 @@ import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
 import { makeScenario as _makeScenario } from '@test-utils/factories';
 
-vi.mock('../shared/utils/httpClient', () => ({
+vi.mock('@shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
 }));
 

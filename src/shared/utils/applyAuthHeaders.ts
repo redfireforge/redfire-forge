@@ -1,6 +1,6 @@
 import type { AuthConfig } from '../types';
 import { resolveAuthHeaders } from './authHeaders';
-import { acquireOAuth2Token } from '@engine/tokenManager';
+import { acquireOAuth2Token } from '@engine/core/tokenManager';
 
 /**
  * Resolve auth config into headers and merge them into the provided headers object.

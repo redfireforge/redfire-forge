@@ -31,6 +31,9 @@
       "@grpc/*": ["src/features/grpc/*"],
       "@workflow/*": ["src/features/workflow/*"],
       "@engine/*": ["src/engine/*"],
+      "@engine/core/*": ["src/engine/core/*"],
+      "@engine/grpc/*": ["src/engine/grpc/*"],
+      "@engine/load/*": ["src/engine/load/*"],
       "@test-utils/*": ["src/test-utils/*"],
       "@app/*": ["src/app/*"]
     }
