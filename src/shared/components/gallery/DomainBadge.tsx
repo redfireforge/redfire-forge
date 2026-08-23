@@ -14,6 +14,8 @@ const DOMAIN_COLORS: Record<GalleryDomain, string> = {
   assertions: '#f472b6',
   'data-mapper': '#38bdf8',
   'api-mock': '#fbbf24',
+  grpc: '#818cf8',
+  websocket: '#2dd4bf',
 };
 
 /**

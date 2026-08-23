@@ -615,10 +615,11 @@ All 13 original request entries were HTTP REST. A GraphQL query is technically a
 
 ```
 Phase A — Infrastructure (1-2 days)
-  A1. Add 'grpc' | 'websocket' to GalleryDomain type (types.ts)
-  A2. Register grpc + websocket domains in registry.ts
-  A3. Create src/data/galleries/grpc/ directory + index.ts scaffold
-  A4. Create src/data/galleries/websocket/ directory + index.ts scaffold
+  A1. ✅ Add 'grpc' | 'websocket' to GalleryDomain type (types.ts)
+  A2. ✅ Register grpc + websocket domains in registry.ts
+  A3. ✅ Create src/data/galleries/grpc/ directory + scaffold (GrpcSampleEntry type + empty catalog)
+  A4. ✅ Create src/data/galleries/websocket/ directory + scaffold (WsSampleEntry type + empty catalog)
+  Also updated: GalleryPage.tsx (ACTION_LABELS, importHandlers, ALL_ENTRIES), DomainBadge.tsx (DOMAIN_COLORS)
 
 Phase B — Workflow Samples (3-4 days)
   B1. ✅ Create galleries/workflows/grpc.ts (6 entries: WF-GRPC-01 → WF-GRPC-06)

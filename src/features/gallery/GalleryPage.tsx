@@ -9,6 +9,8 @@ import { sampleWorkflowCatalog } from '../../data/galleries/workflows';
 import { assertionPresetCatalog } from '../../data/galleries/assertion-presets';
 import { dataMapperSampleCatalog } from '../../data/galleries/data-mapper';
 import { apiMockSampleCatalog } from '../../data/galleries/api-mock';
+import { grpcSampleCatalog } from '../../data/galleries/grpc';
+import { wsSampleCatalog } from '../../data/galleries/websocket';
 import { GalleryGrid } from '@shared/components/gallery';
 import ConfirmModal from '@shared/components/ConfirmModal';
 import RequestPreview from './RequestPreview';
@@ -30,6 +32,8 @@ const ALL_ENTRIES: GalleryEntry<unknown>[] = [
   ...assertionPresetCatalog,
   ...dataMapperSampleCatalog,
   ...apiMockSampleCatalog,
+  ...grpcSampleCatalog,
+  ...wsSampleCatalog,
 ];
 
 export interface GalleryPageProps {
@@ -64,6 +68,8 @@ const ACTION_LABELS: Record<GalleryDomain, string> = {
   assertions: 'Apply Preset',
   'data-mapper': 'Load Sample',
   'api-mock': 'Load Mock Server',
+  grpc: 'Load Sample',
+  websocket: 'Load Sample',
 };
 
 const SECONDARY_LABELS: Partial<Record<GalleryDomain, string>> = {
@@ -114,6 +120,8 @@ export function GalleryPage({
     assertions: undefined,
     'data-mapper': onImportTest,
     'api-mock': onImportApiMock,
+    grpc: onImportTest,
+    websocket: onImportTest,
   }), [onImportRequest, onImportCatalog, onImportTest, onImportWorkflow, onImportApiMock]);
 
   const handleAction = useCallback((entry: GalleryEntry<unknown>) => {
