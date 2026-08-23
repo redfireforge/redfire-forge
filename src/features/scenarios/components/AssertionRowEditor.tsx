@@ -1,8 +1,8 @@
-import type { Assertion, AssertionOperator, ComparisonOperator, DateReference, FieldOperator, JsonTypeName } from '../../../shared/types';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import type { Assertion, AssertionOperator, ComparisonOperator, DateReference, FieldOperator, JsonTypeName } from '@shared/types';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import JsonPathPicker from './JsonPathPicker';
-import { getByPath, stripJsonPathPrefix } from '../../../shared/utils/jsonPath';
-import { generateJsonSchema } from '../../../shared/components/data-mapper/utils/schemaGenerator';
+import { getByPath, stripJsonPathPrefix } from '@shared/utils/jsonPath';
+import { generateJsonSchema } from '@shared/components/data-mapper/utils/schemaGenerator';
 import {
   ARRAY_CONTAINS_MODE_OPTIONS,
   CalendarIcon,
@@ -12,7 +12,7 @@ import {
   getAssertionTypeBadgeLabel,
   NUMERIC_OP_OPTIONS,
 } from './testEditorValidationConstants';
-import { prettyJson, isValidJson } from '../../../shared/utils/helpers';
+import { prettyJson, isValidJson } from '@shared/utils/helpers';
 import AssertionProtocolFields from './AssertionProtocolFields';
 
 export interface AssertionRowEditorProps {

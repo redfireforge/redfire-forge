@@ -1,11 +1,11 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import type { Extraction, ExtractionSource } from '../../../shared/types';
-import type { WorkflowVariableHint } from '../../workflow/utils/workflowVariableHints';
-import type { FetchErrorDetail } from '../../../shared/components/data-mapper/types';
-import { suggestedVariableNameFromJsonPath, buildJsonTree, type JsonTreeNode } from '../../../shared/utils/jsonTreeModel';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import ExpressionInput from '../../workflow/components/expression/ExpressionInput';
-import FetchErrorBanner from '../../../shared/components/data-mapper/FetchErrorBanner';
+import type { Extraction, ExtractionSource } from '@shared/types';
+import type { WorkflowVariableHint } from '@workflow/utils/workflowVariableHints';
+import type { FetchErrorDetail } from '@shared/components/data-mapper/types';
+import { suggestedVariableNameFromJsonPath, buildJsonTree, type JsonTreeNode } from '@shared/utils/jsonTreeModel';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import ExpressionInput from '@workflow/components/expression/ExpressionInput';
+import FetchErrorBanner from '@shared/components/data-mapper/FetchErrorBanner';
 
 export interface ExtractionFetchSampleProps {
   onFetch: () => void | Promise<void>;
@@ -24,7 +24,7 @@ import {
   createExtractionAdapter,
   createWsExtractionAdapter,
   splitExtractions,
-} from '../../../shared/components/data-mapper';
+} from '@shared/components/data-mapper';
 
 interface Props {
   extractions: Extraction[];

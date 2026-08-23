@@ -58,7 +58,7 @@ vi.mock('../utils/tabPersistence', () => ({
 }));
 
 import { GqlConnectionModals } from './GqlConnectionModals';
-import { removeKey } from '../../../shared/utils/storage';
+import { removeKey } from '@shared/utils/storage';
 
 // ─── Default Props ────────────────────────────────────────────────────────────
 

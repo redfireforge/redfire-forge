@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ServiceAuthPopup } from './WorkflowServiceAuthPopup';
 import type { EnvAuthState } from '../../../requests/utils/requestAuthState';
-import type { GlobalAuthProfile } from '../../../../shared/types';
+import type { GlobalAuthProfile } from '@shared/types';
 
 vi.mock('../../../../shared/components/CustomSelect', () => ({
   CustomSelect: ({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: Array<{ value: string; label: string }> }) => (

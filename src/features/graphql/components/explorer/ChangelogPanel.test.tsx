@@ -3,9 +3,9 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { selectOption, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
+import { selectOption, getCustomSelectValue } from '@test-utils/customSelectHelper';
 import { ChangelogPanel } from './ChangelogPanel';
-import type { GraphqlSchemaSnapshot } from '../../../../shared/types/graphql';
+import type { GraphqlSchemaSnapshot } from '@shared/types/graphql';
 import { CHANGELOG_VISIBLE_CAP } from '../../utils/changelogPanelUtils';
 
 const SDL = 'type Query { health: String }';

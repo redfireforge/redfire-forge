@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { AuditEntry, AuditEntityType, AuditAction } from '../utils/auditLog';
 import { loadAuditLog, clearAuditLog, formatAction, formatEntityType, auditLogToCsv } from '../utils/auditLog';
-import { saveFile } from '../../../shared/utils/fileSaver';
-import { formatTimestamp } from '../../../shared/utils/formatRelativeTime';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { saveFile } from '@shared/utils/fileSaver';
+import { formatTimestamp } from '@shared/utils/formatRelativeTime';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 const ENTITY_TYPES: AuditEntityType[] = ['environment', 'microservice', 'authProfile'];
 const ACTION_TYPES: AuditAction[] = ['created', 'updated', 'deleted', 'renamed'];

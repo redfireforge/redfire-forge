@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import type { GraphqlEnvironment, GraphqlHeaderRow } from '../../../shared/types/graphql';
+import type { GraphqlEnvironment, GraphqlHeaderRow } from '@shared/types/graphql';
 import { findUnresolvedVars } from '../utils/envUtils';
 import { makeHeaderId } from '../utils/headerUtils';
 

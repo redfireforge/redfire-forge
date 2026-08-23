@@ -25,7 +25,7 @@ vi.mock('../utils/connectionProfileStorage', async (importOriginal) => {
   };
 });
 
-import { readKey, writeKey } from '../../../shared/utils/storage';
+import { readKey, writeKey } from '@shared/utils/storage';
 import {
   readConnectionProfiles,
   parseConnectionProfiles,

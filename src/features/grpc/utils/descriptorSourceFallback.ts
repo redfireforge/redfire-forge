@@ -7,7 +7,7 @@ import {
   type GrpcDescriptor,
   type GrpcDescriptorSource,
   type GrpcDescriptorSourceSelection,
-} from '../../../shared/grpc/contracts';
+} from '@shared/grpc/contracts';
 import {
   DEFAULT_DESCRIPTOR_SOURCE_PRECEDENCE,
   type GrpcDescriptorPhaseFailureKind,
@@ -15,8 +15,8 @@ import {
   isDescriptorSourceAvailable,
   normalizeDescriptorSourceSelection,
   shouldAttemptDescriptorSourceFallback,
-} from '../../../shared/grpc/descriptorSourcePolicy';
-import { GrpcApiClientError } from '../../../shared/grpc/grpcApiClient';
+} from '@shared/grpc/descriptorSourcePolicy';
+import { GrpcApiClientError } from '@shared/grpc/grpcApiClient';
 import type { GrpcTabProtoIngestState } from '../grpcStudioTypes';
 import type { GrpcTabConnectionResolution } from './resolveGrpcTabConnection';
 import { ensureProtoRootsDraft } from './grpcProtoIngestUtils';

@@ -24,10 +24,10 @@ import WsConnectConfig from '../configs/WsConnectConfig';
 import WsSendConfig from '../configs/WsSendConfig';
 import WsReceiveConfig from '../configs/WsReceiveConfig';
 import WsTriggerConfig from '../configs/WsTriggerConfig';
-import GraphqlQueryConfigPanel from '../../../graphql/components/GraphqlQueryConfigPanel';
-import GraphqlSubscriptionConfigPanel from '../../../graphql/components/GraphqlSubscriptionConfigPanel';
-import GraphqlIntrospectConfigPanel from '../../../graphql/components/GraphqlIntrospectConfigPanel';
-import GraphqlAssertConfigPanel from '../../../graphql/components/GraphqlAssertConfigPanel';
+import GraphqlQueryConfigPanel from '@graphql/components/GraphqlQueryConfigPanel';
+import GraphqlSubscriptionConfigPanel from '@graphql/components/GraphqlSubscriptionConfigPanel';
+import GraphqlIntrospectConfigPanel from '@graphql/components/GraphqlIntrospectConfigPanel';
+import GraphqlAssertConfigPanel from '@graphql/components/GraphqlAssertConfigPanel';
 import GrpcLoadTestConfig from '../configs/GrpcLoadTestConfig';
 import GrpcSchemaDiffConfig from '../configs/GrpcSchemaDiffConfig';
 import GrpcMockAssertConfig from '../configs/GrpcMockAssertConfig';
@@ -45,7 +45,7 @@ import VariablesSection from '../panels/VariablesSection';
 import StartConfig from '../configs/StartConfig';
 import { KafkaCard } from '../configs/KafkaConfigUi';
 import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionEditor';
-import type { Environment, GlobalAuthProfile } from '../../../../shared/types';
+import type { Environment, GlobalAuthProfile } from '@shared/types';
 import type {
   WorkflowNode,
   HttpNodeData,

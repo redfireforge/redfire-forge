@@ -4,9 +4,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useDataSourceImport } from './useDataSourceImport';
-import { Scenario, DataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
+import { Scenario, DataSource, DataSourceColumn, DataSourceRow } from '@shared/types';
 import { CsvParseResult } from '../utils/csvTemplateTypes';
-import { makeScenario as _makeScenario } from '../../../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 const uuidMock = vi.hoisted(() =>
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('../../../test-utils/uuidMock.ts').hoistedUuidFixed('mock-uuid'),

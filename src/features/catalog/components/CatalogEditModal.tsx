@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { CatalogEntry } from '../types/catalog';
-import type { Environment, Microservice } from '../../../shared/types';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
+import type { Environment, Microservice } from '@shared/types';
+import AppModalFrame from '@shared/components/AppModalFrame';
 import CatalogDarkSelect from './CatalogDarkSelect';
 
 interface Props {

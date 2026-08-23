@@ -6,7 +6,7 @@ vi.mock('../../../shared/utils/httpClient', () => ({
 }));
 
 import { runGraph } from './graphRunner';
-import { httpFetch } from '../../../shared/utils/httpClient';
+import { httpFetch } from '@shared/utils/httpClient';
 import { endNode, startNode } from './graphRunnerNodeHandlers.test-utils';
 
 const mockFetch = vi.mocked(httpFetch);

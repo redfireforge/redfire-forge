@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import type { Scenario, TestScenario, FeatureGroup, GlobalAuthProfile, AuthConfig } from '../../../shared/types';
+import type { Scenario, TestScenario, FeatureGroup, GlobalAuthProfile, AuthConfig } from '@shared/types';
 import {
   SCENARIO_AUTH_TYPE_OPTIONS,
   buildFeatureAuthTypeOptions,
   resolveEffectiveAuth,
 } from './scenarioBuilderUtils';
-import { makeScenario as _makeScenario, makeTestScenario as _makeTestScenario } from '../../../test-utils/factories';
+import { makeScenario as _makeScenario, makeTestScenario as _makeTestScenario } from '@test-utils/factories';
 
 function auth(type: AuthConfig['type']): AuthConfig {
   return { type } as AuthConfig;

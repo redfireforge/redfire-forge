@@ -3,7 +3,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import type { RequestCollection, RequestFolder, RequestItem } from '../../../shared/types';
+import type { RequestCollection, RequestFolder, RequestItem } from '@shared/types';
 import { useRequestsSidebarSearch } from './useRequestsSidebarSearch';
 
 function makeReq(overrides: Partial<RequestItem> = {}): RequestItem {

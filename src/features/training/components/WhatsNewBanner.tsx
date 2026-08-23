@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { readKey, writeKey } from '../../../shared/utils/storage';
+import { readKey, writeKey } from '@shared/utils/storage';
 import type { WhatsNewItem } from '../hooks/useWhatsNew';
 
 const DISMISSED_KEY = 'perf-test-whats-new-dismissed';

@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback } from 'react';
-import type { WorkflowIterationTrace } from '../../../shared/types';
-import { truncate } from '../../../shared/utils/helpers';
-import { formatDurationMs } from '../../../shared/utils/formatDuration';
+import type { WorkflowIterationTrace } from '@shared/types';
+import { truncate } from '@shared/utils/helpers';
+import { formatDurationMs } from '@shared/utils/formatDuration';
 import { isSampledIteration } from '../utils/sampledIterations';
 
 type SortField = 'iteration' | 'status' | 'total' | string;

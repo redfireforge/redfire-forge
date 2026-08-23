@@ -7,8 +7,8 @@ import {
   type SseLeftTab,
   type SseRightTab,
 } from './sseTypes';
-import { useSplitPaneResize } from '../../shared/hooks/useSplitPaneResize';
-import { handleTabListArrowKeys } from '../../shared/utils/tabListKeyboard';
+import { useSplitPaneResize } from '@shared/hooks/useSplitPaneResize';
+import { handleTabListArrowKeys } from '@shared/utils/tabListKeyboard';
 
 const SSE_SPLIT_STORAGE_KEY = 'redfire-sse-split-v1';
 

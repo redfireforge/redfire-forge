@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as XLSX from 'xlsx-js-style';
 import { generateExcelTemplate, buildColumnDefs, parseExcelToScenarios } from './csvTemplateExcel';
-import type { Scenario } from '../../../shared/types';
+import type { Scenario } from '@shared/types';
 import type { ExportOptions } from './csvTemplateTypes';
 
 function makeTest(overrides: Partial<Scenario> = {}): Scenario {

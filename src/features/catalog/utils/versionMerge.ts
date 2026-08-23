@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { RequestItem, RequestCollection, RequestFolder, SpecVersion } from '../../../shared/types';
+import type { RequestItem, RequestCollection, RequestFolder, SpecVersion } from '@shared/types';
 import { collectAllRequestsFromCollection } from '../../requests/utils/requestTree';
 
 export interface MergeResult {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getEndpointVersionInfo, getNewEndpointsCount, buildVersionInfoMap } from './versionStatus';
-import { RequestCollection, RequestItem } from '../../../shared/types';
+import { RequestCollection, RequestItem } from '@shared/types';
 import { CatalogEndpoint, HttpMethod as CatMethod } from '../types/catalog';
 
 function makeReq(overrides: Partial<RequestItem> = {}): RequestItem {

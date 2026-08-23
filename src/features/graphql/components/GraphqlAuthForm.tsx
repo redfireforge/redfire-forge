@@ -5,9 +5,9 @@
  */
 
 import { useMemo, type ReactNode } from 'react';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import type { GlobalAuthProfile } from '../../../shared/types';
-import type { GraphqlAuth } from '../../../shared/types/graphql';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import type { GlobalAuthProfile } from '@shared/types';
+import type { GraphqlAuth } from '@shared/types/graphql';
 import {
   AUTH_TYPE_INHERIT_WORKSPACE,
   AUTH_TYPE_NONE,

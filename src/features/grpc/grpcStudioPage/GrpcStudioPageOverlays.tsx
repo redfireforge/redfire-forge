@@ -8,7 +8,7 @@ import { canChangeGrpcTabTransportMode, resolveGrpcStudioTabTransportMode } from
 import type { useGrpcCollections } from '../hooks/useGrpcCollections';
 import type { UseGrpcStudioReturn } from '../hooks/useGrpcStudio';
 import type { useGrpcStudioReplayActions } from '../hooks/useGrpcStudioReplayActions';
-import { sanitizeGrpcErrorMessage } from '../../../shared/grpc/grpcRedaction';
+import { sanitizeGrpcErrorMessage } from '@shared/grpc/grpcRedaction';
 import {
   buildGrpcTlsConfigTabPatch,
   buildGrpcTlsModeTabPatch,

@@ -3,7 +3,7 @@ const uuidMock = vi.hoisted(() =>
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('../../../test-utils/uuidMock.ts').hoistedUuidFixed('test-uuid'),
 );
-import type { FeatureGroup } from '../../../shared/types';
+import type { FeatureGroup } from '@shared/types';
 import {
   createEntry,
   appendToLog,

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { Microservice } from '../../../../shared/types';
+import type { Microservice } from '@shared/types';
 import { VarRow } from './VarRow';
 import { useDraggableModal } from './useDraggableModal';
 

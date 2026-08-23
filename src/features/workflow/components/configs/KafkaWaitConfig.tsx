@@ -5,13 +5,13 @@ import type {
   KafkaWaitNodeData,
 } from '../../types/workflow';
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
-import { useListCrud } from '../../../../shared/hooks/useListCrud';
+import { useListCrud } from '@shared/hooks/useListCrud';
 import InsertVarField from '../expression/InsertVarField';
 import ExpressionInput from '../expression/ExpressionInput';
 import AvailableVariables from '../expression/AvailableVariables';
 import { createHeaderFilter, createExtractVariable } from './kafkaConfigFactories';
 import { KafkaAddButton, KafkaCard, KafkaEmptyState, KafkaFormRow } from './KafkaConfigUi';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 const CORRELATION_SOURCE_OPTIONS: { value: KafkaWaitCorrelationSource; label: string }[] = [
   { value: 'body', label: 'Body (JSONPath)' },

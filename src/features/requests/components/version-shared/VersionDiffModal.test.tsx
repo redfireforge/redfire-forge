@@ -3,7 +3,7 @@ import '@testing-library/jest-dom';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createRef } from 'react';
-import { getCustomSelectOptionLabels } from '../../../../test-utils/customSelectHelper';
+import { getCustomSelectOptionLabels } from '@test-utils/customSelectHelper';
 import VersionDiffModal from './VersionDiffModal';
 
 // Sub-components: mock heavy ones (json-diff-kit Viewer) to avoid jsdom issues

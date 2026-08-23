@@ -2,8 +2,8 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it, vi } from 'vitest';
-import { createDefaultResponse } from '../../../shared/api-mock/defaults';
-import type { ApiMockRouteV1, ApiMockSimulationResultV1 } from '../../../shared/api-mock/contracts';
+import { createDefaultResponse } from '@shared/api-mock/defaults';
+import type { ApiMockRouteV1, ApiMockSimulationResultV1 } from '@shared/api-mock/contracts';
 import {
   annotateSimulatePass,
   reannotateSimulatePass,

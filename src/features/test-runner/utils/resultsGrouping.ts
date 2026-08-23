@@ -1,4 +1,4 @@
-import type { RequestResult } from '../../../shared/types';
+import type { RequestResult } from '@shared/types';
 
 export type GroupByLevel = 'feature' | 'group' | 'test' | 'dataRow' | 'workflowStep' | 'iteration';
 

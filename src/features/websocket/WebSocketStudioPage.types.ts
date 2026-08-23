@@ -1,4 +1,4 @@
-import type { GlobalAuthProfile, Microservice } from '../../shared/types';
+import type { GlobalAuthProfile, Microservice } from '@shared/types';
 
 export interface WebSocketStudioPageProps {
   resolvedBaseUrl?: string;

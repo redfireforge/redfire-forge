@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
-import type { GrpcTlsConfig, GrpcTlsMode } from '../../../shared/grpc/contracts';
+import type { GrpcTlsConfig, GrpcTlsMode } from '@shared/grpc/contracts';
 import {
   prepareGrpcTarget,
   type GrpcTlsValidationIssue,
-} from '../../../shared/grpc/grpcTlsPolicy';
+} from '@shared/grpc/grpcTlsPolicy';
 
 export interface UseGrpcTlsResult {
   issues: GrpcTlsValidationIssue[];

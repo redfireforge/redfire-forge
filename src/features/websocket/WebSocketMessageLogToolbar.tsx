@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import { CustomSelect } from '../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import type { WsMetricsSnapshot } from './useWebSocketMetrics';
 import type { WsDirectionFilter, WsSearchMode } from './useWebSocketStudioTypes';
 import type { WsValidationFilter } from './wsSchemaTypes';

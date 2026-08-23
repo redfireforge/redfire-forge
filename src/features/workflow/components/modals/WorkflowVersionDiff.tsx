@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { Viewer } from 'json-diff-kit';
-import { sharedDiffer } from '../../../../shared/utils/jsonDiffKit';
+import { sharedDiffer } from '@shared/utils/jsonDiffKit';
 import 'json-diff-kit/dist/viewer.css';
 import 'json-diff-kit/dist/viewer-monokai.css';
 import type { WorkflowVersion } from '../../types/workflow';
@@ -474,4 +474,4 @@ function InlineDiff({ oldObj, newObj }: { oldObj: unknown; newObj: unknown }) {
   );
 }
 
-import { formatTimestamp } from '../../../../shared/utils/formatRelativeTime';
+import { formatTimestamp } from '@shared/utils/formatRelativeTime';

@@ -15,8 +15,8 @@ import {
 import { WebSocketTlsPanel } from './WebSocketTlsPanel';
 import { KeyValueEditor } from './KeyValueEditor';
 import WebSocketAuthPanel from './WebSocketAuthPanel';
-import type { WsConnectionDraft, WsKeyValueEntry } from '../../shared/websocket/types';
-import type { AuthConfig } from '../../shared/types';
+import type { WsConnectionDraft, WsKeyValueEntry } from '@shared/websocket/types';
+import type { AuthConfig } from '@shared/types';
 import {
   createDefaultTlsConfig,
   deriveViewTabFromStudio,
@@ -25,11 +25,11 @@ import {
   hasTlsOverrides,
   mapViewTabToStudioLocation,
   resolveBackoffMultiplier,
-} from '../../shared/websocket/types';
-import { resolveEffectiveProtocol } from '../../shared/websocket/protocols/protocolDetector';
+} from '@shared/websocket/types';
+import { resolveEffectiveProtocol } from '@shared/websocket/protocols/protocolDetector';
 import { buildResolvedEffectiveUrl } from './wsMessageUtils';
 import type { ConnectionStateHint } from './WsConnectionTabBar';
-import type { WsViewTab, WsProtocolMode } from '../../shared/websocket/types';
+import type { WsViewTab, WsProtocolMode } from '@shared/websocket/types';
 import { useWebSocketRecording } from './useWebSocketRecording';
 import { useWebSocketRecordingBridge } from './useWebSocketRecordingBridge';
 import { useWebSocketMetrics } from './useWebSocketMetrics';

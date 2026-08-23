@@ -4,14 +4,14 @@ import {
   FIXTURE_DESCRIPTOR_KEY,
   FIXTURE_MULTI_SERVICE_DESCRIPTOR,
   FIXTURE_MULTI_SERVICE_DESCRIPTOR_KEY,
-} from '../../../shared/grpc/contractFixtures';
+} from '@shared/grpc/contractFixtures';
 import {
   buildGrpcHistoryDescriptorDriftReport,
   buildGrpcSavedRequestSchemaCompareIntent,
   compareGrpcSavedRequestSchema,
   detectGrpcHistoryDescriptorDrift,
 } from './grpcCollectionSchemaDiffActions';
-import type { GrpcSavedRequest } from '../../../shared/grpc/grpcSavedRequest';
+import type { GrpcSavedRequest } from '@shared/grpc/grpcSavedRequest';
 
 const saved: GrpcSavedRequest = {
   id: 'saved-1',

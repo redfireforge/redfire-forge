@@ -1,15 +1,15 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import type { WorkflowIterationTrace, TraceCaptureLevel } from '../../../shared/types';
-import ConsoleLogLine from '../../../shared/components/ConsoleLogLine';
-import type { LogLine } from '../../../shared/utils/consoleLogUtils';
+import type { WorkflowIterationTrace, TraceCaptureLevel } from '@shared/types';
+import ConsoleLogLine from '@shared/components/ConsoleLogLine';
+import type { LogLine } from '@shared/utils/consoleLogUtils';
 import { reconstructLogLines } from '../utils/reconstructLogLines';
 import { buildAggregateSummary } from '../utils/buildAggregateSummary';
 import { inferCaptureLevel } from '../utils/inferCaptureLevel';
-import type { WorkflowExecutionTrace } from '../../../shared/types';
+import type { WorkflowExecutionTrace } from '@shared/types';
 import { isSampledIteration } from '../utils/sampledIterations';
-import { type PanelMode, loadPanelMode, savePanelMode } from '../../../shared/utils/panelMode';
-import { useFloatingPanel } from '../../../shared/hooks/useFloatingPanel';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { type PanelMode, loadPanelMode, savePanelMode } from '@shared/utils/panelMode';
+import { useFloatingPanel } from '@shared/hooks/useFloatingPanel';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 const RE_CONSOLE_MODE_KEY = 're-console-default-mode';
 

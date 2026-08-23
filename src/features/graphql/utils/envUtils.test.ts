@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { resolveVars, findUnresolvedVars, hasUnresolvedVars } from './envUtils';
-import type { GraphqlEnvironment } from '../../../shared/types/graphql';
+import type { GraphqlEnvironment } from '@shared/types/graphql';
 
 function makeEnv(vars: Record<string, string>, enabled = true): GraphqlEnvironment {
   return {

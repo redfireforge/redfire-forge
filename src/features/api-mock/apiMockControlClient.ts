@@ -4,13 +4,13 @@
  * Failures return a classified RuntimeDiagnostic so the UI can show a clear,
  * recoverable message instead of a raw error.
  */
-import type { ApiMockLocalDiagnosticsV1, ApiMockServerDefinitionV1, ApiMockTransactionV1 } from '../../shared/api-mock/contracts';
-import { HARD_CEILINGS } from '../../shared/api-mock/defaults';
-import type { ApiMockRecordedDraftV1 } from '../../shared/api-mock/proxyRecording';
-import { classifyRuntimeError, type RuntimeDiagnostic, type RuntimeErrorCode } from '../../shared/api-mock/recoveryDiagnostics';
-import { apiMockControlBase } from '../../shared/api-mock/controlBase';
-import { isTauri } from '../../shared/utils/platform';
-import { nativeTauriControl } from '../../shared/api-mock/nativeTauriControl';
+import type { ApiMockLocalDiagnosticsV1, ApiMockServerDefinitionV1, ApiMockTransactionV1 } from '@shared/api-mock/contracts';
+import { HARD_CEILINGS } from '@shared/api-mock/defaults';
+import type { ApiMockRecordedDraftV1 } from '@shared/api-mock/proxyRecording';
+import { classifyRuntimeError, type RuntimeDiagnostic, type RuntimeErrorCode } from '@shared/api-mock/recoveryDiagnostics';
+import { apiMockControlBase } from '@shared/api-mock/controlBase';
+import { isTauri } from '@shared/utils/platform';
+import { nativeTauriControl } from '@shared/api-mock/nativeTauriControl';
 import { pickNextAutoPort, resolveNextAutoPort } from './apiMockPageHelpers';
 
 export interface ControlStatus {

@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario } from '../../../shared/types';
-import { saveFile } from '../../../shared/utils/fileSaver';
+import type { Scenario } from '@shared/types';
+import { saveFile } from '@shared/utils/fileSaver';
 import type {
   TemplateMetadata,
   ExportOptions,

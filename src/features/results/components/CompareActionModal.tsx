@@ -1,4 +1,4 @@
-import PopupModal from '../../../shared/components/PopupModal';
+import PopupModal from '@shared/components/PopupModal';
 
 interface Props {
   open: boolean;

@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import type { ApiMockRouteV1, ApiMockPredicateV1, ApiMockPredicateGroupV1, ApiMockResponseVariantV1, ApiMockFaultKind, ApiMockSimulationSampleV1, ApiMockRouteFolderV1, ApiMockVariableV1 } from '../../../shared/api-mock/contracts';
-import { isUnavailablePredicateOperator } from '../../../shared/api-mock/unavailableOperators';
-import { handleTabListArrowKeys } from '../../../shared/utils/tabListKeyboard';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
-import { inferPathKind } from '../../../shared/api-mock/pathMatcher';
+import type { ApiMockRouteV1, ApiMockPredicateV1, ApiMockPredicateGroupV1, ApiMockResponseVariantV1, ApiMockFaultKind, ApiMockSimulationSampleV1, ApiMockRouteFolderV1, ApiMockVariableV1 } from '@shared/api-mock/contracts';
+import { isUnavailablePredicateOperator } from '@shared/api-mock/unavailableOperators';
+import { handleTabListArrowKeys } from '@shared/utils/tabListKeyboard';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import { inferPathKind } from '@shared/api-mock/pathMatcher';
 import {
   addChildToGroup,
   countLeaves,
@@ -12,7 +12,7 @@ import {
   removeNodeFromTree,
   updateGroupInTree,
   updateLeafInTree,
-} from '../../../shared/api-mock/predicateTree';
+} from '@shared/api-mock/predicateTree';
 import { ApiMockResponseEditor } from './ApiMockResponseEditor';
 import { ApiMockPatternToolboxModal } from './ApiMockPatternToolboxModal';
 import { ApiMockExamplesPanel } from './ApiMockExamplesPanel';

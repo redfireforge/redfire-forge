@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import CsvTemplateExportModal from './CsvTemplateExportModal';
-import type { Scenario } from '../../../shared/types';
+import type { Scenario } from '@shared/types';
 import type { ColumnDef, ExportOptions } from '../utils/csvTemplate';
 
 const mockAnalyzeUrlPath = vi.fn();

@@ -1,6 +1,6 @@
 import { defaultValueForGrpcField, resolveActiveOneofMember } from '../../utils/grpcProtoFormValues';
 import { GrpcProtoFieldRow } from './GrpcProtoFieldRow';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import type { GrpcProtoOneofGroupRowProps } from './grpcProtoFormBuilderTypes';
 
 export function GrpcProtoOneofGroupRow({

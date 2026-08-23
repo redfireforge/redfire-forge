@@ -1,8 +1,8 @@
-import { createFrame, type WsConnectionSnapshot, type WsFrame } from '../../shared/websocket/types';
-import { dispatchWsOperation } from '../../shared/websocket/websocketClient';
+import { createFrame, type WsConnectionSnapshot, type WsFrame } from '@shared/websocket/types';
+import { dispatchWsOperation } from '@shared/websocket/websocketClient';
 import { formatCloseFrame } from './useWebSocketStudioTypes';
 import { processReceivedMessage } from './wsMessageProcessing';
-import type { WsProtocolMode, WsProtocolDetectionResult } from '../../shared/websocket/protocols/protocolTypes';
+import type { WsProtocolMode, WsProtocolDetectionResult } from '@shared/websocket/protocols/protocolTypes';
 import type { SioServerParams } from './wsProtocolHelpers';
 import type { Dispatch, SetStateAction } from 'react';
 

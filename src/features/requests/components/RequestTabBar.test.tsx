@@ -5,8 +5,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { RequestTabBar, type RequestTabBarProps } from './RequestTabBar';
-import type { RequestTab } from '../../../shared/types';
-import { REQUEST_MAX_TABS } from '../../../shared/types/requests';
+import type { RequestTab } from '@shared/types';
+import { REQUEST_MAX_TABS } from '@shared/types/requests';
 
 // ── Factories ──────────────────────────────────────────────────
 

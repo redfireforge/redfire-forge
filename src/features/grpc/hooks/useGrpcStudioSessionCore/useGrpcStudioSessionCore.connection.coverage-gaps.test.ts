@@ -3,7 +3,7 @@
  */
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { FIXTURE_DESCRIPTOR } from '../../../../shared/grpc/contractFixtures';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
 import { useGrpcStudioSessionCore } from '../useGrpcStudioSessionCore';
 vi.mock('../../utils/grpcTabSecretVault', () => ({
   shouldScheduleTabSecretsVaultSync: (patch: Record<string, unknown>) => (

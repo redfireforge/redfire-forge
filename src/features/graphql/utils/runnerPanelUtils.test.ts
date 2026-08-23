@@ -5,7 +5,7 @@ import {
   formatRunnerEventSummary,
   runnerExportFilename,
 } from './runnerPanelUtils';
-import type { CollectionRunEvent } from '../../../shared/types/graphql';
+import type { CollectionRunEvent } from '@shared/types/graphql';
 
 const itemNames = new Map([['item-1', 'Lesson 8 Health']]);
 

@@ -6,10 +6,10 @@
  * PopulateMapStep — Mapping step UI for PopulateFromApiModal.
  * Shows array selector, field mappings, and row preview with selection.
  */
-import type { DataSourceColumn } from '../../../shared/types';
+import type { DataSourceColumn } from '@shared/types';
 import type { DetectedArray, FieldMapping } from '../utils/populateFromApiUtils';
 import { formatCellValue } from '../utils/populateFromApiUtils';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 interface PopulateMapStepProps {
   detectedArrays: DetectedArray[];

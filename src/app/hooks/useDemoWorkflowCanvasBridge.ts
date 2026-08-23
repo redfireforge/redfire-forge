@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import type { WorkflowNodeData } from '../../features/workflow/types/workflow';
-import type { WorkflowRFNode } from '../../features/workflow/utils/workflowNodeFactory';
+import type { WorkflowNodeData } from '@workflow/types/workflow';
+import type { WorkflowRFNode } from '@workflow/utils/workflowNodeFactory';
 
 /**
  * Demo-player bridge for live workflow canvas state.

@@ -31,9 +31,9 @@ vi.mock('../../engine/scriptLibraries', () => ({
   buildLibraryPreamble: vi.fn(() => ''),
 }));
 
-import { executeScript } from '../../engine/scriptSandbox';
-import { detectOutputVariables } from '../../engine/scriptAnalysis';
-import { buildLibraryPreamble } from '../../engine/scriptLibraries';
+import { executeScript } from '@workflow/engine/scriptSandbox';
+import { detectOutputVariables } from '@workflow/engine/scriptAnalysis';
+import { buildLibraryPreamble } from '@workflow/engine/scriptLibraries';
 
 const mockExecuteScript = vi.mocked(executeScript);
 const mockDetectOutputVariables = vi.mocked(detectOutputVariables);

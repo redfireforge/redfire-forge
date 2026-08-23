@@ -5,10 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ApiMockServerBar } from './ApiMockServerBar';
-import { DEFAULT_SETTINGS } from '../../../shared/api-mock/defaults';
-import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
-import { isTauri } from '../../../shared/utils/platform';
-import { analyzeNativeUnsupported } from '../../../shared/api-mock/nativeCapabilities';
+import { DEFAULT_SETTINGS } from '@shared/api-mock/defaults';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
+import { isTauri } from '@shared/utils/platform';
+import { analyzeNativeUnsupported } from '@shared/api-mock/nativeCapabilities';
 
 vi.mock('../../../shared/utils/platform', () => ({
   isTauri: vi.fn(() => false),

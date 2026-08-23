@@ -4,11 +4,11 @@
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, renderHook, act } from '@testing-library/react';
-import type { UseKafkaMessageStudioReturn } from '../../app/hooks/useKafkaMessageStudio';
+import type { UseKafkaMessageStudioReturn } from '@app/hooks/useKafkaMessageStudio';
 import * as helpers from './kafkaConsumeStreamHelpers';
 import * as messageStudioUtils from './kafkaMessageStudioUtils';
 import { useKafkaConsumeE2eBridge, useKafkaConsumeStreamView, useRelativeTimestampTick } from './kafkaConsumeStudioHooks';
-import type { UseKafkaStreamModeReturn } from '../../app/hooks/useKafkaStreamMode';
+import type { UseKafkaStreamModeReturn } from '@app/hooks/useKafkaStreamMode';
 
 function HookHost({ studio, intervalMs = 30_000 }: { studio: UseKafkaMessageStudioReturn; intervalMs?: number }) {
   useKafkaConsumeE2eBridge(studio);

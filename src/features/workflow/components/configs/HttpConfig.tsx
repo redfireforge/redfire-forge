@@ -4,11 +4,11 @@ import type {
   WorkflowService,
   ServiceEndpoint,
 } from '../../types/workflow';
-import type { Environment } from '../../../../shared/types';
+import type { Environment } from '@shared/types';
 import {
   type WorkflowVariableHint,
 } from '../../utils/workflowVariableHints';
-import type { Scenario } from '../../../../shared/types';
+import type { Scenario } from '@shared/types';
 import ExtractionEditor from '../../../requests/components/ExtractionEditor';
 import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionEditor';
 import TestEditorValidationTab from '../../../scenarios/components/TestEditorValidationTab';
@@ -18,17 +18,17 @@ import type { ParamEntry } from '../../../requests/components/ParamsEditor';
 import ExpressionInput from '../expression/ExpressionInput';
 import ExpressionTextarea from '../expression/ExpressionTextarea';
 import DataSourceEditor from '../../../scenarios/components/DataSourceEditor';
-import { DataMapperModal, createVariableBindingAdapter, collectTemplateSlots } from '../../../../shared/components/data-mapper';
-import { useBodyBuilderSync } from '../../../../shared/components/data-mapper/hooks/useBodyBuilderSync';
-import { createRequestBodyAdapter } from '../../../../shared/components/data-mapper/adapters/requestBodyAdapter';
-import type { VariableHintForBody } from '../../../../shared/components/data-mapper/adapters/requestBodyAdapter';
+import { DataMapperModal, createVariableBindingAdapter, collectTemplateSlots } from '@shared/components/data-mapper';
+import { useBodyBuilderSync } from '@shared/components/data-mapper/hooks/useBodyBuilderSync';
+import { createRequestBodyAdapter } from '@shared/components/data-mapper/adapters/requestBodyAdapter';
+import type { VariableHintForBody } from '@shared/components/data-mapper/adapters/requestBodyAdapter';
 import {
   decodeTemplateVars,
   parseQueryParams,
   rebuildUrl as rebuildUrlShared,
-} from '../../../../shared/utils/queryParams';
+} from '@shared/utils/queryParams';
 import { stripTrailingSlash, resolveServiceAuth } from '../../utils/workflowHostResolve';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import { KafkaCard, KafkaFormRow } from './KafkaConfigUi';
 import { HttpVariableRefHints } from './HttpVariableRefHints';
 import { HttpAuthSection } from './HttpAuthSection';

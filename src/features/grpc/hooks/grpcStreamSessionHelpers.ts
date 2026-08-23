@@ -1,14 +1,14 @@
 import type { MutableRefObject } from 'react';
-import { GRPC_ERROR_CODES, type GrpcErrorBody } from '../../../shared/grpc/contracts';
-import { GrpcApiClientError } from '../../../shared/grpc/grpcApiClient';
-import { cancelGrpcStream } from '../../../shared/grpc/grpcStreamClient';
-import { clearGrpcStreamTransportBinding } from '../../../shared/grpc/grpcTransportFallback';
-import { classifyGrpcTransportFailure } from '../../../shared/grpc/grpcTransportErrors';
+import { GRPC_ERROR_CODES, type GrpcErrorBody } from '@shared/grpc/contracts';
+import { GrpcApiClientError } from '@shared/grpc/grpcApiClient';
+import { cancelGrpcStream } from '@shared/grpc/grpcStreamClient';
+import { clearGrpcStreamTransportBinding } from '@shared/grpc/grpcTransportFallback';
+import { classifyGrpcTransportFailure } from '@shared/grpc/grpcTransportErrors';
 import {
   isGrpcStreamLifecycleInFlight,
   isGrpcStreamLifecycleTerminal,
   type GrpcStreamLifecycle,
-} from '../../../shared/grpc/streamLifecycle';
+} from '@shared/grpc/streamLifecycle';
 import type { GrpcStudioTabState } from '../grpcStudioTypes';
 
 export function tabHasActiveStream(tab: GrpcStudioTabState): boolean {

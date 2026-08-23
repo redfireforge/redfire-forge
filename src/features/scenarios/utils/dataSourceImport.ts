@@ -7,7 +7,7 @@
  */
 import { v4 as uuidv4 } from 'uuid';
 import * as XLSX from 'xlsx-js-style';
-import type { DataSourceColumn, DataSourceRow } from '../../../shared/types';
+import type { DataSourceColumn, DataSourceRow } from '@shared/types';
 import type { CsvParseResult } from './csvTemplateTypes';
 
 // ─── Column Header Parsing ───────────────────────────────────
@@ -242,7 +242,7 @@ export async function parseExcelSimple(
  * Extract a value from a JSON object using a simple dot/bracket path.
  * Delegates to the canonical `getByPathAsString` engine.
  */
-export { getByPathAsString as extractJsonPath } from '../../../shared/utils/jsonPath';
+export { getByPathAsString as extractJsonPath } from '@shared/utils/jsonPath';
 
 /**
  * Infer dynamic patterns from existing indexed validate columns.

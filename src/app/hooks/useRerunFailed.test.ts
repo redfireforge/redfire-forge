@@ -4,8 +4,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useRerunFailed } from './useRerunFailed';
-import type { AuthConfig, FeatureGroup, RequestResult, TestRun, TestScenario, TestSummary } from '../../shared/types';
-import type { TestResult } from '../../engine/executor';
+import type { AuthConfig, FeatureGroup, RequestResult, TestRun, TestScenario, TestSummary } from '@shared/types';
+import type { TestResult } from '@engine/core/executor';
 
 // ── Mocks ──
 

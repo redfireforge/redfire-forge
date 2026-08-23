@@ -1,4 +1,4 @@
-import type { Environment, Microservice, ProtocolKey } from '../../shared/types';
+import type { Environment, Microservice, ProtocolKey } from '@shared/types';
 import {
   PROTOCOL_TABS,
   envDisplayName,

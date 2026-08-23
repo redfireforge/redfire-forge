@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import type { Environment, Microservice, FeatureGroup, GlobalAuthProfile, SharedDataSource } from '../../../shared/types';
+import type { Environment, Microservice, FeatureGroup, GlobalAuthProfile, SharedDataSource } from '@shared/types';
 
 const m = {
   loadEnvironments: vi.fn(),

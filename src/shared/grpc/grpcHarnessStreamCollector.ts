@@ -8,7 +8,7 @@ import {
   collectGrpcWorkflowServerStream,
   type GrpcWorkflowStreamCollectionResult,
   type GrpcWorkflowStreamStopReason,
-} from '../../features/workflow/utils/grpcWorkflowStreamCollector';
+} from '@workflow/utils/grpcWorkflowStreamCollector';
 import {
   cancelGrpcStream,
   endGrpcStream,

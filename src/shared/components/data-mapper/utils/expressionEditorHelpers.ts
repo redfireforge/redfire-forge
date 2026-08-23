@@ -1,4 +1,4 @@
-import type { ExpressionFunction } from '../../../../features/workflow/utils/expressionFunctions/types';
+import type { ExpressionFunction } from '@workflow/utils/expressionFunctions/types';
 import type { MapperSource } from '../types';
 import { buildJsonTree, getAllLeafPaths, getAllPaths } from '../../../utils/jsonTreeModel';
 import { isValidJson } from '../../../utils/helpers';

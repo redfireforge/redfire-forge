@@ -2,8 +2,8 @@
  * Phase 5F + 5G — grpcurl import/export parity and golden command tests.
  */
 import { describe, expect, it } from 'vitest';
-import { createGrpcSavedRequestFromSnapshot } from '../../../shared/grpc/grpcSavedRequest';
-import { FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
+import { createGrpcSavedRequestFromSnapshot } from '@shared/grpc/grpcSavedRequest';
+import { FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
 import {
   GRPC_GRPCURL_FLAG_COMPAT_MATRIX,
   buildGrpcurlInvokeCommand,

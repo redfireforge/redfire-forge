@@ -2,13 +2,13 @@
  * Handler for HTTP nodes in the workflow graph.
  */
 import type { WorkflowNode, HttpNodeData, NodeRunStatus } from '../types/workflow';
-import type { Scenario, AssertionResult } from '../../../shared/types';
+import type { Scenario, AssertionResult } from '@shared/types';
 import type { NodeHandlerContext, PassedFlag, CapturedHttpNodeDetails } from './graphRunnerNodeHandlerContext';
 import { executeHttpNode, logHttpResult } from './graphRunnerHelpers';
 import { formatHttpNodeRunDetail, summarizeRequestFailure } from '../utils/workflowRunErrors';
-import { humanizeError } from '../../../shared/utils/helpers';
-import { expandDataSource } from '../../../engine/dataSourceExpander';
-import { captureMappingTraces, shouldCaptureMappingTraces } from '../../../shared/components/data-mapper/utils/mappingTrace';
+import { humanizeError } from '@shared/utils/helpers';
+import { expandDataSource } from '@engine/core/dataSourceExpander';
+import { captureMappingTraces, shouldCaptureMappingTraces } from '@shared/components/data-mapper/utils/mappingTrace';
 import { resolveTraceLevel } from './graphRunnerTraceLevel';
 
 /** Maximum response body size to capture (100KB) */

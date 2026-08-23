@@ -4,8 +4,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { ApiMockStudioMainPanel } from './ApiMockStudioMainPanel';
-import { DEFAULT_SETTINGS } from '../../../shared/api-mock/defaults';
-import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
+import { DEFAULT_SETTINGS } from '@shared/api-mock/defaults';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
 
 vi.mock('./ApiMockRouteExplorer', () => ({
   ApiMockRouteExplorer: ({ onSelect, onCreate, onDelete, onAnalyze, onCloseDrawer, onToggle }: {

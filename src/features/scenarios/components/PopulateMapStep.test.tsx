@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { selectOption, selectOptionByIndex } from '../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import PopulateMapStep from './PopulateMapStep';
 import type { DetectedArray, FieldMapping } from '../utils/populateFromApiUtils';
 

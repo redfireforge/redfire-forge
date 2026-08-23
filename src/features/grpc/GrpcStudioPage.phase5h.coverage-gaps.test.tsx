@@ -3,7 +3,7 @@
  */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { selectOption } from '../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_DESCRIPTOR_KEY,
@@ -11,12 +11,12 @@ import {
   FIXTURE_REFLECT_SUCCESS_ENVELOPE,
   FIXTURE_TARGET,
   FIXTURE_UNARY_CALL_REQUEST,
-} from '../../shared/grpc/contractFixtures';
-import { prepareGrpcCallHistoryEntryForPersist } from '../../shared/grpc/grpcPersistenceSchema';
-import { createGrpcSavedRequestFromSnapshot } from '../../shared/grpc/grpcSavedRequest';
+} from '@shared/grpc/contractFixtures';
+import { prepareGrpcCallHistoryEntryForPersist } from '@shared/grpc/grpcPersistenceSchema';
+import { createGrpcSavedRequestFromSnapshot } from '@shared/grpc/grpcSavedRequest';
 import type { UseGrpcCallHistoryResult } from './hooks/useGrpcCallHistory';
 import type { UseGrpcCollectionsResult } from './hooks/useGrpcCollections';
-import { setGrpcClientTransport } from '../../shared/grpc/grpcApiClient';
+import { setGrpcClientTransport } from '@shared/grpc/grpcApiClient';
 import { GrpcStudioPage } from './GrpcStudioPage';
 import { resetGrpcTabCounterForTests } from './grpcStudioTypes';
 

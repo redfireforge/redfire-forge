@@ -6,7 +6,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { FieldTree } from './FieldTree';
 import type { FieldTreeProps } from './FieldTree';
-import type { GraphqlSchemaInfo, GraphqlTypeNode } from '../../../../shared/types/graphql';
+import type { GraphqlSchemaInfo, GraphqlTypeNode } from '@shared/types/graphql';
 import type { BuilderState } from '../../hooks/useGraphqlQueryBuilder';
 
 // Mock FieldRow to avoid rendering its full complexity

@@ -7,7 +7,7 @@
  * on results), which is the common single-feature-group case.
  */
 import { useState, useMemo, useEffect, Fragment } from 'react';
-import type { TestSummary, RequestResult } from '../../../shared/types';
+import type { TestSummary, RequestResult } from '@shared/types';
 import {
   evaluateSlaTree,
   SLA_METRIC_LABELS,

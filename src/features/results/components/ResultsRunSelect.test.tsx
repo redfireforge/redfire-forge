@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ResultsRunSelect } from './ResultsRunSelect';
-import { makeSummary, makeTestRun } from '../../../test-utils/factories';
+import { makeSummary, makeTestRun } from '@test-utils/factories';
 
 function makeRun(id: string, projectName: string, timestamp: number) {
   return makeTestRun({

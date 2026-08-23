@@ -1,4 +1,4 @@
-import type { ExpectedField } from '../../../shared/types';
+import type { ExpectedField } from '@shared/types';
 
 interface PivotedRules {
   columns: string[];

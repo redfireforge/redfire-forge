@@ -3,7 +3,7 @@ import WorkflowVariableInsertModal from './WorkflowVariableInsertModal';
 import VariablesSection from '../panels/VariablesSection';
 import type { WorkflowService, WorkflowErrorConfig, WorkflowErrorMode, WorkflowNode } from '../../types/workflow';
 import { buildWorkflowOnlyHints } from '../../utils/workflowVariableHints';
-import { snapshot } from '../../../../shared/utils/helpers';
+import { snapshot } from '@shared/utils/helpers';
 import { useVariableInsertModal } from '../../hooks/useVariableInsertModal';
 import WorkflowEditorModalFrame from './WorkflowEditorModalFrame';
 import WfDarkSelect from './WfDarkSelect';

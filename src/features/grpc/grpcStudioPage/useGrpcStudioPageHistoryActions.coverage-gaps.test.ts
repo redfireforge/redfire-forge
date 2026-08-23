@@ -8,12 +8,12 @@ import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_DESCRIPTOR_KEY,
   FIXTURE_UNARY_CALL_REQUEST,
-} from '../../../shared/grpc/contractFixtures';
-import type { GrpcCallHistoryEntryV1 } from '../../../shared/grpc/grpcPersistenceSchema';
-import { createGrpcSavedRequestFromSnapshot } from '../../../shared/grpc/grpcSavedRequest';
-import * as grpcApiClient from '../../../shared/grpc/grpcApiClient';
-import * as grpcAuthPolicy from '../../../shared/grpc/grpcAuthPolicy';
-import * as grpcStudioExecute from '../../../shared/grpc/grpcStudioExecuteInterpolation';
+} from '@shared/grpc/contractFixtures';
+import type { GrpcCallHistoryEntryV1 } from '@shared/grpc/grpcPersistenceSchema';
+import { createGrpcSavedRequestFromSnapshot } from '@shared/grpc/grpcSavedRequest';
+import * as grpcApiClient from '@shared/grpc/grpcApiClient';
+import * as grpcAuthPolicy from '@shared/grpc/grpcAuthPolicy';
+import * as grpcStudioExecute from '@shared/grpc/grpcStudioExecuteInterpolation';
 import { createEmptyTabDescriptorState, createGrpcStudioTab } from '../grpcStudioTypes';
 import * as callHistoryCapture from '../utils/grpcStudioCallHistoryCapture';
 import * as grpcGrpcurl from '../utils/grpcGrpcurl';

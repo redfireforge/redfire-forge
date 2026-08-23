@@ -3,13 +3,13 @@ import type { UseGrpcStudioAdvancedFeaturesReturn } from '../../hooks/useGrpcStu
 import type {
   GrpcSchemaDiffChange,
   GrpcSchemaDiffSeverity,
-} from '../../../../shared/grpc/grpcSchemaDiffContracts';
+} from '@shared/grpc/grpcSchemaDiffContracts';
 import {
   filterGrpcSchemaDiffChangesForUi,
   presentGrpcAdvancedOperationStatus,
   schemaDiffSeverityBadgeClass,
 } from '../../utils/grpcStudioAdvancedModel';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import { grpcSchemaDiffChangeId } from '../../utils/grpcSchemaDiffAck';
 import {
   buildChangeSnippet,

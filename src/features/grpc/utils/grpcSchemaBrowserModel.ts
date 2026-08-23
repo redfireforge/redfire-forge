@@ -3,7 +3,7 @@ import type {
   GrpcEnumSchema,
   GrpcMessageSchema,
   GrpcMethodInfo,
-} from '../../../shared/grpc/contracts';
+} from '@shared/grpc/contracts';
 import { slugifyGrpcExplorerId } from './grpcExplorerUtils';
 
 export type SchemaBrowserNodeKind =

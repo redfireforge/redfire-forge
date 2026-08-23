@@ -1,4 +1,4 @@
-import type { GrpcFieldSchema, GrpcMessageSchema } from '../../../../shared/grpc/contracts';
+import type { GrpcFieldSchema, GrpcMessageSchema } from '@shared/grpc/contracts';
 
 export interface GrpcProtoFieldRowProps {
   field: GrpcFieldSchema;

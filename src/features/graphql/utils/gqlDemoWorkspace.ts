@@ -3,7 +3,7 @@
  * Persists demo tabs separately from user tabs; reloads Studio via custom event.
  */
 import { DEMO_HUB_ENABLED } from '../../../config/features';
-import { readKey, writeKey, removeKey } from '../../../shared/utils/storage';
+import { readKey, writeKey, removeKey } from '@shared/utils/storage';
 import {
   type GqlStudioTab,
   type GqlPageAuthSnapshot,

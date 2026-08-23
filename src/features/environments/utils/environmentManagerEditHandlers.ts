@@ -1,4 +1,4 @@
-import type { ProtocolKey } from '../../../shared/types';
+import type { ProtocolKey } from '@shared/types';
 
 export type ActiveEdit =
   | { svcId: string; kind: 'http'; envId: string; value: string }

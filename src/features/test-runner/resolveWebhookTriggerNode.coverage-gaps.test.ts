@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { resolveWebhookTriggerNode } from './resolveWebhookTriggerNode';
-import { makeWorkflow, makeWorkflowNode, makeWorkflowEdge } from '../../test-utils/factories';
+import { makeWorkflow, makeWorkflowNode, makeWorkflowEdge } from '@test-utils/factories';
 
 describe('resolveWebhookTriggerNode — coverage gaps', () => {
   it('ignores incoming edge from orphaned Start node', () => {

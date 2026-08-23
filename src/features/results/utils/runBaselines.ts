@@ -5,8 +5,8 @@
  * that references run IDs. The actual run data lives in IndexedDB.
  */
 
-import { readKey, writeKey } from '../../../shared/utils/storage';
-import type { TestRun, TestSummary } from '../../../shared/types';
+import { readKey, writeKey } from '@shared/utils/storage';
+import type { TestRun, TestSummary } from '@shared/types';
 
 // ── Storage ──
 

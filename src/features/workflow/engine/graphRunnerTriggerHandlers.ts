@@ -7,7 +7,7 @@ import type {
 } from '../types/workflow';
 import type { NodeHandlerContext, KafkaConsumedMessage } from './graphRunnerNodeHandlerContext';
 import { extractPayloadVariables } from './graphRunnerHelpers';
-import { getByPath } from '../../../shared/utils/jsonPath';
+import { getByPath } from '@shared/utils/jsonPath';
 import { KAFKA_TRIGGER_CONTEXT_KEYS } from './kafkaTriggerContracts';
 
 export async function handleStartNode(

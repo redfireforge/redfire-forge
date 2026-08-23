@@ -6,12 +6,12 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import {
   createEmptyGrpcCollectionsStore,
   type GrpcCollectionsStoreV1,
-} from '../../../shared/grpc/grpcPersistenceSchema';
+} from '@shared/grpc/grpcPersistenceSchema';
 import {
   FIXTURE_DESCRIPTOR_KEY,
   FIXTURE_UNARY_CALL_REQUEST,
-} from '../../../shared/grpc/contractFixtures';
-import { createGrpcSavedRequestFromSnapshot } from '../../../shared/grpc/grpcSavedRequest';
+} from '@shared/grpc/contractFixtures';
+import { createGrpcSavedRequestFromSnapshot } from '@shared/grpc/grpcSavedRequest';
 
 const loadMock = vi.fn();
 const mutateMock = vi.fn();

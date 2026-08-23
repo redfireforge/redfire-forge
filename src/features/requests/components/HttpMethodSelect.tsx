@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { HttpMethod } from '../../../shared/types';
-import { METHOD_COLORS, METHOD_DESCRIPTIONS } from '../../../shared/constants/httpMethodColors';
+import type { HttpMethod } from '@shared/types';
+import { METHOD_COLORS, METHOD_DESCRIPTIONS } from '@shared/constants/httpMethodColors';
 
 const METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 

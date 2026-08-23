@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { SlaCompactBar } from './SlaCompactBar';
 import type { SlaTarget } from '../utils/slaTargets';
-import { makeSummary, makeResult } from '../../../test-utils/factories';
+import { makeSummary, makeResult } from '@test-utils/factories';
 
 // Mock the editor so we can drive onSave / onCancel deterministically without
 // depending on its internal markup.

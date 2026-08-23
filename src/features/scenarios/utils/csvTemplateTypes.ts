@@ -1,4 +1,4 @@
-import type { Scenario, BodyType, KeyValue, AuthConfig, ValidationMode, SelectiveMode, DataSourceColumn } from '../../../shared/types';
+import type { Scenario, BodyType, KeyValue, AuthConfig, ValidationMode, SelectiveMode, DataSourceColumn } from '@shared/types';
 
 // ---------------------------------------------------------------------------
 // Column prefixes for CSV headers

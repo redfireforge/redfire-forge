@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildCollectionImportPreview, formatImportQueryPreview } from './collectionImportPreview';
-import type { CollectionExportData } from '../../../shared/utils/idbGraphqlCollections';
+import type { CollectionExportData } from '@shared/utils/idbGraphqlCollections';
 
 describe('collectionImportPreview — coverage gaps', () => {
   it('formatImportQueryPreview returns empty string for whitespace-only query', () => {

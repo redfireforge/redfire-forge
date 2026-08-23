@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useTopicMessageBrowser } from './useTopicMessageBrowser';
-import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
+import type { UseKafkaStateReturn } from '@app/hooks/useKafkaState';
 import type { KafkaConsumeResultRow } from './types';
 
 function makeKafkaState(overrides?: Partial<UseKafkaStateReturn>): UseKafkaStateReturn {

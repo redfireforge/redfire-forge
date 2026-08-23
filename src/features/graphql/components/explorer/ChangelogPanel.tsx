@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
-import type { GraphqlSchemaSnapshot } from '../../../../shared/types/graphql';
+import { CustomSelect } from '@shared/components/CustomSelect';
+import type { GraphqlSchemaSnapshot } from '@shared/types/graphql';
 import {
   CHANGELOG_VISIBLE_CAP,
   filterSnapshotsByQuery,

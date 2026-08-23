@@ -7,7 +7,7 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import '@testing-library/jest-dom';
 import { useApiMockServerList } from './ApiMockServerListBridge';
 
-import { proxiedExchangeToDraft, toRecordedDraft, draftFingerprint } from '../../shared/api-mock/proxyRecording';
+import { proxiedExchangeToDraft, toRecordedDraft, draftFingerprint } from '@shared/api-mock/proxyRecording';
 import * as apiMockJournalActions from './apiMockJournalActions';
 import { API_MOCK_WORKSPACE_CHANGED_EVENT } from './apiMockGalleryImport';
 

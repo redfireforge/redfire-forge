@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { readKey, writeKey } from '../../../shared/utils/storage';
+import { readKey, writeKey } from '@shared/utils/storage';
 import type { TrainingProgress, ManualProgress, ManualStatus, TrainingPath } from '../../../data/galleries/trainingPaths/types';
 import { trainingPaths } from '../../../data/galleries/trainingPaths';
 

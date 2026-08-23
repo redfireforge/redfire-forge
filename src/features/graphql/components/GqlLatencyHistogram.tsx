@@ -5,7 +5,7 @@
  */
 
 import { useMemo } from 'react';
-import { computePercentiles } from '../../../shared/utils/percentiles';
+import { computePercentiles } from '@shared/utils/percentiles';
 import { BUCKETS, bucketIndex, formatLatencyMs } from './gqlLatencyHistogramUtils';
 
 const SPEED_LEGEND = [

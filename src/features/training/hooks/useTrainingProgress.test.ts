@@ -10,7 +10,7 @@ import {
   findLastViewedInProgress,
 } from './useTrainingProgress';
 import type { TrainingProgress, TrainingPath } from '../../../data/galleries/trainingPaths/types';
-import * as storage from '../../../shared/utils/storage';
+import * as storage from '@shared/utils/storage';
 
 // Mock storage module
 vi.mock('../../../shared/utils/storage', () => ({

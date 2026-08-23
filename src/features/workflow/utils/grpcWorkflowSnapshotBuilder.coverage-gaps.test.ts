@@ -2,9 +2,9 @@
  * Coverage gaps — grpcWorkflowSnapshotBuilder.ts
  */
 import { describe, expect, it, vi } from 'vitest';
-import * as grpcAuthPolicy from '../../../shared/grpc/grpcAuthPolicy';
-import * as grpcTlsPolicy from '../../../shared/grpc/grpcTlsPolicy';
-import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
+import * as grpcAuthPolicy from '@shared/grpc/grpcAuthPolicy';
+import * as grpcTlsPolicy from '@shared/grpc/grpcTlsPolicy';
+import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
 import type { GrpcServerStreamNodeData, GrpcUnaryNodeData } from '../types/workflow/node-grpc';
 import {
   buildGrpcWorkflowExecuteSnapshot,

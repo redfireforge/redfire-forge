@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { WebSocketSavedConnections, type WebSocketSavedConnectionsProps } from './WebSocketSavedConnections';
-import type { WsConnectionProfile } from '../../shared/websocket/types';
+import type { WsConnectionProfile } from '@shared/websocket/types';
 
 function makeProfile(overrides?: Partial<WsConnectionProfile>): WsConnectionProfile {
   return {

@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWebSocketReconnect } from './useWebSocketReconnect';
-import { createDefaultReconnectState } from '../../shared/websocket/types';
+import { createDefaultReconnectState } from '@shared/websocket/types';
 
 function createMountedRef() {
   return { current: true };

@@ -8,7 +8,7 @@ import { makeNode } from './graphRunnerNodeHandlers.test-utils';
 import { GrpcWorkflowOutputRegistry } from '../utils/grpcWorkflowOutputRegistry';
 import { GrpcWorkflowStepResultStore } from '../utils/grpcWorkflowStepResultStore';
 import { VariableContext } from './variableContext';
-import { FIXTURE_DESCRIPTOR, FIXTURE_DESCRIPTOR_KEY } from '../../../shared/grpc/contractFixtures';
+import { FIXTURE_DESCRIPTOR, FIXTURE_DESCRIPTOR_KEY } from '@shared/grpc/contractFixtures';
 
 function makeHandlerContext(overrides: Record<string, unknown> = {}) {
   const ctx = new VariableContext({});

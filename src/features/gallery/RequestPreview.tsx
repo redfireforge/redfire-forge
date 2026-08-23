@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import type { Scenario } from '../../shared/types';
-import { prettyJson, toErrorMessage } from '../../shared/utils/helpers';
+import type { Scenario } from '@shared/types';
+import { prettyJson, toErrorMessage } from '@shared/utils/helpers';
 
 type PreviewTab = 'request' | 'response';
 

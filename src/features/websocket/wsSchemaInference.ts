@@ -2,7 +2,7 @@
  * JSON Schema inference from WebSocket message samples.
  * Extends the existing schemaGenerator pattern with multi-message merge.
  */
-import type { WsFrame } from '../../shared/websocket/types';
+import type { WsFrame } from '@shared/websocket/types';
 import type { WsSchemaDirection } from './wsSchemaTypes';
 
 interface SchemaNode {

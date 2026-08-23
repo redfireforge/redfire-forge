@@ -3,7 +3,7 @@
  * Extracted from GraphqlCollections.tsx to reduce its line count.
  */
 import { useState, useCallback } from 'react';
-import type { GraphqlCollection } from '../../../shared/types/graphql';
+import type { GraphqlCollection } from '@shared/types/graphql';
 
 interface CollectionVarsEditorProps {
   collection: GraphqlCollection;

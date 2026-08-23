@@ -8,7 +8,7 @@ vi.mock('../../../shared/utils/storage', () => ({
   loadRunnerConfig: vi.fn().mockResolvedValue(null),
 }));
 
-import { loadRunnerConfig, saveRunnerConfig } from '../../../shared/utils/storage';
+import { loadRunnerConfig, saveRunnerConfig } from '@shared/utils/storage';
 const mockLoad = vi.mocked(loadRunnerConfig);
 const mockSave = vi.mocked(saveRunnerConfig);
 

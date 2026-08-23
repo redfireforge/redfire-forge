@@ -3,7 +3,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { selectOption } from '../../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import { buildAdvancedMock, makeLoadTestSummary } from '../../test-helpers/grpcAdvancedPanel.testHelpers';
 import { GrpcLoadTestResultsSection } from './GrpcLoadTestResultsSection';
 import { makeExportSource, makeSummaryWithAttempts } from './grpcLoadTestPanelCoverageGaps.testHelpers';

@@ -1,4 +1,4 @@
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 interface VersionOption {
   id: string;

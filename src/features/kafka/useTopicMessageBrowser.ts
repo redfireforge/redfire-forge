@@ -3,8 +3,8 @@ import {
   dispatchKafkaOperation,
   toKafkaUiSafeError,
   type KafkaUiSafeError,
-} from '../../shared/kafka/kafkaClient';
-import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
+} from '@shared/kafka/kafkaClient';
+import type { UseKafkaStateReturn } from '@app/hooks/useKafkaState';
 import type { KafkaConsumeCursor, KafkaConsumeResultRow } from './types';
 import { buildConsumeFilter } from './kafkaMessageStudioUtils';
 

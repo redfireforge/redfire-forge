@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import GraphqlImportFromCollectionModal from './GraphqlImportFromCollectionModal';
-import type { GraphqlCollectionItem } from '../../../shared/types/graphql';
+import type { GraphqlCollectionItem } from '@shared/types/graphql';
 import * as collectionItemImport from '../utils/collectionItemImport';
 
 vi.mock('../hooks/useGraphqlCollections', () => ({

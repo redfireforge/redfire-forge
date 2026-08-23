@@ -2,9 +2,9 @@
  * Phase 5G — coverage gaps for grpcGrpcurlExport.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
-import { createGrpcSavedRequestFromSnapshot } from '../../../shared/grpc/grpcSavedRequest';
-import * as grpcAuthPolicy from '../../../shared/grpc/grpcAuthPolicy';
+import { FIXTURE_UNARY_CALL_REQUEST } from '@shared/grpc/contractFixtures';
+import { createGrpcSavedRequestFromSnapshot } from '@shared/grpc/grpcSavedRequest';
+import * as grpcAuthPolicy from '@shared/grpc/grpcAuthPolicy';
 import {
   buildGrpcurlInvokeCommandFromSavedRequest,
   buildGrpcurlInvokeCommandFromSnapshot,

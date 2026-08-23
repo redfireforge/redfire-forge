@@ -5,7 +5,7 @@ import type {
   GrpcCallRequest,
   GrpcStreamStartRequest,
   GrpcTabExecuteSnapshot,
-} from '../../../../shared/grpc/contracts';
+} from '@shared/grpc/contracts';
 import type {
   GrpcServerStreamCollectConfig,
   GrpcWorkflowOnErrorPolicy,

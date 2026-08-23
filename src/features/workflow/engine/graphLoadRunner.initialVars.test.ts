@@ -7,7 +7,7 @@ vi.mock('../../../shared/utils/httpClient', () => ({
 }));
 
 import { runGraphLoad } from './graphLoadRunner';
-import { httpFetch } from '../../../shared/utils/httpClient';
+import { httpFetch } from '@shared/utils/httpClient';
 
 const mockFetch = vi.mocked(httpFetch);
 

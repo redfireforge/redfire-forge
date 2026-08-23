@@ -2,7 +2,7 @@
  * Phase 5H — React hook for call history load/filter/clear (5D recorder).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { GrpcCallHistoryEntryV1 } from '../../../shared/grpc/grpcPersistenceSchema';
+import type { GrpcCallHistoryEntryV1 } from '@shared/grpc/grpcPersistenceSchema';
 import {
   clearGrpcCallHistory,
   clearGrpcCallHistoryFiltered,

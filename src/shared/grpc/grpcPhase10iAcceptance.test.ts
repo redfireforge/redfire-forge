@@ -58,7 +58,7 @@ import {
   canChangeGrpcTabTransportMode,
   isGrpcLifecycleInFlight,
   createGrpcStudioTab,
-} from '../../features/grpc/grpcStudioTypes';
+} from '@grpc/grpcStudioTypes';
 
 // ── Source-scan helpers ───────────────────────────────────────────────────────
 const ROOT = fileURLToPath(new URL('../..', import.meta.url)); // → src/

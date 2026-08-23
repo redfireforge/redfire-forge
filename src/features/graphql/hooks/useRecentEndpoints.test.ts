@@ -9,7 +9,7 @@ vi.mock('../../../shared/utils/storage', () => ({
 }));
 
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { readKey, writeKey } from '../../../shared/utils/storage';
+import { readKey, writeKey } from '@shared/utils/storage';
 import { useRecentEndpoints } from './useRecentEndpoints';
 
 beforeEach(() => resetAllMocks());

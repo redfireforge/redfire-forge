@@ -7,16 +7,16 @@ import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_HAPPY_CALL_ENVELOPE,
   FIXTURE_REFLECT_SUCCESS_ENVELOPE,
-} from '../../../shared/grpc/contractFixtures';
-import { setGrpcClientTransport } from '../../../shared/grpc/grpcApiClient';
-import * as grpcStreamClient from '../../../shared/grpc/grpcStreamClient';
-import { setGrpcStreamTransport } from '../../../shared/grpc/grpcStreamClient';
-import { createGrpcSuccessEnvelope } from '../../../shared/grpc/contracts';
-import { withGrpcExpressFallbackOffer } from '../../../shared/grpc/grpcTransportFallback';
+} from '@shared/grpc/contractFixtures';
+import { setGrpcClientTransport } from '@shared/grpc/grpcApiClient';
+import * as grpcStreamClient from '@shared/grpc/grpcStreamClient';
+import { setGrpcStreamTransport } from '@shared/grpc/grpcStreamClient';
+import { createGrpcSuccessEnvelope } from '@shared/grpc/contracts';
+import { withGrpcExpressFallbackOffer } from '@shared/grpc/grpcTransportFallback';
 import {
   resetGrpcTabTransportRoutingForTests,
-} from '../../../shared/grpc/grpcTransportTabRouting';
-import * as grpcTransportTabRouting from '../../../shared/grpc/grpcTransportTabRouting';
+} from '@shared/grpc/grpcTransportTabRouting';
+import * as grpcTransportTabRouting from '@shared/grpc/grpcTransportTabRouting';
 import { GRPC_STUDIO_MAX_TABS, useGrpcStudio } from './useGrpcStudio';
 import { PAGE_DEFAULTS, seedUnaryReadyTab, setupUseGrpcStudioHookTest } from './useGrpcStudio.testHelpers';
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { GrpcMessageSchema } from '../../../../shared/grpc/contracts';
+import type { GrpcMessageSchema } from '@shared/grpc/contracts';
 import { findWideIntegralJsonViolations } from '../../utils/grpcBodyComposer';
 
 export interface GrpcProtoJsonObjectEditorProps {

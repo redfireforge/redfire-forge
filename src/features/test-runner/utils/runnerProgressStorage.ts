@@ -1,6 +1,6 @@
-import type { ExecutionMode, LoadProfileConfig, LoadProfileType, TestSummary, ThinkTimeConfig, ArrivalRateConfig } from '../../../shared/types';
+import type { ExecutionMode, LoadProfileConfig, LoadProfileType, TestSummary, ThinkTimeConfig, ArrivalRateConfig } from '@shared/types';
 import type { TimeSeriesPoint } from '../hooks/useTestExecution';
-import type { ProgressMeta } from '../../../engine/executor';
+import type { ProgressMeta } from '@engine/core/executor';
 
 export interface PersistedProgress {
   summary: TestSummary;

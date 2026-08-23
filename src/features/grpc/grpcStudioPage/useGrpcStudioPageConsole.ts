@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GrpcConsoleWireEvent } from '../components/GrpcConsoleModal';
-import { redactGrpcMetadataForHistory } from '../../../shared/grpc/grpcRedaction';
-import { prepareGrpcCallMetadata } from '../../../shared/grpc/grpcCompressionPolicy';
+import { redactGrpcMetadataForHistory } from '@shared/grpc/grpcRedaction';
+import { prepareGrpcCallMetadata } from '@shared/grpc/grpcCompressionPolicy';
 import type { UseGrpcStudioReturn } from '../hooks/useGrpcStudio';
 
 export function useGrpcStudioPageConsole(

@@ -4,12 +4,12 @@ import {
   loadCatalogEntries, saveCatalogEntries,
   saveCatalogRawSpec, removeCatalogRawSpec, removeAllCatalogRawSpecs,
   loadCatalogRawSpec, removeCatalogEndpointValues,
-} from '../../../shared/utils/storage';
+} from '@shared/utils/storage';
 import {
   loadCatalogSelectedEntryId,
   saveCatalogSelectedEntryId,
   removeCatalogSelectedEntryId,
-} from '../../../shared/utils/storageCatalog';
+} from '@shared/utils/storageCatalog';
 import { parseOpenApiSpec } from '../utils/openApiParser';
 
 export const MAX_VERSIONS = 10;

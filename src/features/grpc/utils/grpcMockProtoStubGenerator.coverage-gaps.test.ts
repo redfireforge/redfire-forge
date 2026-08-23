@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { GrpcDescriptor, GrpcFieldSchema } from '../../../shared/grpc/contracts';
-import { FIXTURE_DESCRIPTOR } from '../../../shared/grpc/contractFixtures';
+import type { GrpcDescriptor, GrpcFieldSchema } from '@shared/grpc/contracts';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
 import { generateMockRuleStubsFromDescriptor } from './grpcMockProtoStubGenerator';
 
 function buildDescriptor(

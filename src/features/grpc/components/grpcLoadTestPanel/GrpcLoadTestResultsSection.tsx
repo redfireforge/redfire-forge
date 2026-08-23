@@ -3,7 +3,7 @@ import { formatLoadTestProgressLabel } from '../../utils/grpcStudioAdvancedModel
 import {
   serializeGrpcLoadTestRunSummaryExportSafeCsv,
   serializeGrpcLoadTestRunSummaryExportSafeJson,
-} from '../../../../shared/grpc/grpcAdvancedFeatureExport';
+} from '@shared/grpc/grpcAdvancedFeatureExport';
 import {
   buildCompareDetailRows,
   buildCompareDeltas,
@@ -17,7 +17,7 @@ import {
   safeFilePart,
   type GrpcLoadTestSummary,
 } from './grpcLoadTestPanelUtils';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 type StatusBreakdownEntry = ReturnType<typeof buildStatusBreakdown>[number];
 type LatencyHistogramBucket = ReturnType<typeof buildLatencyHistogram>[number];

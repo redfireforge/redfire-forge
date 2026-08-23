@@ -15,7 +15,7 @@
  */
 
 import { meros } from 'meros/browser';
-import type { IncrementalDeliveryResult, GraphqlError } from '../../../shared/types/graphql';
+import type { IncrementalDeliveryResult, GraphqlError } from '@shared/types/graphql';
 
 // ─── Patch merge ──────────────────────────────────────────────────────────────
 

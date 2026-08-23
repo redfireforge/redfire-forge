@@ -17,7 +17,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { GraphqlSchemaSnapshot } from '../../../shared/types/graphql';
+import type { GraphqlSchemaSnapshot } from '@shared/types/graphql';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

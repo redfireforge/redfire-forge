@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { Environment, Microservice, FeatureGroup, GlobalAuthProfile, TestRun, TestScenario, SharedDataSource } from '../../../shared/types';
+import type { Environment, Microservice, FeatureGroup, GlobalAuthProfile, TestRun, TestScenario, SharedDataSource } from '@shared/types';
 import {
   loadEnvironments, saveEnvironments,
   loadMicroservices, saveMicroservices,
@@ -15,10 +15,10 @@ import {
   loadTestRunsLite,
   loadTheme,
   ensureBrowserLargeDataMigrated,
-} from '../../../shared/utils/storage';
-import { purgeExpired } from '../../../shared/utils/trashStorage';
-import { normalizeGroupActionTypes } from '../../../shared/utils/scenarioMigration';
-import { isCustomThemeId, findSavedTheme, applyCustomTheme } from '../../../app/themeCustomizerUtils';
+} from '@shared/utils/storage';
+import { purgeExpired } from '@shared/utils/trashStorage';
+import { normalizeGroupActionTypes } from '@shared/utils/scenarioMigration';
+import { isCustomThemeId, findSavedTheme, applyCustomTheme } from '@app/themeCustomizerUtils';
 
 export interface UseProjectsReturn {
   loading: boolean;

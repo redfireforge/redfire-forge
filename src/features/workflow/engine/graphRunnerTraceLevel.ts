@@ -1,4 +1,4 @@
-import type { TraceCaptureLevel, ExecutionTraceOptions } from '../../../shared/types';
+import type { TraceCaptureLevel, ExecutionTraceOptions } from '@shared/types';
 
 /**
  * Resolve the effective trace capture level from ExecutionTraceOptions.

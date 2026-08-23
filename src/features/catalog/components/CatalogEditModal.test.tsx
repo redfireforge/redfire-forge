@@ -8,7 +8,7 @@ import '@testing-library/jest-dom';
 import type { ReactNode } from 'react';
 import CatalogEditModal from './CatalogEditModal';
 import { makeEntry, makeHostConfig } from './catalogTestFactories';
-import type { Microservice, Environment } from '../../../shared/types';
+import type { Microservice, Environment } from '@shared/types';
 
 vi.mock('../../../shared/components/AppModalFrame', () => ({
   default: ({ title, footer, children }: { title: string; footer: ReactNode; children: ReactNode }) => (

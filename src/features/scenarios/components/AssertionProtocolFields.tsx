@@ -4,8 +4,8 @@ import type {
   KafkaAssertionTarget,
   WsAssertionTarget,
   WsNumericAssertionTarget,
-} from '../../../shared/types';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+} from '@shared/types';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import { ComparisonSelect, NUMERIC_OP_OPTIONS } from './testEditorValidationConstants';
 
 interface AssertionProtocolFieldsProps {

@@ -4,9 +4,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { GrpcTransportPanel } from './GrpcTransportPanel';
-import { isGrpcTransportDispatchImplemented } from '../../../shared/grpc/grpcBrowserTransportRouter';
-import { isGrpcTransportPlatformSupported } from '../../../shared/grpc/grpcWebTransportContracts';
-import { isTauri } from '../../../shared/utils/platform';
+import { isGrpcTransportDispatchImplemented } from '@shared/grpc/grpcBrowserTransportRouter';
+import { isGrpcTransportPlatformSupported } from '@shared/grpc/grpcWebTransportContracts';
+import { isTauri } from '@shared/utils/platform';
 
 const transportMocks = vi.hoisted(() => ({
   platformSupportedImpl: null as typeof isGrpcTransportPlatformSupported | null,

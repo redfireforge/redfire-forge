@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import type { GlobalAuthProfile } from '../../../../shared/types';
+import type { GlobalAuthProfile } from '@shared/types';
 import type { GrpcUnaryNodeData } from '../../types/workflow/node-grpc';
 import GrpcWorkflowCallTargetFields from './GrpcWorkflowCallTargetFields';
 import GrpcWorkflowConnectionSecurityFields from './GrpcWorkflowConnectionSecurityFields';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import { KafkaCard, KafkaFormRow } from './KafkaConfigUi';
 
 export default function GrpcUnaryConfig({

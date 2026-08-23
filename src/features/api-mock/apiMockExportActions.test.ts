@@ -9,7 +9,7 @@ import {
   inspectExportSecrets,
   saveApiMockExportToDisk,
 } from './apiMockExportActions';
-import type { ApiMockServerDefinitionV1, ApiMockTransactionV1 } from '../../shared/api-mock/contracts';
+import type { ApiMockServerDefinitionV1, ApiMockTransactionV1 } from '@shared/api-mock/contracts';
 import type { ApiMockExportRequest } from './components/ApiMockWorkspaceNav';
 
 const exportFilename = vi.fn();

@@ -1,10 +1,10 @@
 import { useCallback, useMemo, useRef, type ReactNode } from 'react';
-import type { GlobalAuthProfile } from '../../../shared/types';
-import type { GraphqlAuth } from '../../../shared/types/graphql';
+import type { GlobalAuthProfile } from '@shared/types';
+import type { GraphqlAuth } from '@shared/types/graphql';
 import type { GqlStudioTab } from '../utils/tabPersistence';
 import type { ConnectionProfile } from '../utils/connectionProfileStorage';
 import { GqlTabExecutionLayer } from '../components/GqlTabExecutionLayer';
-import type { GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlResponse } from '@shared/types/graphql';
 import type { ExecuteParams, ExecutionStatus } from './useGraphqlExecution';
 import {
   IDLE_GQL_TAB_EXECUTION_STATE,

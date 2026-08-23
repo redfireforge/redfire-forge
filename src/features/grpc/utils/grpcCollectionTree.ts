@@ -1,9 +1,9 @@
 /**
  * Phase 5B — service → method → saved-requests tree projection.
  */
-import type { GrpcCallType } from '../../../shared/grpc/contracts';
-import type { GrpcCollectionV1 } from '../../../shared/grpc/grpcPersistenceSchema';
-import type { GrpcSavedRequest } from '../../../shared/grpc/grpcSavedRequest';
+import type { GrpcCallType } from '@shared/grpc/contracts';
+import type { GrpcCollectionV1 } from '@shared/grpc/grpcPersistenceSchema';
+import type { GrpcSavedRequest } from '@shared/grpc/grpcSavedRequest';
 
 export interface GrpcCollectionMethodNode {
   service: string;

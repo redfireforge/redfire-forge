@@ -1,4 +1,4 @@
-import { readKey, writeKey } from '../../../shared/utils/storage';
+import { readKey, writeKey } from '@shared/utils/storage';
 import { ENGINE_TARGETS, type ConvertEngine, type ConvertTarget } from './swaggerToOpenApi';
 
 /** Persisted last-used engine/target choice for the Convert-to-OpenAPI modal. */

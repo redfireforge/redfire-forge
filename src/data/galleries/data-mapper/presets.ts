@@ -14,7 +14,7 @@ import type {
   Assertion,
   Extraction,
   KeyValue,
-} from '../../../shared/types';
+} from '@shared/types';
 
 const noAuth = { type: 'none' as const };
 

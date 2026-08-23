@@ -3,8 +3,8 @@
  */
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { FIXTURE_DESCRIPTOR } from '../../../../shared/grpc/contractFixtures';
-import type { GrpcDescriptor } from '../../../../shared/grpc/contracts';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
+import type { GrpcDescriptor } from '@shared/grpc/contracts';
 import * as schemaModel from '../../utils/grpcSchemaBrowserModel';
 import { GrpcSchemaBrowser } from '../GrpcSchemaBrowser';
 import { clickByTestIdAsync } from './grpcSchemaBrowserCoverageGaps.testHelpers';

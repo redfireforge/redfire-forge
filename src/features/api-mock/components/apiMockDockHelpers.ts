@@ -1,4 +1,4 @@
-import type { ApiMockRouteV1 } from '../../../shared/api-mock/contracts';
+import type { ApiMockRouteV1 } from '@shared/api-mock/contracts';
 
 export const TX_FLASH_MS = 2200;
 

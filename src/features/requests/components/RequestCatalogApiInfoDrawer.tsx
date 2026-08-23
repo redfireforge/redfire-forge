@@ -1,4 +1,4 @@
-import type { CatalogRequestMeta, HttpMethod } from '../../../shared/types';
+import type { CatalogRequestMeta, HttpMethod } from '@shared/types';
 
 interface RequestCatalogApiInfoDrawerProps {
   method: HttpMethod;
