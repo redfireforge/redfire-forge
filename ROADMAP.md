@@ -33,13 +33,12 @@ RedfireForge is a visual API testing and workflow automation workbench combining
 - Ongoing UX and maintainability refinements
 - **Optional:** publish `@redfireforge/demo-hub` to public npm (monorepo extraction ✅ 2026-06-26; package remains `"private": true`)
 
-### Deferred Feature Work (planned but not yet implemented)
-- **Demo Hub — CLI domain** (`cliDomain`): interactive guided CLI lessons (WF-style terminal surface, `DemoTerminal` component, `terminalCommand`/`terminalOutput` step fields). Full plan: `docs/future/cli/cli-demo-plan.md`
-- **Demo Hub — Workflow domain** (`workflowDomain`): WF-1 through WF-8 general-purpose workflow curriculum (HTTP workflows, control flow, variables, debugging, versioning). `workflowDomain` is registered but has zero lessons. Full plan: `docs/future/demo-lesson/workflow-demo-lesson.md`
-- **Demo Hub — Test Harness domain** (`harnessDomain`): TH-1 through TH-9 lessons (Feature Group authoring, validation, Test Runner, Parameterized Runner, load profiles, results analysis). `harnessDomain` is registered but has zero lessons. Full plan: `docs/future/demo-lesson/test-harness-demo-lesson.md`
-- **Demo Hub — Catalog v2 lessons**: redesign of CAT-1 through CAT-4 to cover Re-import/Update, Version History/Compare/Restore, Auth panel, and full Export to Requests walkthrough. Full plan: `docs/future/demo-lesson/catalog-demo-lesson.md`
-- **Demo Hub — Requests v2 lessons**: extended coverage per `docs/future/demo-lesson/request-demo-lessons-v2.md`
-- **Source restructuring** (full repository-wide directory migration): deferred until no active release-critical work in flight. Incremental moves only for now. See `RESTRUCTURING_PLAN.md`
+### ✅ Previously Deferred — Now Complete
+- **Demo Hub — CLI domain** (`cliDomain`): `DemoTerminal` component + `terminalCommand`/`terminalOutput` step fields + full CLI lesson set (cli-quick-start, cli-data-driven, cli-execution-modes, cli-reports-ci, cli-sla-gates, cli-validate-authoring, cli-workflow-command, cli-mock-studio, cli-error-policies, cli-desktop-parity, cli-baseline-regression). All `available: true`.
+- **Demo Hub — Workflow domain** (`workflowDomain`): WF-1 through WF-8 implemented (wf-first-workflow, wf-variables-extraction, wf-conditional-logic, wf-loops-parallel, wf-error-handling, wf-debug-console, wf-version-services, wf-protocol-nodes). `available: true`.
+- **Demo Hub — Test Harness domain** (`harnessDomain`): full lesson set implemented (th-overview-structure, th-author-tests, th-validation-assertions, th-test-runner, th-data-sources, th-parameterized-runner, th-results-analysis, th-load-testing, th-advanced-features, th-shared-data-sources, th-sla-configuration, th-data-source-advanced, th-workflow-runner, and more). `available: true`.
+- **Demo Hub — Catalog v2 lessons**: cat-import-browse, cat-try-it-out, cat-export-promote, cat-version-lifecycle, cat-convert-openapi all implemented.
+- **Source restructuring**: incremental approach applied continuously; full broad migration remains intentionally deferred per `RESTRUCTURING_PLAN.md`.
 
 ## Priority Tracks
 
@@ -61,8 +60,8 @@ RedfireForge is a visual API testing and workflow automation workbench combining
 
 1. Distributed execution planning and prototype slice.
 2. ~~Targeted environment-backed E2E stabilization for deferred specs.~~ **✅ Complete 2026-08-22**
-3. Continued modernization of high-churn UI modules with shared patterns.
-4. Demo Hub domain expansion: Workflow (WF-1–8), Test Harness (TH-1–9), CLI lessons — see Deferred Feature Work above.
+3. ~~Demo Hub domain expansion: Workflow, Test Harness, CLI lessons.~~ **✅ Complete — all domains implemented and available**
+4. Continued modernization of high-churn UI modules with shared patterns.
 
 ## Release Gate Checklist
 
