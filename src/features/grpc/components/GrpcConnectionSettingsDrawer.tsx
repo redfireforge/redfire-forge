@@ -6,10 +6,10 @@ import type {
   GrpcCallResult,
   GrpcCallType,
   GrpcCompressionConfig,
-} from '../../../shared/grpc/contracts';
+} from '@shared/grpc/contracts';
 import type { GrpcStudioTransportMode } from '../grpcStudioTypes';
 import type { GrpcK8sPortForwardSession } from '../utils/grpcK8sPortForward';
-import AppModalFrame from '../../../shared/components/AppModalFrame';
+import AppModalFrame from '@shared/components/AppModalFrame';
 import { GrpcCallSettingsPanel } from './GrpcCallSettingsPanel';
 import { GrpcCompressionPanel } from './GrpcCompressionPanel';
 import { GrpcHealthCheckPanel } from './GrpcHealthCheckPanel';

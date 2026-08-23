@@ -1,16 +1,16 @@
 /**
  * Phase 11C — Test Runner setup/teardown for API Mock fixtures.
  */
-import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
-import type { Scenario } from '../../../shared/types';
-import { replaceHost } from '../../../shared/utils/urlUtils';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
+import type { Scenario } from '@shared/types';
+import { replaceHost } from '@shared/utils/urlUtils';
 import { apiMockControlClient } from '../../api-mock/apiMockControlClient';
 import { loadApiMockWorkspace } from '../../api-mock/apiMockPersistence';
-import { resolveApiMockDefinition } from '../../workflow/utils/apiMockWorkflowDefinitionResolver';
+import { resolveApiMockDefinition } from '@workflow/utils/apiMockWorkflowDefinitionResolver';
 import {
   cleanupApiMockServersForRun,
   registerApiMockServerForRun,
-} from '../../workflow/utils/apiMockRunIsolation';
+} from '@workflow/utils/apiMockRunIsolation';
 
 export interface ApiMockTestFixtureConfig {
   enabled: boolean;

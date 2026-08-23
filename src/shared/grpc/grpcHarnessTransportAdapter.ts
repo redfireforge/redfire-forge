@@ -5,7 +5,7 @@ import type { GrpcCallRequest, GrpcStreamStartRequest } from './contracts';
 import {
   snapshotToStreamStartRequest,
   snapshotToUnaryCallRequest,
-} from '../../features/grpc/grpcStudioTypes';
+} from '@grpc/grpcStudioTypes';
 import type {
   GrpcHarnessExecuteSnapshot,
   GrpcHarnessRuntimeCallBoundary,

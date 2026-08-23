@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { capturedRequestPath } from '../apiMockJournalActions';
-import type { ApiMockSimulationSampleV1, ApiMockTransactionOutcome } from '../../../shared/api-mock/contracts';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import type { ApiMockSimulationSampleV1, ApiMockTransactionOutcome } from '@shared/api-mock/contracts';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import { FlaskIcon, TrashIcon } from './ApiMockIcons';
 
 function prettyJsonBody(raw: string): { ok: true; text: string } | { ok: false; error: string } {

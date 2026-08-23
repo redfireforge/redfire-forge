@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import * as grpcAuthPolicy from '../../../shared/grpc/grpcAuthPolicy';
+import * as grpcAuthPolicy from '@shared/grpc/grpcAuthPolicy';
 import {
   describeGrpcAssertion,
   logGrpcAssertUpstream,

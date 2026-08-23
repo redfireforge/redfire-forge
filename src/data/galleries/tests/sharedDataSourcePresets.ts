@@ -4,7 +4,7 @@
  * All samples use real public APIs so they work out-of-the-box.
  */
 
-import type { FeatureGroup, SharedDataSource, DataSource, DataSourceColumn, DataSourceRow, TestScenario } from '../../../shared/types';
+import type { FeatureGroup, SharedDataSource, DataSource, DataSourceColumn, DataSourceRow, TestScenario } from '@shared/types';
 
 const noAuth = { type: 'none' as const };
 

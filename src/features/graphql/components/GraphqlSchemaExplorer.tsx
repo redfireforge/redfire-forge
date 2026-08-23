@@ -23,8 +23,8 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSplitPaneResize } from '../../../shared/hooks/useSplitPaneResize';
-import type { GraphqlSchemaInfo, GraphqlSchemaSnapshot, GraphqlTypeNode } from '../../../shared/types/graphql';
+import { useSplitPaneResize } from '@shared/hooks/useSplitPaneResize';
+import type { GraphqlSchemaInfo, GraphqlSchemaSnapshot, GraphqlTypeNode } from '@shared/types/graphql';
 import type { DeprecatedFieldUsage } from '../utils/deprecatedFieldScanner';
 import { KIND_ABBR, KIND_CSS, KIND_LABEL, fieldCountText } from '../utils/schemaExplorerUtils';
 import { TypeDetail, type DetailTab } from './explorer/TypeDetail';

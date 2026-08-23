@@ -1,9 +1,9 @@
-import type { GrpcDescriptor } from '../../../../shared/grpc/contracts';
+import type { GrpcDescriptor } from '@shared/grpc/contracts';
 import {
   buildGrpcSchemaDiffReport,
   type GrpcSchemaDiffChange,
-} from '../../../../shared/grpc/grpcSchemaDiffContracts';
-import { FIXTURE_DESCRIPTOR } from '../../../../shared/grpc/contractFixtures';
+} from '@shared/grpc/grpcSchemaDiffContracts';
+import { FIXTURE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
 
 export const RICH_DESCRIPTOR: GrpcDescriptor = {
   ...FIXTURE_DESCRIPTOR,

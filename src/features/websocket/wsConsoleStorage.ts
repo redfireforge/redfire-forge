@@ -6,8 +6,8 @@
  * same `loadConsoleSettings`/`saveConsoleSettings` with its own key.
  */
 
-import { readKey, writeKey } from '../../shared/utils/storage';
-import { clampInt } from '../../shared/utils/persistSanitizers';
+import { readKey, writeKey } from '@shared/utils/storage';
+import { clampInt } from '@shared/utils/persistSanitizers';
 import type {
   WsConsoleCategoryFilter,
   WsConsoleLevelFilter,

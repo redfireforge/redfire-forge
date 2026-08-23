@@ -1,4 +1,4 @@
-import type { GrpcMockListenerLogEntry } from '../../../shared/grpc/grpcMockListenerContracts';
+import type { GrpcMockListenerLogEntry } from '@shared/grpc/grpcMockListenerContracts';
 
 /** Merge polled listener log pages, dedupe by id, cap history length. */
 export function mergeGrpcMockListenerLogs(

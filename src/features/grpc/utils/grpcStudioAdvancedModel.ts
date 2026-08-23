@@ -1,10 +1,10 @@
-import type { GrpcAdvancedOperationStatus } from '../../../shared/grpc/grpcAdvancedFeatureContracts';
-import type { GrpcLoadTestRunCounts } from '../../../shared/grpc/grpcAdvancedFeatureContracts';
-import type { GrpcLoadTestConfig } from '../../../shared/grpc/grpcAdvancedFeatureContracts';
-import type { GrpcCallType } from '../../../shared/grpc/contracts';
-import type { GrpcSchemaDiffChange, GrpcSchemaDiffSeverity } from '../../../shared/grpc/grpcSchemaDiffContracts';
-import type { GrpcMockRuleSet } from '../../../shared/grpc/grpcMockRuleContracts';
-import { validateGrpcMockRuleSet } from '../../../shared/grpc/grpcMockRuleContracts';
+import type { GrpcAdvancedOperationStatus } from '@shared/grpc/grpcAdvancedFeatureContracts';
+import type { GrpcLoadTestRunCounts } from '@shared/grpc/grpcAdvancedFeatureContracts';
+import type { GrpcLoadTestConfig } from '@shared/grpc/grpcAdvancedFeatureContracts';
+import type { GrpcCallType } from '@shared/grpc/contracts';
+import type { GrpcSchemaDiffChange, GrpcSchemaDiffSeverity } from '@shared/grpc/grpcSchemaDiffContracts';
+import type { GrpcMockRuleSet } from '@shared/grpc/grpcMockRuleContracts';
+import { validateGrpcMockRuleSet } from '@shared/grpc/grpcMockRuleContracts';
 import {
   type GrpcSchemaDiffSeverityFilter,
 } from '../grpcStudioAdvancedTypes';

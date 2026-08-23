@@ -12,27 +12,27 @@ import {
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useTestExecution } from './useTestExecution';
-import type { RequestResult } from '../../../shared/types';
+import type { RequestResult } from '@shared/types';
 
-vi.mock('../../../engine/executor', async () => {
+vi.mock('@engine/core/executor', async () => {
   const { mockRunTest } = await import('./__test-utils__/useTestExecutionTestSetup');
   return { runTest: mockRunTest };
 });
-vi.mock('../../../engine/workerBridge', async () => {
+vi.mock('@engine/core/workerBridge', async () => {
   const { mockRunTestInWorker } = await import('./__test-utils__/useTestExecutionTestSetup');
   return { runTestMultiWorker: mockRunTestInWorker };
 });
-vi.mock('../../../engine/metrics', async () => {
+vi.mock('@engine/core/metrics', async () => {
   const { mockComputeMetrics } = await import('./__test-utils__/useTestExecutionTestSetup');
   return { computeMetrics: mockComputeMetrics };
 });
-vi.mock('../../../shared/utils/storage', async () => {
+vi.mock('@shared/utils/storage', async () => {
   const { mockSaveTestRun, mockForceSaveTestRun } = await import(
     './__test-utils__/useTestExecutionTestSetup'
   );
   return { saveTestRun: mockSaveTestRun, forceSaveTestRun: mockForceSaveTestRun };
 });
-vi.mock('../../../shared/utils/platform', async () => {
+vi.mock('@shared/utils/platform', async () => {
   const { mockSupportsWorkers } = await import('./__test-utils__/useTestExecutionTestSetup');
   return { supportsWorkers: mockSupportsWorkers, isTauri: vi.fn(() => false) };
 });
@@ -569,7 +569,7 @@ describe('useTestExecution', () => {
         c: number,
         t: number,
         r: RequestResult[],
-        meta?: import('../../../engine/executor').ProgressMeta,
+        meta?: import('@engine/core/executor').ProgressMeta,
       ) => void) | undefined;
       mockRunTest.mockImplementation(async (_config, _scenarios, onProgress) => {
         progressCallback = onProgress;
@@ -597,7 +597,7 @@ describe('useTestExecution', () => {
     });
 
     it('builds time series data during execution', async () => {
-      let progressCallback: ((c: number, t: number, r: RequestResult[], meta?: import('../../../engine/executor').ProgressMeta) => void) | undefined;
+      let progressCallback: ((c: number, t: number, r: RequestResult[], meta?: import('@engine/core/executor').ProgressMeta) => void) | undefined;
       mockRunTest.mockImplementation(async (_config, _scenarios, onProgress) => {
         progressCallback = onProgress;
         await new Promise((r) => setTimeout(r, 5000));
@@ -633,7 +633,7 @@ describe('useTestExecution', () => {
     });
 
     it('uses currentInFlight for concurrency when total is -1', async () => {
-      let progressCallback: ((c: number, t: number, r: RequestResult[], meta?: import('../../../engine/executor').ProgressMeta) => void) | undefined;
+      let progressCallback: ((c: number, t: number, r: RequestResult[], meta?: import('@engine/core/executor').ProgressMeta) => void) | undefined;
       const config = { ...createMockConfig(), executionMode: 'load-profile' as const };
       mockRunTest.mockImplementation(async (_config, _scenarios, onProgress) => {
         progressCallback = onProgress;
@@ -666,7 +666,7 @@ describe('useTestExecution', () => {
         c: number,
         t: number,
         r: RequestResult[],
-        meta?: import('../../../engine/executor').ProgressMeta,
+        meta?: import('@engine/core/executor').ProgressMeta,
       ) => void) | undefined;
       mockRunTest.mockImplementation(async (_config, _scenarios, onProgress) => {
         progressCallback = onProgress;

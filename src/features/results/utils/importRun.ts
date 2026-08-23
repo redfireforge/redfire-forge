@@ -1,4 +1,4 @@
-import type { TestRun } from '../../../shared/types';
+import type { TestRun } from '@shared/types';
 
 const REQUIRED_EXECUTION_MODES = ['sequential', 'batch', 'pool', 'load-profile', 'workflow'];
 

@@ -1,15 +1,15 @@
 /**
  * Phase 4C — auth merge preview and execute-readiness for Studio UI.
  */
-import type { GrpcAuthConfig, GrpcAuthMetadataConflict } from '../../../shared/grpc/contracts';
+import type { GrpcAuthConfig, GrpcAuthMetadataConflict } from '@shared/grpc/contracts';
 import {
   buildGrpcOAuth2PreviewMetadata,
   mergeGrpcExecuteMetadata,
   validateGrpcAuthForExecute,
   type GrpcAuthValidationIssue,
-} from '../../../shared/grpc/grpcAuthPolicy';
-import { sanitizeGrpcErrorMessage } from '../../../shared/grpc/grpcRedaction';
-import { isGrpcSecretMetadataKey } from '../../../shared/grpc/grpcSecretPolicy';
+} from '@shared/grpc/grpcAuthPolicy';
+import { sanitizeGrpcErrorMessage } from '@shared/grpc/grpcRedaction';
+import { isGrpcSecretMetadataKey } from '@shared/grpc/grpcSecretPolicy';
 
 export interface GrpcAuthPreviewResult {
   ok: boolean;

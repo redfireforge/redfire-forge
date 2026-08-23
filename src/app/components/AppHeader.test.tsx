@@ -4,8 +4,8 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { createRef } from 'react';
 import type { RefObject } from 'react';
 import AppHeader from './AppHeader';
-import type { Environment, Microservice } from '../../shared/types';
-import type { KafkaConnectionSnapshot } from '../../shared/kafka/kafkaConfig';
+import type { Environment, Microservice } from '@shared/types';
+import type { KafkaConnectionSnapshot } from '@shared/kafka/kafkaConfig';
 import type { Tab } from '../utils/appTabUtils';
 import { persistSavedThemes, type SavedCustomTheme } from '../themeCustomizerUtils';
 

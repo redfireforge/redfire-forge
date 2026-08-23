@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Environment, GlobalAuthProfile, Microservice } from '../../../../shared/types';
+import type { Environment, GlobalAuthProfile, Microservice } from '@shared/types';
 import type { WorkflowService, ServiceEndpoint } from '../../types/workflow';
 import type { EnvAuthState } from '../../../requests/utils/requestAuthState';
 import { authToState, stateToAuth, emptyAuthState } from '../../../requests/utils/requestAuthState';
 import WorkflowEditorModalFrame from './WorkflowEditorModalFrame';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import { DEFAULT_POPUP_W, ServiceAuthPopup } from './WorkflowServiceAuthPopup';
 
 const ADHOC_ENV_ID = '__adhoc__';

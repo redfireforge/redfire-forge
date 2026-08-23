@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type MouseEvent } from 'react';
-import type { WsConnectionHistoryEntry, WsProtocolMode } from '../../shared/websocket/types';
-import { computeDropIndex } from '../../shared/components/studio-tabs/computeDropIndex';
+import type { WsConnectionHistoryEntry, WsProtocolMode } from '@shared/websocket/types';
+import { computeDropIndex } from '@shared/components/studio-tabs/computeDropIndex';
 import {
   buildContextMenuItems,
   useTabContextMenu,
-} from '../../shared/components/studio-tabs/TabContextMenu';
+} from '@shared/components/studio-tabs/TabContextMenu';
 
+// eslint-disable-next-line react-refresh/only-export-components
 export { computeDropIndex };
 
 export interface WsConnectionTabInfo {

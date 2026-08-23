@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import WorkflowVariableInsertModal from '../modals/WorkflowVariableInsertModal';
-import { useModalDrag } from '../../../../shared/hooks/useModalDrag';
+import { useModalDrag } from '@shared/hooks/useModalDrag';
 import { useVariableInsertModal } from '../../hooks/useVariableInsertModal';
 import type {
   WorkflowNode,
@@ -25,7 +25,7 @@ import StartConfig from '../configs/StartConfig';
 import WorkflowModalScrollBody from '../modals/WorkflowModalScrollBody';
 import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionEditor';
 import { useWorkflowValidationFetch } from '../../hooks/useWorkflowValidationFetch';
-import type { Environment, Scenario } from '../../../../shared/types';
+import type { Environment, Scenario } from '@shared/types';
 
 interface Props {
   node: WorkflowNode | null;

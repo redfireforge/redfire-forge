@@ -9,8 +9,8 @@ vi.mock('../../../config/features', () => ({
   GRPC_PROTO_HYBRID_EDITOR_ENABLED: false,
 }));
 
-import { FIXTURE_DESCRIPTOR, FIXTURE_MULTI_SERVICE_DESCRIPTOR } from '../../../shared/grpc/contractFixtures';
-import { GRPC_ERROR_CODES } from '../../../shared/grpc/contracts';
+import { FIXTURE_DESCRIPTOR, FIXTURE_MULTI_SERVICE_DESCRIPTOR } from '@shared/grpc/contractFixtures';
+import { GRPC_ERROR_CODES } from '@shared/grpc/contracts';
 import { createGrpcStudioTab } from '../grpcStudioTypes';
 import { GrpcCallPanel } from './GrpcCallPanel';
 import { ECHO_METHOD, StatefulGrpcCallPanel } from './GrpcCallPanel.testHelpers';

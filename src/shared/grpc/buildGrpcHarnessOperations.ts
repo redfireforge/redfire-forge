@@ -4,7 +4,7 @@
 import type { GrpcCallRequest, GrpcStreamStartRequest } from './contracts';
 import type { GrpcHarnessCollectConfig } from '../types/grpc-harness';
 import type { GrpcHarnessCallOutcome } from '../types/grpc-harness-snapshot';
-import type { GrpcUnaryInvokeResult } from '../../features/workflow/utils/grpcWorkflowUnaryExecutor';
+import type { GrpcUnaryInvokeResult } from '@workflow/utils/grpcWorkflowUnaryExecutor';
 import { buildGrpcNodeOperations } from './buildGrpcNodeOperations';
 import {
   collectGrpcHarnessServerStream,

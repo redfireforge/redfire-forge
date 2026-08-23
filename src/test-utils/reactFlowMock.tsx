@@ -4,13 +4,8 @@
  * components so test suites that only care about parent-level orchestration
  * can render quickly under jsdom.
  *
- * Usage:
- * ```ts
- * vi.mock('@xyflow/react', async () => {
- *   const h = await import('../../../test-utils/reactFlowMock');
- *   return h.buildReactFlowMock();
- * });
- * ```
+ * Usage: register this module with the Vitest mock API, passing an async
+ * factory that imports and calls buildReactFlowMock().
  */
 /* v8 ignore start */
 // This is a test-only mock harness — components/hooks are wired up by vi.mock

@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ScenarioSlaPanel from './ScenarioSlaPanel';
-import type { Scenario, SlaTarget } from '../../../shared/types';
+import type { Scenario, SlaTarget } from '@shared/types';
 
 function makeTest(id: string, name: string, method: Scenario['method'], slaTargets?: SlaTarget[]): Scenario {
   return {

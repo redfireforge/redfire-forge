@@ -1,6 +1,6 @@
 import type { CatalogEntry, CatalogEndpoint } from '../types/catalog';
 import { countEndpoints } from '../utils/openApiParser';
-import { formatBytes } from '../../../shared/utils/helpers';
+import { formatBytes } from '@shared/utils/helpers';
 
 interface Props {
   entry: CatalogEntry;
@@ -11,7 +11,7 @@ interface Props {
   onViewYaml?: () => void;
 }
 
-import { SWAGGER_METHOD_COLORS as METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
+import { SWAGGER_METHOD_COLORS as METHOD_COLORS } from '@shared/constants/httpMethodColors';
 
 function collectAllEndpoints(entry: CatalogEntry): CatalogEndpoint[] {
   const eps = [...entry.endpoints];

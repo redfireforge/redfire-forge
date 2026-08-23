@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { getCustomSelectValue, selectOption } from '../../../../test-utils/customSelectHelper';
+import { getCustomSelectValue, selectOption } from '@test-utils/customSelectHelper';
 import { buildAdvancedMock, makeLoadTestSummary } from '../../test-helpers/grpcAdvancedPanel.testHelpers';
 import { GrpcLoadTestPanel } from './GrpcLoadTestPanel';
 

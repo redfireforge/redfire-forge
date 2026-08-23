@@ -4,8 +4,8 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useScenarioBuilderSearch } from './useScenarioBuilderSearch';
-import type { FeatureGroup, Scenario, TestScenario } from '../../../shared/types';
-import { makeScenario as _makeScenario } from '../../../test-utils/factories';
+import type { FeatureGroup, Scenario, TestScenario } from '@shared/types';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 const makeScenario = (overrides: Partial<Scenario> = {}): Scenario =>
   _makeScenario({ id: 'test-1', ...overrides });

@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ApolloTracingData, GraphqlResponse } from '../../../shared/types/graphql';
+import type { ApolloTracingData, GraphqlResponse } from '@shared/types/graphql';
 import { GraphqlTracingView } from './GraphqlTracingView';
 import { GqlLatencyHistogram } from './GqlLatencyHistogram';
 import { useGraphqlResponseDataOnly } from '../hooks/useGraphqlResponseDataOnly';

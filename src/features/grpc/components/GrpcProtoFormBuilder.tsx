@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { GrpcFieldSchema, GrpcMessageSchema } from '../../../shared/grpc/contracts';
+import type { GrpcFieldSchema, GrpcMessageSchema } from '@shared/grpc/contracts';
 import { buildGrpcMessageSchemaIndex } from '../utils/grpcBodyComposer';
 import {
   coerceGrpcFieldValue,

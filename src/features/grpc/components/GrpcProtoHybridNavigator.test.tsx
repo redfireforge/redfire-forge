@@ -3,7 +3,7 @@
  */
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { GrpcMessageSchema } from '../../../shared/grpc/contracts';
+import type { GrpcMessageSchema } from '@shared/grpc/contracts';
 import { GrpcProtoHybridNavigator } from './GrpcProtoHybridNavigator';
 import { buildHybridNavigatorPaths } from './grpcProtoHybridNavigatorPaths';
 

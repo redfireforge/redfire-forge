@@ -20,7 +20,7 @@ import type {
   WsSendResult,
   WsReceivedMessage,
   WsMessageMatchCriteria,
-} from '../../features/workflow/engine/graphRunnerNodeHandlerContext';
+} from '@workflow/engine/graphRunnerNodeHandlerContext';
 import { dispatchWsOperation, WsClientError } from './websocketClient';
 import { getByPath } from '../utils/jsonPath';
 

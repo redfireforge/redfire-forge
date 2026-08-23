@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import type { GlobalAuthProfile } from '../../shared/types';
-import { saveGlobalAuthProfiles } from '../../shared/utils/storage';
+import type { GlobalAuthProfile } from '@shared/types';
+import { saveGlobalAuthProfiles } from '@shared/utils/storage';
 
 /**
  * Exposes demo-player bridge helpers on `window`:

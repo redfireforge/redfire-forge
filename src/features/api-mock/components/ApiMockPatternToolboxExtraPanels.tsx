@@ -1,6 +1,6 @@
 import { useRef } from 'react';
-import { validateSchemaDraft } from '../../../shared/api-mock/schemaDraftValidation';
-import { evaluateXPath } from '../../../shared/api-mock/xpathMatcher';
+import { validateSchemaDraft } from '@shared/api-mock/schemaDraftValidation';
+import { evaluateXPath } from '@shared/api-mock/xpathMatcher';
 import { ApiMockExpandableText } from './ApiMockExpandableText';
 import {
   SCHEMA_CURRENT_PRESET_NAME,

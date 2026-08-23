@@ -6,7 +6,7 @@ import type {
   LoopNodeData,
   ScriptNodeData,
 } from '../types/workflow';
-import type { WorkflowIterationTrace, ExecutionTraceOptions } from '../../../shared/types';
+import type { WorkflowIterationTrace, ExecutionTraceOptions } from '@shared/types';
 
 vi.mock('../../../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
@@ -22,7 +22,7 @@ vi.mock('./scriptLibraries', () => ({
 }));
 
 import { runGraph } from './graphRunner';
-import { httpFetch } from '../../../shared/utils/httpClient';
+import { httpFetch } from '@shared/utils/httpClient';
 import { executeScript } from './scriptSandbox';
 import { httpNode } from './graphRunnerNodeHandlers.test-utils';
 

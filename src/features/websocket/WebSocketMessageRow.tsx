@@ -1,6 +1,6 @@
 import { memo, useCallback } from 'react';
-import type { WsFrame } from '../../shared/websocket/types';
-import { formatBytes } from '../../shared/websocket/types';
+import type { WsFrame } from '@shared/websocket/types';
+import { formatBytes } from '@shared/websocket/types';
 import { isValidJson, prettyJson, tokenizeJson, buildBinaryPreview, formatWsTimestamp } from './wsMessageUtils';
 
 export interface MessageRowProps {

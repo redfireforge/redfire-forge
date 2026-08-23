@@ -7,9 +7,9 @@ import {
   selectOptionByIndex,
   getCustomSelectValue,
   getCustomSelectOptionLabels,
-} from '../../../test-utils/customSelectHelper';
+} from '@test-utils/customSelectHelper';
 import MoveModal from './MoveModal';
-import type { FeatureGroup } from '../../../shared/types';
+import type { FeatureGroup } from '@shared/types';
 
 vi.mock('../../../shared/components/PopupModal', () => ({
   __esModule: true,

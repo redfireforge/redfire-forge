@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { DataSourceColumn, DataSourceRow } from '../../../shared/types';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import type { DataSourceColumn, DataSourceRow } from '@shared/types';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 interface PastePreviewProps {
   pasteData: { headers: string[]; rows: string[][] };

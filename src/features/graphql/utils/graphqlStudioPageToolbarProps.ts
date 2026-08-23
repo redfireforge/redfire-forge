@@ -1,11 +1,11 @@
 import type { ComponentProps, Dispatch, MutableRefObject, SetStateAction } from 'react';
-import type { GlobalAuthProfile } from '../../../shared/types';
+import type { GlobalAuthProfile } from '@shared/types';
 import type {
   GraphqlAuth,
   GraphqlEnvironment,
   GraphqlSchemaInfo,
   SubscriptionState,
-} from '../../../shared/types/graphql';
+} from '@shared/types/graphql';
 import type { EndpointRowStatus } from '../../environments/utils/protocolEndpointUtils';
 import type { ComplexityResult } from './complexityEstimator';
 import type { ConnectionProfile } from './connectionProfileStorage';

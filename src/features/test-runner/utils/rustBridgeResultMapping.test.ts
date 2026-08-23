@@ -6,8 +6,8 @@ import {
   mapRustResultWithoutValidation,
 } from './rustBridgeResultMapping';
 import type { RustExecutionResult } from './rustBridge';
-import { makeScenario as _makeScenario } from '../../../test-utils/factories';
-import type { Scenario } from '../../../shared/types';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
+import type { Scenario } from '@shared/types';
 
 function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
   return _makeScenario({

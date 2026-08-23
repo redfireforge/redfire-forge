@@ -1,6 +1,6 @@
 import { createElement, type SVGProps } from 'react';
-import type { ComparisonOperator, FieldOperator } from '../../../shared/types';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import type { ComparisonOperator, FieldOperator } from '@shared/types';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 export function getAssertionTypeBadgeLabel(type: string): string {
   switch (type) {

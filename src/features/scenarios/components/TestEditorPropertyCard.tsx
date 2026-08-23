@@ -1,4 +1,4 @@
-import type { Scenario, ScenarioActionType } from '../../../shared/types';
+import type { Scenario, ScenarioActionType } from '@shared/types';
 
 const TRANSPORT_GROUPS: { label: string; options: { value: ScenarioActionType; label: string }[] }[] = [
   { label: 'HTTP', options: [{ value: 'http', label: 'HTTP' }] },

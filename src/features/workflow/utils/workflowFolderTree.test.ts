@@ -12,7 +12,7 @@ import {
   moveWorkflow,
   countNodeWorkflows,
 } from './workflowFolderTree';
-import { makeWorkflow as _makeWorkflow, makeWorkflowFolder } from '../../../test-utils/factories';
+import { makeWorkflow as _makeWorkflow, makeWorkflowFolder } from '@test-utils/factories';
 
 const makeFolder = (overrides: Partial<WorkflowFolder> & { id: string }): WorkflowFolder =>
   makeWorkflowFolder({ name: overrides.name ?? overrides.id, ...overrides });

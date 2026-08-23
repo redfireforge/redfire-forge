@@ -1,4 +1,4 @@
-import type { TimingBreakdown } from '../../../shared/types';
+import type { TimingBreakdown } from '@shared/types';
 
 const PHASES: { key: keyof TimingBreakdown; label: string; color: string }[] = [
   { key: 'dnsLookup', label: 'DNS', color: '#8b5cf6' },

@@ -5,8 +5,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import RequestDefinitionVersionDiff from './RequestDefinitionVersionDiff';
-import type { RequestDefinitionVersion, RequestDefinitionSnapshot } from '../../../shared/types';
-import { formatTimestamp } from '../../../shared/utils/formatRelativeTime';
+import type { RequestDefinitionVersion, RequestDefinitionSnapshot } from '@shared/types';
+import { formatTimestamp } from '@shared/utils/formatRelativeTime';
 
 vi.mock('json-diff-kit', () => ({
   Differ: class {

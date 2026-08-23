@@ -1,4 +1,4 @@
-import type { ScriptResult } from '../../engine/scriptSandbox';
+import type { ScriptResult } from '@workflow/engine/scriptSandbox';
 
 interface Props {
   result: ScriptResult;

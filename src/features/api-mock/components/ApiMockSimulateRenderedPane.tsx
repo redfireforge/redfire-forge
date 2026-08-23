@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { ApiMockSimulationResultV1 } from '../../../shared/api-mock/contracts';
+import type { ApiMockSimulationResultV1 } from '@shared/api-mock/contracts';
 import { simulateRenderedBodyViews } from './apiMockSimulateModalHelpers';
 
 interface Props {

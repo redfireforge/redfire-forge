@@ -1,4 +1,4 @@
-import type { WorkflowExecutionTrace, WorkflowIterationTrace } from '../../../shared/types';
+import type { WorkflowExecutionTrace, WorkflowIterationTrace } from '@shared/types';
 
 /**
  * Find an iteration by its logical `index` field, not by array position.

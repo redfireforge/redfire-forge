@@ -1,5 +1,5 @@
-import type { RequestTab, RequestCollection } from '../../../shared/types';
-import { readKey, writeKey } from '../../../shared/utils/storage';
+import type { RequestTab, RequestCollection } from '@shared/types';
+import { readKey, writeKey } from '@shared/utils/storage';
 import { findRequestInCollection } from '../utils/requestTree';
 
 const STORAGE_KEY = 'redfire-request-tabs-v1';

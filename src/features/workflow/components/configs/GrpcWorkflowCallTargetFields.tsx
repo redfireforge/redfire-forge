@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { GrpcCallType, GrpcTlsMode } from '../../../../shared/grpc/contracts';
-import { loadGrpcConnectionProfilesFromStorage } from '../../../../engine/grpcConnectionProfileHydration';
-import { validateResolvedGrpcTargetAddress } from '../../../../shared/grpc/targetValidation';
-import type { GrpcConnectionProfile } from '../../../grpc/utils/resolveGrpcTabConnection';
+import type { GrpcCallType, GrpcTlsMode } from '@shared/grpc/contracts';
+import { loadGrpcConnectionProfilesFromStorage } from '@engine/grpc/grpcConnectionProfileHydration';
+import { validateResolvedGrpcTargetAddress } from '@shared/grpc/targetValidation';
+import type { GrpcConnectionProfile } from '@grpc/utils/resolveGrpcTabConnection';
 import { useGrpcWorkflowTargetReflection } from '../../hooks/useGrpcWorkflowTargetReflection';
 import type { GrpcWorkflowBaseConfig } from '../../types/workflow/node-grpc';
 import { buildGrpcWorkflowReflectionPatch, listGrpcWorkflowMethods } from '../../utils/grpcWorkflowReflection';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import { KafkaFormRow } from './KafkaConfigUi';
 
 type GrpcWorkflowCallConfig = Pick<

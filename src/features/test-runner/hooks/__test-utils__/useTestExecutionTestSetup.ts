@@ -1,17 +1,17 @@
 /**
  * Shared mocks, fixtures, and lifecycle helpers for useTestExecution test splits.
  *
- * `vi.mock(...)` declarations must remain in each test file (Vitest hoisting).
+ * Vitest mock calls declarations must remain in each test file (Vitest hoisting).
  * Wire mocks via async `vi.mock` factories that import this module (see
  * useTestExecution.test.ts).
  */
 import { vi, beforeEach, afterEach } from 'vitest';
-import type { TestConfig, RequestResult, TestSummary } from '../../../../shared/types';
+import type { TestConfig, RequestResult, TestSummary } from '@shared/types';
 import {
   makeScenario,
   makeResult,
   makeConfig,
-} from '../../../../test-utils/factories';
+} from '@test-utils/factories';
 
 export const mockRunTest = vi.fn();
 export const mockRunTestInWorker = vi.fn();

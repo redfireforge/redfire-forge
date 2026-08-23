@@ -5,17 +5,17 @@
  * Phase 4 — Step 3 (4C-1, 4C-2)
  */
 import { useState } from 'react';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import type {
   GraphqlQueryNodeData,
   GraphqlExtractionRule,
   NodeRunStatus,
-} from '../../workflow/types/workflow';
-import type { WorkflowVariableHint } from '../../workflow/utils/workflowVariableHints';
-import { useListCrud } from '../../../shared/hooks/useListCrud';
-import InsertVarField from '../../workflow/components/expression/InsertVarField';
-import ExpressionInput from '../../workflow/components/expression/ExpressionInput';
-import AvailableVariables from '../../workflow/components/expression/AvailableVariables';
+} from '@workflow/types/workflow';
+import type { WorkflowVariableHint } from '@workflow/utils/workflowVariableHints';
+import { useListCrud } from '@shared/hooks/useListCrud';
+import InsertVarField from '@workflow/components/expression/InsertVarField';
+import ExpressionInput from '@workflow/components/expression/ExpressionInput';
+import AvailableVariables from '@workflow/components/expression/AvailableVariables';
 import GraphqlImportFromCollectionModal from './GraphqlImportFromCollectionModal';
 import { isValidIdentifier, computeQueryTabErrors, countOperationTabConfigured, countVariablesTabConfigured } from '../utils/graphqlPanelHelpers';
 import {

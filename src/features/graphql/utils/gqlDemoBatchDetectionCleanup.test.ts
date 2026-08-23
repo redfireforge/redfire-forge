@@ -9,7 +9,7 @@ vi.mock('../../../shared/utils/storage', () => ({
   writeKey: vi.fn(),
 }));
 
-import { readKey, writeKey } from '../../../shared/utils/storage';
+import { readKey, writeKey } from '@shared/utils/storage';
 
 describe('gqlDemoBatchDetectionCleanup', () => {
   beforeEach(() => {

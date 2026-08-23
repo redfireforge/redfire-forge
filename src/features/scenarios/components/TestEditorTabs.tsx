@@ -1,5 +1,5 @@
-import type { Scenario } from '../../../shared/types';
-import type { ScenarioKind } from '../../../shared/types';
+import type { Scenario } from '@shared/types';
+import type { ScenarioKind } from '@shared/types';
 import type { TestEditorTab } from './TestEditorModal';
 import { dataSourceRowHasValues } from '../utils/dataSourceUtils';
 

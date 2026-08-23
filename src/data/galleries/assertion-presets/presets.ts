@@ -1,4 +1,4 @@
-import type { Assertion } from '../../../shared/types';
+import type { Assertion } from '@shared/types';
 
 // ─── 1. API Health Check (Easy) ──────────────────────────────────────────────
 

@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from './contractFixtures';
 import type { Scenario } from '../types';
-import { makeScenario as _makeScenario } from '../../test-utils/factories';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 function grpcScenario(): Scenario {
   return _makeScenario({

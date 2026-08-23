@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { escapeHtml, generateHtmlReport } from './graphqlSchemaDiffReport';
-import type { GraphqlSchemaDiffResult } from '../../../shared/types/graphql';
+import type { GraphqlSchemaDiffResult } from '@shared/types/graphql';
 
 const baseResult: GraphqlSchemaDiffResult = {
   changes: [],

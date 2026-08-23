@@ -1,4 +1,4 @@
-import type { WorkflowExecutionTrace } from '../../../shared/types';
+import type { WorkflowExecutionTrace } from '@shared/types';
 import { isSampledIteration } from './sampledIterations';
 
 export interface BottleneckInsight {

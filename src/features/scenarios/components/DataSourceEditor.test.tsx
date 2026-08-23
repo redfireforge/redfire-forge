@@ -4,14 +4,14 @@
 import { type ComponentProps } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption, selectOptionByIndex } from '../../../test-utils/customSelectHelper';
+import { selectOption, selectOptionByIndex } from '@test-utils/customSelectHelper';
 import DataSourceEditor from './DataSourceEditor';
 import {
   makeScenario,
   makeDataSource,
   makeDataTransferWithId as _makeDataTransferWithId,
 } from './__test-utils__/dataSourceEditorTestHelpers';
-import { Scenario, DataSource, SharedDataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
+import { Scenario, DataSource, SharedDataSource, DataSourceColumn, DataSourceRow } from '@shared/types';
 vi.mock('uuid', () => ({ v4: () => `uuid-${Math.random().toString(36).slice(2, 8)}` }));
 
 const useDataSourceTagsHarness = vi.hoisted(() => ({

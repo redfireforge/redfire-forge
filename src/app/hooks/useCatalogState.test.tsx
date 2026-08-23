@@ -23,7 +23,7 @@ vi.mock('../../features/catalog/utils/openApiParser', () => ({
   parseOpenApiSpec: vi.fn(),
 }));
 
-import { saveFile } from '../../shared/utils/fileSaver';
+import { saveFile } from '@shared/utils/fileSaver';
 import {
   detectSpecFormat,
   availableTargets,

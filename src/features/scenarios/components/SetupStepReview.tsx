@@ -3,10 +3,10 @@
  * Extracted from DataSourceSetupModal to reduce file size.
  */
 import type { Dispatch, SetStateAction } from 'react';
-import type { Scenario, FeatureGroup, TestScenario } from '../../../shared/types';
+import type { Scenario, FeatureGroup, TestScenario } from '@shared/types';
 import type { ColumnDef } from '../utils/csvTemplate';
 import { formatAuthLabel } from '../utils/dataSourceSetupUtils';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 export interface SetupStepReviewProps {
   copyName: string;

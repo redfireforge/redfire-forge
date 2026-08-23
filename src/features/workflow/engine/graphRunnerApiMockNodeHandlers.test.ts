@@ -9,8 +9,8 @@ import {
 } from './graphRunnerApiMockNodeHandlers';
 import type { NodeHandlerContext, PassedFlag } from './graphRunnerNodeHandlerContext';
 import type { WorkflowNode } from '../types/workflow';
-import { DEFAULT_SETTINGS, createDefaultResponse } from '../../../shared/api-mock/defaults';
-import type { ApiMockServerDefinitionV1 } from '../../../shared/api-mock/contracts';
+import { DEFAULT_SETTINGS, createDefaultResponse } from '@shared/api-mock/defaults';
+import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
 import {
   handleApiMockStart,
   handleApiMockApply,
@@ -20,8 +20,8 @@ import {
 } from './apiMockNodeHandlers';
 import { resolveApiMockDefinition } from '../utils/apiMockWorkflowDefinitionResolver';
 import { listApiMockServersForRun, registerApiMockServerForRun } from '../utils/apiMockRunIsolation';
-import { apiMockControlBase } from '../../../shared/api-mock/controlBase';
-import { httpFetch } from '../../../shared/utils/httpClient';
+import { apiMockControlBase } from '@shared/api-mock/controlBase';
+import { httpFetch } from '@shared/utils/httpClient';
 
 vi.mock('./apiMockNodeHandlers', () => ({
   handleApiMockStart: vi.fn(),

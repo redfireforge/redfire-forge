@@ -4,8 +4,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { DEFAULT_SETTINGS } from '../../../shared/api-mock/defaults';
-import { defaultRedactHeaderList } from '../../../shared/api-mock/redactHeaderCatalog';
+import { DEFAULT_SETTINGS } from '@shared/api-mock/defaults';
+import { defaultRedactHeaderList } from '@shared/api-mock/redactHeaderCatalog';
 import { ApiMockRedactHeaderPicker, redactHeaderChipTestId } from './ApiMockRedactHeaderPicker';
 
 describe('ApiMockRedactHeaderPicker', () => {

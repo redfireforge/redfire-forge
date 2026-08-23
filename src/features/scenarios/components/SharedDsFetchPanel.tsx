@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { SharedDataSource, SharedDataSourceFetchConfig } from '../../../shared/types';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import type { SharedDataSource, SharedDataSourceFetchConfig } from '@shared/types';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import type { useSharedDsFetchConfig } from '../hooks/useSharedDsFetchConfig';
 import type { UseSharedDsEditorPanelReturn } from '../hooks/useSharedDsEditorPanel';
 

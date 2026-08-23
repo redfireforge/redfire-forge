@@ -8,7 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { handleKafkaProduceNode, handleKafkaConsumeNode, classifyKafkaFailure } from './graphRunnerKafkaNodeHandlers';
 import type { KafkaProduceNodeData, KafkaConsumeNodeData } from '../types/workflow';
 import type { KafkaNodeOperations, KafkaConsumedMessage } from './graphRunnerNodeHandlerContext';
-import type { CapturedKafkaNodeDetails } from '../../../shared/types';
+import type { CapturedKafkaNodeDetails } from '@shared/types';
 import {
   makeNode,
   makeCallbacks,

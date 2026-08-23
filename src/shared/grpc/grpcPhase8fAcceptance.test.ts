@@ -2,8 +2,8 @@
  * Phase 8F — Acceptance checklist traceability.
  */
 import { describe, expect, it } from 'vitest';
-import { expandDataSource, resolveScenarioFromDataRow } from '../../engine/dataSourceExpander';
-import { executeGrpcAction } from '../../engine/grpcExecution';
+import { expandDataSource, resolveScenarioFromDataRow } from '@engine/core/dataSourceExpander';
+import { executeGrpcAction } from '@engine/grpc/grpcExecution';
 import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from './contractFixtures';
 import { interpolateGrpcHarnessCallAction } from './grpcHarnessDataSourceInterpolation';
 import { buildGrpcHarnessRowTraceKey } from './grpcHarnessRowIdentity';
@@ -19,7 +19,7 @@ describe('Phase 8F acceptance checklist', () => {
 
   it('dataSourceExpander wires grpc interpolation', async () => {
     const source = await import('fs/promises').then((fs) =>
-      fs.readFile(new URL('../../engine/dataSourceExpander.ts', import.meta.url), 'utf8'),
+      fs.readFile(new URL('../../engine/core/dataSourceExpander.ts', import.meta.url), 'utf8'),
     );
     expect(source).toContain('interpolateGrpcHarnessCallAction');
     expect(source).toContain('grpcCallAction');

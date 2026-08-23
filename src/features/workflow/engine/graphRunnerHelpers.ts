@@ -3,22 +3,22 @@
  * These were previously inline at the bottom of graphRunner.ts.
  */
 import type { WorkflowNode, WorkflowEdge, HttpNodeData, ConditionNodeData } from '../types/workflow';
-import type { RequestResult, Scenario } from '../../../shared/types';
+import type { RequestResult, Scenario } from '@shared/types';
 import type { VariableContext } from './variableContext';
-import type { TokenManager } from '../../../engine/tokenManager';
+import type { TokenManager } from '@engine/core/tokenManager';
 import type { ResponseData } from './extractVariables';
 import type { GraphRunCallbacks } from './graphRunner';
-import { getByPath } from '../../../shared/utils/jsonPath';
-import { httpFetch } from '../../../shared/utils/httpClient';
-import { serializeWithContentType } from '../../../shared/utils/bodySerializer';
-import { buildHeaders, buildUrl } from '../../../engine/executor';
-import { buildValidationResult } from '../../../engine/validationResult';
+import { getByPath } from '@shared/utils/jsonPath';
+import { httpFetch } from '@shared/utils/httpClient';
+import { serializeWithContentType } from '@shared/utils/bodySerializer';
+import { buildHeaders, buildUrl } from '@engine/core/executor';
+import { buildValidationResult } from '@engine/core/validationResult';
 import { resolveScenario } from './resolveScenario';
 import { extractVariables } from './extractVariables';
 import { ensureAbsoluteUrlWithBase } from './absoluteUrl';
-import { nextResultId, withTimeout } from '../../../engine/requestExecution';
+import { nextResultId, withTimeout } from '@engine/core/requestExecution';
 import { stripTrailingSlash } from '../utils/workflowHostResolve';
-import { escapeRegExp, toErrorMessage } from '../../../shared/utils/helpers';
+import { escapeRegExp, toErrorMessage } from '@shared/utils/helpers';
 
 // ── Template literal substitution ────────────────────
 

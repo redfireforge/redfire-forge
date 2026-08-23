@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, FeatureGroup, SharedDataSource, DataSource, KeyValue, AuthConfig } from '../../../shared/types';
+import type { Scenario, FeatureGroup, SharedDataSource, DataSource, KeyValue, AuthConfig } from '@shared/types';
 import type { TestEditorInputMode, TestEditorTab } from '../components/TestEditorModal';
 
 interface EditingTest {

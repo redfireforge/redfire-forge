@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { reconstructLogLines } from './reconstructLogLines';
-import { WorkflowIterationTrace, ExecutionEvent } from '../../../shared/types';
+import { WorkflowIterationTrace, ExecutionEvent } from '@shared/types';
 
 function makeEvent(overrides: Partial<ExecutionEvent> & { nodeId: string }): ExecutionEvent {
   return {

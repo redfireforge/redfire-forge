@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { WsFrame } from '../../shared/websocket/types';
-import { formatBytes } from '../../shared/websocket/types';
+import type { WsFrame } from '@shared/websocket/types';
+import { formatBytes } from '@shared/websocket/types';
 import { isValidJson, prettyJson, tokenizeJson, buildHexDumpLines, formatWsTimestamp } from './wsMessageUtils';
 import type { WsValidationResult } from './wsSchemaTypes';
 

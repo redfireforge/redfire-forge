@@ -1,4 +1,4 @@
-import type { GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlResponse } from '@shared/types/graphql';
 
 /** Extract `data.user` when present — used for the compact demo spotlight card. */
 export function getResponseDataUser(

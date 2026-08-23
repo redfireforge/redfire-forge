@@ -1,21 +1,21 @@
 import { useState, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, TestConfig, RequestResult, TestSummary, TestRun } from '../../../shared/types';
-import type { Workflow } from '../../workflow/types/workflow';
-import { runTest } from '../../../engine/executor';
-import type { ProgressMeta, StreamingMetrics, WorkflowResolverData } from '../../../engine/executor';
-import { runTestMultiWorker } from '../../../engine/workerBridge';
-import { computeMetrics } from '../../../engine/metrics';
-import { saveTestRun, forceSaveTestRun } from '../../../shared/utils/storage';
-import { supportsWorkers } from '../../../shared/utils/platform';
+import type { Scenario, TestConfig, RequestResult, TestSummary, TestRun } from '@shared/types';
+import type { Workflow } from '@workflow/types/workflow';
+import { runTest } from '@engine/core/executor';
+import type { ProgressMeta, StreamingMetrics, WorkflowResolverData } from '@engine/core/executor';
+import { runTestMultiWorker } from '@engine/core/workerBridge';
+import { computeMetrics } from '@engine/core/metrics';
+import { saveTestRun, forceSaveTestRun } from '@shared/utils/storage';
+import { supportsWorkers } from '@shared/utils/platform';
 import { isRustExecutorAvailable, canUseRustExecutor, runTestViaRust } from '../utils/rustBridge';
-import { toErrorMessage } from '../../../shared/utils/helpers';
-import { buildKafkaNodeOperations } from '../../../shared/kafka/buildKafkaNodeOperations';
-import { buildWsNodeOperations } from '../../../shared/websocket/buildWsNodeOperations';
-import { buildGrpcNodeOperations } from '../../../shared/grpc/buildGrpcNodeOperations';
-import { resolveGrpcHarnessEnv } from '../../../shared/grpc/grpcHarnessRuntimeContext';
-import type { KafkaResultsPublishConfig } from '../../../shared/types';
-import { publishRunResults } from '../../../shared/kafka/kafkaResultsPublisher';
+import { toErrorMessage } from '@shared/utils/helpers';
+import { buildKafkaNodeOperations } from '@shared/kafka/buildKafkaNodeOperations';
+import { buildWsNodeOperations } from '@shared/websocket/buildWsNodeOperations';
+import { buildGrpcNodeOperations } from '@shared/grpc/buildGrpcNodeOperations';
+import { resolveGrpcHarnessEnv } from '@shared/grpc/grpcHarnessRuntimeContext';
+import type { KafkaResultsPublishConfig } from '@shared/types';
+import { publishRunResults } from '@shared/kafka/kafkaResultsPublisher';
 import {
   applyApiMockFixtureBaseUrl,
   setupApiMockFixture,
@@ -419,9 +419,9 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
       }
 
       if (testResult.trace && testResult.trace.iterations.length > 0) {
-        const iterationDurations = testResult.trace.iterations.map(iter => iter.durationMs);
+        const iterationDurations = testResult.trace.iterations.map((iter: { durationMs: number }) => iter.durationMs);
         summary.avgIterationTime = Math.round(
-          iterationDurations.reduce((a, b) => a + b, 0) / iterationDurations.length * 100
+          iterationDurations.reduce((a: number, b: number) => a + b, 0) / iterationDurations.length * 100
         ) / 100;
       }
 

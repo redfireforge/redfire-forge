@@ -9,7 +9,7 @@ import type {
   RequestItem,
   Scenario,
   ValidationConfig,
-} from '../../../shared/types';
+} from '@shared/types';
 import { resolveBaseUrl } from './requestUrlResolver';
 import type { UrlResolverContext } from './requestUrlResolver';
 

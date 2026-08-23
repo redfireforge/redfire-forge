@@ -10,7 +10,7 @@ import {
   scenarioWithExtraValidateColumn,
   ensurePathVariableChecked,
 } from './__test-utils__/dataSourceSetupModalTestHelpers';
-import type { FeatureGroup } from '../../../shared/types';
+import type { FeatureGroup } from '@shared/types';
 import { TestEditingContext } from './TestEditorModal';
 import { extractJsonPath } from '../utils/dataSourceImport';
 
@@ -54,7 +54,7 @@ vi.mock('../../../shared/utils/templateHelpers', async () => {
   return h.makeTemplateHelpersMock();
 });
 
-vi.mock('../../../engine/executor', async () => {
+vi.mock('@engine/core/executor', async () => {
   const h = await import('./__test-utils__/dataSourceSetupModalTestHelpers');
   return h.makeExecutorMock();
 });

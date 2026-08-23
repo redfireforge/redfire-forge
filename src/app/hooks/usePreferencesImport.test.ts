@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import type { Environment, Microservice, FeatureGroup, GlobalAuthProfile } from '../../shared/types';
+import type { Environment, Microservice, FeatureGroup, GlobalAuthProfile } from '@shared/types';
 import { usePreferencesImport } from './usePreferencesImport';
 
 function setup() {

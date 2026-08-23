@@ -6,7 +6,7 @@ import { renderHook, act } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { useSubscriptionOrchestration } from './useSubscriptionOrchestration';
 import type { UseGraphqlSubscriptionResult } from './useGraphqlSubscription';
-import type { GraphqlSubscriptionMessage, SubscriptionStats } from '../../../shared/types/graphql';
+import type { GraphqlSubscriptionMessage, SubscriptionStats } from '@shared/types/graphql';
 import type { GqlStudioTab } from '../utils/tabPersistence';
 
 // ─── Minimal stubs ────────────────────────────────────────────────────────────

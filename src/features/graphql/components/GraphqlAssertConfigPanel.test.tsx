@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption } from '../../../test-utils/customSelectHelper';
+import { selectOption } from '@test-utils/customSelectHelper';
 import type { ReactNode } from 'react';
 
 vi.mock('../../workflow/components/expression/InsertVarField', () => ({
@@ -32,7 +32,7 @@ vi.mock('../../workflow/components/expression/AvailableVariables', () => ({
 }));
 
 import GraphqlAssertConfigPanel from './GraphqlAssertConfigPanel';
-import type { GraphqlAssertNodeData } from '../../workflow/types/workflow';
+import type { GraphqlAssertNodeData } from '@workflow/types/workflow';
 
 function makeData(overrides: Partial<GraphqlAssertNodeData> = {}): GraphqlAssertNodeData {
   return {

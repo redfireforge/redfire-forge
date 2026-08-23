@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { buildColumnDefs, generateExcelTemplate, parseExcelToScenarios } from './csvTemplateExcel';
 import * as XLSX from 'xlsx-js-style';
 import type { ExportOptions, ExcelExportOptions, ColumnDef } from './csvTemplateTypes';
-import type { Scenario } from '../../../shared/types';
+import type { Scenario } from '@shared/types';
 
 // ── Helpers ──
 

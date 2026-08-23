@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FIXTURE_UNARY_CALL_RESULT } from '../../../shared/grpc/contractFixtures';
+import { FIXTURE_UNARY_CALL_RESULT } from '@shared/grpc/contractFixtures';
 import {
   buildGrpcResponseCopyText,
   countGrpcHeaderEntries,

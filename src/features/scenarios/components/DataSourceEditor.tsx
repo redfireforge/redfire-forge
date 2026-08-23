@@ -1,9 +1,9 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import type { Scenario, DataSource, FeatureGroup, SharedDataSource, KeyValue, AuthConfig } from '../../../shared/types';
-import type { HttpResponse } from '../../../shared/utils/httpClient';
+import type { Scenario, DataSource, FeatureGroup, SharedDataSource, KeyValue, AuthConfig } from '@shared/types';
+import type { HttpResponse } from '@shared/utils/httpClient';
 import type { TestEditingContext } from './TestEditorModal';
 
-import { MapperFetchError } from '../../../shared/components/data-mapper/types';
+import { MapperFetchError } from '@shared/components/data-mapper/types';
 import { useDataSourceTags } from '../hooks/useDataSourceTags';
 import { useDataSourceColumns } from '../hooks/useDataSourceColumns';
 import { useDataSourceRows } from '../hooks/useDataSourceRows';
@@ -11,7 +11,7 @@ import { useDataSourceFetch } from '../hooks/useDataSourceFetch';
 import { useDataSourceGrid } from '../hooks/useDataSourceGrid';
 import { useDataSourceImport } from '../hooks/useDataSourceImport';
 import { useValidationContract } from '../hooks/useValidationContract';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import DataSourceSetupModal from './DataSourceSetupModal';
 import DataSourceRowDetailModal from './DataSourceRowDetailModal';
 import DataSourceVerifyModal from './DataSourceVerifyModal';
@@ -20,9 +20,9 @@ import ValidationContractPanel from './ValidationContractPanel';
 import PromoteToSharedModal from './PromoteToSharedModal';
 import DataSourceToolbar from './DataSourceToolbar';
 import DataSourceGridTable from './DataSourceGridTable';
-import { DataMapperModal, createPopulateFromApiAdapter, createColumnMappingAdapter, type PopulateOutput, type ColumnMappingOutput } from '../../../shared/components/data-mapper';
-import { buildHeaders, proxyFetch } from '../../../engine/executor';
-import { resolveScenarioFromDataRow } from '../../../engine/dataSourceExpander';
+import { DataMapperModal, createPopulateFromApiAdapter, createColumnMappingAdapter, type PopulateOutput, type ColumnMappingOutput } from '@shared/components/data-mapper';
+import { buildHeaders, proxyFetch } from '@engine/core/executor';
+import { resolveScenarioFromDataRow } from '@engine/core/dataSourceExpander';
 import { findUnresolvedTokens } from '../utils/populateFromApiUtils';
 import { mergeRowDetailSave, formatErrorBody } from '../utils/dataSourceEditorUtils';
 

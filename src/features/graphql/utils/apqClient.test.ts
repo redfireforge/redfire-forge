@@ -18,7 +18,7 @@ import {
   _apqCacheSize,
   _apqCacheEntries,
 } from './apqClient';
-import type { GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlResponse } from '@shared/types/graphql';
 
 // ─── SHA-256 polyfill for jsdom (crypto.subtle is available in Node 18+) ─────
 // vitest runs under Node so crypto.subtle should be present; no polyfill needed.

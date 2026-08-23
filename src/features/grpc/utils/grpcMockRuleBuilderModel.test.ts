@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest';
-import type { GrpcMockRuleSet } from '../../../shared/grpc/grpcMockRuleContracts';
+import type { GrpcMockRuleSet } from '@shared/grpc/grpcMockRuleContracts';
 import {
   createDefaultGrpcMockBuilderRuleRow,
   formatGrpcMockBuilderIssues,

@@ -9,8 +9,8 @@ import {
   syncUrlFromTemplate,
   dataSourceRowHasValues,
 } from './dataSourceUtils';
-import type { Scenario } from '../../../shared/types';
-import { makeScenario } from '../../../test-utils/factories';
+import type { Scenario } from '@shared/types';
+import { makeScenario } from '@test-utils/factories';
 import * as dataSourceContract from './dataSourceContract';
 
 vi.mock('uuid', () => {

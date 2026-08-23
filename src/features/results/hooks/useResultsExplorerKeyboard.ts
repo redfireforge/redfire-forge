@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import type { WorkflowExecutionTrace } from '../../../shared/types';
+import type { WorkflowExecutionTrace } from '@shared/types';
 import { getIterationByIndex } from '../utils/iterationLookup';
 
 interface UseResultsExplorerKeyboardOptions {

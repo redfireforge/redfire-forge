@@ -2,9 +2,9 @@ import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import type { PublishedEndpointItem, StatusFilter } from '../utils/publishedEndpointAggregator';
 import { filterPublishedEndpoints } from '../utils/publishedEndpointAggregator';
 import { scanWorkflowsForCatalogRef, type AffectedWorkflowInfo } from '../utils/workflowExposureScanner';
-import { SWAGGER_METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
+import { SWAGGER_METHOD_COLORS } from '@shared/constants/httpMethodColors';
 import type { PublishPermission } from '../hooks/usePublishPermission';
-import type { WorkflowPreviewEntry } from '../../../shared/utils/workflowPreviewStorage';
+import type { WorkflowPreviewEntry } from '@shared/utils/workflowPreviewStorage';
 
 interface PreviewDisplayItem {
   entryId: string;

@@ -1,6 +1,6 @@
-import type { GrpcCallType, GrpcDescriptor, GrpcMethodInfo, GrpcTlsMode } from '../../../shared/grpc/contracts';
-import { postGrpcReflect } from '../../../shared/grpc/grpcApiClient';
-import { validateResolvedGrpcTargetAddress } from '../../../shared/grpc/targetValidation';
+import type { GrpcCallType, GrpcDescriptor, GrpcMethodInfo, GrpcTlsMode } from '@shared/grpc/contracts';
+import { postGrpcReflect } from '@shared/grpc/grpcApiClient';
+import { validateResolvedGrpcTargetAddress } from '@shared/grpc/targetValidation';
 
 export function listGrpcWorkflowMethods(
   descriptor: GrpcDescriptor | null,

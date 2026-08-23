@@ -1,8 +1,8 @@
 /** Console log helpers for gRPC workflow nodes — mirrors GraphQL/HTTP detail level. */
 
-import type { GrpcAuthConfig } from '../../../shared/grpc/contracts';
-import { prepareGrpcExecuteRequestMetadata } from '../../../shared/grpc/grpcAuthPolicy';
-import { redactGrpcMetadataForDisplay } from '../../../shared/grpc/grpcRedaction';
+import type { GrpcAuthConfig } from '@shared/grpc/contracts';
+import { prepareGrpcExecuteRequestMetadata } from '@shared/grpc/grpcAuthPolicy';
+import { redactGrpcMetadataForDisplay } from '@shared/grpc/grpcRedaction';
 import type { GrpcWorkflowAssertion, GrpcWorkflowStepResult } from '../types/workflow/node-grpc';
 import { grpcStatusLabel } from '../utils/grpcWorkflowOutputAdapter';
 import { previewForConsoleLog } from './graphRunnerGraphqlLogHelpers';

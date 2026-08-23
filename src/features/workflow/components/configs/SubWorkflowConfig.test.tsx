@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
-import { selectOption, selectOptionByIndex, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
+import { selectOption, selectOptionByIndex, getCustomSelectValue } from '@test-utils/customSelectHelper';
 import SubWorkflowConfig from './SubWorkflowConfig';
 import type { SubWorkflowNodeData } from '../../types/workflow';
 import type { WorkflowPickerItem } from './SubWorkflowConfig';

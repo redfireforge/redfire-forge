@@ -1,4 +1,4 @@
-import type { GrpcDescriptorDriftState } from '../../../shared/grpc/contracts';
+import type { GrpcDescriptorDriftState } from '@shared/grpc/contracts';
 import type {
   GrpcSchemaDriftIssue,
   GrpcSchemaDriftRebindSuggestion,

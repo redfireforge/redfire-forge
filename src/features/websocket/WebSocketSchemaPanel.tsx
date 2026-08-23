@@ -3,9 +3,9 @@
  */
 import { memo, useCallback, useMemo, useState } from 'react';
 import type React from 'react';
-import type { WsFrame } from '../../shared/websocket/types';
+import type { WsFrame } from '@shared/websocket/types';
 import type { WsSchemaDefinition, WsSchemaDirection } from './wsSchemaTypes';
-import { CustomSelect } from '../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 interface WebSocketSchemaPanelProps {
   schemas: WsSchemaDefinition[];

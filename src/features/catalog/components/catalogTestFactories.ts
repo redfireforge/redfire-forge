@@ -10,7 +10,7 @@ import type {
   CatalogAuthConfig,
   CatalogSecurityScheme,
 } from '../types/catalog';
-import type { HttpMethod } from '../../../shared/types';
+import type { HttpMethod } from '@shared/types';
 
 export function makeVersion(over: Partial<CatalogVersion> = {}): CatalogVersion {
   return {

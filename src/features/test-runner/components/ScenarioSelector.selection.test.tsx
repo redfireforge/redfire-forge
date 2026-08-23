@@ -1,11 +1,11 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOptionByIndex } from '../../../test-utils/customSelectHelper';
+import { selectOptionByIndex } from '@test-utils/customSelectHelper';
 import '@testing-library/jest-dom';
 import ScenarioSelector from './ScenarioSelector';
 import { defaultProps } from './ScenarioSelector.test.utils';
-import type { FeatureGroup } from '../../../shared/types';
+import type { FeatureGroup } from '@shared/types';
 
 describe('ScenarioSelector - Selection', () => {
   it('calls onSelectedScenariosChange when scenario is toggled', () => {

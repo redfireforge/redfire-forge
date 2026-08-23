@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { GraphqlHeadersPanel } from './GraphqlHeadersPanel';
-import type { GraphqlHeaderRow, GraphqlEnvironment } from '../../../shared/types/graphql';
+import type { GraphqlHeaderRow, GraphqlEnvironment } from '@shared/types/graphql';
 
 function makeHeader(id: string, overrides: Partial<GraphqlHeaderRow> = {}): GraphqlHeaderRow {
   return { id, key: 'Authorization', value: 'Bearer token', enabled: true, ...overrides };

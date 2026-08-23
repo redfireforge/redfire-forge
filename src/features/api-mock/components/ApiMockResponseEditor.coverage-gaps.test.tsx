@@ -9,10 +9,10 @@ import { ApiMockResponseEditor } from './ApiMockResponseEditor';
 import { ApiMockResponseFaultsPanel } from './ApiMockResponseFaultsPanel';
 import { ApiMockResponseSelectionPanel } from './ApiMockResponseSelectionPanel';
 import { ApiMockResponseTimingPanel } from './ApiMockResponseTimingPanel';
-import { createDefaultResponse } from '../../../shared/api-mock/defaults';
-import type { ApiMockResponseVariantV1 } from '../../../shared/api-mock/contracts';
-import type { ApiMockRouteV1 } from '../../../shared/api-mock/contracts';
-import { CUSTOM_SELECT_SET_VALUE_EVENT } from '../../../shared/components/CustomSelect';
+import { createDefaultResponse } from '@shared/api-mock/defaults';
+import type { ApiMockResponseVariantV1 } from '@shared/api-mock/contracts';
+import type { ApiMockRouteV1 } from '@shared/api-mock/contracts';
+import { CUSTOM_SELECT_SET_VALUE_EVENT } from '@shared/components/CustomSelect';
 
 vi.mock('./ApiMockBodyEditor', () => ({
   ApiMockBodyEditor: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (

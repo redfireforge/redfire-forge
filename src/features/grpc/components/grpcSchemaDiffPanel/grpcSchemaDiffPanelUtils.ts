@@ -2,14 +2,14 @@ import type {
   GrpcSchemaDiffChange,
   GrpcSchemaDiffEntityType,
   GrpcSchemaDiffSeverity,
-} from '../../../../shared/grpc/grpcSchemaDiffContracts';
+} from '@shared/grpc/grpcSchemaDiffContracts';
 import type {
   GrpcDescriptor,
   GrpcMessageSchema,
   GrpcFieldSchema,
   GrpcEnumSchema,
   GrpcServiceInfo,
-} from '../../../../shared/grpc/contracts';
+} from '@shared/grpc/contracts';
 
 const ENTITY_TYPE_LABELS: Record<GrpcSchemaDiffEntityType, string> = {
   service: 'Service',

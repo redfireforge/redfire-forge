@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import type { ExecutionEvent, WorkflowIterationTrace } from '../../../shared/types';
-import { formatDurationMs } from '../../../shared/utils/formatDuration';
-import { percentile } from '../../../shared/utils/percentiles';
+import type { ExecutionEvent, WorkflowIterationTrace } from '@shared/types';
+import { formatDurationMs } from '@shared/utils/formatDuration';
+import { percentile } from '@shared/utils/percentiles';
 
 type StatusFilter = 'all' | 'pass' | 'fail' | 'skipped';
 

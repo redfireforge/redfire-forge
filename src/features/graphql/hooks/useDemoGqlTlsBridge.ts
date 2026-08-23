@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
+import type { GqlTlsSettings } from '@shared/types/gqlTls';
 
 interface GqlTlsBridgeDeps {
   applyTlsSettings: (patch: Partial<GqlTlsSettings>) => void;

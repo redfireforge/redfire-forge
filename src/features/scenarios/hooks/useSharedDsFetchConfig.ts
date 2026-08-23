@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
-import type { SharedDataSource, SharedDataSourceFetchConfig, Scenario } from '../../../shared/types';
-import { parseCurl } from '../../../shared/utils/curlParser';
+import type { SharedDataSource, SharedDataSourceFetchConfig, Scenario } from '@shared/types';
+import { parseCurl } from '@shared/utils/curlParser';
 import { buildScenarioFromFetchConfig } from '../utils/dataSourceSetupUtils';
 import { defaultFetchConfig } from './useSharedDsEditorPanel';
 

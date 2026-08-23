@@ -7,12 +7,12 @@ import { vi } from 'vitest';
 import { render, act } from '@testing-library/react';
 import { WebSocketStudioPage } from './WebSocketStudioPage';
 import type { UseWebSocketStudioReturn } from './useWebSocketStudio';
-import type { UseWebSocketProfilesReturn } from '../../app/hooks/useWebSocketProfiles';
-import type { UseWebSocketTemplatesReturn } from '../../app/hooks/useWebSocketTemplates';
-import type { UseWebSocketHistoryReturn } from '../../app/hooks/useWebSocketHistory';
+import type { UseWebSocketProfilesReturn } from '@app/hooks/useWebSocketProfiles';
+import type { UseWebSocketTemplatesReturn } from '@app/hooks/useWebSocketTemplates';
+import type { UseWebSocketHistoryReturn } from '@app/hooks/useWebSocketHistory';
 import type { UseWebSocketMockServerReturn } from './useWebSocketMockServer';
 import type { UseWebSocketRecordingReturn } from './useWebSocketRecording';
-import { createDefaultDraft, createDefaultReconnectState, createDefaultTlsConfig } from '../../shared/websocket/types';
+import { createDefaultDraft, createDefaultReconnectState, createDefaultTlsConfig } from '@shared/websocket/types';
 
 export function makeStudioReturn(overrides?: Partial<UseWebSocketStudioReturn>): UseWebSocketStudioReturn {
   return {

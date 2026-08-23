@@ -1,5 +1,5 @@
-import type { ApiMockPathMatcherKind, ApiMockPredicateV1 } from '../../../shared/api-mock/contracts';
-import { formatJsonPathValue } from '../../../shared/api-mock/jsonPathFromCursor';
+import type { ApiMockPathMatcherKind, ApiMockPredicateV1 } from '@shared/api-mock/contracts';
+import { formatJsonPathValue } from '@shared/api-mock/jsonPathFromCursor';
 
 export const DEFAULT_XPATH_SAMPLE = '<Order><Id>1</Id></Order>';
 

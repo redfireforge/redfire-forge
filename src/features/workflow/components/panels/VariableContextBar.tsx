@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useWorkflowInspect } from './WorkflowInspectContext';
-import { useModalDrag } from '../../../../shared/hooks/useModalDrag';
+import { useModalDrag } from '@shared/hooks/useModalDrag';
 
 const WF_CONTEXT_MODAL_MOUNT =
   () => document.querySelector('.workflow-designer-mount') || document.body;

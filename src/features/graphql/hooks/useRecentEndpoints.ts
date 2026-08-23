@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { readKey, writeKey } from '../../../shared/utils/storage';
+import { readKey, writeKey } from '@shared/utils/storage';
 
 const STORAGE_KEY = 'gql_recent_endpoints_v1';
 const MAX_RECENT  = 10;

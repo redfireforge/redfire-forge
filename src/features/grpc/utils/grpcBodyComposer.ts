@@ -1,7 +1,7 @@
 /**
  * gRPC request body composer — JSON ↔ form parity (Phase 1F).
  */
-import type { GrpcFieldSchema, GrpcMessageSchema } from '../../../shared/grpc/contracts';
+import type { GrpcFieldSchema, GrpcMessageSchema } from '@shared/grpc/contracts';
 import {
   groupMessageFields,
   isValidWideIntegralString,

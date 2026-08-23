@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import FullPanelModal from '../../../shared/components/FullPanelModal';
-import { SearchMatchBar } from '../../../shared/components/SearchMatchBar';
-import { useSearchMatchNavigation } from '../../../shared/hooks/useSearchMatchNavigation';
+import FullPanelModal from '@shared/components/FullPanelModal';
+import { SearchMatchBar } from '@shared/components/SearchMatchBar';
+import { useSearchMatchNavigation } from '@shared/hooks/useSearchMatchNavigation';
 
 interface Props {
   yaml: string;

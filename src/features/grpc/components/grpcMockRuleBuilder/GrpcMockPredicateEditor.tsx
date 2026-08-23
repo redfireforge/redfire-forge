@@ -8,7 +8,7 @@ import {
   type GrpcMockBuilderPredicateLeafKind,
 } from '../../utils/grpcMockRuleBuilderModel';
 import { GRPC_MOCK_PREDICATE_KIND_OPTIONS } from '../../utils/grpcMockRuleBuilderPanelHelpers';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import type { GrpcMockPredicateEditorProps } from './grpcMockPredicateEditorTypes';
 
 function LeafPredicateEditor({

@@ -1,11 +1,11 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { FeatureGroup, Scenario, DataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
+import type { FeatureGroup, Scenario, DataSource, DataSourceColumn, DataSourceRow } from '@shared/types';
 import { parseCsvToScenarios, parseExcelToScenarios, downloadCsv } from '../utils/csvTemplate';
 import { parseJsonToScenarios } from '../utils/csvTemplateJson';
 import type { CsvParseResult } from '../utils/csvTemplate';
-import PopupModal from '../../../shared/components/PopupModal';
-import { CustomSelect } from '../../../shared/components/CustomSelect';
+import PopupModal from '@shared/components/PopupModal';
+import { CustomSelect } from '@shared/components/CustomSelect';
 
 type ImportMode = 'tests' | 'parameterized';
 

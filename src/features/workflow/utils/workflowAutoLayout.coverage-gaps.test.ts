@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getAutoLayoutNodes } from './workflowAutoLayout';
-import { makeWorkflowNode, makeWorkflowEdge } from '../../../test-utils/factories';
+import { makeWorkflowNode, makeWorkflowEdge } from '@test-utils/factories';
 
 describe('workflowAutoLayout — coverage gaps', () => {
   it('layout single-child fork without rank shift errors', () => {

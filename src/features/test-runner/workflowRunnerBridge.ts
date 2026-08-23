@@ -1,4 +1,4 @@
-import type { TraceCaptureLevel } from '../../shared/types';
+import type { TraceCaptureLevel } from '@shared/types';
 
 export type WorkflowRunnerBridgeWindow = Window & {
   __wfRunnerApplySelection?: (name: string) => boolean;

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
-import type { ExecutionEvent } from '../../../shared/types';
-import JsonTreeViewer from '../../../shared/components/JsonTreeViewer';
-import { formatDurationMs } from '../../../shared/utils/formatDuration';
+import type { ExecutionEvent } from '@shared/types';
+import JsonTreeViewer from '@shared/components/JsonTreeViewer';
+import { formatDurationMs } from '@shared/utils/formatDuration';
 import { computeHistogramBins } from '../utils/responseTimeHistogram';
 
 export interface OverviewTabProps {

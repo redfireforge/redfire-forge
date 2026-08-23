@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildDefaultGrpcBody } from './buildDefaultGrpcBody';
-import type { GrpcMessageSchema } from '../../../shared/grpc/contracts';
+import type { GrpcMessageSchema } from '@shared/grpc/contracts';
 
 describe('buildDefaultGrpcBody (Phase 1E)', () => {
   it('builds defaults for scalar and repeated fields', () => {

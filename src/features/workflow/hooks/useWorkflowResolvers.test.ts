@@ -31,7 +31,7 @@ vi.mock('../utils/workflowVariableHints', () => ({
 
 import { useWorkflowResolvers } from './useWorkflowResolvers';
 import type { Workflow } from '../types/workflow';
-import type { Environment, Microservice, GlobalAuthProfile } from '../../../shared/types';
+import type { Environment, Microservice, GlobalAuthProfile } from '@shared/types';
 import type {
   WorkflowHostProfile,
   WorkflowAuthProfile,

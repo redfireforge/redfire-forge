@@ -67,7 +67,7 @@ import {
   loadCatalogEntries, saveCatalogEntries,
   loadCatalogRawSpec, saveCatalogRawSpec,
   removeCatalogRawSpec, removeAllCatalogRawSpecs,
-} from '../../../shared/utils/storage';
+} from '@shared/utils/storage';
 import type { CatalogEntry } from '../types/catalog';
 
 function makeEntry(id: string, name: string): CatalogEntry {

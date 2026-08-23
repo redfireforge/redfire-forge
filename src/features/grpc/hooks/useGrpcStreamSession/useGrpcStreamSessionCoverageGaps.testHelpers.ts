@@ -1,10 +1,10 @@
 import { renderHook } from '@testing-library/react';
 import { vi } from 'vitest';
-import { FIXTURE_DESCRIPTOR, FIXTURE_SERVER_STREAM_START_REQUEST } from '../../../../shared/grpc/contractFixtures';
-import { createGrpcSuccessEnvelope } from '../../../../shared/grpc/contracts';
-import { createGrpcInterpolationEnvSnapshotFromMap } from '../../../../shared/grpc/grpcInterpolationEnvSnapshot';
+import { FIXTURE_DESCRIPTOR, FIXTURE_SERVER_STREAM_START_REQUEST } from '@shared/grpc/contractFixtures';
+import { createGrpcSuccessEnvelope } from '@shared/grpc/contracts';
+import { createGrpcInterpolationEnvSnapshotFromMap } from '@shared/grpc/grpcInterpolationEnvSnapshot';
 import * as callHistoryCapture from '../../utils/grpcStudioCallHistoryCapture';
-import * as grpcStreamClient from '../../../../shared/grpc/grpcStreamClient';
+import * as grpcStreamClient from '@shared/grpc/grpcStreamClient';
 import { createInitialSessionState } from '../grpcStudioSessionHelpers';
 import { useGrpcStreamSession } from '../useGrpcStreamSession';
 

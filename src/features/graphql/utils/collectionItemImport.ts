@@ -1,8 +1,8 @@
 /**
  * Maps GraphQL Studio collection items into workflow node config patches.
  */
-import type { GraphqlCollectionItem } from '../../../shared/types/graphql';
-import type { GraphqlQueryNodeData } from '../../workflow/types/workflow';
+import type { GraphqlCollectionItem } from '@shared/types/graphql';
+import type { GraphqlQueryNodeData } from '@workflow/types/workflow';
 import type { ConnectionProfile } from './connectionProfileStorage';
 
 export type WorkflowGraphqlImportNodeType = 'graphqlQuery' | 'graphqlMutation';

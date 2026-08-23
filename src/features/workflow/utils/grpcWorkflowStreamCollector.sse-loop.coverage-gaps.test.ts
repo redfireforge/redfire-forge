@@ -9,9 +9,9 @@ vi.mock('../../../shared/grpc/grpcStreamSseParser', () => ({
   parseGrpcSseStream: vi.fn(),
 }));
 
-import { parseGrpcSseStream } from '../../../shared/grpc/grpcStreamSseParser';
+import { parseGrpcSseStream } from '@shared/grpc/grpcStreamSseParser';
 import { collectGrpcWorkflowServerStream } from './grpcWorkflowStreamCollector';
-import type { GrpcStreamStartRequest } from '../../../shared/grpc/contracts';
+import type { GrpcStreamStartRequest } from '@shared/grpc/contracts';
 
 describe('grpcWorkflowStreamCollector SSE loop abort coverage', () => {
   const request = {

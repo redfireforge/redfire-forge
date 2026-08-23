@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { Microservice } from '../../../shared/types';
+import type { Microservice } from '@shared/types';
 import {
   buildGraphqlGlobalEnvMap,
   resolveGraphqlEndpointProtocolStatus,

@@ -4,16 +4,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useDataSourceFetch } from './useDataSourceFetch';
-import { Scenario, DataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
-import { HttpResponse } from '../../../shared/utils/httpClient';
-import { makeScenario as _makeScenario } from '../../../test-utils/factories';
+import { Scenario, DataSource, DataSourceColumn, DataSourceRow } from '@shared/types';
+import { HttpResponse } from '@shared/utils/httpClient';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 const uuidMock = vi.hoisted(() =>
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('../../../test-utils/uuidMock.ts').hoistedUuidFixed('test-uuid'),
 );
 
 // Mock dependencies
-vi.mock('../../../engine/dataSourceExpander', () => ({
+vi.mock('@engine/core/dataSourceExpander', () => ({
   resolveScenarioFromDataRow: vi.fn((_scenario, _cols, _row, _idx) => ({
     url: 'https://api.example.com/items/123',
     method: 'GET',
@@ -22,7 +22,7 @@ vi.mock('../../../engine/dataSourceExpander', () => ({
   })),
 }));
 
-vi.mock('../../../engine/executor', () => ({
+vi.mock('@engine/core/executor', () => ({
   proxyFetch: vi.fn(),
   buildHeaders: vi.fn(() => ({ 'Content-Type': 'application/json' })),
 }));

@@ -12,7 +12,7 @@ import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { GraphqlQueryBuilder } from './GraphqlQueryBuilder';
-import { installClipboardMock } from '../../../test-utils/clipboardMock';
+import { installClipboardMock } from '@test-utils/clipboardMock';
 
 // ─── Mock sub-components ──────────────────────────────────────────────────────
 

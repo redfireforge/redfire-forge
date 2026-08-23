@@ -3,11 +3,11 @@
  * Compiles schemas once and caches ValidateFunction instances.
  */
 import Ajv from 'ajv';
-import { tryParseJson } from '../../shared/utils/helpers';
+import { tryParseJson } from '@shared/utils/helpers';
 import addFormats from 'ajv-formats';
 import type { ValidateFunction } from 'ajv';
 import type { WsSchemaDefinition, WsValidationError, WsValidationResult } from './wsSchemaTypes';
-import type { WsFrameDirection } from '../../shared/websocket/types';
+import type { WsFrameDirection } from '@shared/websocket/types';
 
 let _ajv: Ajv | null = null;
 

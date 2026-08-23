@@ -1,1 +1,1 @@
-export { isEmptyRecord } from '../../../shared/utils/recordUtils';
+export { isEmptyRecord } from '@shared/utils/recordUtils';

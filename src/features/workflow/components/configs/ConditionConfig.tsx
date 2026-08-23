@@ -10,7 +10,7 @@ import InsertVarField from '../expression/InsertVarField';
 import ExpressionInput from '../expression/ExpressionInput';
 import SearchableVariableSelect from '../expression/SearchableVariableSelect';
 import ExpressionTextarea from '../expression/ExpressionTextarea';
-import { CustomSelect } from '../../../../shared/components/CustomSelect';
+import { CustomSelect } from '@shared/components/CustomSelect';
 import { KafkaCard, KafkaFormRow } from './KafkaConfigUi';
 
 const CUSTOM_SELECT = '__custom__';

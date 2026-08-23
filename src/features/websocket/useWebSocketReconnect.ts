@@ -8,7 +8,7 @@ import {
   type WsBackoffMultiplier,
   createDefaultReconnectState,
   DEFAULT_BACKOFF_MULTIPLIER,
-} from '../../shared/websocket/types';
+} from '@shared/websocket/types';
 import {
   DEFAULT_RECONNECT_INTERVAL_MS,
   DEFAULT_MAX_RECONNECT_ATTEMPTS,

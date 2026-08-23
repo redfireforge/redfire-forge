@@ -1,4 +1,4 @@
-import type { FeatureGroup, Microservice, GlobalAuthProfile, SharedDataSource } from '../../shared/types';
+import type { FeatureGroup, Microservice, GlobalAuthProfile, SharedDataSource } from '@shared/types';
 
 export interface ScenarioBuilderProps {
   featureGroups: FeatureGroup[];

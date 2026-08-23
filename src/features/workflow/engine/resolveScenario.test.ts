@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { Scenario } from '../../../shared/types';
+import type { Scenario } from '@shared/types';
 import { VariableContext } from './variableContext';
 import { decodeUrlEncodedTemplateBraces, resolveScenario } from './resolveScenario';
 

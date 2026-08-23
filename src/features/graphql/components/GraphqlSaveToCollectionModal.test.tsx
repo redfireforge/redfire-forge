@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption, getCustomSelectValue, getCustomSelectOptionLabels } from '../../../test-utils/customSelectHelper';
+import { selectOption, getCustomSelectValue, getCustomSelectOptionLabels } from '@test-utils/customSelectHelper';
 
 // Mock IDB dependencies that get transitively imported
 vi.mock('../../../shared/utils/idbGraphqlCollections', () => ({

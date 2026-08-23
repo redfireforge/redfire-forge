@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { saveBatchResultsToHistory } from './saveBatchResultsToHistory';
-import type { GraphqlBatchResult } from '../../../shared/types/graphql';
+import type { GraphqlBatchResult } from '@shared/types/graphql';
 import type { GqlStudioTab } from '../utils/tabPersistence';
 
 const makeTab = (id: string, query: string): GqlStudioTab => ({

@@ -7,8 +7,8 @@ import {
   createTestEditorImportHandler,
   createTestEditorExportHandler,
 } from './testEditorModalImportExport';
-import type { Scenario, DataSource } from '../../../shared/types';
-import { makeScenario as _makeScenario } from '../../../test-utils/factories';
+import type { Scenario, DataSource } from '@shared/types';
+import { makeScenario as _makeScenario } from '@test-utils/factories';
 
 vi.mock('../utils/testEditorUtils', () => ({
   pickJsonFile: vi.fn(),
@@ -20,7 +20,7 @@ vi.mock('../../../shared/utils/fileSaver', () => ({
 }));
 
 import { pickJsonFile } from '../utils/testEditorUtils';
-import { saveFile } from '../../../shared/utils/fileSaver';
+import { saveFile } from '@shared/utils/fileSaver';
 
 const dataSource: DataSource = {
   urlTemplate: 'https://api.example.com/{{id}}',

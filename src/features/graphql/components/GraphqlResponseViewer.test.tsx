@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useState } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { GraphqlResponseViewer } from './GraphqlResponseViewer';
-import type { GraphqlResponse } from '../../../shared/types/graphql';
+import type { GraphqlResponse } from '@shared/types/graphql';
 
 function makeResponse(overrides: Partial<GraphqlResponse> = {}): GraphqlResponse {
   return {

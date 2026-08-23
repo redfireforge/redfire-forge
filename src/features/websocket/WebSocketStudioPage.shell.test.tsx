@@ -8,10 +8,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { WebSocketStudioPage, deriveTabLabel } from './WebSocketStudioPage';
 import * as hookModule from './useWebSocketStudio';
-import * as profilesModule from '../../app/hooks/useWebSocketProfiles';
-import * as templatesModule from '../../app/hooks/useWebSocketTemplates';
-import * as historyModule from '../../app/hooks/useWebSocketHistory';
-import * as storageModule from '../../shared/websocket/websocketStorage';
+import * as profilesModule from '@app/hooks/useWebSocketProfiles';
+import * as templatesModule from '@app/hooks/useWebSocketTemplates';
+import * as historyModule from '@app/hooks/useWebSocketHistory';
+import * as storageModule from '@shared/websocket/websocketStorage';
 import {
   makeStudioReturn,
   makeProfilesReturn,

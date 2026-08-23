@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { RequestItem, AuthConfig, KeyValue } from '../../../shared/types';
+import type { RequestItem, AuthConfig, KeyValue } from '@shared/types';
 import type { CatalogEndpoint, CatalogServer } from '../types/catalog';
 
 /** Generate a minimal sample JSON value from an OpenAPI-style schema. */

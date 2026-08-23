@@ -4,14 +4,14 @@
  * Wraps the Phase 4H resolver with schema drift analysis and optional safe
  * body fallback. Does not mutate the source tab.
  */
-import type { GrpcDescriptor } from '../../../shared/grpc/contracts';
-import type { GrpcCallHistoryEntryV1 } from '../../../shared/grpc/grpcPersistenceSchema';
-import { containsGrpcInterpolationToken } from '../../../shared/grpc/grpcInterpolationGrammar';
+import type { GrpcDescriptor } from '@shared/grpc/contracts';
+import type { GrpcCallHistoryEntryV1 } from '@shared/grpc/grpcPersistenceSchema';
+import { containsGrpcInterpolationToken } from '@shared/grpc/grpcInterpolationGrammar';
 import {
   createGrpcSavedRequestFromSnapshot,
   type GrpcSavedRequest,
-} from '../../../shared/grpc/grpcSavedRequest';
-import type { GrpcSavedRequestTabContext } from '../../../shared/grpc/grpcReplayTemplateCompatibility';
+} from '@shared/grpc/grpcSavedRequest';
+import type { GrpcSavedRequestTabContext } from '@shared/grpc/grpcReplayTemplateCompatibility';
 import type { GrpcTabDescriptorState } from '../grpcStudioTypes';
 import {
   analyzeGrpcSchemaDrift,
@@ -25,8 +25,8 @@ import {
   resolveGrpcSavedRequestReplay,
   type GrpcReplayResolverInput,
 } from './grpcReplayResolver';
-import type { GrpcTabExecuteSnapshot } from '../../../shared/grpc/contracts';
-import { resolveDescriptorSourceFingerprint } from '../../../shared/grpc/descriptorSourcePolicy';
+import type { GrpcTabExecuteSnapshot } from '@shared/grpc/contracts';
+import { resolveDescriptorSourceFingerprint } from '@shared/grpc/descriptorSourcePolicy';
 
 export interface GrpcReplayBindingInput extends GrpcReplayResolverInput {
   /** Loaded descriptor on the active tab — required for drift analysis. */

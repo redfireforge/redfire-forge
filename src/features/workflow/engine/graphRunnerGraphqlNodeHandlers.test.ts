@@ -61,7 +61,7 @@ vi.mock('graphql', () => ({
   isObjectType: vi.fn((t: unknown) => typeof (t as { getFields?: unknown })?.getFields === 'function'),
 }));
 
-import { createWsProxyTransport, createSseProxyTransport } from '../../graphql/utils/graphqlProxyTransports';
+import { createWsProxyTransport, createSseProxyTransport } from '@graphql/utils/graphqlProxyTransports';
 import { buildClientSchema, isObjectType } from 'graphql';
 
 // ── Node factories ─────────────────────────────────────────────────────────────

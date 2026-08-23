@@ -2,7 +2,7 @@
  * Phase 9C — workflow interpolation resolver bridge tests.
  */
 import { describe, expect, it } from 'vitest';
-import { VariableContext } from '../../features/workflow/engine/variableContext';
+import { VariableContext } from '@workflow/engine/variableContext';
 import { createGrpcWorkflowInterpolationResolver } from './grpcWorkflowInterpolationResolver';
 
 describe('createGrpcWorkflowInterpolationResolver', () => {

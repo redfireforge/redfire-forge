@@ -12,7 +12,7 @@ vi.mock('../../../shared/utils/platform', () => ({
   isTauri: vi.fn(() => true),
 }));
 
-import { readKey, writeKey } from '../../../shared/utils/storage';
+import { readKey, writeKey } from '@shared/utils/storage';
 import {
   readGqlStudioEnvironments,
   writeGqlStudioEnvironments,
@@ -20,7 +20,7 @@ import {
   GQL_ENVS_STORAGE_KEY,
   GQL_ENVS_RELOAD_EVENT,
 } from './gqlStudioEnvironmentStorage';
-import type { GraphqlEnvironment } from '../../../shared/types/graphql';
+import type { GraphqlEnvironment } from '@shared/types/graphql';
 
 const mockReadKey = vi.mocked(readKey);
 const mockWriteKey = vi.mocked(writeKey);

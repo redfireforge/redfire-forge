@@ -4,24 +4,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useRerunFailed } from './useRerunFailed';
-import type { AuthConfig, FeatureGroup, RequestResult, TestRun, TestScenario, TestSummary } from '../../shared/types';
-import type { TestResult } from '../../engine/executor';
+import type { AuthConfig, FeatureGroup, RequestResult, TestRun, TestScenario, TestSummary } from '@shared/types';
+import type { TestResult } from '@engine/core/executor';
 
 // ── Mocks ──
 
-vi.mock('../../engine/dataSourceExpander', () => ({
+vi.mock('@engine/core/dataSourceExpander', () => ({
   expandDataSourceForRows: vi.fn((_scenario, rowIds: string[]) =>
     rowIds.map(id => ({ id: `expanded-${id}`, url: 'http://example.com/api', method: 'GET' })),
   ),
 }));
 
-vi.mock('../../engine/executor', () => ({
+vi.mock('@engine/core/executor', () => ({
   runTest: vi.fn(async () => ({
     results: [{ id: 'r1', scenarioId: 's1', passed: true, httpStatus: 200, responseTimeMs: 50 }],
   })),
 }));
 
-vi.mock('../../engine/rerunMerge', () => ({
+vi.mock('../../engine/core/rerunMerge', () => ({
   mergeRerunResults: vi.fn((run: TestRun, rerunResults: TestResult) => ({
     ...run,
     results: [...run.results, ...rerunResults],
@@ -40,9 +40,9 @@ vi.mock('../../shared/utils/storage', () => ({
   updateTestRun: vi.fn(async () => {}),
 }));
 
-const { expandDataSourceForRows } = await import('../../engine/dataSourceExpander');
-const { runTest } = await import('../../engine/executor');
-const { mergeRerunResults } = await import('../../engine/rerunMerge');
+const { expandDataSourceForRows } = await import('@engine/core/dataSourceExpander');
+const { runTest } = await import('@engine/core/executor');
+const { mergeRerunResults } = await import('../../engine/core/rerunMerge');
 const { updateTestRun } = await import('../../shared/utils/storage');
 
 // ── Helpers ──

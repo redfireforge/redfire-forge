@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { WsConnectionDraft, WsConnectionProfile, WsProtocolMode, WsBackoffMultiplier, WsTlsConfig } from '../../shared/websocket/types';
-import { profileToDraft, resolveBackoffMultiplier } from '../../shared/websocket/types';
-import { loadWsProfiles, saveWsProfiles } from '../../shared/websocket/websocketStorage';
+import type { WsConnectionDraft, WsConnectionProfile, WsProtocolMode, WsBackoffMultiplier, WsTlsConfig } from '@shared/websocket/types';
+import { profileToDraft, resolveBackoffMultiplier } from '@shared/websocket/types';
+import { loadWsProfiles, saveWsProfiles } from '@shared/websocket/websocketStorage';
 
 const VALID_PROTOCOL_MODES: ReadonlySet<string> = new Set<WsProtocolMode>([
   'auto', 'raw', 'socket-io', 'stomp', 'graphql-ws',
