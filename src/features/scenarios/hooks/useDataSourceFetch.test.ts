@@ -13,7 +13,7 @@ const uuidMock = vi.hoisted(() =>
 );
 
 // Mock dependencies
-vi.mock('../../../engine/dataSourceExpander', () => ({
+vi.mock('@engine/core/dataSourceExpander', () => ({
   resolveScenarioFromDataRow: vi.fn((_scenario, _cols, _row, _idx) => ({
     url: 'https://api.example.com/items/123',
     method: 'GET',
@@ -22,7 +22,7 @@ vi.mock('../../../engine/dataSourceExpander', () => ({
   })),
 }));
 
-vi.mock('../../../engine/executor', () => ({
+vi.mock('@engine/core/executor', () => ({
   proxyFetch: vi.fn(),
   buildHeaders: vi.fn(() => ({ 'Content-Type': 'application/json' })),
 }));

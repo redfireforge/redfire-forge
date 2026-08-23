@@ -32,7 +32,7 @@ describe('Phase 8C acceptance checklist', () => {
   });
 
   it('exports grpcExecution harness entry', async () => {
-    const grpcExecution = await import('../../engine/grpcExecution');
+    const grpcExecution = await import('../../engine/grpc/grpcExecution');
     expect(typeof grpcExecution.executeGrpcAction).toBe('function');
   });
 
@@ -40,7 +40,7 @@ describe('Phase 8C acceptance checklist', () => {
     const runtime = await import('./grpcHarnessRuntimeContext');
     expect(typeof runtime.mergeGrpcHarnessRuntimeContext).toBe('function');
     const source = await import('fs/promises').then((fs) =>
-      fs.readFile(new URL('../../engine/grpcExecution.ts', import.meta.url), 'utf8'),
+      fs.readFile(new URL('../../engine/grpc/grpcExecution.ts', import.meta.url), 'utf8'),
     );
     expect(source).toContain('runtimeOverrides');
     expect(source).toContain('mergeGrpcHarnessRuntimeContext');
@@ -48,14 +48,14 @@ describe('Phase 8C acceptance checklist', () => {
 
   it('executor no longer throws Phase 8C placeholder', async () => {
     const source = await import('fs/promises').then((fs) =>
-      fs.readFile(new URL('../../engine/executor.ts', import.meta.url), 'utf8'),
+      fs.readFile(new URL('../../engine/core/executor.ts', import.meta.url), 'utf8'),
     );
     expect(source).not.toContain('gRPC harness execution ships in Phase 8C');
     expect(source).toContain('executeGrpcAction');
   });
 
   it('grpcCall RequestResult satisfies Phase 6H harness meta contract', async () => {
-    const { executeGrpcAction } = await import('../../engine/grpcExecution');
+    const { executeGrpcAction } = await import('../../engine/grpc/grpcExecution');
     const { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } = await import('./contractFixtures');
     const scenario = {
       id: 'grpc-1',

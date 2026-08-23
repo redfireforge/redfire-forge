@@ -22,7 +22,7 @@ vi.mock('../utils/csvTemplate', async () => {
   };
 });
 
-vi.mock('../../../engine/executor', () => ({
+vi.mock('@engine/core/executor', () => ({
   proxyFetch: (...args: unknown[]) => sharedMocks.proxyFetchMock(...args),
 }));
 

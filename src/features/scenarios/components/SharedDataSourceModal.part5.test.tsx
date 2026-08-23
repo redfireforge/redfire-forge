@@ -17,13 +17,13 @@ vi.mock('uuid', () => ({
 }));
 
 // Mock proxyFetch
-vi.mock('../../../engine/executor', () => ({
+vi.mock('@engine/core/executor', () => ({
   proxyFetch: vi.fn(),
   buildHeaders: vi.fn(() => ({})),
 }));
 
 /** Minimal frame so `onClose` (dirty gate) can be exercised — production uses closeButtonKind none + closeOnOverlayClick false */
-vi.mock('../../../shared/components/AppModalFrame', async () => {
+vi.mock('@shared/components/AppModalFrame', async () => {
   const { MockAppModalFrame } = await import('./__test-utils__/sharedDataSourceModalMocks');
   return { default: MockAppModalFrame };
 });
@@ -83,8 +83,8 @@ vi.mock('./DataSourceSetupModal', () => ({
   ),
 }));
 
-vi.mock('../../../shared/components/data-mapper', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../shared/components/data-mapper')>();
+vi.mock('@shared/components/data-mapper', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@shared/components/data-mapper')>();
   const createSharedDsFetchAdapterMock = vi.fn(actual.createSharedDsFetchAdapter);
   return {
     ...actual,
@@ -135,7 +135,7 @@ vi.mock('./SharedDsSaveConfirmModal', () => ({
   ),
 }));
 
-vi.mock('../../../shared/components/ConfirmModal', () => ({
+vi.mock('@shared/components/ConfirmModal', () => ({
   default: ({
     onConfirm,
     onCancel,

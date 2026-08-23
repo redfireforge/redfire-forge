@@ -17,7 +17,7 @@ function makeHandlerContext(overrides: Record<string, unknown> = {}) {
     nodeMap: new Map(),
     outgoing: new Map(),
     ctx,
-    tokenManager: {} as import('../../../engine/tokenManager').TokenManager,
+    tokenManager: {} as import('@engine/core/tokenManager').TokenManager,
     results,
     allPassed: true,
     visited: new Set<string>(),
