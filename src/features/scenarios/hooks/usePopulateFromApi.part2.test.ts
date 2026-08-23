@@ -8,12 +8,12 @@ import type { Scenario, DataSource } from '@shared/types';
 import { proxyFetch } from '@engine/core/executor';
 import { resolveScenarioFromDataRow } from '@engine/core/dataSourceExpander';
 
-vi.mock('../../../engine/executor', () => ({
+vi.mock('@engine/core/executor', () => ({
   proxyFetch: vi.fn(),
   buildHeaders: vi.fn(() => ({ 'Content-Type': 'application/json' })),
 }));
 
-vi.mock('../../../engine/dataSourceExpander', () => ({
+vi.mock('@engine/core/dataSourceExpander', () => ({
   resolveScenarioFromDataRow: vi.fn((draft) => draft),
 }));
 

@@ -2,9 +2,9 @@
  * Shared test helpers for WorkflowResultsExplorerModal test splits.
  *
  * Notes on Vitest hoisting:
- * - `vi.mock(...)` is hoisted only inside the file it's written in, so each
- *   test file still declares its own `vi.mock(...)` calls.
- * - `vi.hoisted(...)` refs cannot be re-used across files, so each file owns
+ * - Mock registrations are hoisted only inside the file they are written in,
+ *   so each test file still declares its own mock registrations.
+ * - vi.hoisted refs cannot be re-used across files, so each file owns
  *   its own canvas/bottleneck refs via the factories below.
  * - The component factories here are PURE: they return mock components that
  *   accept hoisted-ref containers passed in from the test file.

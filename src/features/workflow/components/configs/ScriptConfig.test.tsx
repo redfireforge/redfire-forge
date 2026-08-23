@@ -68,7 +68,7 @@ vi.mock('./ScriptCodeModal', () => ({
 }));
 
 // Mock scriptLibraries
-vi.mock('../../engine/scriptLibraries', () => ({
+vi.mock('@workflow/engine/scriptLibraries', () => ({
   loadScriptLibraries: () => [],
   saveScriptLibraries: vi.fn(),
   buildLibraryPreamble: () => '',

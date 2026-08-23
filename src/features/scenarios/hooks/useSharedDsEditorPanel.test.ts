@@ -6,11 +6,11 @@ import { applyAuthHeaders } from '@shared/utils/applyAuthHeaders';
 import { useSharedDsEditorPanel, defaultFetchConfig, extractPathVariablesFromUrlTemplate } from './useSharedDsEditorPanel';
 import { SharedDataSource, FeatureGroup, GlobalAuthProfile, Scenario } from '@shared/types';
 
-vi.mock('../../../engine/executor', () => ({
+vi.mock('@engine/core/executor', () => ({
   proxyFetch: vi.fn(),
 }));
 
-vi.mock('../../../shared/utils/applyAuthHeaders', () => ({
+vi.mock('@shared/utils/applyAuthHeaders', () => ({
   applyAuthHeaders: vi.fn(),
 }));
 

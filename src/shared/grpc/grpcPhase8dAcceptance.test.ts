@@ -18,7 +18,7 @@ describe('Phase 8D acceptance checklist', () => {
 
   it('grpcExecution wires evaluateGrpcHarnessAssertions', async () => {
     const source = await import('fs/promises').then((fs) =>
-      fs.readFile(new URL('../../engine/grpcExecution.ts', import.meta.url), 'utf8'),
+      fs.readFile(new URL('../../engine/grpc/grpcExecution.ts', import.meta.url), 'utf8'),
     );
     expect(source).toContain('evaluateGrpcHarnessAssertions');
     expect(source).toContain('assertionFailures');
@@ -37,7 +37,7 @@ describe('Phase 8D acceptance checklist', () => {
   });
 
   it('grpcCall result carries assertionFailures on harness contract', async () => {
-    const { executeGrpcAction } = await import('../../engine/grpcExecution');
+    const { executeGrpcAction } = await import('../../engine/grpc/grpcExecution');
     const { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } = await import('./contractFixtures');
     const scenario = {
       id: 'grpc-1',
@@ -96,7 +96,7 @@ describe('Phase 8D acceptance checklist', () => {
 
   it('skipAssertions from buildSelectedTests prevents harness assertion evaluation', async () => {
     const { buildSelectedTests } = await import('../../features/test-runner/utils/buildSelectedTests');
-    const { executeGrpcAction } = await import('../../engine/grpcExecution');
+    const { executeGrpcAction } = await import('../../engine/grpc/grpcExecution');
     const { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } = await import('./contractFixtures');
     const { makeScenario: makeTestScenario } = await import('../../test-utils/factories');
     const fg = {

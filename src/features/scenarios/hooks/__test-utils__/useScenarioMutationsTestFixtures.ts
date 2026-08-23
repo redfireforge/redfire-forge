@@ -1,7 +1,7 @@
 /**
  * Shared test fixtures for useScenarioMutations test files.
  *
- * Factories + `renderHook` setup helpers. `vi.mock(...)` calls remain in each
+ * Factories + `renderHook` setup helpers. Vitest mock registrations remain in each
  * test file because they need to be hoisted there.
  */
 import { vi } from 'vitest';
