@@ -1,0 +1,572 @@
+# Missing Gallery Samples — Gap Analysis & Implementation Plan
+
+> **Branch:** `feature/training-manual`
+> **Status:** Planning
+> **Last updated:** 2026-08-23
+
+---
+
+## How the Gallery is Structured
+
+The gallery has 7 registered domains (in `src/data/galleries/types.ts` + `registry.ts`):
+
+| Domain | Key | Source Files |
+|--------|-----|--------------|
+| Requests | `requests` | `galleries/requests/presets.ts` (13 entries) |
+| API Catalog | `catalog` | `galleries/catalog-specs/specs/*.ts` (8 public APIs) |
+| Tests | `tests` | `galleries/tests/presets.ts`, `presets-advanced.ts`, `parameterizedPresets.ts`, `sharedDataSourcePresets.ts` |
+| Workflows | `workflows` | `galleries/workflows/*.ts` (~30 entries across api-patterns, flow-control, event-driven, orchestration, script, async-correlation, diverse-apis, performance, parallel, kafka, graphql) |
+| Assertions | `assertions` | `galleries/assertion-presets/index.ts` (7 entries) |
+| Data Mapper | `data-mapper` | `galleries/data-mapper/presets.ts` |
+| API Mock | `api-mock` | `galleries/api-mock/presets-*.ts` |
+
+---
+
+## Gap Summary
+
+| Gap Area | Type | Severity |
+|----------|------|----------|
+| gRPC workflow samples | Missing entries in existing `workflows` domain | 🔴 High — node types exist, 0 samples |
+| WebSocket workflow samples | Missing entries in existing `workflows` domain | 🔴 High — node types exist, 0 samples |
+| gRPC gallery domain | `GalleryDomain` type + registry missing `'grpc'` | 🔴 High — blocks standalone gRPC samples |
+| WebSocket gallery domain | `GalleryDomain` type + registry missing `'websocket'` | 🔴 High — blocks standalone WS samples |
+| GraphQL test gallery entries | `tests` domain has 0 GraphQL scenario tests | 🟡 Medium |
+| gRPC test gallery entries | `tests` domain has 0 gRPC scenario tests | 🟡 Medium |
+| WebSocket test gallery entries | `tests` domain has 0 WS scenario tests | 🟡 Medium |
+| GraphQL request gallery entries | `requests` domain is REST-only | 🟡 Medium |
+| GraphQL assertion gallery entries | `assertions` domain is REST-only | 🟡 Medium |
+| gRPC assertion gallery entries | `assertions` domain is REST-only | 🟡 Medium |
+
+---
+
+## Part 1 — Missing Workflow Gallery Samples (Highest Priority)
+
+### Background: Available Workflow Node Types
+
+**gRPC node types** (dispatched in `graphRunner.ts`, implemented in `graphRunnerGrpcNodeHandlers.ts` + `graphRunnerGrpcAdvancedNodeHandlers.ts`):
+
+| Node Type | Description |
+|-----------|-------------|
+| `grpcUnary` | Single request → single response (Phase 6C) |
+| `grpcServerStream` | Single request → stream of response messages (Phase 6D) |
+| `grpcAssert` | Assert on a prior gRPC result's captured variables |
+| `grpcLoadTest` | Bounded unary load test; publishes `loadTestSummary` (Phase 11N) |
+| `grpcSchemaDiff` | Proto descriptor diff; workflow fails on breaking changes |
+| `grpcMockAssert` | Unary call against a mock listener target |
+
+**WebSocket node types** (implemented in `graphRunnerWsNodeHandlers.ts`):
+
+| Node Type | Description |
+|-----------|-------------|
+| `wsConnect` | Open a WebSocket connection; seeds `connectionId` into context |
+| `wsSend` | Send a text/binary message over an existing connection |
+| `wsReceive` | Wait for and capture an incoming message (with match criteria) |
+| `wsTrigger` | Entry-point trigger — waits for an inbound WS message to start the workflow |
+
+---
+
+### 1a. gRPC Workflow Samples (new file: `galleries/workflows/grpc.ts`)
+
+**6 planned entries:**
+
+---
+
+#### WF-GRPC-01 · gRPC Health Check (Easy)
+- **ID:** `sample-grpc-health-check`
+- **Name:** `gRPC: Health Check`
+- **Category:** grpc
+- **Difficulty:** easy
+- **Description:** Call the `grpc.health.v1.Health/Check` unary method, verify `status` is `SERVING`.
+- **Nodes:**
+  1. `start`
+  2. `grpcUnary` — `target: "grpc.health.v1.Health/Check"`, service: demo gRPC reflect endpoint
+  3. `grpcAssert` — assert `$.status === "SERVING"`
+  4. `end`
+- **Tags:** `grpc`, `health`, `unary`, `easy`
+- **liveApis:** `grpc.postman.co` (public gRPC reflect endpoint)
+- **Purpose:** Teaches the basics: upload proto / use reflection, configure endpoint, run unary call, assert.
+
+---
+
+#### WF-GRPC-02 · gRPC User Lookup (Easy)
+- **ID:** `sample-grpc-user-lookup`
+- **Name:** `gRPC: User Lookup`
+- **Category:** grpc
+- **Difficulty:** easy
+- **Description:** Fetch a user by ID using a unary RPC, extract `user.name` and `user.email` into workflow variables.
+- **Nodes:**
+  1. `start`
+  2. `grpcUnary` — `GetUser({ id: 1 })`, output bindings: `userId ← $.user.id`, `userName ← $.user.name`
+  3. `grpcAssert` — assert `$.user.id === 1` and field existence
+  4. `end`
+- **Tags:** `grpc`, `unary`, `extract`, `variable`
+- **liveApis:** demo gRPC endpoint
+- **Purpose:** Shows output variable binding and chaining variables into downstream nodes.
+
+---
+
+#### WF-GRPC-03 · gRPC Server Streaming — List Orders (Medium)
+- **ID:** `sample-grpc-server-stream`
+- **Name:** `gRPC: Server Stream — Order Feed`
+- **Category:** grpc
+- **Difficulty:** medium
+- **Description:** Call a `ListOrders` server-streaming RPC; the node collects all stream messages and publishes them as `messages[]` into context.
+- **Nodes:**
+  1. `start`
+  2. `grpcServerStream` — `ListOrders({ status: "PENDING" })`, `maxMessages: 20`, `timeoutMs: 5000`
+  3. `grpcAssert` — assert `$.messages.length > 0` and `$.messages[0].status === "PENDING"`
+  4. `end`
+- **Tags:** `grpc`, `streaming`, `server-stream`, `collect`
+- **liveApis:** demo gRPC endpoint
+- **Purpose:** Demonstrates `grpcServerStream` node — bounded collection, assert on collected array.
+
+---
+
+#### WF-GRPC-04 · gRPC CRUD Flow (Medium)
+- **ID:** `sample-grpc-crud`
+- **Name:** `gRPC: Create → Fetch → Delete`
+- **Category:** grpc
+- **Difficulty:** medium
+- **Description:** Three chained unary calls: `CreateProduct`, `GetProduct` (verify it was created), `DeleteProduct`. Uses output binding to thread the `productId` between steps.
+- **Nodes:**
+  1. `start`
+  2. `grpcUnary` — `CreateProduct({ name: "Test Widget", price: 9.99 })` → binds `productId ← $.product.id`
+  3. `grpcUnary` — `GetProduct({ id: {{productId}} })` → binds `fetchedName ← $.product.name`
+  4. `grpcAssert` — assert `$.product.name === "Test Widget"`
+  5. `grpcUnary` — `DeleteProduct({ id: {{productId}} })` → assert `$.success === true`
+  6. `end`
+- **Tags:** `grpc`, `crud`, `chain`, `variable-binding`
+- **Purpose:** Real multi-step gRPC workflow with variable threading; mirrors the HTTP "Create → Extract → Verify" sample.
+
+---
+
+#### WF-GRPC-05 · gRPC Schema Drift Watchdog (Advanced)
+- **ID:** `sample-grpc-schema-diff`
+- **Name:** `gRPC: Schema Drift Watchdog`
+- **Category:** grpc
+- **Difficulty:** advanced
+- **Description:** Schedule-triggered workflow that runs `grpcSchemaDiff` against the live proto reflection and fails the workflow if any breaking change is detected. Mirrors the GraphQL Schema Watchdog sample.
+- **Nodes:**
+  1. `schedule` — `cron: "0 * * * *"` (hourly)
+  2. `grpcSchemaDiff` — baseline descriptor in context vs. live reflection
+  3. `condition` — `$.hasBreakingChanges === true`
+     - true → `logDebug` — "Breaking schema change detected!" → `errorHandler`
+     - false → `logDebug` — "Schema OK" → `end`
+  4. `end`
+- **Tags:** `grpc`, `schema-diff`, `watchdog`, `schedule`, `breaking-change`
+- **Purpose:** Shows `grpcSchemaDiff` node and how to gate a pipeline on proto compatibility.
+
+---
+
+#### WF-GRPC-06 · gRPC Load Test (Advanced)
+- **ID:** `sample-grpc-load-test`
+- **Name:** `gRPC: Load Test — Bounded Unary`
+- **Category:** grpc
+- **Difficulty:** advanced
+- **Description:** Run a `grpcLoadTest` against a unary RPC endpoint with 50 virtual users for 10 seconds, then assert on `loadTestSummary.errorRate <= 1%` and `p95 <= 200ms`.
+- **Nodes:**
+  1. `start`
+  2. `grpcLoadTest` — `target: "GetUser"`, `vus: 50`, `durationMs: 10000`, `request: { id: 1 }`
+  3. `grpcAssert` — assert `$.loadTestSummary.errorRate <= 1` and `$.loadTestSummary.p95 <= 200`
+  4. `end`
+- **Tags:** `grpc`, `load-test`, `performance`, `p95`, `sla`
+- **Purpose:** Teaches the `grpcLoadTest` node — config fields, summary output shape, SLA assertions.
+
+---
+
+### 1b. WebSocket Workflow Samples (new file: `galleries/workflows/websocket.ts`)
+
+**5 planned entries:**
+
+---
+
+#### WF-WS-01 · WebSocket Echo — Connect & Send (Easy)
+- **ID:** `sample-ws-echo`
+- **Name:** `WebSocket: Echo Ping`
+- **Category:** websocket
+- **Difficulty:** easy
+- **Description:** Connect to a public echo WebSocket, send `"ping"`, receive `"ping"` back, assert the echoed message matches.
+- **Nodes:**
+  1. `start`
+  2. `wsConnect` — `url: "wss://echo.websocket.org"`, binds `connectionId`
+  3. `wsSend` — `message: "ping"`, `connectionId: {{connectionId}}`
+  4. `wsReceive` — `connectionId: {{connectionId}}`, `timeoutMs: 5000`, binds `receivedMessage ← $.data`
+  5. `setVariable` — assert-like: `assert $.receivedMessage === "ping"`
+  6. `end`
+- **Tags:** `websocket`, `echo`, `send`, `receive`, `easy`
+- **liveApis:** `echo.websocket.org`
+- **Purpose:** Simplest possible WS workflow — demonstrates the three core node types together.
+
+---
+
+#### WF-WS-02 · WebSocket JSON Message Exchange (Easy)
+- **ID:** `sample-ws-json-exchange`
+- **Name:** `WebSocket: JSON Message Exchange`
+- **Category:** websocket
+- **Difficulty:** easy
+- **Description:** Send a JSON subscribe message, receive a JSON event response, extract a field using `$.data.price`, assert it is numeric.
+- **Nodes:**
+  1. `start`
+  2. `wsConnect` — connects to public demo feed
+  3. `wsSend` — sends `{ "action": "subscribe", "channel": "prices" }`
+  4. `wsReceive` — match criteria: `messageType: "text"`, binds `price ← $.data.price`
+  5. `grpcAssert` (or inline condition) — assert `$.price > 0`
+  6. `end`
+- **Tags:** `websocket`, `json`, `subscribe`, `extract`
+- **Purpose:** Teaches JSON parsing in WS receive + variable extraction from message body.
+
+---
+
+#### WF-WS-03 · WebSocket Chat — Send, Receive, Assert (Medium)
+- **ID:** `sample-ws-chat-flow`
+- **Name:** `WebSocket: Chat Flow`
+- **Category:** websocket
+- **Difficulty:** medium
+- **Description:** Connect to a WS chat endpoint, send an authentication message, receive acknowledgement, send a chat message, receive the broadcast echo, assert message content.
+- **Nodes:**
+  1. `start`
+  2. `wsConnect` — `url: "wss://demo-ws-chat.example.com"`
+  3. `wsSend` — `{ "type": "auth", "token": "{{authToken}}" }`
+  4. `wsReceive` — wait for `{ "type": "auth_ok" }` (match on `$.type === "auth_ok"`), `timeoutMs: 3000`
+  5. `wsSend` — `{ "type": "message", "room": "general", "text": "Hello from workflow" }`
+  6. `wsReceive` — wait for broadcast, bind `$.text → receivedText`
+  7. `condition` — `$.receivedText === "Hello from workflow"`
+     - true → `end`
+     - false → `errorHandler`
+- **Tags:** `websocket`, `auth`, `chat`, `send-receive`, `conditional`
+- **Purpose:** Shows multi-step WS interaction with auth handshake, conditional branching on message content.
+
+---
+
+#### WF-WS-04 · WebSocket Trigger — React to Inbound Event (Medium)
+- **ID:** `sample-ws-trigger`
+- **Name:** `WebSocket: Inbound Trigger`
+- **Category:** websocket
+- **Difficulty:** medium
+- **Description:** Workflow starts when a WebSocket message arrives (`wsTrigger`). Extracts the event payload and makes a downstream HTTP call based on the event data.
+- **Nodes:**
+  1. `wsTrigger` — waits for inbound WS message, filter: `$.event === "order.created"`, binds `orderId ← $.data.orderId`
+  2. `http` — `GET https://api.example.com/orders/{{orderId}}`
+  3. `condition` — `$.status === "confirmed"`
+     - true → `logDebug` — "Order confirmed, proceeding" → `end`
+     - false → `logDebug` — "Order not confirmed" → `errorHandler`
+- **Tags:** `websocket`, `trigger`, `inbound`, `event-driven`, `http`
+- **Purpose:** Demonstrates `wsTrigger` as a workflow entry point; bridges WS events to HTTP downstream calls.
+
+---
+
+#### WF-WS-05 · WebSocket + HTTP Hybrid — Live Pricing Pipeline (Advanced)
+- **ID:** `sample-ws-http-hybrid`
+- **Name:** `WebSocket: Live Price → HTTP Enrichment`
+- **Category:** websocket
+- **Difficulty:** advanced
+- **Description:** Connect to a live price feed, wait for a price drop event, extract the product ID, call an HTTP API to get product details, and send a notification back over the same connection.
+- **Nodes:**
+  1. `start`
+  2. `wsConnect` — live price feed
+  3. `wsSend` — subscribe to product category
+  4. `wsReceive` — wait for `{ "type": "price_drop", "productId": "..." }`, bind `productId ← $.data.productId`, `newPrice ← $.data.price`
+  5. `http` — `GET https://fakestoreapi.com/products/{{productId}}`
+  6. `setVariable` — `alertMessage ← "Price drop: {{productId}} now ${{newPrice}}"`
+  7. `wsSend` — send acknowledgement message back
+  8. `end`
+- **Tags:** `websocket`, `http`, `hybrid`, `event-driven`, `enrichment`, `advanced`
+- **liveApis:** `fakestoreapi.com`
+- **Purpose:** Advanced pattern — WS event triggers an HTTP call for enrichment, then WS send for acknowledgement. Combines all three WS node types plus HTTP in one workflow.
+
+---
+
+## Part 2 — Missing Gallery Domains (Infrastructure Prerequisites)
+
+Before any protocol-specific samples can have their own gallery tab, two changes must be made:
+
+### 2a. Add `'grpc'` and `'websocket'` to `GalleryDomain` type
+
+**File:** `src/data/galleries/types.ts`
+
+```typescript
+// Current:
+export type GalleryDomain = 'requests' | 'catalog' | 'tests' | 'workflows' | 'assertions' | 'data-mapper' | 'api-mock';
+
+// After:
+export type GalleryDomain =
+  | 'requests' | 'catalog' | 'tests' | 'workflows' | 'assertions'
+  | 'data-mapper' | 'api-mock'
+  | 'grpc'        // ← new: standalone gRPC request/test samples
+  | 'websocket';  // ← new: standalone WebSocket request/test samples
+```
+
+### 2b. Register new domains in `registry.ts`
+
+**File:** `src/data/galleries/registry.ts`
+
+```typescript
+{
+  key: 'grpc',
+  label: 'gRPC',
+  icon: '🔌',
+  description: 'gRPC unary and streaming call samples with .proto schema',
+},
+{
+  key: 'websocket',
+  label: 'WebSocket',
+  icon: '⚡',
+  description: 'WebSocket connection, messaging, and event-driven samples',
+},
+```
+
+---
+
+## Part 3 — Missing Test Gallery Samples
+
+All existing test gallery entries use HTTP transport. The following protocol test scenarios are missing.
+
+### 3a. GraphQL Test Scenarios (new section in `galleries/tests/presets.ts` or new file `presets-graphql.ts`)
+
+**2 planned entries:**
+
+---
+
+#### TG-GQL-01 · GraphQL Health Check Test (Easy)
+- **ID:** `test-graphql-health`
+- **Name:** `GraphQL Health Check`
+- **Category:** graphql
+- **Difficulty:** easy
+- **Description:** Single-scenario test: execute `{ __typename }` introspection query against a public GraphQL endpoint, assert response has no `errors` and `$.data.__typename === "Query"`.
+- **Scenarios:**
+  - `sc-gql-health`: introspection ping
+    - step: POST `/graphql` body `{ query: "{ __typename }" }`
+    - assertion: `status 200`, `$.data.__typename === "Query"`, `$.errors` does not exist
+- **Tags:** `graphql`, `health`, `introspection`
+- **liveApis:** `countries.trevorblades.com/graphql`
+
+---
+
+#### TG-GQL-02 · GraphQL Query + Mutation Flow (Medium)
+- **ID:** `test-graphql-crud`
+- **Name:** `GraphQL: Query & Mutation`
+- **Category:** graphql
+- **Difficulty:** medium
+- **Description:** Two scenarios — one queries a list of items, the second runs a mutation.
+- **Scenarios:**
+  - `sc-gql-query`: `query { users { id name } }` — assert array length ≥ 1
+  - `sc-gql-mutation`: `mutation CreateUser` — assert `$.data.createUser.id` is numeric
+- **Tags:** `graphql`, `query`, `mutation`, `crud`
+- **liveApis:** `dummyjson.com/graphql` or equivalent
+
+---
+
+### 3b. gRPC Test Scenarios (new file `galleries/tests/presets-grpc.ts`)
+
+**2 planned entries:**
+
+---
+
+#### TG-GRPC-01 · gRPC Unary Smoke Test (Easy)
+- **ID:** `test-grpc-health`
+- **Name:** `gRPC: Unary Smoke Test`
+- **Category:** grpc
+- **Difficulty:** easy
+- **Description:** Single scenario: call `grpc.health.v1.Health/Check`, assert `status === "SERVING"`.
+- **Notes:** Uses `transport: 'grpcUnary'` in the test step config. Requires the new `'grpc'` domain to be added to `GalleryDomain`.
+- **Tags:** `grpc`, `health`, `unary`, `smoke`
+- **liveApis:** `grpc.postman.co`
+
+---
+
+#### TG-GRPC-02 · gRPC CRUD Scenario (Medium)
+- **ID:** `test-grpc-crud`
+- **Name:** `gRPC: CRUD Scenarios`
+- **Category:** grpc
+- **Difficulty:** medium
+- **Description:** Three scenarios covering `GetUser`, `CreateUser`, `DeleteUser` — each as a separate scenario with assertions on response fields and variable extraction.
+- **Tags:** `grpc`, `crud`, `unary`, `variables`
+
+---
+
+### 3c. WebSocket Test Scenarios (new file `galleries/tests/presets-websocket.ts`)
+
+**2 planned entries:**
+
+---
+
+#### TG-WS-01 · WebSocket Echo Test (Easy)
+- **ID:** `test-ws-echo`
+- **Name:** `WebSocket: Echo Smoke Test`
+- **Category:** websocket
+- **Difficulty:** easy
+- **Description:** Connect to echo endpoint, send "ping", assert received message matches "ping". Uses `transport: 'wsConnect'` / `wsSend` / `wsReceive` in scenario steps.
+- **Tags:** `websocket`, `echo`, `smoke`, `easy`
+- **liveApis:** `echo.websocket.org`
+
+---
+
+#### TG-WS-02 · WebSocket JSON Subscribe (Medium)
+- **ID:** `test-ws-subscribe`
+- **Name:** `WebSocket: JSON Subscribe & Assert`
+- **Category:** websocket
+- **Difficulty:** medium
+- **Description:** Subscribe to a JSON feed, assert first message has expected shape (`$.type`, `$.data`).
+- **Tags:** `websocket`, `json`, `subscribe`, `medium`
+
+---
+
+## Part 4 — Missing Requests Gallery Samples
+
+### 4a. GraphQL Request Samples (add to `galleries/requests/presets.ts`)
+
+All 13 current request entries are HTTP REST. A GraphQL query is technically a POST request, so it fits naturally in the requests gallery.
+
+**3 planned entries:**
+
+---
+
+#### RQ-GQL-01 · GraphQL Introspection Query (Easy)
+- **ID:** `req-graphql-introspect`
+- **Name:** `GraphQL Introspection`
+- **Category:** graphql
+- **Difficulty:** easy
+- **Description:** POST `{ "query": "{ __typename }" }` to a public GraphQL endpoint. Shows how a GraphQL request differs from REST.
+- **URL:** `https://countries.trevorblades.com/graphql`
+- **Method:** POST
+- **Body:** `{ "query": "{ __typename }" }`
+- **Tags:** `graphql`, `introspection`, `post`
+
+---
+
+#### RQ-GQL-02 · GraphQL Query — Country Info (Easy)
+- **ID:** `req-graphql-country`
+- **Name:** `GraphQL: Country Info`
+- **Category:** graphql
+- **Difficulty:** easy
+- **Description:** Query country name, capital, and currency by country code.
+- **URL:** `https://countries.trevorblades.com/graphql`
+- **Body:**
+  ```graphql
+  query {
+    country(code: "US") { name capital currency }
+  }
+  ```
+- **Tags:** `graphql`, `query`, `country`
+
+---
+
+#### RQ-GQL-03 · GraphQL Mutation (Medium)
+- **ID:** `req-graphql-mutation`
+- **Name:** `GraphQL: Create Post Mutation`
+- **Category:** graphql
+- **Difficulty:** medium
+- **Description:** A mutation that creates a post via the DummyJSON GraphQL endpoint.
+- **URL:** `https://dummyjson.com/graphql` (or equivalent)
+- **Tags:** `graphql`, `mutation`, `create`
+
+---
+
+## Part 5 — Missing Assertion Gallery Samples
+
+### 5a. GraphQL Assertions (add to `galleries/assertion-presets/presets.ts` + `index.ts`)
+
+**2 planned entries:**
+
+---
+
+#### AP-GQL-01 · GraphQL No Errors Guard (Easy)
+- **ID:** `preset-graphql-no-errors`
+- **Name:** `GraphQL No Errors Guard`
+- **Category:** api-validation
+- **Difficulty:** easy
+- **Description:** Two assertions: verify `$.errors` does not exist, verify `$.data` exists.
+- **Assertion Types:** `existence`
+- **Tags:** `graphql`, `errors`, `contract`
+
+---
+
+#### AP-GQL-02 · GraphQL Data Shape (Medium)
+- **ID:** `preset-graphql-data-shape`
+- **Name:** `GraphQL Data Shape`
+- **Category:** data-quality
+- **Difficulty:** medium
+- **Description:** Asserts `$.data` is not null, `$.data.user.id` is numeric, `$.data.user.email` matches email regex.
+- **Assertion Types:** `existence`, `typeCheck`, `regex`
+- **Tags:** `graphql`, `data`, `type`, `shape`
+
+---
+
+### 5b. gRPC Assertions (add to `galleries/assertion-presets/presets.ts` + `index.ts`)
+
+**2 planned entries:**
+
+---
+
+#### AP-GRPC-01 · gRPC Status OK (Easy)
+- **ID:** `preset-grpc-status-ok`
+- **Name:** `gRPC Status OK`
+- **Category:** api-validation
+- **Difficulty:** easy
+- **Description:** Assert `$.grpcStatus === 0` (OK) and `$.messages` array is non-empty.
+- **Assertion Types:** `numeric`, `arrayLength`
+- **Tags:** `grpc`, `status`, `ok`
+
+---
+
+#### AP-GRPC-02 · gRPC Health SERVING (Easy)
+- **ID:** `preset-grpc-health-serving`
+- **Name:** `gRPC Health — SERVING`
+- **Category:** api-validation
+- **Difficulty:** easy
+- **Description:** Assert `$.status === "SERVING"` (for `grpc.health.v1.Health/Check` responses).
+- **Assertion Types:** `equal`
+- **Tags:** `grpc`, `health`, `serving`
+
+---
+
+## Implementation Order
+
+```
+Phase A — Infrastructure (1-2 days)
+  A1. Add 'grpc' | 'websocket' to GalleryDomain type (types.ts)
+  A2. Register grpc + websocket domains in registry.ts
+  A3. Create src/data/galleries/grpc/ directory + index.ts scaffold
+  A4. Create src/data/galleries/websocket/ directory + index.ts scaffold
+
+Phase B — Workflow Samples (3-4 days)
+  B1. Create galleries/workflows/grpc.ts (6 entries: WF-GRPC-01 → WF-GRPC-06)
+  B2. Create galleries/workflows/websocket.ts (5 entries: WF-WS-01 → WF-WS-05)
+  B3. Register both files in galleries/workflows/index.ts
+  B4. Write unit tests: galleries/workflows/grpc.test.ts, websocket.test.ts
+
+Phase C — Test Gallery Samples (2-3 days)
+  C1. Add GraphQL entries to galleries/tests/presets.ts (TG-GQL-01, TG-GQL-02)
+  C2. Create galleries/tests/presets-grpc.ts (TG-GRPC-01, TG-GRPC-02)
+  C3. Create galleries/tests/presets-websocket.ts (TG-WS-01, TG-WS-02)
+  C4. Register all new files in galleries/tests/index.ts
+  C5. Write unit tests for each new preset file
+
+Phase D — Requests + Assertions (1-2 days)
+  D1. Add GraphQL request entries to galleries/requests/presets.ts (RQ-GQL-01 → RQ-GQL-03)
+  D2. Add GraphQL + gRPC assertion entries to galleries/assertion-presets/presets.ts + index.ts
+  D3. Run gallery-loaded-badge.spec.ts + gallery.spec.ts E2E to verify all new entries render
+
+Phase E — Validation
+  E1. npx tsc --noEmit — 0 errors
+  E2. npx vitest run src/data/galleries/ — all tests pass
+  E3. Visual test: open Gallery in browser, verify all new tabs and entries appear
+  E4. Import each new workflow sample → verify nodes render correctly in Workflow Designer
+  E5. Import each new test/request sample → verify fields populate
+```
+
+---
+
+## Total Planned New Entries
+
+| Domain | New Entries | Phase |
+|--------|-------------|-------|
+| Workflows (gRPC) | 6 | B |
+| Workflows (WebSocket) | 5 | B |
+| Tests (GraphQL) | 2 | C |
+| Tests (gRPC) | 2 | C |
+| Tests (WebSocket) | 2 | C |
+| Requests (GraphQL) | 3 | D |
+| Assertions (GraphQL) | 2 | D |
+| Assertions (gRPC) | 2 | D |
+| **Total** | **24** | |
