@@ -21,7 +21,7 @@ const httpMocks = vi.hoisted(() => {
 
 const runTestMock = vi.hoisted(() => vi.fn());
 
-vi.mock('../shared/utils/httpClient', () => ({
+vi.mock('@shared/utils/httpClient', () => ({
   proxyFetch: httpMocks.proxyFetch,
   setHttpTransport: httpMocks.setHttpTransport,
 }));

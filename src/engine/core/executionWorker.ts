@@ -67,7 +67,7 @@ ctx.addEventListener('message', async (e: MessageEvent<MainToWorkerMessage>) => 
 
       try {
         let lastProgressPost = -Infinity;
-        let pendingNewResults: import('../shared/types').RequestResult[] = [];
+        let pendingNewResults: import('@shared/types').RequestResult[] = [];
         let hasPending = false;
         let pendingCompleted = 0;
         let pendingTotal = 0;

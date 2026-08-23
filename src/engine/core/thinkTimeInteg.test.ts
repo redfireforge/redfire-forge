@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Scenario, TestConfig, ScenarioWeight, LoadProfileConfig } from '@shared/types';
 import { runSequential, runBatch, runPool, type RunOpts } from './requestExecution';
-import { runLoadProfile } from './loadProfileRunner';
+import { runLoadProfile } from '@engine/load/loadProfileRunner';
 import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
 import { createThinkTimeDelay } from './thinkTime';
 import { makeScenario as _makeScenario } from '@test-utils/factories';
 
-vi.mock('../shared/utils/httpClient', () => ({
+vi.mock('@shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
 }));
 

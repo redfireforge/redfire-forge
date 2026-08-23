@@ -8,8 +8,8 @@ import type { Scenario, RequestResult, GrpcResultMeta, FailureDetail } from '@sh
 import type { GrpcHarnessAssertion } from '@shared/types/grpc-harness';
 import type { GrpcHarnessCallOutcome } from '@shared/types/grpc-harness-snapshot';
 import type { GrpcHarnessResult } from '@shared/types/grpc-harness-result';
-import { nextResultId, buildErrorResult } from './requestExecution';
-import { buildValidationResult, type ValidationOutput } from './validationResult';
+import { nextResultId, buildErrorResult } from '@engine/core/requestExecution';
+import { buildValidationResult, type ValidationOutput } from '@engine/core/validationResult';
 import { parseJsonSafe, toErrorMessage } from '@shared/utils/helpers';
 import { round2 as roundMs } from '@shared/utils/percentiles';
 import {

@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import AppModalFrame from '@shared/components/AppModalFrame';
 import type { DataSource, Scenario } from '@shared/types';
 import type { HttpResponse } from '@shared/utils/httpClient';
-import { proxyFetch } from '@engine/executor';
+import { proxyFetch } from '@engine/core/executor';
 import { extractJsonPath, expandPatternFromResponse } from '../utils/dataSourceImport';
 import { useVerifyEngine, executeRowFetch } from '../hooks/useVerifyEngine';
 import type { VerifyResult } from '../hooks/useVerifyEngine';

@@ -20,7 +20,7 @@ import {
   parseUrl,
 } from '../utils/csvTemplate';
 import type { ColumnDef } from '../utils/csvTemplate';
-import { proxyFetch } from '@engine/executor';
+import { proxyFetch } from '@engine/core/executor';
 import { applyAuthHeaders } from '@shared/utils/applyAuthHeaders';
 import { extractJsonPath } from '../utils/dataSourceImport';
 import {

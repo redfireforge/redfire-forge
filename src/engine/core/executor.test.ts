@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Scenario, TestConfig } from '@shared/types';
 import type { Workflow } from '@workflow/types/workflow';
 import { buildHeaders, buildUrl, runTest, proxyFetch } from './executor';
-import * as grpcConnectionProfileHydration from './grpcConnectionProfileHydration';
+import * as grpcConnectionProfileHydration from '@engine/grpc/grpcConnectionProfileHydration';
 import { makeScenario as _makeScenario, makeConfig as _makeConfig } from '@test-utils/factories';
 
 const harnessMocks = vi.hoisted(() => ({
@@ -19,7 +19,7 @@ const harnessMocks = vi.hoisted(() => ({
   executeBidiStream: vi.fn(),
 }));
 
-vi.mock('../shared/grpc/buildGrpcHarnessOperations', () => ({
+vi.mock('@shared/grpc/buildGrpcHarnessOperations', () => ({
   buildGrpcHarnessOperations: () => ({
     invokeUnary: (...args: unknown[]) => harnessMocks.invokeUnary(...args),
     collectHarnessServerStream: harnessMocks.collectHarnessServerStream,
@@ -28,11 +28,11 @@ vi.mock('../shared/grpc/buildGrpcHarnessOperations', () => ({
   }),
 }));
 
-vi.mock('../shared/utils/httpClient', () => ({
+vi.mock('@shared/utils/httpClient', () => ({
   httpFetch: vi.fn().mockResolvedValue({ status: 200, statusText: 'OK', headers: {}, body: '{"ok":true}' }),
 }));
 
-vi.mock('../features/workflow/engine', () => ({
+vi.mock('@workflow/engine', () => ({
   runWorkflow: vi.fn(() => Promise.resolve([])),
   runWorkflowLoad: vi.fn(() => Promise.resolve([])),
   runGraphLoad: vi.fn(() => Promise.resolve([])),
@@ -41,7 +41,7 @@ vi.mock('../features/workflow/engine', () => ({
   },
 }));
 
-vi.mock('../features/workflow/utils/workflowHostResolve', () => ({
+vi.mock('@workflow/utils/workflowHostResolve', () => ({
   resolveHttpNodeBaseUrl: vi.fn(() => 'https://resolved.example'),
   resolveServiceAuth: vi.fn(() => ({ type: 'bearer', token: 'svc-token', prefix: 'Bearer' })),
 }));
@@ -238,7 +238,7 @@ describe('proxyFetch', () => {
   });
 
   it('delegates to httpFetch with the same arguments', async () => {
-    const { httpFetch } = await import('../shared/utils/httpClient');
+    const { httpFetch } = await import('@shared/utils/httpClient');
     const res = await proxyFetch('https://api.example.com/r', 'PATCH', { 'X-Req': '1' }, '{"a":1}');
     expect(vi.mocked(httpFetch)).toHaveBeenCalledWith(
       'https://api.example.com/r',
@@ -425,7 +425,7 @@ describe('runTest', () => {
   });
 
   it('uses runWorkflow for workflow mode with a single iteration', async () => {
-    const { runWorkflow } = await import('../features/workflow/engine');
+    const { runWorkflow } = await import('@workflow/engine');
     const s = makeScenario();
     const config = makeConfig({ executionMode: 'workflow', iterations: 1, concurrency: 1 });
     await runTest(config, [s], vi.fn());
@@ -433,7 +433,7 @@ describe('runTest', () => {
   });
 
   it('uses runWorkflowLoad for workflow mode with multiple iterations', async () => {
-    const { runWorkflowLoad } = await import('../features/workflow/engine');
+    const { runWorkflowLoad } = await import('@workflow/engine');
     const s = makeScenario();
     const config = makeConfig({ executionMode: 'workflow', iterations: 4, concurrency: 2 });
     await runTest(config, [s], vi.fn());
@@ -441,7 +441,7 @@ describe('runTest', () => {
   });
 
   it('uses runGraphLoad when workflowId and workflow definition are set', async () => {
-    const { runGraphLoad } = await import('../features/workflow/engine');
+    const { runGraphLoad } = await import('@workflow/engine');
     const s = makeScenario();
     const config = makeConfig({
       executionMode: 'workflow',
@@ -454,7 +454,7 @@ describe('runTest', () => {
   });
 
   it('uses runGraphLoad with iterations 1 when iterations is 0', async () => {
-    const { runGraphLoad } = await import('../features/workflow/engine');
+    const { runGraphLoad } = await import('@workflow/engine');
     const s = makeScenario();
     const config = makeConfig({
       executionMode: 'workflow',
@@ -470,7 +470,7 @@ describe('runTest', () => {
   });
 
   it('forwards kafkaOperations to runGraphLoad in workflow mode', async () => {
-    const { runGraphLoad } = await import('../features/workflow/engine');
+    const { runGraphLoad } = await import('@workflow/engine');
     const s = makeScenario();
     const config = makeConfig({ executionMode: 'workflow', workflowId: 'w1', iterations: 1 });
     const kafkaOps = { produce: vi.fn(), consume: vi.fn() };
@@ -492,7 +492,7 @@ describe('runTest', () => {
   });
 
   it('forwards grpcOperations to runGraphLoad in workflow mode', async () => {
-    const { runGraphLoad } = await import('../features/workflow/engine');
+    const { runGraphLoad } = await import('@workflow/engine');
     const s = makeScenario();
     const config = makeConfig({ executionMode: 'workflow', workflowId: 'w1', iterations: 1 });
     const grpcOps = { invokeUnary: vi.fn(), collectServerStream: vi.fn() };
@@ -516,7 +516,7 @@ describe('runTest', () => {
   });
 
   it('uses runWorkflow when workflowId is set but workflow definition is missing', async () => {
-    const { runWorkflow, runGraphLoad } = await import('../features/workflow/engine');
+    const { runWorkflow, runGraphLoad } = await import('@workflow/engine');
     const s = makeScenario();
     const config = makeConfig({ executionMode: 'workflow', workflowId: 'missing', iterations: 1 });
     await runTest(config, [s], vi.fn(), undefined, undefined);
@@ -549,7 +549,7 @@ describe('runTest', () => {
   });
 
   it('uses runWorkflowLoad when workflowId is set but workflow object is missing and iterations > 1', async () => {
-    const { runWorkflowLoad, runGraphLoad } = await import('../features/workflow/engine');
+    const { runWorkflowLoad, runGraphLoad } = await import('@workflow/engine');
     const s = makeScenario();
     const config = makeConfig({
       executionMode: 'workflow',
@@ -622,8 +622,8 @@ describe('runTest', () => {
   });
 
   it('wires resolveHttpBaseUrl and resolveHttpAuth when workflow has services', async () => {
-    const { runGraphLoad } = await import('../features/workflow/engine');
-    const { resolveHttpNodeBaseUrl, resolveServiceAuth } = await import('../features/workflow/utils/workflowHostResolve');
+    const { runGraphLoad } = await import('@workflow/engine');
+    const { resolveHttpNodeBaseUrl, resolveServiceAuth } = await import('@workflow/utils/workflowHostResolve');
     const s = makeScenario();
     const workflow: Workflow = {
       ...minimalWorkflow('w1'),
@@ -684,8 +684,8 @@ describe('runTest', () => {
   });
 
   it('resolveHttpAuth returns undefined for explicit non-inherit auth on node', async () => {
-    const { runGraphLoad } = await import('../features/workflow/engine');
-    const { resolveServiceAuth } = await import('../features/workflow/utils/workflowHostResolve');
+    const { runGraphLoad } = await import('@workflow/engine');
+    const { resolveServiceAuth } = await import('@workflow/utils/workflowHostResolve');
     vi.mocked(resolveServiceAuth).mockClear();
     const s = makeScenario({ auth: { type: 'bearer', token: 'explicit' } });
     const workflow: Workflow = {
@@ -701,8 +701,8 @@ describe('runTest', () => {
   });
 
   it('resolveHttpAuth coalesces null service auth to undefined', async () => {
-    const { runGraphLoad } = await import('../features/workflow/engine');
-    const { resolveServiceAuth } = await import('../features/workflow/utils/workflowHostResolve');
+    const { runGraphLoad } = await import('@workflow/engine');
+    const { resolveServiceAuth } = await import('@workflow/utils/workflowHostResolve');
     vi.mocked(resolveServiceAuth).mockReturnValueOnce(undefined);
     const s = makeScenario({ auth: { type: 'inherit' } });
     const workflow: Workflow = {
@@ -725,7 +725,7 @@ describe('runTest', () => {
   it('throws error for Kafka action without kafkaOperations', async () => {
     const s = makeScenario({ id: 's1', actionType: 'kafkaProduce' });
     const config = makeConfig({ iterations: 1, scenarioWeights: [{ scenarioId: 's1', weight: 1 }] });
-    const wsOps = { disconnectAll: vi.fn().mockResolvedValue(undefined) } as unknown as import('../features/workflow/engine/graphRunnerNodeHandlerContext').WsNodeOperations;
+    const wsOps = { disconnectAll: vi.fn().mockResolvedValue(undefined) } as unknown as import('@workflow/engine/graphRunnerNodeHandlerContext').WsNodeOperations;
     await expect(
       runTest(config, [s], vi.fn(), undefined, undefined, undefined, undefined, undefined, undefined, wsOps),
     ).rejects.toThrow('Kafka operations not available');
@@ -734,7 +734,7 @@ describe('runTest', () => {
   it('throws error for WS action without wsOperations', async () => {
     const s = makeScenario({ id: 's1', actionType: 'wsConnect' });
     const config = makeConfig({ iterations: 1, scenarioWeights: [{ scenarioId: 's1', weight: 1 }] });
-    const kafkaOps = {} as unknown as import('../features/workflow/engine/graphRunnerNodeHandlerContext').KafkaNodeOperations;
+    const kafkaOps = {} as unknown as import('@workflow/engine/graphRunnerNodeHandlerContext').KafkaNodeOperations;
     await expect(
       runTest(config, [s], vi.fn(), undefined, undefined, undefined, undefined, undefined, kafkaOps),
     ).rejects.toThrow('WS operations not available');
@@ -743,7 +743,7 @@ describe('runTest', () => {
   it('throws error for unknown non-HTTP action type', async () => {
     const s = makeScenario({ id: 's1', actionType: 'unknownThing' as never });
     const config = makeConfig({ iterations: 1, scenarioWeights: [{ scenarioId: 's1', weight: 1 }] });
-    const wsOps = { disconnectAll: vi.fn().mockResolvedValue(undefined) } as unknown as import('../features/workflow/engine/graphRunnerNodeHandlerContext').WsNodeOperations;
+    const wsOps = { disconnectAll: vi.fn().mockResolvedValue(undefined) } as unknown as import('@workflow/engine/graphRunnerNodeHandlerContext').WsNodeOperations;
     await expect(
       runTest(config, [s], vi.fn(), undefined, undefined, undefined, undefined, undefined, undefined, wsOps),
     ).rejects.toThrow('Unknown non-HTTP action type');
@@ -862,7 +862,7 @@ describe('runTest', () => {
 
   it('calls wsOperations.disconnectAll in finally block', async () => {
     const disconnectAll = vi.fn().mockResolvedValue(undefined);
-    const wsOps = { disconnectAll } as unknown as import('../features/workflow/engine/graphRunnerNodeHandlerContext').WsNodeOperations;
+    const wsOps = { disconnectAll } as unknown as import('@workflow/engine/graphRunnerNodeHandlerContext').WsNodeOperations;
     const s = makeScenario({ id: 's1' });
     const config = makeConfig({ iterations: 1, scenarioWeights: [{ scenarioId: 's1', weight: 1 }] });
     await runTest(config, [s], vi.fn(), undefined, undefined, undefined, undefined, undefined, undefined, wsOps);
@@ -871,7 +871,7 @@ describe('runTest', () => {
 
   it('swallows wsOperations.disconnectAll errors in finally block', async () => {
     const disconnectAll = vi.fn().mockRejectedValue(new Error('cleanup fail'));
-    const wsOps = { disconnectAll } as unknown as import('../features/workflow/engine/graphRunnerNodeHandlerContext').WsNodeOperations;
+    const wsOps = { disconnectAll } as unknown as import('@workflow/engine/graphRunnerNodeHandlerContext').WsNodeOperations;
     const s = makeScenario({ id: 's1' });
     const config = makeConfig({ iterations: 1, scenarioWeights: [{ scenarioId: 's1', weight: 1 }] });
     // Should not throw even though disconnectAll rejects

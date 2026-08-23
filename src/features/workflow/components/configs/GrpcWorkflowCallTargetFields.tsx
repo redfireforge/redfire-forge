@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { GrpcCallType, GrpcTlsMode } from '@shared/grpc/contracts';
-import { loadGrpcConnectionProfilesFromStorage } from '@engine/grpcConnectionProfileHydration';
+import { loadGrpcConnectionProfilesFromStorage } from '@engine/grpc/grpcConnectionProfileHydration';
 import { validateResolvedGrpcTargetAddress } from '@shared/grpc/targetValidation';
 import type { GrpcConnectionProfile } from '@grpc/utils/resolveGrpcTabConnection';
 import { useGrpcWorkflowTargetReflection } from '../../hooks/useGrpcWorkflowTargetReflection';

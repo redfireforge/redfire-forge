@@ -22,7 +22,7 @@ vi.mock('../../../engine/validator', () => ({
 vi.mock('uuid', () => uuidMock);
 
 import { fetchScenarioSample } from '@workflow/engine/fetchScenarioSample';
-import { validate, evaluateAssertions } from '@engine/validator';
+import { validate, evaluateAssertions } from '@engine/core/validator';
 
 const mockFetch = fetchScenarioSample as ReturnType<typeof vi.fn>;
 const mockValidate = validate as ReturnType<typeof vi.fn>;

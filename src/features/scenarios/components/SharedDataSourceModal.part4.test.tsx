@@ -10,7 +10,7 @@ import userEvent from '@testing-library/user-event';
 import { selectOption } from '@test-utils/customSelectHelper';
 import SharedDataSourceModal from './SharedDataSourceModal';
 import { SharedDataSource, FeatureGroup, DataSource, GlobalAuthProfile } from '@shared/types';
-import { proxyFetch } from '@engine/executor';
+import { proxyFetch } from '@engine/core/executor';
 import { createSharedDsFetchAdapter } from '@shared/components/data-mapper';
 import { MapperFetchError } from '@shared/components/data-mapper/types';
 

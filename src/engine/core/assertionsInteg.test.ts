@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Scenario, Assertion } from '@shared/types';
 
-vi.mock('../shared/utils/httpClient', () => ({
+vi.mock('@shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
 }));
 
-vi.mock('../shared/utils/bodySerializer', () => ({
+vi.mock('@shared/utils/bodySerializer', () => ({
   serializeWithContentType: (s: Scenario) => ({ body: s.body || undefined, contentType: 'application/json' }),
   getEffectiveBodyType: () => 'json',
 }));

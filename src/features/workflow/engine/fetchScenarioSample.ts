@@ -1,8 +1,8 @@
 import type { Scenario } from '@shared/types';
 import { httpFetch } from '@shared/utils/httpClient';
 import { serializeWithContentType } from '@shared/utils/bodySerializer';
-import { buildHeaders, buildUrl } from '@engine/executor';
-import { TokenManager } from '@engine/tokenManager';
+import { buildHeaders, buildUrl } from '@engine/core/executor';
+import { TokenManager } from '@engine/core/tokenManager';
 import { VariableContext } from './variableContext';
 import { resolveScenario } from './resolveScenario';
 import { ensureAbsoluteUrlWithBase } from './absoluteUrl';

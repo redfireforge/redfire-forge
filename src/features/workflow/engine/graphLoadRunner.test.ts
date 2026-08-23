@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { RequestResult } from '@shared/types';
-import { CircuitBreaker } from '@engine/circuitBreaker';
+import { CircuitBreaker } from '@engine/core/circuitBreaker';
 import { Workflow, WorkflowNode, WorkflowEdge } from '../types/workflow';
 import { makeResult as _makeResult } from '@test-utils/factories';
 

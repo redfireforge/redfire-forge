@@ -24,7 +24,7 @@ import {
   handleCustom,
 } from './validatorAssertionHandlers';
 
-vi.mock('../features/workflow/utils/expressionEvaluator', () => ({
+vi.mock('@workflow/utils/expressionEvaluator', () => ({
   evaluateExpression: vi.fn(),
   formatExpressionResult: vi.fn((v: unknown) => String(v)),
 }));

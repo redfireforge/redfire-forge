@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { executeHttpNode } from './graphRunnerHelpers';
 import { VariableContext } from './variableContext';
-import { TokenManager } from '@engine/tokenManager';
+import { TokenManager } from '@engine/core/tokenManager';
 import type { HttpNodeData } from '../types/workflow';
 
 // Mock httpFetch

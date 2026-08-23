@@ -8,12 +8,12 @@ import { CircuitBreaker } from './circuitBreaker';
 import { runSequential, runBatch, runPool, resetResultIdCounter, clearPrepCache, type RunOpts } from './requestExecution';
 import { executeKafkaAction } from './kafkaExecution';
 import { executeWsAction } from './wsExecution';
-import { executeGrpcAction } from './grpcExecution';
-import { loadGrpcConnectionProfilesFromStorage } from './grpcConnectionProfileHydration';
+import { executeGrpcAction } from '@engine/grpc/grpcExecution';
+import { loadGrpcConnectionProfilesFromStorage } from '@engine/grpc/grpcConnectionProfileHydration';
 import { buildGrpcHarnessOperations } from '@shared/grpc/buildGrpcHarnessOperations';
 import { isWsActionType } from '@shared/types';
 import { isGrpcHarnessScenario, validateGrpcHarnessActionConfig } from '@shared/utils/grpcHarnessScenarioContracts';
-import { runLoadProfile } from './loadProfileRunner';
+import { runLoadProfile } from '@engine/load/loadProfileRunner';
 import { createThinkTimeDelay } from './thinkTime';
 import { runWorkflow, runWorkflowLoad, runGraphLoad, VariableContext } from '@workflow/engine';
 import type { KafkaNodeOperations, WsNodeOperations } from '@workflow/engine/graphRunnerNodeHandlerContext';
@@ -92,12 +92,12 @@ export function buildUrl(scenario: Scenario): string {
   return scenario.url;
 }
 export { CircuitBreaker } from './circuitBreaker';
-export { getTargetConcurrency } from './loadProfileRunner';
+export { getTargetConcurrency } from '@engine/load/loadProfileRunner';
 
 export interface TestResult {
   results: RequestResult[];
   /** Execution trace for workflow runs (Phase 7e) */
-  trace?: import('../shared/types').WorkflowExecutionTrace;
+  trace?: import('@shared/types').WorkflowExecutionTrace;
 }
 
 export interface WorkflowResolverData {
@@ -126,7 +126,7 @@ export async function runTest(
   /** WebSocket operations for WS nodes in workflow execution. */
   wsOperations?: WsNodeOperations,
   /** gRPC operations for grpcUnary/grpcServerStream nodes in workflow execution. */
-  grpcOperations?: import('../features/workflow/engine/graphRunnerNodeHandlerContext').GrpcNodeOperations,
+  grpcOperations?: import('@workflow/engine/graphRunnerNodeHandlerContext').GrpcNodeOperations,
   /** Env map for gRPC harness `{{grpcHost}}` template resolution. */
   grpcHarnessEnv?: Record<string, string>,
 ): Promise<TestResult> {

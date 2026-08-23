@@ -7,9 +7,9 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
 import type { DataSource, Scenario, DataSourceColumn, DataSourceRow } from '@shared/types';
 import type { HttpResponse } from '@shared/utils/httpClient';
-import { resolveScenarioFromDataRow } from '@engine/dataSourceExpander';
-import { proxyFetch, buildHeaders } from '@engine/executor';
-import { validate as validateResponse } from '@engine/validator';
+import { resolveScenarioFromDataRow } from '@engine/core/dataSourceExpander';
+import { proxyFetch, buildHeaders } from '@engine/core/executor';
+import { validate as validateResponse } from '@engine/core/validator';
 import { extractJsonPath, expandPatternFromResponse } from '../utils/dataSourceImport';
 import { toErrorMessage, tryParseJson } from '@shared/utils/helpers';
 

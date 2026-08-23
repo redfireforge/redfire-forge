@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ScenarioWeight, LoadProfileConfig } from '@shared/types';
-import { runLoadProfile } from './loadProfileRunner';
+import { runLoadProfile } from '@engine/load/loadProfileRunner';
 import { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
 import { clearPrepCache, type RunOpts } from './requestExecution';
 import { makeScenario as _makeScenario } from '@test-utils/factories';
 
-vi.mock('../shared/utils/httpClient', () => ({
+vi.mock('@shared/utils/httpClient', () => ({
   httpFetch: vi.fn().mockResolvedValue({ status: 200, statusText: 'OK', headers: {}, body: '{"ok":true}' }),
 }));
 
@@ -109,7 +109,7 @@ describe('runLoadProfile', () => {
 
   it('stops on breaker trip', async () => {
     const breaker = new CircuitBreaker('stop-first');
-    vi.mocked(await import('../shared/utils/httpClient')).httpFetch.mockResolvedValue({
+    vi.mocked(await import('@shared/utils/httpClient')).httpFetch.mockResolvedValue({
       status: 500, statusText: 'Error', headers: {}, body: '{"error":"fail"}',
     });
     const profile: LoadProfileConfig = { type: 'sustained', durationSec: 1, maxConcurrency: 1 };
@@ -154,7 +154,7 @@ describe('runLoadProfile', () => {
   it('finishes in-flight work after duration elapses on ticker while requests are pending', async () => {
     vi.useFakeTimers();
     const releases: Array<() => void> = [];
-    const httpMod = vi.mocked(await import('../shared/utils/httpClient'));
+    const httpMod = vi.mocked(await import('@shared/utils/httpClient'));
     httpMod.httpFetch.mockImplementation(
       () =>
         new Promise((resolve) => {
@@ -181,7 +181,7 @@ describe('runLoadProfile', () => {
   it('runs ticker fillPool and onProgress while profile is still active', async () => {
     vi.useFakeTimers();
     const releases: Array<() => void> = [];
-    const httpMod = vi.mocked(await import('../shared/utils/httpClient'));
+    const httpMod = vi.mocked(await import('@shared/utils/httpClient'));
     httpMod.httpFetch.mockImplementation(
       () =>
         new Promise((resolve) => {
