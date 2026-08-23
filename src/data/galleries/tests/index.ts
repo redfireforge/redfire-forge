@@ -1,5 +1,5 @@
 /**
- * Tests Gallery — 21 pre-built test scenario samples.
+ * Tests Gallery — 27 pre-built test scenario samples.
  */
 
 import type { TestSampleEntry } from './types';
@@ -28,6 +28,18 @@ import {
   createRowTagsDemoTest,
   createAuthTokenRotationTest,
 } from './parameterizedPresets';
+import {
+  createGraphQLHealthTest,
+  createGraphQLQueryMutationTest,
+} from './presets-graphql';
+import {
+  createGrpcHealthTest,
+  createGrpcCrudTest,
+} from './presets-grpc';
+import {
+  createWsEchoTest,
+  createWsSubscribeTest,
+} from './presets-websocket';
 import {
   createSharedUserIdsFeatureGroup,
   createSharedUserIdsDataSource,
@@ -390,5 +402,95 @@ export const testSampleCatalog: TestSampleEntry[] = [
     scenarioCount: 3,
     assertionTypes: ['status', 'arrayLength', 'regex'],
     factory: createApiHealthSlaTest,
+  },
+
+  // ── GraphQL ───────────────────────────────────────────
+  {
+    id: 'test-graphql-health',
+    domain: 'tests',
+    name: 'GraphQL Health Check',
+    description: 'Single-scenario introspection ping — POST { __typename } to countries.trevorblades.com and assert $.data.__typename === "Query"',
+    icon: '🔷',
+    category: 'graphql',
+    difficulty: 'easy',
+    tags: ['graphql', 'health', 'introspection', 'smoke'],
+    liveApis: ['countries.trevorblades.com'],
+    scenarioCount: 1,
+    assertionTypes: ['status', 'existence', 'regex'],
+    factory: createGraphQLHealthTest,
+  },
+  {
+    id: 'test-graphql-crud',
+    domain: 'tests',
+    name: 'GraphQL: Query & Mutation',
+    description: 'Two scenarios — list posts query (assert array length ≥ 1) and createPost mutation (assert ID returned)',
+    icon: '🔷',
+    category: 'graphql',
+    difficulty: 'medium',
+    tags: ['graphql', 'query', 'mutation', 'crud'],
+    liveApis: ['graphqlzero.almansi.me'],
+    scenarioCount: 2,
+    assertionTypes: ['status', 'existence', 'arrayLength'],
+    factory: createGraphQLQueryMutationTest,
+  },
+
+  // ── gRPC ──────────────────────────────────────────────
+  {
+    id: 'test-grpc-health',
+    domain: 'tests',
+    name: 'gRPC: Unary Smoke Test',
+    description: 'Single scenario: call grpc.health.v1.Health/Check on grpcb.in and assert status === SERVING',
+    icon: '🔌',
+    category: 'grpc',
+    difficulty: 'easy',
+    tags: ['grpc', 'health', 'unary', 'smoke'],
+    liveApis: ['grpcb.in'],
+    scenarioCount: 1,
+    assertionTypes: ['grpcField'],
+    factory: createGrpcHealthTest,
+  },
+  {
+    id: 'test-grpc-crud',
+    domain: 'tests',
+    name: 'gRPC: CRUD Scenarios',
+    description: 'Three scenarios demonstrating Get / Create / Delete patterns with gRPC unary calls and field assertions',
+    icon: '🔌',
+    category: 'grpc',
+    difficulty: 'medium',
+    tags: ['grpc', 'crud', 'unary', 'variables'],
+    liveApis: ['grpcb.in'],
+    scenarioCount: 3,
+    assertionTypes: ['grpcField'],
+    factory: createGrpcCrudTest,
+  },
+
+  // ── WebSocket ─────────────────────────────────────────
+  {
+    id: 'test-ws-echo',
+    domain: 'tests',
+    name: 'WebSocket: Echo Smoke Test',
+    description: 'Three-step test: connect to echo.websocket.org, send "ping", receive the echo, and assert the message body matches',
+    icon: '⚡',
+    category: 'websocket',
+    difficulty: 'easy',
+    tags: ['websocket', 'echo', 'smoke'],
+    liveApis: ['echo.websocket.org'],
+    scenarioCount: 3,
+    assertionTypes: ['wsField'],
+    factory: createWsEchoTest,
+  },
+  {
+    id: 'test-ws-subscribe',
+    domain: 'tests',
+    name: 'WebSocket: JSON Subscribe & Assert',
+    description: 'Connect to the Binance BTC/USDT trade stream, receive the first message, and assert the event type and symbol fields',
+    icon: '⚡',
+    category: 'websocket',
+    difficulty: 'medium',
+    tags: ['websocket', 'json', 'subscribe', 'binance'],
+    liveApis: ['stream.binance.com'],
+    scenarioCount: 2,
+    assertionTypes: ['wsField'],
+    factory: createWsSubscribeTest,
   },
 ];

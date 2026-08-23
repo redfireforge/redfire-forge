@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { testSampleCatalog } from './index';
 
 describe('testSampleCatalog', () => {
-  it('has 23 entries', () => {
-    expect(testSampleCatalog).toHaveLength(23);
+  it('has 29 entries', () => {
+    expect(testSampleCatalog).toHaveLength(29);
   });
 
   it('every entry has a unique id', () => {
@@ -45,7 +45,8 @@ describe('testSampleCatalog', () => {
       for (const ts of fg.scenarios) {
         expect(ts.tests.length).toBeGreaterThanOrEqual(1);
         for (const test of ts.tests) {
-          expect(test.url).toMatch(/^https:\/\//);
+          // Allow wss:// for WebSocket scenarios in addition to https://
+          expect(test.url).toMatch(/^(https|wss):\/\//);
           expect(test.method).toBeTruthy();
         }
       }
