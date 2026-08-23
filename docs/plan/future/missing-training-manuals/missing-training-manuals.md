@@ -60,8 +60,9 @@ graphql/
   graphql-subscriptions-medium.html         ← real-time subscription stream
   graphql-collections-medium.html           ← save & organize queries
   graphql-auth-medium.html                  ← Bearer/API Key auth setup
+  graphql-multi-tab-medium.html             ← per-tab isolation, endpoint overrides, context restore
   graphql-mock-server-advanced.html         ← mock schema + resolver rules
-  graphql-code-gen-advanced.html            ← generate TS types from SDL
+  graphql-code-gen-advanced.html            ← query builder code generation (preview, copy, editor sync)
   graphql-schema-diff-advanced.html         ← detect breaking schema changes
   graphql-workflow-nodes-advanced.html      ← GraphQL node in workflow designer
 ```
@@ -320,7 +321,7 @@ gallery/
 
 | Feature | Folder | Main File | # Tutorials | Status |
 |---------|--------|-----------|-------------|--------|
-| GraphQL | `graphql/` | `graphql.html` | 11 | 🔲 Not started |
+| GraphQL | `graphql/` | `graphql.html` | 13 | ✅ Done (14 files — overview + 13 tutorials) |
 | gRPC | `grpc/` | `grpc.html` | 10 | 🔲 Not started |
 | WebSocket | `websocket/` | `websocket.html` | 12 | 🔲 Not started |
 | Environment Manager | `environments/` | `environments.html` | 5 | 🔲 Not started |

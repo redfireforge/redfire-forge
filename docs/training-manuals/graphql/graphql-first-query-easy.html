@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GraphQL: Your First Query — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e; line-height: 1.6;
+    max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 85vh; text-align: center; }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔷</div>
+    <h1>Your First GraphQL Query</h1>
+    <div class="subtitle">Easy — Training Guide</div>
+    <p>Connect to a GraphQL endpoint, write your first query, execute it, and inspect the response. You will understand how GraphQL's single-endpoint model works and why the response shape mirrors the query shape.</p>
+    <div class="meta">
+      RedfireForge v0.6.0<br />
+      Difficulty: ★☆☆<br />
+      GraphQL Studio · graphql-studio tab
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>Before you can use any other GraphQL feature, you need to connect to an endpoint and run a successful query. This tutorial walks you through exactly that, step by step.</p>
+  <p>GraphQL uses a single <code>POST /graphql</code> endpoint. You send a JSON body containing your <em>query string</em> (and optionally variables), and the server returns only the data fields your query requested. This is fundamentally different from REST where each resource has its own URL.</p>
+  <p>After completing this tutorial you will be able to:</p>
+  <ul>
+    <li>Navigate to GraphQL Studio and connect to any endpoint</li>
+    <li>Write a valid query in the Monaco editor</li>
+    <li>Execute the query and read the response</li>
+    <li>Understand the response pane: status badge, latency, raw JSON viewer</li>
+    <li>Use the Variables panel to parameterise queries</li>
+  </ul>
+
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>GraphQL query syntax</strong> — field selection sets, aliases, nesting</li>
+    <li><strong>Single endpoint model</strong> — all operations go to <code>/graphql</code> via HTTP POST</li>
+    <li><strong>Introspection</strong> — how the studio discovers your schema automatically</li>
+    <li><strong>Variables</strong> — parameterise queries without string concatenation</li>
+    <li><strong>Response shape</strong> — the response JSON always mirrors the query structure under a <code>data</code> key</li>
+    <li><strong>Errors</strong> — GraphQL can return partial data alongside an <code>errors</code> array</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <h2>3. Studio Overview</h2>
+  <table>
+    <tr><th>Area</th><th>What it does</th></tr>
+    <tr><td>Connection bar (top)</td><td>Enter your GraphQL endpoint URL; click <strong>Introspect</strong> to load the schema</td></tr>
+    <tr><td>Editor (centre)</td><td>Monaco code editor — write queries, mutations, or subscriptions here</td></tr>
+    <tr><td>▶ Execute button</td><td>Sends the current operation to the endpoint</td></tr>
+    <tr><td>Variables panel</td><td>Enter a JSON object of variables referenced with <code>$varName</code> in the query</td></tr>
+    <tr><td>Headers panel</td><td>Add custom HTTP headers (e.g. <code>Authorization</code>)</td></tr>
+    <tr><td>Response pane (right)</td><td>Shows the JSON response, status badge, latency in ms, and execution history</td></tr>
+    <tr><td>Schema pane</td><td>Opens when you click the Schema icon — browse all types and fields</td></tr>
+  </table>
+
+  <h2>4. Step-by-Step Walkthrough</h2>
+
+  <h3>Step 1 — Open GraphQL Studio</h3>
+  <p>Click the <strong>GraphQL</strong> icon in the left sidebar (or navigate to <code>?tab=graphql-studio</code>). The studio opens with one empty tab and a blank connection bar.</p>
+
+  <h3>Step 2 — Enter the Endpoint</h3>
+  <p>Click the endpoint input in the connection bar and type:</p>
+  <pre>https://countries.trevorblades.com/graphql</pre>
+  <p>This is a free, public GraphQL API returning data about world countries. No authentication required.</p>
+
+  <h3>Step 3 — Introspect the Schema</h3>
+  <p>Click the <strong>Introspect</strong> button (or press the refresh icon next to the endpoint field). The studio sends an <code>IntrospectionQuery</code> to the endpoint and loads the full type schema. You will see the Schema Explorer icon in the sidebar light up.</p>
+  <div class="callout">
+    <strong>📋 What happens during introspection?</strong>
+    GraphQL servers expose a built-in <code>__schema</code> query that returns all types, fields, arguments, and deprecation notices. RedfireForge fetches this once and caches it per endpoint URL so subsequent queries benefit from auto-complete.
+  </div>
+
+  <h3>Step 4 — Write Your First Query</h3>
+  <p>Click inside the editor and type (or paste) the following query:</p>
+  <pre>query GetCountry {
+  country(code: "US") {
+    name
+    capital
+    currency
+    emoji
+    languages {
+      name
+    }
+  }
+}</pre>
+  <p>The Monaco editor will show syntax highlighting and may offer auto-complete suggestions based on the introspected schema.</p>
+
+  <h3>Step 5 — Execute the Query</h3>
+  <p>Click the <strong>▶ Execute</strong> button (or press <code>Ctrl+Enter</code> / <code>Cmd+Enter</code>). The response appears in the right-hand pane within a few hundred milliseconds.</p>
+
+  <h3>Step 6 — Inspect the Response</h3>
+  <p>In the response pane, observe:</p>
+  <ul>
+    <li><strong>Status badge</strong>: <code>200</code> — the HTTP request succeeded</li>
+    <li><strong>Latency badge</strong>: response time in milliseconds (e.g. <code>142 ms</code>)</li>
+    <li><strong>JSON viewer</strong>: the response body. Note the structure under <code>data.country</code> — it exactly mirrors the fields you requested</li>
+  </ul>
+  <p>Expected response shape:</p>
+  <pre>{
+  "data": {
+    "country": {
+      "name": "United States",
+      "capital": "Washington D.C.",
+      "currency": "USD,USN,USS",
+      "emoji": "🇺🇸",
+      "languages": [
+        { "name": "English" }
+      ]
+    }
+  }
+}</pre>
+
+  <div class="callout callout-tip">
+    <strong>💡 The response shape mirrors the query shape</strong>
+    This is GraphQL's core guarantee. You asked for <code>name</code>, <code>capital</code>, <code>currency</code>, <code>emoji</code>, and <code>languages { name }</code> — that's exactly what came back. Remove <code>currency</code> from the query, re-execute, and it won't appear in the response.
+  </div>
+
+  <div class="page-break"></div>
+
+  <h3>Step 7 — Use a Variable</h3>
+  <p>Hard-coding <code>"US"</code> inside the query is fine for a one-off. For reusable queries, use a variable instead. Update the query to:</p>
+  <pre>query GetCountry($code: ID!) {
+  country(code: $code) {
+    name
+    capital
+    currency
+    emoji
+  }
+}</pre>
+  <p>Then open the <strong>Variables</strong> panel below the editor and enter:</p>
+  <pre>{
+  "code": "DE"
+}</pre>
+  <p>Execute again. The response will now describe Germany. Change the value to <code>"JP"</code> and execute — no query edit needed.</p>
+
+  <h3>Step 8 — View Execution History</h3>
+  <p>The response pane keeps a history of all executions in the current session. Click the history icon (clock symbol) or scroll the response tabs to see previous results. Each entry shows the timestamp and status.</p>
+
+  <h2>5. Understanding Errors</h2>
+  <p>GraphQL errors don't use HTTP error codes for application-level problems — a failed query still returns HTTP 200. Errors appear in an <code>errors</code> array alongside any partial <code>data</code>. Try requesting a field that doesn't exist:</p>
+  <pre>query Bad {
+  country(code: "US") {
+    nonExistentField
+  }
+}</pre>
+  <p>The response pane will show a warning badge on the Response tab and the body will contain an <code>errors</code> array describing the problem. Note that HTTP status is still <code>200</code>.</p>
+
+  <h2>6. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Fetch Multiple Countries</h3>
+  <p>Modify the query to fetch a list of countries instead of one:</p>
+  <pre>query ListCountries {
+  countries(filter: { continent: { eq: "EU" } }) {
+    name
+    capital
+    emoji
+  }
+}</pre>
+  <p>How many European countries does the API return?</p>
+
+  <h3>Exercise 2 — Alias Fields</h3>
+  <p>Use an alias to rename <code>name</code> to <code>countryName</code> in the response:</p>
+  <pre>query AliasDemo {
+  country(code: "US") {
+    countryName: name
+    capital
+  }
+}</pre>
+  <p>Aliases let you rename response fields without touching the server schema.</p>
+
+  <h3>Exercise 3 — Request Only What You Need</h3>
+  <p>Start with the full country query (all fields), then remove fields one by one and re-execute. Confirm the response shrinks with each removal. This demonstrates GraphQL's over-fetch prevention.</p>
+
+  <footer>
+    RedfireForge Training Manual — GraphQL: Your First Query · August 2026
+  </footer>
+
+</body>
+</html>
