@@ -15,7 +15,7 @@ import CatalogVersionHistory from '../../features/catalog/components/CatalogVers
 import CatalogEditModal from '../../features/catalog/components/CatalogEditModal';
 import CatalogConvertOpenApiModal from '../../features/catalog/components/CatalogConvertOpenApiModal';
 import type { CatalogConvertTarget, SaveConvertedVersionArgs } from '../hooks/useCatalogState';
-import type { ToastType } from '../../features/workflow/components/WorkflowToastProvider';
+import type { ToastType } from '@workflow/components/WorkflowToastProvider';
 import SendToHarnessModal from '../../features/requests/components/SendToHarnessModal';
 import BatchSendToHarnessModal from '../../features/requests/components/BatchSendToHarnessModal';
 import { catalogEndpointToRequest } from '../../features/catalog/utils/catalogEndpointToRequest';

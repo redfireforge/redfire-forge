@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { Workflow, WorkflowFolder, WorkflowVersion } from '../../features/workflow/types/workflow';
+import type { Workflow, WorkflowFolder, WorkflowVersion } from '@workflow/types/workflow';
 import { makeWorkflow } from '../../test-utils/factories';
 
 const { isTauriMock, tauriStoreMap, tauriGetItem, tauriSetItem, workflowsStore } = vi.hoisted(() => {

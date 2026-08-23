@@ -32,7 +32,7 @@ vi.mock('../../workflow/components/expression/AvailableVariables', () => ({
 }));
 
 import GraphqlAssertConfigPanel from './GraphqlAssertConfigPanel';
-import type { GraphqlAssertNodeData } from '../../workflow/types/workflow';
+import type { GraphqlAssertNodeData } from '@workflow/types/workflow';
 
 function makeData(overrides: Partial<GraphqlAssertNodeData> = {}): GraphqlAssertNodeData {
   return {

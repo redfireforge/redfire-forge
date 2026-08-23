@@ -9,13 +9,13 @@
  * via the `RunOpts.executeNonHttp` callback to avoid circular dependencies.
  */
 import type { Scenario, RequestResult, WsResultMeta, WsActionType } from '@shared/types';
-import type { WsNodeOperations, WsMessageMatchCriteria } from '../features/workflow/engine/graphRunnerNodeHandlerContext';
+import type { WsNodeOperations, WsMessageMatchCriteria } from '@workflow/engine/graphRunnerNodeHandlerContext';
 import { nextResultId, buildErrorResult } from './requestExecution';
 import { buildValidationResult } from './validationResult';
 import { toErrorMessage, parseJsonSafe } from '@shared/utils/helpers';
 import { round2 as roundMs } from '@shared/utils/percentiles';
 import { isWsActionType } from '@shared/types';
-import { classifyWsFailure } from '../features/workflow/engine/graphRunnerWsNodeHandlers';
+import { classifyWsFailure } from '@workflow/engine/graphRunnerWsNodeHandlers';
 
 // ---------------------------------------------------------------------------
 // Public entry point

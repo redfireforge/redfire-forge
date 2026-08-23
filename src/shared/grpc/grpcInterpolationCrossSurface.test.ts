@@ -5,12 +5,12 @@
 import { describe, expect, it } from 'vitest';
 import { makeScenario as _makeScenario } from '../../test-utils/factories';
 import type { Scenario } from '../types';
-import { createGrpcStudioTab, captureGrpcTabExecuteSnapshotFromResolution } from '../../features/grpc/grpcStudioTypes';
-import { resolveTabConnectionWithEnv, bindTabInterpolationEnvForExecute } from '../../features/grpc/hooks/grpcStudioSessionHelpers';
+import { createGrpcStudioTab, captureGrpcTabExecuteSnapshotFromResolution } from '@grpc/grpcStudioTypes';
+import { resolveTabConnectionWithEnv, bindTabInterpolationEnvForExecute } from '@grpc/hooks/grpcStudioSessionHelpers';
 import { buildGrpcHarnessExecuteSnapshot } from './grpcHarnessSnapshotBuilder';
-import { buildGrpcWorkflowExecuteSnapshot } from '../../features/workflow/utils/grpcWorkflowSnapshotBuilder';
-import type { GrpcUnaryNodeData } from '../../features/workflow/types/workflow/node-grpc';
-import { resolveGrpcSavedRequestReplay } from '../../features/grpc/utils/grpcReplayResolver';
+import { buildGrpcWorkflowExecuteSnapshot } from '@workflow/utils/grpcWorkflowSnapshotBuilder';
+import type { GrpcUnaryNodeData } from '@workflow/types/workflow/node-grpc';
+import { resolveGrpcSavedRequestReplay } from '@grpc/utils/grpcReplayResolver';
 import { createGrpcSavedRequestFromSnapshot } from './grpcSavedRequest';
 import { buildGrpcSavedRequestTemplateSource } from './grpcReplayTemplateCompatibility';
 import { sanitizeGrpcSavedRequestForTemplatePersist } from './grpcInterpolationPersistGuard';

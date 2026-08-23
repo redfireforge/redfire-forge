@@ -2,7 +2,7 @@
  * Phase 10A — Acceptance checklist traceability.
  */
 import { describe, expect, it } from 'vitest';
-import { createGrpcStudioTab, captureGrpcTabExecuteSnapshotFromResolution } from '../../features/grpc/grpcStudioTypes';
+import { createGrpcStudioTab, captureGrpcTabExecuteSnapshotFromResolution } from '@grpc/grpcStudioTypes';
 import { FIXTURE_DESCRIPTOR_KEY } from './contractFixtures';
 import {
   GRPC_STUDIO_TRANSPORT_MODES,

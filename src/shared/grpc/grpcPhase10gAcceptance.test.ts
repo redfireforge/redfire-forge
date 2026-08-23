@@ -16,7 +16,7 @@ import {
   canChangeGrpcTabTransportMode,
   resolveGrpcStudioTabTransportMode,
   createGrpcStudioTab,
-} from '../../features/grpc/grpcStudioTypes';
+} from '@grpc/grpcStudioTypes';
 import {
   assertGrpcTransportExecutePreflight,
   GrpcWebTransportPreflightError,

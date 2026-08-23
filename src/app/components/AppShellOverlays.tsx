@@ -1,12 +1,12 @@
 import type { ComponentType, Dispatch, SetStateAction } from 'react';
 import type { Environment, GlobalAuthProfile, Microservice, RequestCollection } from '@shared/types';
-import type { Workflow } from '../../features/workflow/types/workflow';
+import type { Workflow } from '@workflow/types/workflow';
 import type { UseRequestsReturn } from '../../features/requests/hooks/useRequests';
-import type { WorkflowFoldersHook } from '../../features/workflow/hooks/useWorkflowFolders';
+import type { WorkflowFoldersHook } from '@workflow/hooks/useWorkflowFolders';
 import type { RequestFolder } from '@shared/types';
 import RequestCollectionModal from '../../features/requests/components/RequestCollectionModal';
 import SubCollectionModal from '../../features/requests/components/SubCollectionModal';
-import FolderPickerModal from '../../features/workflow/components/modals/FolderPickerModal';
+import FolderPickerModal from '@workflow/components/modals/FolderPickerModal';
 import RustTestPanelOverlay from './RustTestPanelOverlay';
 
 export interface AppShellOverlaysProps {

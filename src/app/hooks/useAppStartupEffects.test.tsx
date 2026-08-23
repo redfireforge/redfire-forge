@@ -6,7 +6,7 @@ import { act, renderHook } from '@testing-library/react';
 import { useAppStartupEffects } from './useAppStartupEffects';
 import type { UseRequestsReturn } from '../../features/requests/hooks/useRequests';
 import type { Tab } from '../utils/appTabUtils';
-import type { ToastApi } from '../../features/workflow/components/WorkflowToastProvider';
+import type { ToastApi } from '@workflow/components/WorkflowToastProvider';
 import { readKey } from '@shared/utils/storage';
 import { setLastProtocolsTab } from '../utils/appTabUtils';
 

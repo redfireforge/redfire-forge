@@ -10,7 +10,7 @@
  */
 
 import type { MapperSource } from '../types';
-import type { ExpressionFunction } from '../../../../features/workflow/utils/expressionFunctions/types';
+import type { ExpressionFunction } from '@workflow/utils/expressionFunctions/types';
 import { evaluateMapperExpression, buildMapperResolveVariable, formatExpressionResult } from './mapperExpressionEvaluator';
 
 export interface EvalStep {

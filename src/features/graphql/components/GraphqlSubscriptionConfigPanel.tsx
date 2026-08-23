@@ -10,12 +10,12 @@ import type {
   GraphqlSubscriptionNodeData,
   GraphqlSubscriptionOutputBinding,
   NodeRunStatus,
-} from '../../workflow/types/workflow';
-import type { WorkflowVariableHint } from '../../workflow/utils/workflowVariableHints';
+} from '@workflow/types/workflow';
+import type { WorkflowVariableHint } from '@workflow/utils/workflowVariableHints';
 import { useListCrud } from '@shared/hooks/useListCrud';
-import InsertVarField from '../../workflow/components/expression/InsertVarField';
-import ExpressionInput from '../../workflow/components/expression/ExpressionInput';
-import AvailableVariables from '../../workflow/components/expression/AvailableVariables';
+import InsertVarField from '@workflow/components/expression/InsertVarField';
+import ExpressionInput from '@workflow/components/expression/ExpressionInput';
+import AvailableVariables from '@workflow/components/expression/AvailableVariables';
 import {
   GqlHeadersSection,
   GqlAuthSection,

@@ -5,7 +5,7 @@ import type { GrpcCallRequest, GrpcStreamStartRequest } from '@shared/grpc/contr
 import {
   snapshotToStreamStartRequest,
   snapshotToUnaryCallRequest,
-} from '../../grpc/grpcStudioTypes';
+} from '@grpc/grpcStudioTypes';
 import type {
   GrpcWorkflowExecuteSnapshot,
   GrpcWorkflowRuntimeCallBoundary,

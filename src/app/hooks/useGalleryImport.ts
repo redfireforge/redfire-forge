@@ -4,11 +4,11 @@ import type { Environment, Microservice, FeatureGroup, Scenario, RequestCollecti
 import type { GalleryEntry } from '../../data/galleries/types';
 import type { TestSampleEntry } from '../../data/galleries/tests/types';
 import { saveSharedDataSources, loadSharedDataSources } from '@shared/utils/storage';
-import type { Workflow } from '../../features/workflow/types/workflow';
+import type { Workflow } from '@workflow/types/workflow';
 import type { PreviewRequest } from '../../features/requests/Requests';
 import { gallerySampleHash } from '@shared/utils/gallerySampleHash';
 import { LOADED_SENTINEL } from '../../features/gallery/GalleryPage';
-import { getAutoLayoutNodes } from '../../features/workflow/utils/workflowAutoLayout';
+import { getAutoLayoutNodes } from '@workflow/utils/workflowAutoLayout';
 import { savePreviewSampleId } from '@shared/utils/storage';
 import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
 import {

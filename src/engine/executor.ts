@@ -1,5 +1,5 @@
 import type { TestConfig, Scenario, RequestResult, Microservice, GlobalAuthProfile } from '@shared/types';
-import type { Workflow, HttpNodeData } from '../features/workflow/types/workflow';
+import type { Workflow, HttpNodeData } from '@workflow/types/workflow';
 import { httpFetch, type HttpResponse } from '@shared/utils/httpClient';
 import { getEffectiveBodyType } from '@shared/utils/bodySerializer';
 import { resolveAuthHeaders } from '@shared/utils/authHeaders';
@@ -15,11 +15,11 @@ import { isWsActionType } from '@shared/types';
 import { isGrpcHarnessScenario, validateGrpcHarnessActionConfig } from '@shared/utils/grpcHarnessScenarioContracts';
 import { runLoadProfile } from './loadProfileRunner';
 import { createThinkTimeDelay } from './thinkTime';
-import { runWorkflow, runWorkflowLoad, runGraphLoad, VariableContext } from '../features/workflow/engine';
-import type { KafkaNodeOperations, WsNodeOperations } from '../features/workflow/engine/graphRunnerNodeHandlerContext';
+import { runWorkflow, runWorkflowLoad, runGraphLoad, VariableContext } from '@workflow/engine';
+import type { KafkaNodeOperations, WsNodeOperations } from '@workflow/engine/graphRunnerNodeHandlerContext';
 import { expandQueue } from './dataSourceExpander';
 import { computeAllocation } from './allocationEngine';
-import { resolveHttpNodeBaseUrl, resolveServiceAuth } from '../features/workflow/utils/workflowHostResolve';
+import { resolveHttpNodeBaseUrl, resolveServiceAuth } from '@workflow/utils/workflowHostResolve';
 
 export interface StreamingMetrics {
   p50: number;

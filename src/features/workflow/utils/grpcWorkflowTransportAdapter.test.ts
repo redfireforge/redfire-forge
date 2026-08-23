@@ -13,7 +13,7 @@ import {
   grpcWorkflowSnapshotToUnaryRequest,
   grpcWorkflowTransportRequestFingerprint,
 } from './grpcWorkflowTransportAdapter';
-import { snapshotToStreamStartRequest, snapshotToUnaryCallRequest } from '../../grpc/grpcStudioTypes';
+import { snapshotToStreamStartRequest, snapshotToUnaryCallRequest } from '@grpc/grpcStudioTypes';
 
 const PAGE_DEFAULTS = { target: 'localhost:50051', tlsMode: 'disabled' as const };
 

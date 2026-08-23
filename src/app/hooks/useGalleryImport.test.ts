@@ -23,7 +23,7 @@ import { useGalleryImport } from './useGalleryImport';
 import type { GalleryEntry, GalleryDomain } from '../../data/galleries/types';
 import type { Environment, Microservice, RequestCollection } from '@shared/types';
 import { LOADED_SENTINEL } from '../../features/gallery/GalleryPage';
-import type { Workflow } from '../../features/workflow/types/workflow';
+import type { Workflow } from '@workflow/types/workflow';
 import { createHealthCheckMock } from '../../data/galleries/api-mock';
 
 function makeDeps(overrides = {}) {

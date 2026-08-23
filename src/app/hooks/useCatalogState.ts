@@ -8,7 +8,7 @@ import {
   type ConvertEngine,
 } from '../../features/catalog/utils/swaggerToOpenApi';
 import { parseOpenApiSpec } from '../../features/catalog/utils/openApiParser';
-import type { ToastType } from '../../features/workflow/components/WorkflowToastProvider';
+import type { ToastType } from '@workflow/components/WorkflowToastProvider';
 
 interface CatalogStateDeps {
   showToast?: (type: ToastType, title: string, subtitle?: string) => void;

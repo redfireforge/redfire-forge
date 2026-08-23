@@ -21,7 +21,7 @@ import {
   GqlWfFormCard,
   GqlWfFormRow,
   GqlWfSectionToolbar,
-} from '../../../graphql/components/GraphqlWfConfigLayout';
+} from '@graphql/components/GraphqlWfConfigLayout';
 import { pickHealedMockServerId } from './apiMockNodeConfigHelpers';
 
 interface ServerOpt { id: string; name: string; port: number }
