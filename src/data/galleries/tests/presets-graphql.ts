@@ -1,15 +1,112 @@
 /**
  * GraphQL test gallery preset factories.
  *
- * Two samples showing how to test GraphQL APIs using standard HTTP POST assertions:
- *  1. TG-GQL-01 — GraphQL Health Check (easy)       — introspection ping, assert __typename
- *  2. TG-GQL-02 — GraphQL Query & Mutation (medium)  — list query + create mutation
+ * Samples showing how to test GraphQL APIs using standard HTTP POST assertions:
+ *  1. TG-GQL-00 — GraphQL: First Query (easy)        — countries endpoint, query + variable form
+ *  2. TG-GQL-01 — GraphQL Health Check (easy)        — introspection ping, assert __typename
+ *  3. TG-GQL-02 — GraphQL Query & Mutation (medium)  — list query + create mutation
  */
 
 import { ts, s } from './presets-helpers';
 import type { FeatureGroup } from './presets-helpers';
 
 const GQL_HEADERS = [{ key: 'Content-Type', value: 'application/json' }];
+
+// ─── TG-GQL-00: GraphQL First Query ──────────────────────────────────────────
+
+export function createGraphQLFirstQueryTest(): FeatureGroup {
+  return {
+    id: 'test-graphql-first-query',
+    name: 'GraphQL: First Query',
+    scenarios: [
+      ts({
+        id: 'sc-gql-first-literal',
+        name: 'Query with literal argument',
+        tests: [
+          s({
+            id: 'sc-gql-first-us',
+            name: 'country(code: "US") → name, capital, currency, emoji, languages',
+            url: 'https://countries.trevorblades.com/graphql',
+            method: 'POST',
+            headers: GQL_HEADERS,
+            bodyType: 'json',
+            body: JSON.stringify({
+              query: `query GetCountry {
+  country(code: "US") {
+    name
+    capital
+    currency
+    emoji
+    languages { name }
+  }
+}`,
+            }),
+            assertions: [
+              { type: 'status', expected: '200' },
+              { type: 'existence', jsonPath: '$.data.country', expectExists: true },
+              { type: 'existence', jsonPath: '$.errors', expectExists: false },
+              { type: 'regex', jsonPath: '$.data.country.name', pattern: 'United States' },
+              { type: 'regex', jsonPath: '$.data.country.capital', pattern: 'Washington' },
+              { type: 'regex', jsonPath: '$.data.country.currency', pattern: 'USD' },
+            ],
+            sampleJson: JSON.stringify({
+              data: {
+                country: {
+                  name: 'United States',
+                  capital: 'Washington D.C.',
+                  currency: 'USD,USN,USS',
+                  emoji: '🇺🇸',
+                  languages: [{ name: 'English' }],
+                },
+              },
+            }),
+          }),
+        ],
+      }),
+      ts({
+        id: 'sc-gql-first-variable',
+        name: 'Same query with variable ($code)',
+        tests: [
+          s({
+            id: 'sc-gql-first-de',
+            name: 'GetCountry(code: "DE") via variable → name = Germany',
+            url: 'https://countries.trevorblades.com/graphql',
+            method: 'POST',
+            headers: GQL_HEADERS,
+            bodyType: 'json',
+            body: JSON.stringify({
+              query: `query GetCountry($code: ID!) {
+  country(code: $code) {
+    name
+    capital
+    currency
+    emoji
+  }
+}`,
+              variables: { code: 'DE' },
+            }),
+            assertions: [
+              { type: 'status', expected: '200' },
+              { type: 'existence', jsonPath: '$.data.country', expectExists: true },
+              { type: 'existence', jsonPath: '$.errors', expectExists: false },
+              { type: 'regex', jsonPath: '$.data.country.name', pattern: 'Germany' },
+            ],
+            sampleJson: JSON.stringify({
+              data: {
+                country: {
+                  name: 'Germany',
+                  capital: 'Berlin',
+                  currency: 'EUR',
+                  emoji: '🇩🇪',
+                },
+              },
+            }),
+          }),
+        ],
+      }),
+    ],
+  };
+}
 
 // ─── TG-GQL-01: GraphQL Health Check ─────────────────────────────────────────
 

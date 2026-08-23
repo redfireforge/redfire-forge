@@ -29,6 +29,7 @@ import {
   createAuthTokenRotationTest,
 } from './parameterizedPresets';
 import {
+  createGraphQLFirstQueryTest,
   createGraphQLHealthTest,
   createGraphQLQueryMutationTest,
 } from './presets-graphql';
@@ -405,6 +406,20 @@ export const testSampleCatalog: TestSampleEntry[] = [
   },
 
   // ── GraphQL ───────────────────────────────────────────
+  {
+    id: 'test-graphql-first-query',
+    domain: 'tests',
+    name: 'GraphQL: First Query',
+    description: 'Two scenarios mirroring the First Query tutorial — literal argument then variable form, against countries.trevorblades.com',
+    icon: '🔷',
+    category: 'graphql',
+    difficulty: 'easy',
+    tags: ['graphql', 'first-query', 'beginner', 'countries', 'variable'],
+    liveApis: ['countries.trevorblades.com'],
+    scenarioCount: 2,
+    assertionTypes: ['status', 'existence', 'regex'],
+    factory: createGraphQLFirstQueryTest,
+  },
   {
     id: 'test-graphql-health',
     domain: 'tests',
