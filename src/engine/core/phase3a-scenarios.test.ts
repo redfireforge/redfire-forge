@@ -565,7 +565,7 @@ describe('Part 7: Edge Cases', () => {
 
 describe('Export JSON — structural smoke test', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const exportData = require('../../docs/test-data/phase3-test-scenarios-export.json');
+  const exportData = require('../../../docs/test-data/phase3-test-scenarios-export.json');
 
   it('export JSON is valid and has all scenario groups', () => {
     expect(exportData._exportMeta).toBeDefined();

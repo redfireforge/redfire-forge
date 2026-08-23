@@ -2,7 +2,7 @@
  * Helpers for GraphQL workflow config panel "Test extraction" / "Run test" actions.
  */
 import { getByPath } from '@shared/utils/jsonPath';
-import { evaluateFieldOperator } from '@engine/fieldOperatorEvaluation';
+import { evaluateFieldOperator } from '@engine/core/fieldOperatorEvaluation';
 import type { NodeRunStatus } from '@workflow/types/workflow';
 import type { GraphqlExtractionRule, GraphqlWorkflowAssertion } from '@workflow/types/workflow';
 

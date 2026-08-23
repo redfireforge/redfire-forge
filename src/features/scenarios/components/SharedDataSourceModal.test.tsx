@@ -8,7 +8,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import SharedDataSourceModal from './SharedDataSourceModal';
 import { SharedDataSource, FeatureGroup, DataSource, GlobalAuthProfile } from '@shared/types';
-import { proxyFetch } from '@engine/executor';
+import { proxyFetch } from '@engine/core/executor';
 // Mock uuid to return predictable IDs
 vi.mock('uuid', () => ({
   v4: vi.fn(() => 'mock-uuid-' + Math.random().toString(36).slice(2, 8)),

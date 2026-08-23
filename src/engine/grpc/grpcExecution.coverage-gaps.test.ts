@@ -10,7 +10,7 @@ import type { GrpcHarnessOperations } from '@shared/grpc/buildGrpcHarnessOperati
 import * as buildOpsModule from '@shared/grpc/buildGrpcHarnessOperations';
 import * as harnessExecutor from '@shared/grpc/grpcHarnessExecutor';
 import * as grpcHarnessResultBuilder from '@shared/grpc/grpcHarnessResultBuilder';
-import * as validationResultModule from './validationResult';
+import * as validationResultModule from '@engine/core/validationResult';
 
 function grpcScenario(overrides: Partial<Scenario> = {}): Scenario {
   return _makeScenario({

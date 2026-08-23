@@ -7,8 +7,8 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import type { Scenario } from '../types';
 import { makeScenario as _makeScenario } from '@test-utils/factories';
-import { expandDataSource } from '@engine/dataSourceExpander';
-import { executeGrpcAction } from '@engine/grpcExecution';
+import { expandDataSource } from '@engine/core/dataSourceExpander';
+import { executeGrpcAction } from '@engine/grpc/grpcExecution';
 import { executeGrpcHarnessScenario } from './grpcHarnessExecutor';
 import type { GrpcHarnessOperations } from './buildGrpcHarnessOperations';
 import { executeGrpcHarnessBidiStream, collectGrpcHarnessServerStream } from './grpcHarnessStreamCollector';

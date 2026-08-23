@@ -16,11 +16,11 @@ import {
   type WorkerTracker,
 } from './__test-utils__/workerBridgeMocks';
 
-vi.mock('../shared/utils/platform', () => ({
+vi.mock('@shared/utils/platform', () => ({
   isTauri: vi.fn(() => false),
 }));
 
-vi.mock('../shared/utils/httpClient', () => ({
+vi.mock('@shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
 }));
 

@@ -6,7 +6,7 @@
  */
 import { useState, useCallback, useMemo } from 'react';
 import type { Scenario, DataSource, DataSubset, DataSourceRow } from '@shared/types';
-import { collectAllTags, countRowsByTag, BUILT_IN_TAGS } from '@engine/dataSourceExpander';
+import { collectAllTags, countRowsByTag, BUILT_IN_TAGS } from '@engine/core/dataSourceExpander';
 
 interface UseDataSourceTagsResult {
   // Tag edit state

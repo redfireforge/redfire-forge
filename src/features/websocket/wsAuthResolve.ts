@@ -18,7 +18,7 @@
  */
 import type { AuthConfig, GlobalAuthProfile } from '@shared/types';
 import { resolveAuthHeaders } from '@shared/utils/authHeaders';
-import { acquireOAuth2Token } from '@engine/tokenManager';
+import { acquireOAuth2Token } from '@engine/core/tokenManager';
 import { resolveEnvVars } from './wsMessageUtils';
 
 export interface ResolvedAuthKeyValue {

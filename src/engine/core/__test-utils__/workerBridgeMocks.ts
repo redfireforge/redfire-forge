@@ -2,8 +2,8 @@
  * Shared mocks for workerBridge test files.
  *
  * Exposes the MockWorker class that emulates the browser Worker API, plus
- * factory helpers. `vi.mock(...)` and `vi.stubGlobal('Worker', WorkerCtor)`
- * remain in each test file (hoisting requirement).
+ * factory helpers. Mock registration and stubGlobal calls remain in each test
+ * file due to Vitest hoisting requirements.
  */
 import { vi } from 'vitest';
 import type { TestConfig } from '@shared/types';

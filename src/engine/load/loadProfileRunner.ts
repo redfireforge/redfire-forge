@@ -1,6 +1,6 @@
 import type { LoadProfileConfig, RequestResult, Scenario, ScenarioWeight } from '@shared/types';
-import { executeWithRetry, prepareScenario, buildErrorResult, type RunOpts } from './requestExecution';
-import { applyThinkTime } from './thinkTime';
+import { executeWithRetry, prepareScenario, buildErrorResult, type RunOpts } from '@engine/core/requestExecution';
+import { applyThinkTime } from '@engine/core/thinkTime';
 
 export function getTargetConcurrency(profile: LoadProfileConfig, elapsedMs: number): number {
   const elapsed = elapsedMs / 1000;
