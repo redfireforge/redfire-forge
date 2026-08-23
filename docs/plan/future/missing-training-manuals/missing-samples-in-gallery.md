@@ -36,6 +36,8 @@ The gallery has 7 registered domains (in `src/data/galleries/types.ts` + `regist
 | GraphQL request gallery entries | `requests` domain is REST-only | 🟡 Medium |
 | GraphQL assertion gallery entries | `assertions` domain is REST-only | 🟡 Medium |
 | gRPC assertion gallery entries | `assertions` domain is REST-only | 🟡 Medium |
+| API Mock — GraphQL over HTTP sample | Body `jsonPath_equals` on `$.query` works today, no sample | 🟡 Medium |
+| API Mock — Webhook receiver sample | Capture + body validate works; HMAC signature verify is **not** a predicate operator | 🟡 Medium — partial (no inbound HMAC) |
 
 ---
 
@@ -542,10 +544,13 @@ Phase C — Test Gallery Samples (2-3 days)
   C4. Register all new files in galleries/tests/index.ts
   C5. Write unit tests for each new preset file
 
-Phase D — Requests + Assertions (1-2 days)
+Phase D — Requests + Assertions + API Mock Samples (2-3 days)
   D1. Add GraphQL request entries to galleries/requests/presets.ts (RQ-GQL-01 → RQ-GQL-03)
   D2. Add GraphQL + gRPC assertion entries to galleries/assertion-presets/presets.ts + index.ts
-  D3. Run gallery-loaded-badge.spec.ts + gallery.spec.ts E2E to verify all new entries render
+  D3. Add createGraphQLMock() to galleries/api-mock/presets-matching.ts (AM-GQL-01)
+  D4. Create galleries/api-mock/presets-webhook.ts with webhook receiver sample (AM-WH-01)
+  D5. Register new API mock entries in galleries/api-mock/index.ts
+  D6. Run gallery-loaded-badge.spec.ts + gallery.spec.ts E2E to verify all new entries render
 
 Phase E — Validation
   E1. npx tsc --noEmit — 0 errors
@@ -554,6 +559,84 @@ Phase E — Validation
   E4. Import each new workflow sample → verify nodes render correctly in Workflow Designer
   E5. Import each new test/request sample → verify fields populate
 ```
+
+---
+
+## Part 6 — Missing API Mock Gallery Samples
+
+### Feature Support Reality Check
+
+| Capability | Engine Support | Gallery Sample |
+|------------|---------------|----------------|
+| Match `POST /graphql` by body `$.query` content | ✅ `body` source + `jsonPath_equals` operator works today | ❌ no sample |
+| Receive inbound webhook POST, inspect payload | ✅ any route captures body; `json_subset` / `jsonPath_equals` predicates work | ❌ no sample |
+| Verify inbound HMAC signature (`X-Hub-Signature-256`) | ❌ `security` source only covers scheme/username/tokenClaim/apiKey/certSubject — no digest/HMAC operator | — needs new feature |
+| Fire outbound callback after match | ✅ Phase 9D `callbacks` field on `ApiMockResponseVariantV1` | ⚠️ `am-gallery-suite` touches it briefly |
+
+The inbound HMAC gap is a **feature gap** in the engine (`ApiMockPredicateOperator` + `predicateEvaluatorHelpers.ts`), not just a missing sample. Adding it requires a new `hmac_sha256` operator in `contracts.ts`, evaluation logic in `predicateEvaluatorHelpers.ts`, and UI support in `ApiMockRouteEditor`. That work is tracked separately below.
+
+---
+
+### 6a. GraphQL over HTTP Mock (new entry in `galleries/api-mock/presets-matching.ts`)
+
+**1 planned entry:**
+
+---
+
+#### AM-GQL-01 · GraphQL Mock Server (Medium)
+- **ID:** `am-gallery-graphql`
+- **Name:** `GraphQL API mock`
+- **Category:** `matching`
+- **Difficulty:** medium
+- **Description:** A single `POST /graphql` route that uses a `body` predicate with `jsonPath_equals` on `$.operationName` to distinguish queries from mutations, returning different stub payloads per operation. Demonstrates that GraphQL-over-HTTP is just a POST with JSON body matching — no special GraphQL support needed.
+- **Routes:**
+  1. `POST /graphql` — predicate: `body jsonPath_equals $.operationName GetUser` → response `{ "data": { "user": { "id": 1, "name": "Alice" } } }`
+  2. `POST /graphql` — predicate: `body jsonPath_equals $.operationName CreateUser` → response `{ "data": { "createUser": { "id": 99, "name": "New User" } } }`
+  3. `POST /graphql` — predicate: `body jsonPath_equals $.query` contains `__typename` → response `{ "data": { "__typename": "Query" } }`
+- **routeCount:** 3
+- **teaches:** `['jsonpath-body-matching', 'graphql-over-http', 'operation-routing']`
+- **Tags:** `graphql`, `jsonpath`, `body-matching`, `post`, `operation`
+- **Source file:** add `createGraphQLMock()` to `presets-matching.ts`, register in `presets.ts` and `index.ts`
+
+---
+
+### 6b. Webhook Receiver (new file `galleries/api-mock/presets-webhook.ts`)
+
+**1 planned entry (partial — no HMAC until engine supports it):**
+
+---
+
+#### AM-WH-01 · Webhook Receiver (Medium)
+- **ID:** `am-gallery-webhook`
+- **Name:** `Webhook receiver`
+- **Category:** `matching`
+- **Difficulty:** medium
+- **Description:** A `POST /webhook` route that captures inbound payloads and validates the body shape. Teaches payload inspection via journal, `json_subset` matching, and using `jsonPath_equals` to gate on `$.event` type. The route intentionally does **not** verify `X-Hub-Signature-256` — a note in the sample explains this is a planned feature.
+- **Routes:**
+  1. `POST /webhook` — predicate: `body json_subset { "event": "order.created" }` → response `{ "ok": true }` (200)
+  2. `POST /webhook` — predicate: `body json_subset { "event": "order.cancelled" }` → response `{ "ok": true }` (200)
+  3. `POST /webhook` — no predicate (catch-all) → response `{ "error": "unknown event" }` (400)
+- **routeCount:** 3
+- **teaches:** `['json-subset-matching', 'event-routing', 'catch-all', 'journal-capture']`
+- **Tags:** `webhook`, `event`, `json-subset`, `inbound`, `journal`
+- **Note:** HMAC signature verification requires engine work — see below.
+
+---
+
+### 6c. Engine Feature Gap — Inbound HMAC Signature Verification
+
+This is a **missing feature**, not just a missing sample. Implementing it requires changes across 4 layers:
+
+| Layer | Change Required |
+|-------|-----------------|
+| `src/shared/api-mock/contracts.ts` | Add `'hmac_sha256'` to `ApiMockPredicateOperator` union |
+| `src/shared/api-mock/predicateEvaluatorHelpers.ts` | Add `case 'hmac_sha256'` in `evaluateOperator()` — extract raw body bytes, compute HMAC-SHA256 with a configured secret, compare to `X-Hub-Signature-256` / `X-Webhook-Signature` / `X-Signature` header |
+| `src/shared/api-mock/validation.ts` | Add validation rules for the new operator (requires `security` source or `header` source with a secret field) |
+| `src/features/api-mock/components/ApiMockRouteEditor.tsx` | Add UI for configuring the secret key when `hmac_sha256` operator is selected |
+
+The HMAC secret could be stored as a server variable (already supported via `ApiMockVariableV1`) so it doesn't appear in plain text in route predicates.
+
+Once implemented, the webhook receiver sample (AM-WH-01) can be upgraded with a 4th route that validates the signature header.
 
 ---
 
@@ -569,4 +652,12 @@ Phase E — Validation
 | Requests (GraphQL) | 3 | D |
 | Assertions (GraphQL) | 2 | D |
 | Assertions (gRPC) | 2 | D |
-| **Total** | **24** | |
+| API Mock (GraphQL over HTTP) | 1 | D |
+| API Mock (Webhook receiver) | 1 | D |
+| **Total** | **26** | |
+
+### Engine Feature Required Before Full Webhook Sample
+
+| Feature | Files | Blocked samples |
+|---------|-------|-----------------|
+| `hmac_sha256` predicate operator | `contracts.ts`, `predicateEvaluatorHelpers.ts`, `validation.ts`, `ApiMockRouteEditor.tsx` | AM-WH-01 (signature variant) |
