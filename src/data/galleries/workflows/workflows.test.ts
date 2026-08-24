@@ -13,9 +13,10 @@ describe('galleries/workflows — sampleWorkflowCatalog', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('every entry has domain "workflows"', () => {
+  it('every entry has a valid domain (workflows, kafka, graphql, grpc, or websocket)', () => {
+    const validDomains = new Set(['workflows', 'kafka', 'graphql', 'grpc', 'websocket']);
     for (const entry of sampleWorkflowCatalog) {
-      expect(entry.domain).toBe('workflows');
+      expect(validDomains.has(entry.domain)).toBe(true);
     }
   });
 

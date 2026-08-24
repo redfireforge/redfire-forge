@@ -625,7 +625,7 @@ gallery/
 
 | Feature | Folder | Main File | # Tutorials | Status |
 |---------|--------|-----------|-------------|--------|
-| GraphQL | `graphql/` | `graphql.html` | 13 | ✅ Done (14 files — overview + 13 tutorials) |
+| GraphQL | `graphql/` | `graphql.html` | 12 | ✅ Done (13 files — overview + 12 tutorials) |
 | gRPC | `grpc/` | `grpc.html` | 10 | ✅ Done (11 files — overview + 10 tutorials) |
 | WebSocket | `websocket/` | `websocket.html` | 13 | ✅ Done (13 files — overview + 12 tutorials) |
 | Environment Manager | `environments/` | `environments.html` | 5 | ✅ Done (6 files — overview + 5 tutorials) |

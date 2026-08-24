@@ -1,0 +1,1053 @@
+
+ RUN  v4.1.4 /Users/dz5jxr/workspace/gmai/redfire-forge
+
+ ✓ |product| src/data/galleries/data-mapper/presets.test.ts > Data Mapper presets > buildPresetScenario defaults validation mode to none without assertions 1ms
+ ✓ |product| src/data/galleries/data-mapper/presets.test.ts > Data Mapper presets > buildPresetScenario sets validation mode full when assertions are present 0ms
+ ✓ |product| src/data/galleries/data-mapper/presets.test.ts > Data Mapper presets > catalog has 8 entries 0ms
+ × |product| src/data/galleries/data-mapper/presets.test.ts > Data Mapper presets > all entries have domain data-mapper 3ms (retry x2)
+   → expected 'requests' to be 'data-mapper' // Object.is equality
+   → expected 'requests' to be 'data-mapper' // Object.is equality
+   → expected 'requests' to be 'data-mapper' // Object.is equality
+ ✓ |product| src/data/galleries/data-mapper/presets.test.ts > Data Mapper presets > all entries produce a FeatureGroup via factory 1ms
+ ✓ |product| src/data/galleries/data-mapper/presets.test.ts > Data Mapper presets > entry IDs match their factory output IDs 0ms
+ ✓ |product| src/data/galleries/data-mapper/presets.test.ts > Data Mapper presets > createExtractionMappingSample > has 1 test scenario with 2 requests 0ms
+ ✓ |product| src/data/galleries/data-mapper/presets.test.ts > Data Mapper presets > createExtractionMappingSample > first request has 5 extractions 0ms
+ ✓ |product| src/data/galleries/data-mapper/presets.test.ts > Data Mapper presets > createExtractionMappingSample > second request uses extracted variable in URL 0ms
+ ✓ |product| src/data/galleries/data-mapper/presets.test.ts > Data Mapper presets > createValidationMappingSample > uses selective validation mode 0ms
+ ✓ |product| src/data/galleries/data-mapper/presets.test.ts > Data Mapper presets > createValidationMappingSample > validates 5 expected fields 0ms
+ ✓ |product| src/data/galleries/data-mapper/presets.test.ts > Data Mapper presets > createValidationMappingSample > includes sampleJson for target tree 0ms
+ ✓ |product| src/data/galleries/data-mapper/presets.test.ts > Data Mapper presets > createBodyBuilderMappingSample > has a POST request with body template 0ms
+ ✓ |product| src/data/galleries/data-mapper/presets.test.ts > Data Mapper presets > createBodyBuilderMappingSample > first request extracts 6 fields for the body 0ms
+ ✓ |product| src/data/galleries/data-mapper/presets.test.ts > Data Mapper presets > createMultiStepChainSample > has 3 chained requests 0ms
+ ✓ |product| src/data/galleries/data-mapper/presets.test.ts > Data Mapper presets > createMultiStepChainSample > step 2 uses {{userId}} from step 1 0ms
+ ✓ |product| src/data/galleries/data-mapper/presets.test.ts > Data Mapper presets > createMultiStepChainSample > step 3 uses {{postId}} from step 2 0ms
+ ✓ |product| src/data/galleries/data-mapper/presets.test.ts > Data Mapper presets > createMultiStepChainSample > step 3 has a regex assertion on email 0ms
+ ✓ |product| src/data/galleries/data-mapper/presets.test.ts > Data Mapper presets > createComboMapperSample > has 3 requests covering extract, search, and post 0ms
+ ✓ |product| src/data/galleries/data-mapper/presets.test.ts > Data Mapper presets > createComboMapperSample > first request has both extractions and selective validation 0ms
+ ✓ |product| src/data/galleries/data-mapper/presets.test.ts > Data Mapper presets > createComboMapperSample > POST body uses extracted variables 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > trainingPaths barrel export > exports a non-empty array 1ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > trainingPaths barrel export > is the union of corePaths + contentPaths + workflowPaths + protocolPaths 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > trainingPaths barrel export > has exactly 28 paths 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > corePaths module > contains 4 paths 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > corePaths module > has expected path IDs 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > contentPaths module > contains 9 paths 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > contentPaths module > has expected path IDs 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > protocolPaths module > contains 5 paths 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > protocolPaths module > has expected path IDs 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > workflowPaths module > contains 10 paths 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > workflowPaths module > has expected path IDs 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path uniqueness > has no duplicate path IDs 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path uniqueness > has no duplicate path names 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path uniqueness > has no duplicate manualPath values across all paths 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > versioning has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > workflow-patterns has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > auth-strategies has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > assertion-mastery has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > requests has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > tests has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > catalog has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > data-mapper has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > environments has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > results has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > api-mock has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > kafka-protocols has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > gallery has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-flow-control has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-api-patterns has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-diverse-apis has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-script-node has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-event-driven has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-async-correlation has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-orchestration has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-node-reference has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-runner has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-kafka-event-driven has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > graphql has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > grpc has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > websocket has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > sse has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > webhooks has required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > versioning phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > workflow-patterns phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > auth-strategies phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > assertion-mastery phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > requests phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > tests phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > catalog phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > data-mapper phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > environments phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > results phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > api-mock phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > kafka-protocols phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > gallery phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-flow-control phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-api-patterns phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-diverse-apis phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-script-node phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-event-driven phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-async-correlation phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-orchestration phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-node-reference phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-runner phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-kafka-event-driven phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > graphql phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > grpc phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > websocket phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > sse phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > webhooks phases have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > versioning manuals have required fields 3ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > workflow-patterns manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > auth-strategies manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > assertion-mastery manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > requests manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > tests manuals have required fields 1ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > catalog manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > data-mapper manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > environments manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > results manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > api-mock manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > kafka-protocols manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > gallery manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-flow-control manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-api-patterns manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-diverse-apis manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-script-node manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-event-driven manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-async-correlation manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-orchestration manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-node-reference manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-runner manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > wf-kafka-event-driven manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > graphql manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > grpc manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > websocket manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > sse manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > training path shape > webhooks manuals have required fields 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > manual counts per path > versioning has 17 manuals (8 phases) 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > manual counts per path > assertion-mastery has 17 manuals (4 phases) 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > manual counts per path > requests has 14 manuals (3 phases) 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > manual counts per path > tests has 37 manuals (6 phases) 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > manual counts per path > catalog has 11 manuals (4 phases) 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > manual counts per path > wf-flow-control has 6 manuals (3 phases) 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > manual counts per path > wf-api-patterns has 6 manuals (2 phases) 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > manual counts per path > wf-diverse-apis has 5 manuals (2 phases) 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > manual counts per path > wf-node-reference has 7 manuals (2 phases) 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > manual counts per path > total manual count across all paths 0ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > manualPath format > all manualPath values end with .html 1ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > manualPath format > no manualPath contains backslashes 2ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > manualPath format > no manualPath starts with a slash 2ms
+ ✓ |product| src/data/galleries/trainingPaths/trainingPaths.test.ts > TrainingPhase id types > all phase IDs are either number or string 1ms
+ ✓ |product| src/data/galleries/tests/tests.test.ts > testSampleCatalog > has 29 entries 1ms
+ ✓ |product| src/data/galleries/tests/tests.test.ts > testSampleCatalog > every entry has a unique id 0ms
+ × |product| src/data/galleries/tests/tests.test.ts > testSampleCatalog > every entry has domain "tests" 3ms (retry x2)
+   → expected 'harness' to be 'tests' // Object.is equality
+   → expected 'harness' to be 'tests' // Object.is equality
+   → expected 'harness' to be 'tests' // Object.is equality
+ ✓ |product| src/data/galleries/tests/tests.test.ts > testSampleCatalog > every entry has at least one liveApi 0ms
+ ✓ |product| src/data/galleries/tests/tests.test.ts > testSampleCatalog > every entry has at least one tag 0ms
+ ✓ |product| src/data/galleries/tests/tests.test.ts > testSampleCatalog > every factory returns a valid FeatureGroup 3ms
+ ✓ |product| src/data/galleries/tests/tests.test.ts > testSampleCatalog > every FeatureGroup scenario has at least one test 2ms
+ ✓ |product| src/data/galleries/tests/tests.test.ts > testSampleCatalog > covers all difficulty levels 1ms
+ ✓ |product| src/data/galleries/tests/tests.test.ts > testSampleCatalog > scenarioCount matches actual scenario count 1ms
+ ✓ |product| src/data/galleries/tests/tests.test.ts > testSampleCatalog > parameterized entries have dataRowCount matching actual rows 0ms
+ ✓ |product| src/data/galleries/tests/tests.test.ts > testSampleCatalog > parameterized entries have valid data source columns 2ms
+ ✓ |product| src/data/galleries/tests/tests.test.ts > testSampleCatalog > runs additionalFeatureGroupsFactory for cross-feature-group Pokémon catalog entry 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsEchoPingWorkflow > returns a valid workflow structure 1ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsEchoPingWorkflow > has id sample-ws-echo 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsEchoPingWorkflow > has exactly 7 nodes 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsEchoPingWorkflow > contains start, wsConnect, wsSend, wsReceive, condition, logDebug, end node types 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsEchoPingWorkflow > wsConnect uses echo.websocket.org and connectionId ws-echo 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsEchoPingWorkflow > wsSend sends "ping" text message on ws-echo connection 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsEchoPingWorkflow > wsReceive binds messageBody to receivedMessage via outputBindings 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsEchoPingWorkflow > condition checks {{receivedMessage}} == "ping" 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsEchoPingWorkflow > has 7 edges including true/false branches 1ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsEchoPingWorkflow > has a false-branch edge to logDebug (mismatch warn) 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsJsonExchangeWorkflow > returns a valid workflow structure 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsJsonExchangeWorkflow > has id sample-ws-json-exchange 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsJsonExchangeWorkflow > has exactly 7 nodes 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsJsonExchangeWorkflow > contains start, wsConnect, wsSend, wsReceive, condition, logDebug, end 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsJsonExchangeWorkflow > wsConnect uses Binance stream URL and connectionId ws-prices 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsJsonExchangeWorkflow > wsSend sends Binance SUBSCRIBE JSON message 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsJsonExchangeWorkflow > wsReceive has matchCriteria for trade event and extracts latestPrice from $.data.p 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsJsonExchangeWorkflow > condition checks {{latestPrice}} > "0" 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsJsonExchangeWorkflow > has 7 edges 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsChatFlowWorkflow > returns a valid workflow structure 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsChatFlowWorkflow > has id sample-ws-chat-flow 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsChatFlowWorkflow > has exactly 9 nodes 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsChatFlowWorkflow > contains start, wsConnect, 2× wsSend, 2× wsReceive, condition, logDebug, end 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsChatFlowWorkflow > wsConnect uses template URL with {{wsHost}} and connectionId ws-chat 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsChatFlowWorkflow > first wsReceive waits for auth_ok via matchCriteria jsonPath 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsChatFlowWorkflow > second wsReceive extracts receivedText from $.text 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsChatFlowWorkflow > condition checks {{receivedText}} == "Hello from workflow" 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsChatFlowWorkflow > has 9 edges 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsChatFlowWorkflow > condition false branch leads to logDebug warn 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsTriggerWorkflow > returns a valid workflow structure 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsTriggerWorkflow > has id sample-ws-trigger 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsTriggerWorkflow > has exactly 6 nodes 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsTriggerWorkflow > starts with wsTrigger as entry node (no start node) 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsTriggerWorkflow > contains wsTrigger, http, condition, 2× logDebug, end 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsTriggerWorkflow > wsTrigger matches order.created event and extracts orderId + customerId 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsTriggerWorkflow > wsTrigger has a samplePayload containing order.created 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsTriggerWorkflow > http GET uses jsonplaceholder.typicode.com 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsTriggerWorkflow > condition checks {{status}} == "confirmed" 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsTriggerWorkflow > has 6 edges 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsTriggerWorkflow > has true and false branches from condition 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsHttpHybridWorkflow > returns a valid workflow structure 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsHttpHybridWorkflow > has id sample-ws-http-hybrid 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsHttpHybridWorkflow > has exactly 8 nodes 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsHttpHybridWorkflow > contains start, wsConnect, 2× wsSend, wsReceive, http, setVariable, end 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsHttpHybridWorkflow > wsConnect uses {{priceWsUrl}} template and connectionId ws-prices 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsHttpHybridWorkflow > wsReceive matches price_drop event and extracts productId and newPrice 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsHttpHybridWorkflow > http GET calls fakestoreapi.com with {{productId}} 1ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsHttpHybridWorkflow > setVariable builds alertMessage from productId and newPrice 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsHttpHybridWorkflow > second wsSend (ack) uses same ws-prices connection 0ms
+ ✓ |product| src/data/galleries/workflows/websocket.test.ts > createWsHttpHybridWorkflow > has a linear chain of 7 edges 0ms
+ ✓ |product| src/data/galleries/workflows/workflows.test.ts > galleries/workflows — sampleWorkflowCatalog > has 51 entries 1ms
+ ✓ |product| src/data/galleries/workflows/workflows.test.ts > galleries/workflows — sampleWorkflowCatalog > every entry has a unique id 0ms
+ × |product| src/data/galleries/workflows/workflows.test.ts > galleries/workflows — sampleWorkflowCatalog > every entry has domain "workflows" 5ms (retry x2)
+   → expected 'kafka' to be 'workflows' // Object.is equality
+   → expected 'kafka' to be 'workflows' // Object.is equality
+   → expected 'kafka' to be 'workflows' // Object.is equality
+ ✓ |product| src/data/galleries/workflows/workflows.test.ts > galleries/workflows — sampleWorkflowCatalog > every entry has a valid category 3ms
+ ✓ |product| src/data/galleries/workflows/workflows.test.ts > galleries/workflows — sampleWorkflowCatalog > every entry has at least one tag 1ms
+ ✓ |product| src/data/galleries/workflows/workflows.test.ts > galleries/workflows — sampleWorkflowCatalog > every entry has at least one liveApi 0ms
+ ✓ |product| src/data/galleries/workflows/workflows.test.ts > galleries/workflows — sampleWorkflowCatalog > every factory returns a valid Workflow 7ms
+ ✓ |product| src/data/galleries/workflows/workflows.test.ts > galleries/workflows — sampleWorkflowCatalog > nodeCount matches factory output 1ms
+ ✓ |product| src/data/galleries/workflows/workflows.test.ts > galleries/workflows — sampleWorkflowCatalog > simulator entries reference valid main entries 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createApiHealthCheckAssertions > returns 2 assertions 1ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createApiHealthCheckAssertions > includes a status assertion for 2xx 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createApiHealthCheckAssertions > includes an arrayLength assertion on $ root 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createApiHealthCheckAssertions > returns a fresh array on each call 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createPaginatedListAssertions > returns 3 assertions 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createPaginatedListAssertions > contains arrayLength and numeric types 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createPaginatedListAssertions > checks $.data array length >= 1 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createPaginatedListAssertions > checks $.page = 1 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createPaginatedListAssertions > checks $.total > 0 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createTokenExpiryAssertions > returns 3 assertions 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createTokenExpiryAssertions > contains regex, date, and numeric types 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createTokenExpiryAssertions > checks $.token matches JWT pattern 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createTokenExpiryAssertions > checks $.expiresAt > today (UTC) 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createTokenExpiryAssertions > checks $.expiresIn > 0 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createPriceGuardAssertions > returns 3 assertions 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createPriceGuardAssertions > contains numeric and arrayLength types 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createPriceGuardAssertions > checks price > 0 and price < 10000 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createPriceGuardAssertions > checks $.variants array length >= 1 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createApiContractAssertions > returns 5 assertions 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createApiContractAssertions > contains status, numeric, and regex types 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createApiContractAssertions > checks status = 200 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createApiContractAssertions > checks $.userId range 1-10 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createApiContractAssertions > checks $.id = 1 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createApiContractAssertions > checks $.title matches regex .{3,} 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createDataTypeGuardAssertions > returns 4 assertions 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createDataTypeGuardAssertions > contains only typeCheck assertions 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createDataTypeGuardAssertions > validates id, name, active, and tags field types 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createRequiredFieldsAssertions > returns 4 assertions 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createRequiredFieldsAssertions > contains only existence assertions 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createRequiredFieldsAssertions > requires id/name/email and forbids deletedAt 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > assertionPresetCatalog > contains 9 presets 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > assertionPresetCatalog > each entry has unique id 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > assertionPresetCatalog > each entry has matching assertionCount 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > assertionPresetCatalog > each entry has matching assertionTypes 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > assertionPresetCatalog > each entry has required gallery fields 1ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > ASSERTION_PRESET_CATEGORIES > has 4 categories including all 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > ASSERTION_PRESET_CATEGORIES > covers all categories used by presets 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createGraphQLNoErrorsAssertions > returns 3 assertions 1ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createGraphQLNoErrorsAssertions > contains status, existence types 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createGraphQLNoErrorsAssertions > asserts $.errors absent and $.data present 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createGraphQLNoErrorsAssertions > returns a fresh array on each call 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createGraphQLDataShapeAssertions > returns 3 assertions 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createGraphQLDataShapeAssertions > contains existence, typeCheck, regex types 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createGraphQLDataShapeAssertions > type-checks $.data.user.id as number 0ms
+ ✓ |product| src/data/galleries/assertion-presets/assertionPresets.test.ts > createGraphQLDataShapeAssertions > validates $.data.user.email with email regex 0ms
+ ✓ |product| src/data/galleries/catalog-specs/catalogSpecs.test.ts > catalogSpecCatalog > has 8 entries (2 migrated + 6 new) 1ms
+ ✓ |product| src/data/galleries/catalog-specs/catalogSpecs.test.ts > catalogSpecCatalog > every entry has a unique id 0ms
+ ✓ |product| src/data/galleries/catalog-specs/catalogSpecs.test.ts > catalogSpecCatalog > every entry has domain "catalog" 0ms
+ ✓ |product| src/data/galleries/catalog-specs/catalogSpecs.test.ts > catalogSpecCatalog > every entry has at least one liveApi 0ms
+ ✓ |product| src/data/galleries/catalog-specs/catalogSpecs.test.ts > catalogSpecCatalog > every entry has at least one tag 0ms
+ ✓ |product| src/data/galleries/catalog-specs/catalogSpecs.test.ts > catalogSpecCatalog > every factory returns a non-empty YAML string 0ms
+ ✓ |product| src/data/galleries/catalog-specs/catalogSpecs.test.ts > catalogSpecCatalog > specYaml matches factory() output 0ms
+ ✓ |product| src/data/galleries/catalog-specs/catalogSpecs.test.ts > catalogSpecCatalog > endpointCount is positive for all entries 0ms
+ ✓ |product| src/data/galleries/catalog-specs/catalogSpecs.test.ts > catalogSpecCatalog > covers all difficulty levels 0ms
+ ✓ |product| src/data/galleries/catalog-specs/catalogSpecs.test.ts > catalogSpecCatalog > includes the 2 migrated entries 0ms
+ ✓ |product| src/data/galleries/catalog-specs/catalogSpecs.test.ts > catalogSpecCatalog > includes all 6 new entries 0ms
+ ✓ |product| src/data/galleries/catalog-specs/catalogSpecs.test.ts > catalogSpecCatalog > CATALOG_SPEC_CATEGORIES includes all and each category 0ms
+ ✓ |product| src/data/galleries/catalog-specs/catalogSpecs.test.ts > catalogSpecCatalog > every specYaml parses as valid OpenAPI 77ms
+ ✓ |product| src/data/galleries/catalog-specs/catalogSpecs.test.ts > catalogSpecCatalog > parsed endpoint count matches declared endpointCount 55ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeGetNode > creates a GET node with correct type and defaults 1ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeGetNode > uses Accept:application/json header by default 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeGetNode > sets no-auth and no-validation 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeGetNode > has an empty body string 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeGetNode > derives scenario id from node id 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeGetNode > applies default position x=300 y=140 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeGetNode > uses custom position when provided 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeGetNode > merges extra headers after Accept header 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeGetNode > includes extractions when provided 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeGetNode > omits extractions key when empty 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makePostNode > creates a POST node with JSON content-type 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makePostNode > sets bodyType to json 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makePostNode > preserves the body string as-is 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makePostNode > sets no-auth and no-validation 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makePostNode > merges extra headers after Content-Type 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makePostNode > includes extractions when provided 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makePutNode > creates a PUT node with JSON content-type 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makePutNode > sets no-auth and no-validation 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeDeleteNode > creates a DELETE node 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeDeleteNode > sets no-auth and no-validation 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeStartNode > creates a start node with label Start 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeStartNode > uses default position x=300 y=0 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeStartNode > passes inputVariables to data 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeStartNode > defaults inputVariables to empty object 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeStartNode > uses custom position 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeEndNode > creates an end node with default label Done 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeEndNode > uses a custom label 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeEndNode > uses custom position 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeConditionNode > creates a condition node with default == operator 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeConditionNode > allows a custom operator 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeConditionNode > uses custom position 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeLogDebugNode > creates a logDebug node with default info level 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeLogDebugNode > uses custom log level 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeLogDebugNode > supports snapshotVariables option 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeSetVariableNode > creates a setVariable node with assignments 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeDelayNode > creates a delay node with fixed mode 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeForkNode > creates a fork node 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeJoinNode > creates a join node 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeEdge > creates an edge without label 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > makeEdge > creates an edge with label 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > jsonBody > serializes an object to pretty-printed JSON 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > jsonBody > handles nested objects 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > bodyExtraction > creates a body extraction rule 0ms
+ ✓ |product| src/data/galleries/workflows/nodeFactories.test.ts > nodeFactories > headerExtraction > creates a header extraction rule 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcHealthCheckWorkflow > returns a valid workflow structure 1ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcHealthCheckWorkflow > has id sample-grpc-health-check 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcHealthCheckWorkflow > has exactly 4 nodes 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcHealthCheckWorkflow > contains start, grpcUnary, grpcAssert, end node types 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcHealthCheckWorkflow > grpcUnary uses grpcTarget variable and saveAs healthResult 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcHealthCheckWorkflow > grpcAssert sources healthResult and checks status SERVING 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcHealthCheckWorkflow > edges form a linear chain of 3 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcUserLookupWorkflow > returns a valid workflow structure 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcUserLookupWorkflow > has id sample-grpc-user-lookup 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcUserLookupWorkflow > has exactly 4 nodes 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcUserLookupWorkflow > grpcUnary uses GetUser method and saveAs userResult 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcUserLookupWorkflow > grpcAssert sources userResult and checks id and name/email existence 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcServerStreamWorkflow > returns a valid workflow structure 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcServerStreamWorkflow > has id sample-grpc-server-stream 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcServerStreamWorkflow > has exactly 4 nodes 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcServerStreamWorkflow > contains a grpcServerStream node 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcServerStreamWorkflow > grpcServerStream has collect config with maxMessages and maxDurationMs 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcServerStreamWorkflow > grpcAssert uses grpcStreamLength assertion 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcCrudWorkflow > returns a valid workflow structure 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcCrudWorkflow > has id sample-grpc-crud 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcCrudWorkflow > has exactly 7 nodes 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcCrudWorkflow > has 3 grpcUnary nodes and 2 grpcAssert nodes 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcCrudWorkflow > Create node uses saveAs createResult 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcCrudWorkflow > Get node body references grpc.createResult.product.id 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcCrudWorkflow > Delete node body references grpc.createResult.product.id 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcCrudWorkflow > has 6 edges 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcSchemaDiffWorkflow > returns a valid workflow structure 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcSchemaDiffWorkflow > has id sample-grpc-schema-diff 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcSchemaDiffWorkflow > has exactly 6 nodes 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcSchemaDiffWorkflow > contains schedule, grpcSchemaDiff, condition, two logDebug, end 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcSchemaDiffWorkflow > grpcSchemaDiff has failOnBreaking false and saveAs diffResult 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcSchemaDiffWorkflow > condition branches on grpc.diffResult.hasBreakingChanges 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcSchemaDiffWorkflow > edges have true/false labels for condition branches 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcLoadTestWorkflow > returns a valid workflow structure 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcLoadTestWorkflow > has id sample-grpc-load-test 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcLoadTestWorkflow > has exactly 6 nodes 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcLoadTestWorkflow > contains grpcLoadTest node 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcLoadTestWorkflow > grpcLoadTest uses concurrency 50, durationMs 10000, saveAs loadResult 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcLoadTestWorkflow > condition gates on p95Ms with <= operator 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcLoadTestWorkflow > has 6 edges with true/false labels 0ms
+ ✓ |product| src/data/galleries/workflows/grpc.test.ts > createGrpcLoadTestWorkflow > returns a fresh object on each call 0ms
+ ✓ |product| src/data/galleries/trainingPaths/manualMapping.test.ts > manualMapping > builds a non-empty sample-id index at module load 1ms
+ ✓ |product| src/data/galleries/trainingPaths/manualMapping.test.ts > manualMapping > getRelatedManuals returns manuals for a known sample id 1ms
+ ✓ |product| src/data/galleries/trainingPaths/manualMapping.test.ts > manualMapping > getRelatedManuals returns undefined for unknown sample ids 0ms
+ ✓ |product| src/data/galleries/trainingPaths/manualMapping.test.ts > manualMapping > maps each indexed manual with title, description, difficulty, and path 4ms
+ ✓ |product| src/data/galleries/workflows/orchestration.test.ts > orchestration gallery factories > timestamps > writes stable createdAt/updatedAt when time is mocked 2ms
+ ✓ |product| src/data/galleries/workflows/orchestration.test.ts > orchestration gallery factories > timestamps > second call observes advanced clock for child workflow factories 0ms
+ ✓ |product| src/data/galleries/workflows/orchestration.test.ts > orchestration gallery factories > createSubWorkflowOrchestrator — structure and condition edges 1ms
+ ✓ |product| src/data/galleries/workflows/orchestration.test.ts > orchestration gallery factories > createSubWorkflowChild — HTTP node and path 0ms
+ ✓ |product| src/data/galleries/workflows/orchestration.test.ts > orchestration gallery factories > createOrderPipelineWorkflow — express vs standard branch edges 0ms
+ ✓ |product| src/data/galleries/workflows/orchestration.test.ts > orchestration gallery factories > createShippingChildWorkflow — POST body and headers 0ms
+ ✓ |product| src/data/galleries/workflows/orchestration.test.ts > orchestration gallery factories > createDeployOrchestratorWorkflow — fork/join, deploy condition, dynamic rollback id 0ms
+ ✓ |product| src/data/galleries/workflows/orchestration.test.ts > orchestration gallery factories > createRegionDeployChildWorkflow 0ms
+ ✓ |product| src/data/galleries/workflows/orchestration.test.ts > orchestration gallery factories > createRollbackChildWorkflow 0ms
+ ✓ |product| src/data/galleries/workflows/orchestration.test.ts > orchestration gallery factories > createScriptAdvancedWorkflow — loop body/done edges and script code 0ms
+ ✓ |product| src/data/galleries/tests/presets-grpc.test.ts > presets-grpc factories > createGrpcHealthTest (TG-GRPC-01) > returns a valid FeatureGroup with id test-grpc-health 1ms
+ ✓ |product| src/data/galleries/tests/presets-grpc.test.ts > presets-grpc factories > createGrpcHealthTest (TG-GRPC-01) > scenario uses GRPC method and grpcCall actionType 0ms
+ ✓ |product| src/data/galleries/tests/presets-grpc.test.ts > presets-grpc factories > createGrpcHealthTest (TG-GRPC-01) > URL is an HTTPS URL for the gRPC server 0ms
+ ✓ |product| src/data/galleries/tests/presets-grpc.test.ts > presets-grpc factories > createGrpcHealthTest (TG-GRPC-01) > grpcCallAction targets grpcb.in with health service 0ms
+ ✓ |product| src/data/galleries/tests/presets-grpc.test.ts > presets-grpc factories > createGrpcHealthTest (TG-GRPC-01) > grpcCallAction assertions check grpcStatus 0 and SERVING 0ms
+ ✓ |product| src/data/galleries/tests/presets-grpc.test.ts > presets-grpc factories > createGrpcCrudTest (TG-GRPC-02) > returns a valid FeatureGroup with id test-grpc-crud 0ms
+ ✓ |product| src/data/galleries/tests/presets-grpc.test.ts > presets-grpc factories > createGrpcCrudTest (TG-GRPC-02) > all scenarios use GRPC method and grpcCall actionType 0ms
+ ✓ |product| src/data/galleries/tests/presets-grpc.test.ts > presets-grpc factories > createGrpcCrudTest (TG-GRPC-02) > all scenario URLs are HTTPS 0ms
+ ✓ |product| src/data/galleries/tests/presets-grpc.test.ts > presets-grpc factories > createGrpcCrudTest (TG-GRPC-02) > GetUser scenario targets Greeter/SayHello with Alice 1ms
+ ✓ |product| src/data/galleries/tests/presets-grpc.test.ts > presets-grpc factories > createGrpcCrudTest (TG-GRPC-02) > GetUser scenario extracts greetingMessage 0ms
+ ✓ |product| src/data/galleries/tests/presets-grpc.test.ts > presets-grpc factories > createGrpcCrudTest (TG-GRPC-02) > CreateUser scenario targets Greeter/SayHello with Bob 0ms
+ ✓ |product| src/data/galleries/tests/presets-grpc.test.ts > presets-grpc factories > createGrpcCrudTest (TG-GRPC-02) > DeleteUser scenario uses health check service 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > ships the Phase 12E + Phase D samples in curriculum order 3ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > health sample serves GET /health 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > users sample includes parameterized path and POST body predicate 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > store library sample > files twelve rules across the three storefront folders 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > store library sample > keeps two unfinished drafts so the show-disabled filter has a subject 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > store library sample > leaves the search draft undocumented for the Documentation tab 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > store library sample > tags three rules for smoke so a tag search crosses folders 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > store library sample > reports exactly one overlap: the parameterized order rule captures /orders/latest 17ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > storefront basics sample > files six rules across the three storefront folders 1ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > storefront basics sample > keeps the two load-bearing Catalog rules so a typo near-misses the parameterized rule 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > storefront basics sample > ships exactly one disabled draft so the show-disabled filter has a subject 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > storefront basics sample > seeds no examples so the Save-as-example beat starts from an empty grid 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > literal path sample > ships a single exact rule with no folders and no samples 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > literal path sample > matches only the one product it was recorded from 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > literal path sample > answers with a product body the lesson can read in Simulate 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > unconditioned rule sample > ships one rule whose match group is empty 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > unconditioned rule sample > matches the report path on method and path alone 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > unconditioned rule sample > answers with a tenant-scoped page the lesson shapes requests against 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > body subset sample > ships one POST rule whose single condition reads the body 2ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > body subset sample > accepts a payload with extra fields, because subset means "contains at least" 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > body subset sample > still rejects the wrong tier 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > body subset sample > answers 201 with a confirmation body the lesson reads in Rendered 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > non-JSON payload sample > ships four bare rules, one per payload family 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > non-JSON payload sample > answers the SOAP rule with XML and the rest with JSON 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > non-JSON payload sample > answers the upload rule with 201, so Rendered has something to show 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > overlapping catalog sample > ships two equal-priority GET /catalog rules 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > overlapping catalog sample > gates the regional rule on X-Api-Version and leaves Default unconditioned 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > overlapping catalog sample > refuses equal-priority ties so Simulate starts on AMBIGUOUS 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > four overlap kinds sample > ships eight path-disjoint pairs and refuses equal-priority ties 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > four overlap kinds sample > produces exactly one finding of each inspector kind 3ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > four overlap kinds sample > keeps the glob on /reports/* from colliding with health, orders, or search 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > response-content sample is a plain GET /orders 200 {} 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > templating sample is a parameterized GET /products/:id with a static JSON body 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > checkout sample is a single POST /cart with one 200 variant 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > payment sample is a single POST /payments with a plain 200 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > conflicts sample has two equal-priority overlapping GETs 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > simulation suite ships eight samples covering pass, ambiguous, fault, unmatched, weighted, state, and an unassociated example 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > auth-gated sample > ships three routes 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > auth-gated sample > profile route has two response variants — 200 bearer + 401 absent 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > auth-gated sample > data route gates on apiKeyName present/absent 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > auth-gated sample > public route has a single unconditional 200 response 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > graphql sample > ships one POST /graphql route 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > graphql sample > has three variants gated on $.operationName or query body 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > order-flow sample > ships four routes in state mode 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > order-flow sample > POST /orders transitions from idle to pending 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > order-flow sample > POST /orders/:id/pay guard on pending state and advances to paid 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > order-flow sample > POST /orders/:id/confirm guard on paid state and advances to complete 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > order-flow sample > GET /orders/:id returns state-conditional variants 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > webhook receiver sample > ships one POST /webhook route 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > webhook receiver sample > has three variants: order.created → 200, order.cancelled → 200, unknown → 400 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > outbound callbacks sample > ships two POST /checkout routes 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > outbound callbacks sample > checkout route has a callback pointing to the notify URL 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > outbound callbacks sample > retry route has a callback with maxRetries 3 0ms
+ ✓ |product| src/data/galleries/api-mock/api-mock.test.ts > api-mock gallery catalog > outbound callbacks sample > settings.callbacks.allowlist includes the notify URL 0ms
+ ✓ |product| src/data/galleries/tests/presets.test.ts > presets factories > presetsBareScenarioProbe covers validation.none when assertions are omitted 1ms
+ ✓ |product| src/data/galleries/tests/presets.test.ts > presets factories > each preset returns HTTPS scenarios with validation 3ms
+ ✓ |product| src/data/galleries/tests/presets.test.ts > presets factories > covers responseTime assertions branch in Multi-API load preset 0ms
+ ✓ |product| src/data/galleries/tests/presets-websocket.test.ts > presets-websocket factories > createWsEchoTest (TG-WS-01) > returns a valid FeatureGroup with id test-ws-echo 1ms
+ ✓ |product| src/data/galleries/tests/presets-websocket.test.ts > presets-websocket factories > createWsEchoTest (TG-WS-01) > connect scenario uses WEBSOCKET method and wsConnect actionType 0ms
+ ✓ |product| src/data/galleries/tests/presets-websocket.test.ts > presets-websocket factories > createWsEchoTest (TG-WS-01) > connect action targets echo.websocket.org with connectionId ws-echo 0ms
+ ✓ |product| src/data/galleries/tests/presets-websocket.test.ts > presets-websocket factories > createWsEchoTest (TG-WS-01) > send scenario uses WEBSOCKET method and wsSend actionType 0ms
+ ✓ |product| src/data/galleries/tests/presets-websocket.test.ts > presets-websocket factories > createWsEchoTest (TG-WS-01) > send action sends "ping" over ws-echo connection 0ms
+ ✓ |product| src/data/galleries/tests/presets-websocket.test.ts > presets-websocket factories > createWsEchoTest (TG-WS-01) > receive scenario uses WEBSOCKET method and wsReceive actionType 0ms
+ ✓ |product| src/data/galleries/tests/presets-websocket.test.ts > presets-websocket factories > createWsEchoTest (TG-WS-01) > receive action references ws-echo connection 0ms
+ ✓ |product| src/data/galleries/tests/presets-websocket.test.ts > presets-websocket factories > createWsEchoTest (TG-WS-01) > receive scenario asserts ws.body equals "ping" 0ms
+ ✓ |product| src/data/galleries/tests/presets-websocket.test.ts > presets-websocket factories > createWsEchoTest (TG-WS-01) > all scenario URLs use wss:// scheme 0ms
+ ✓ |product| src/data/galleries/tests/presets-websocket.test.ts > presets-websocket factories > createWsSubscribeTest (TG-WS-02) > returns a valid FeatureGroup with id test-ws-subscribe 0ms
+ ✓ |product| src/data/galleries/tests/presets-websocket.test.ts > presets-websocket factories > createWsSubscribeTest (TG-WS-02) > connect scenario targets Binance BTC/USDT trade stream 0ms
+ ✓ |product| src/data/galleries/tests/presets-websocket.test.ts > presets-websocket factories > createWsSubscribeTest (TG-WS-02) > receive scenario uses wsReceive actionType 0ms
+ ✓ |product| src/data/galleries/tests/presets-websocket.test.ts > presets-websocket factories > createWsSubscribeTest (TG-WS-02) > receive scenario asserts ws.$.e exists and ws.$.s equals BTCUSDT 0ms
+ ✓ |product| src/data/galleries/tests/presets-websocket.test.ts > presets-websocket factories > createWsSubscribeTest (TG-WS-02) > receive scenario extracts tradePrice and tradeEventType 0ms
+ ✓ |product| src/data/galleries/requests/requests.test.ts > requestSampleCatalog > has 16 entries 1ms
+ ✓ |product| src/data/galleries/requests/requests.test.ts > requestSampleCatalog > every entry has a unique id 0ms
+ ✓ |product| src/data/galleries/requests/requests.test.ts > requestSampleCatalog > every entry has domain "requests" 0ms
+ ✓ |product| src/data/galleries/requests/requests.test.ts > requestSampleCatalog > every entry has at least one liveApi 0ms
+ ✓ |product| src/data/galleries/requests/requests.test.ts > requestSampleCatalog > every entry has at least one tag 0ms
+ ✓ |product| src/data/galleries/requests/requests.test.ts > requestSampleCatalog > every factory returns a valid Scenario 1ms
+ ✓ |product| src/data/galleries/requests/requests.test.ts > requestSampleCatalog > covers all difficulty levels 1ms
+ ✓ |product| src/data/galleries/requests/requests.test.ts > requestSampleCatalog > method matches the Scenario method from factory 0ms
+ ✓ |product| src/data/galleries/requests/requests.test.ts > requestSampleCatalog > graphql entries use POST and graphql category 0ms
+ ✓ |product| src/data/galleries/requests/requests.test.ts > GraphQL request factories > introspect: POST with JSON body, existence assertions 0ms
+ ✓ |product| src/data/galleries/requests/requests.test.ts > GraphQL request factories > country query: POST with nested response assertions 0ms
+ ✓ |product| src/data/galleries/requests/requests.test.ts > GraphQL request factories > mutation: POST with mutation keyword in body 0ms
+ ✓ |product| src/data/galleries/tests/presets-graphql.test.ts > presets-graphql factories > createGraphQLHealthTest (TG-GQL-01) > returns a valid FeatureGroup with id test-graphql-health 1ms
+ ✓ |product| src/data/galleries/tests/presets-graphql.test.ts > presets-graphql factories > createGraphQLHealthTest (TG-GQL-01) > scenario has a POST request to countries.trevorblades.com/graphql 0ms
+ ✓ |product| src/data/galleries/tests/presets-graphql.test.ts > presets-graphql factories > createGraphQLHealthTest (TG-GQL-01) > body contains { __typename } query 0ms
+ ✓ |product| src/data/galleries/tests/presets-graphql.test.ts > presets-graphql factories > createGraphQLHealthTest (TG-GQL-01) > sets Content-Type: application/json header 0ms
+ ✓ |product| src/data/galleries/tests/presets-graphql.test.ts > presets-graphql factories > createGraphQLHealthTest (TG-GQL-01) > assertions include status 200, existence, and regex for Query 0ms
+ ✓ |product| src/data/galleries/tests/presets-graphql.test.ts > presets-graphql factories > createGraphQLHealthTest (TG-GQL-01) > asserts $.errors does not exist 0ms
+ ✓ |product| src/data/galleries/tests/presets-graphql.test.ts > presets-graphql factories > createGraphQLQueryMutationTest (TG-GQL-02) > returns a valid FeatureGroup with id test-graphql-crud 0ms
+ ✓ |product| src/data/galleries/tests/presets-graphql.test.ts > presets-graphql factories > createGraphQLQueryMutationTest (TG-GQL-02) > query scenario hits graphqlzero.almansi.me 0ms
+ ✓ |product| src/data/galleries/tests/presets-graphql.test.ts > presets-graphql factories > createGraphQLQueryMutationTest (TG-GQL-02) > query body contains posts query 0ms
+ ✓ |product| src/data/galleries/tests/presets-graphql.test.ts > presets-graphql factories > createGraphQLQueryMutationTest (TG-GQL-02) > mutation scenario hits graphqlzero.almansi.me 0ms
+ ✓ |product| src/data/galleries/tests/presets-graphql.test.ts > presets-graphql factories > createGraphQLQueryMutationTest (TG-GQL-02) > mutation body contains createPost 0ms
+ ✓ |product| src/data/galleries/tests/presets-graphql.test.ts > presets-graphql factories > createGraphQLQueryMutationTest (TG-GQL-02) > mutation scenario extracts createdPostId 0ms
+ ✓ |product| src/data/galleries/tests/presets-graphql.test.ts > presets-graphql factories > createGraphQLQueryMutationTest (TG-GQL-02) > mutation assertions include existence check on $.data.createPost 0ms
+ ✓ |product| src/data/galleries/tests/parameterizedPresets.test.ts > parameterized presets > userSweep preset returns gallery FeatureGroup with data-source rows 1ms
+ ✓ |product| src/data/galleries/tests/parameterizedPresets.test.ts > parameterized presets > productMatrix preset returns gallery FeatureGroup with data-source rows 0ms
+ ✓ |product| src/data/galleries/tests/parameterizedPresets.test.ts > parameterized presets > countrySuite preset returns gallery FeatureGroup with data-source rows 0ms
+ ✓ |product| src/data/galleries/tests/parameterizedPresets.test.ts > parameterized presets > pokemonSuite preset returns gallery FeatureGroup with data-source rows 0ms
+ ✓ |product| src/data/galleries/tests/parameterizedPresets.test.ts > parameterized presets > multiEndpoint preset returns gallery FeatureGroup with data-source rows 0ms
+ ✓ |product| src/data/galleries/tests/parameterizedPresets.test.ts > parameterized presets > rowTags preset returns gallery FeatureGroup with data-source rows 0ms
+ ✓ |product| src/data/galleries/tests/parameterizedPresets.test.ts > parameterized presets > authRotation preset returns gallery FeatureGroup with data-source rows 0ms
+ ✓ |product| src/data/galleries/tests/parameterizedPresets.test.ts > parameterized presets > user lookup exposes blank description fallback on column omitting explanation 0ms
+ ✓ |product| src/data/galleries/tests/parameterizedPresets.test.ts > parameterized presets > row-tags preset includes explicitly disabled boundary row 0ms
+ ✓ |product| src/data/galleries/tests/parameterizedPresets.test.ts > parameterized presets > differentiates lookup rows without tags versus matrix rows carrying tags 0ms
+ ✓ |product| src/data/galleries/tests/parameterizedPresets.test.ts > parameterized presets > multi-endpoint regression covers users, products, recipes, quotes sweeps 0ms
+ ✓ |product| src/shared/components/gallery/GalleryCard.coverage-gaps.test.tsx > GalleryCard coverage gaps > covers selected, status badge, tutorial tag branch, and optional onClick 74ms
+ ✓ |product| src/shared/components/gallery/GalleryCard.coverage-gaps.test.tsx > GalleryCard coverage gaps > renders plain tags when tutorial tag is absent 3ms
+ ✓ |product| src/features/gallery/RequestPreview.test.tsx > RequestPreview > renders request tab by default 16ms
+ ✓ |product| src/features/gallery/RequestPreview.test.tsx > RequestPreview > renders method and URL in request preview 3ms
+ ✓ |product| src/features/gallery/RequestPreview.test.tsx > RequestPreview > renders headers in request preview 2ms
+ ✓ |product| src/features/gallery/RequestPreview.test.tsx > RequestPreview > renders body in request preview when present 2ms
+ ✓ |product| src/features/gallery/RequestPreview.test.tsx > RequestPreview > truncates long body in preview 2ms
+ ✓ |product| src/features/gallery/RequestPreview.test.tsx > RequestPreview > switches to response tab 4ms
+ ✓ |product| src/features/gallery/RequestPreview.test.tsx > RequestPreview > can switch back to the request tab 4ms
+ ✓ |product| src/features/gallery/RequestPreview.test.tsx > RequestPreview > shows Fetch Sample button on response tab 2ms
+ ✓ |product| src/features/gallery/RequestPreview.test.tsx > RequestPreview > fetches response when Fetch Sample clicked 8ms
+ ✓ |product| src/features/gallery/RequestPreview.test.tsx > RequestPreview > shows error when fetch fails 7ms
+ ✓ |product| src/features/gallery/RequestPreview.test.tsx > RequestPreview > shows non-JSON response as plain text 5ms
+ ✓ |product| src/features/gallery/RequestPreview.test.tsx > RequestPreview > calls onExpand with request tab content 3ms
+ ✓ |product| src/features/gallery/RequestPreview.test.tsx > RequestPreview > calls onExpand with response tab content after fetch 5ms
+ ✓ |product| src/features/gallery/RequestPreview.test.tsx > RequestPreview > renders assertions in request preview 1ms
+ ✓ |product| src/features/gallery/RequestPreview.test.tsx > RequestPreview > hides expand button on response tab when no content fetched 1ms
+ ✓ |product| src/features/gallery/RequestPreview.test.tsx > RequestPreview > sends body for non-GET requests 3ms
+ ✓ |product| src/features/gallery/RequestPreview.test.tsx > RequestPreview > uses raw URL as host label when URL is invalid 3ms
+ ✓ |product| src/features/gallery/RequestPreview.test.tsx > RequestPreview > stringifies non-Error fetch failures 4ms
+ ✓ |product| src/features/gallery/RequestPreview.test.tsx > RequestPreview > does not throw when expand is clicked without onExpand 1ms
+ ✓ |product| src/features/gallery/RequestPreview.test.tsx > RequestPreview > omits fetch headers when scenario has none 7ms
+ ✓ |product| src/features/gallery/RequestPreview.test.tsx > RequestPreview > buildRequestPreview omits headers when empty and adds jsonPath assertion parts 1ms
+ ✓ |product| src/shared/components/gallery/GalleryFilters.test.tsx > defaultFilterState / apiHostname > defaultFilterState returns empty filter shape 1ms
+ ✓ |product| src/shared/components/gallery/GalleryFilters.test.tsx > defaultFilterState / apiHostname > apiHostname parses valid URLs 0ms
+ ✓ |product| src/shared/components/gallery/GalleryFilters.test.tsx > defaultFilterState / apiHostname > apiHostname returns original string on invalid URL 0ms
+ ✓ |product| src/shared/components/gallery/GalleryFilters.test.tsx > defaultFilterState / apiHostname > apiHostname returns original string when URL parses with empty hostname 0ms
+ ✓ |product| src/data/galleries/tests/sharedDataSourcePresets.test.ts > shared data source presets > marks one sampled row disabled while keeping identifiers 1ms
+ ✓ |product| src/data/galleries/tests/sharedDataSourcePresets.test.ts > shared data source presets > creates paired feature group + shared data for user IDs 0ms
+ ✓ |product| src/data/galleries/tests/sharedDataSourcePresets.test.ts > shared data source presets > product catalog presets wire fetch configs with Accept header 0ms
+ ✓ |product| src/data/galleries/tests/sharedDataSourcePresets.test.ts > shared data source presets > Pokemon cross FG samples share roster id across groups 0ms
+ ✓ |product| src/data/galleries/tests/sharedDataSourcePresets.test.ts > shared data source presets > shared auth exposes POST rotation body and DummyJSON URLs 0ms
+ ✓ |product| src/data/galleries/trainingPaths/manualMetadata.test.ts > manualMetadata > exposes a Map with one entry per manual 1ms
+ ✓ |product| src/data/galleries/trainingPaths/manualMetadata.test.ts > manualMetadata > getManualMetadata returns metadata for known paths 0ms
+ ✓ |product| src/data/galleries/trainingPaths/manualMetadata.test.ts > manualMetadata > getManualMetadata returns undefined for unknown paths 0ms
+ ✓ |product| src/data/galleries/api-mock/presets-helpers.test.ts > api-mock gallery preset helpers > builds JSON and XML bodies and headers 1ms
+ ✓ |product| src/data/galleries/api-mock/presets-helpers.test.ts > api-mock gallery preset helpers > clones an empty predicate group with a new id 0ms
+ ✓ |product| src/data/galleries/api-mock/presets-helpers.test.ts > api-mock gallery preset helpers > storeRoute defaults folder, enabled, predicates, JSON body, and status 200 0ms
+ ✓ |product| src/data/galleries/api-mock/presets-helpers.test.ts > api-mock gallery preset helpers > storeRoute keeps folder, draft, custom predicates, XML body, status, and operationId 0ms
+ ✓ |product| src/shared/components/gallery/GalleryGrid.coverage-gaps.test.tsx > GalleryGrid — coverage gaps > updates domain filter when initialDomain prop changes 45ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > DifficultyDots > renders 3 dots 12ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > DifficultyDots > sets data-level attribute 4ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > DifficultyDots > shows label by default 3ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > DifficultyDots > hides label when showLabel=false 1ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > LiveApiBadge > renders hostname from full URL 2ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > LiveApiBadge > renders raw string if not a valid URL 1ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > LiveApiBadge > sets title to full URL 1ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > DomainBadge > renders domain label and icon 1ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > DomainBadge > sets data-domain attribute 3ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > DomainBadge > applies custom className 2ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > DomainBadge > renders all known domains correctly 2ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > DomainBadge > handles unknown domain gracefully 1ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryCard > renders name and description 2ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryCard > calls onClick with entry 50ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryCard > adds selected class 1ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryCard > shows domain badge when showDomain=true 2ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryCard > hides domain badge by default 1ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryCard > renders tags 2ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryCard > renders versioning-tutorial badge and trims remaining tags to three 2ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryCard > renders without onClick and without live APIs 1ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryCard > renders difficulty dots 2ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryCard > renders live API badge 2ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryCard > renders imported sample status badge 1ms
+ ✓ |product| src/shared/components/gallery/GalleryFilters.test.tsx > GalleryFilters > calls handleDomainClick: updates domain, clears tag, switches to samples 110ms
+ ✓ |product| src/shared/components/gallery/GalleryFilters.test.tsx > GalleryFilters > activates a concrete domain tab 10ms
+ ✓ |product| src/shared/components/gallery/GalleryFilters.test.tsx > GalleryFilters > marks domain active only in samples mode 3ms
+ ✓ |product| src/shared/components/gallery/GalleryFilters.test.tsx > GalleryFilters > handles training path click and shows coming soon label 15ms
+ ✓ |product| src/shared/components/gallery/GalleryFilters.test.tsx > GalleryFilters > dims filter controls in paths mode 3ms
+ ✓ |product| src/shared/components/gallery/GalleryFilters.test.tsx > GalleryFilters > updates category and difficulty selects 24ms
+ ✓ |product| src/shared/components/gallery/GalleryFilters.test.tsx > GalleryFilters > renders live API select when liveApis non-empty 11ms
+ ✓ |product| src/shared/components/gallery/GalleryFilters.test.tsx > GalleryFilters > tag combobox filters, selects, toggles off, clears, shows no matches 45ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > GalleryCard — sampleStatus > shows imported badge 23ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > GalleryCard — sampleStatus > shows updated badge 2ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > GalleryCard — sampleStatus > adds status CSS class 3ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > GalleryCard — sampleStatus > does not show badge when no status 2ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > GalleryDetailPanel — expanded coverage > renders tags 8ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > GalleryDetailPanel — expanded coverage > renders live API badges 2ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > GalleryDetailPanel — expanded coverage > renders difficulty dots 2ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > GalleryDetailPanel — expanded coverage > opens expand modal on fallback expand button click 14ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > GalleryDetailPanel — expanded coverage > renders rich preview without expand wrapper 2ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > GalleryDetailPanel — expanded coverage > hides close button when onClose is not provided 1ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > GalleryDetailPanel — expanded coverage > hides action button when actionLabel is not provided 2ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > GalleryDetailPanel — expanded coverage > opens expand modal via renderPreview onExpand callback 4ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > GalleryDetailPanel — expanded coverage > closes the expand modal 5ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > GalleryDetailPanel — expanded coverage > handles non-serializable factory output in expand 5ms
+ ✓ |product| src/data/galleries/tests/catalog.coverage-gaps.test.ts > tests gallery coverage gaps > executes every catalog factory and returns populated samples 4ms
+ ✓ |product| src/data/galleries/tests/catalog.coverage-gaps.test.ts > tests gallery coverage gaps > builds parameterized presets with inline data sources 0ms
+ ✓ |product| src/data/galleries/tests/catalog.coverage-gaps.test.ts > tests gallery coverage gaps > builds advanced presets with expected scenario structures 1ms
+ ✓ |product| src/data/galleries/tests/catalog.coverage-gaps.test.ts > tests gallery coverage gaps > builds shared data source feature groups and shared data source records 0ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryCard > renders updated sample status badge 1ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryCard > renders versioning tutorial tag separately from hash tags 2ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryCard > omits live API badge when entry has no live APIs 1ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryCard > click is safe when onClick is omitted 5ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryDetailPanel > returns null when entry is null 1ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryDetailPanel > renders entry details 2ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryDetailPanel > calls onAction when import button clicked 3ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryDetailPanel > renders secondary button when provided 2ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryDetailPanel > calls onClose when close button clicked 1ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryDetailPanel > renders custom preview via renderPreview 1ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryFilters > renders domain buttons 3ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryFilters > calls onChange when domain is selected 2ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryFilters > renders category select with options 2ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > apiHostname > extracts hostname from URL 0ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > apiHostname > returns raw string for invalid URL 0ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryGrid > renders all entry cards 13ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryGrid > shows result count 11ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryGrid > filters by search text 21ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryGrid > shows empty message when no results 14ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryGrid > opens detail panel on card click 14ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > GalleryFilters — expanded coverage > calls onChange for difficulty change 56ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > GalleryFilters — expanded coverage > calls onChange for category change 15ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > GalleryFilters — expanded coverage > renders live API filter when liveApis provided 2ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > GalleryFilters — expanded coverage > hides live API filter when no liveApis 1ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > GalleryFilters — expanded coverage > calls onChange for live API change 8ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > GalleryFilters — expanded coverage > highlights active domain button 2ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > GalleryFilters — expanded coverage > clicking All button sets domain to all 2ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > defaultFilterState > returns expected defaults 0ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > renders path cards 16ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > shows all paths without coming soon 14ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > highlights active path 8ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > shows phases when versioning path is highlighted 13ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > shows manual rows with import buttons 12ms
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > derives multiple live API hosts from entries 31ms
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > uses showDomainBadges false even when multi-domain 14ms
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > shows loaded count when sampleStatus has matches 12ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryGrid > closes detail panel on close button 15ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryGrid > toggles detail panel on same card click 15ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryGrid > does not show pagination when entries fit on one page 7ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryGrid > shows pagination when entries exceed page size 12ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryGrid > navigates between pages 28ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryGrid > resets to page 1 when search changes 19ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryGrid > filters by category 22ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryGrid > filters by difficulty 19ms
+ ✓ |product| src/shared/components/gallery/gallery.core.test.tsx > GalleryGrid > filters by live API 18ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > calls onImportSample when import is clicked 10ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > opens training manual in a new tab when manual row clicked 3ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > opens manual via Enter on focused manual row 3ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > calls onNavigateToSample when sample chip is clicked 3ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > shows updated sample badge on manual row 3ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > collapse all hides manuals then expand all restores 5ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > manual without manualPath is not a link row 1ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > filters paths by search query matching path name 4ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > filters paths by search query matching description 2ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > filters paths by search query matching manual title 2ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > shows empty message when search has no results 0ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > shows back button when activePathId is set with onClearActivePath 2ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > does not show back button when no activePathId 1ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > hides subtitle when activePathId is set 3ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > shows Coming soon badge on comingSoon paths 1ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > does not expand comingSoon path on click 2ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > expands path on hero click and shows phases 3ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > collapses path on second hero click 4ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > toggles individual phase sections 5ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > Collapse All / Expand All button works 6ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > renders manual without sampleId (no import button) 2ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > renders sample chip with sampleId 2ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > shows imported badge when sampleStatus is imported 2ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > shows updated badge when sampleStatus is updated 1ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > shows manual and phase counts in path stats 2ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > TrainingPathsView > only shows the active path when activePathId is set 1ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > GalleryGrid — mode toggle > renders mode toggle buttons 8ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > GalleryGrid — mode toggle > defaults to samples mode 5ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > GalleryGrid — mode toggle > switches to training paths view 20ms
+ ✓ |product| src/shared/components/gallery/gallery.expanded.test.tsx > GalleryGrid — mode toggle > switches back to samples mode 24ms
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > clicks previous page in pagination 227ms
+ ✓ |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > renders the gallery grid with entries from all domains 68ms
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > paginates when more entries than page size 101ms
+ × |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > renders domain filter buttons 87ms (retry x2)
+   → expected 11 to be 8 // Object.is equality
+   → expected 11 to be 8 // Object.is equality
+   → expected 11 to be 8 // Object.is equality
+ ✓ |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > renders gallery cards 23ms
+ ✓ |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > filters entries via search 76ms
+ ✓ |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > opens detail panel when a card is clicked 42ms
+ × |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > calls onImportWorkflow when a workflow entry is imported 51ms (retry x2)
+   → expected undefined to be truthy
+   → expected undefined to be truthy
+   → expected undefined to be truthy
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > resets page when filtered result length changes 132ms
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > pairs simulator entry with main on same page 7ms
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > renders orphan simulator when main not on page 9ms
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > switches to training paths mode and shows path search placeholder 55ms
+ ✓ |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > calls onImportRequest when a request entry is imported 30ms
+ ✓ |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > calls onTryItRequest when Try It button is clicked on a request entry 30ms
+ ✓ |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > calls onImportCatalog when a catalog spec is imported 26ms
+ × |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > calls onImportTest when a test sample is loaded 42ms (retry x2)
+   → Unable to fire a "click" event - please provide a DOM element.
+   → Unable to fire a "click" event - please provide a DOM element.
+   → Unable to fire a "click" event - please provide a DOM element.
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > toggles back to samples from paths with mode button 164ms
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > uses external search as read-only and filters path copy 43ms
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > calls onAction when detail primary action fires 44ms
+ × |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > navigates to the sample tab when clicking an already-imported sample 51ms (retry x2)
+   → Unable to fire a "click" event - please provide a DOM element.
+   → Unable to fire a "click" event - please provide a DOM element.
+   → Unable to fire a "click" event - please provide a DOM element.
+ × |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > shows confirm dialog when a new version of a loaded sample is available 41ms (retry x2)
+   → Unable to fire a "click" event - please provide a DOM element.
+   → Unable to fire a "click" event - please provide a DOM element.
+   → Unable to fire a "click" event - please provide a DOM element.
+ × |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > cancelling the update dialog does not re-import 41ms (retry x2)
+   → Unable to fire a "click" event - please provide a DOM element.
+   → Unable to fire a "click" event - please provide a DOM element.
+   → Unable to fire a "click" event - please provide a DOM element.
+ × |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > clicking an already-imported sample does not call the import handler 44ms (retry x2)
+   → Unable to fire a "click" event - please provide a DOM element.
+   → Unable to fire a "click" event - please provide a DOM element.
+   → Unable to fire a "click" event - please provide a DOM element.
+ ✓ |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > renders request preview in detail panel 22ms
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > passes function action labels to detail panel 44ms
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > renders empty state when filters exclude all 7ms
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > deselects card when same card clicked twice 13ms
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > activates a training path from the filter sidebar 44ms
+ × |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > renders non-request preview as text 38ms (retry x2)
+   → Unable to fire a "click" event - please provide a DOM element.
+   → Unable to fire a "click" event - please provide a DOM element.
+   → Unable to fire a "click" event - please provide a DOM element.
+ × |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > treats LOADED_SENTINEL as imported without comparing factory hashes 48ms (retry x2)
+   → Unable to fire a "click" event - please provide a DOM element.
+   → Unable to fire a "click" event - please provide a DOM element.
+   → Unable to fire a "click" event - please provide a DOM element.
+ × |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > treats legacy __name: imports as imported without sample id 43ms (retry x2)
+   → Unable to fire a "click" event - please provide a DOM element.
+   → Unable to fire a "click" event - please provide a DOM element.
+   → Unable to fire a "click" event - please provide a DOM element.
+ × |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > does not compute sample status when importedSamples is empty 42ms (retry x2)
+   → Unable to fire a "click" event - please provide a DOM element.
+   → Unable to fire a "click" event - please provide a DOM element.
+   → Unable to fire a "click" event - please provide a DOM element.
+ × |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > omits primary import action for assertion preset entries 40ms (retry x2)
+   → expected undefined to be truthy
+   → expected undefined to be truthy
+   → expected undefined to be truthy
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > forwards training-path Import to onAction when sample exists in entries 147ms
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > calls onSecondary with function secondaryLabel 42ms
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > shows renderPreview content in detail panel 8ms
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > closes detail panel from close control 9ms
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > does not append loaded count when no filtered entry has status 4ms
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > clears active path from training paths back control 290ms
+ ✓ |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > preview falls back when factory output is not JSON-serializable 64ms
+ ✓ |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > passes Request label when expanding default request tab 34ms
+ ✓ |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > passes Response label when expanding response tab after fetch 360ms
+ × |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > calls onImportTest when a data-mapper sample is loaded 69ms (retry x2)
+   → expected undefined to be truthy
+   → expected undefined to be truthy
+   → expected undefined to be truthy
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > navigates from training path sample chip to samples grid and selects entry 135ms
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > filters by live API hostname 18ms
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > filters by difficulty 16ms
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > clears detail selection when active card drops out of filtered results 11ms
+ ✓ |product| src/shared/components/gallery/GalleryGrid.test.tsx > GalleryGrid > does not navigate to sample when id is absent from entries 142ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 16 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > renders domain filter buttons
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > renders domain filter buttons
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > renders domain filter buttons
+AssertionError: expected 11 to be 8 // Object.is equality
+
+- Expected
++ Received
+
+- 8
++ 11
+
+ ❯ src/features/gallery/GalleryPage.test.tsx:45:31
+     43|     const { container } = render(<GalleryPage />);
+     44|     const domainBtns = container.querySelectorAll('.gallery-domain-btn…
+     45|     expect(domainBtns.length).toBe(8); // All + 7 domains (incl. API M…
+       |                               ^
+     46|     const labels = Array.from(domainBtns).map(b => b.textContent);
+     47|     expect(labels.some(l => l?.includes('Requests'))).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/48]⎯
+
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > calls onImportWorkflow when a workflow entry is imported
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > calls onImportWorkflow when a workflow entry is imported
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > calls onImportWorkflow when a workflow entry is imported
+AssertionError: expected undefined to be truthy
+
+- Expected:
+true
+
++ Received:
+undefined
+
+ ❯ src/features/gallery/GalleryPage.test.tsx:80:25
+     78|     const domainBtns = container.querySelectorAll('.gallery-domain-btn…
+     79|     const wfDomainBtn = Array.from(domainBtns).find(btn => btn.textCon…
+     80|     expect(wfDomainBtn).toBeTruthy();
+       |                         ^
+     81|     fireEvent.click(wfDomainBtn!);
+     82|     const card = container.querySelector('.gallery-card') as HTMLEleme…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/48]⎯
+
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > calls onImportTest when a test sample is loaded
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > calls onImportTest when a test sample is loaded
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > calls onImportTest when a test sample is loaded
+Error: Unable to fire a "click" event - please provide a DOM element.
+ ❯ createEvent node_modules/@testing-library/dom/dist/events.js:27:11
+ ❯ Function.createEvent.<computed> [as click] node_modules/@testing-library/dom/dist/events.js:106:38
+ ❯ Function.fireEvent.<computed> [as click] node_modules/@testing-library/dom/dist/events.js:110:68
+ ❯ Function.fireEvent.<computed> [as click] node_modules/@testing-library/react/dist/fire-event.js:15:52
+ ❯ src/features/gallery/GalleryPage.test.tsx:130:15
+    128|     const domainBtns = container.querySelectorAll('.gallery-domain-btn…
+    129|     const testBtn = Array.from(domainBtns).find(btn => btn.textContent…
+    130|     fireEvent.click(testBtn!);
+       |               ^
+    131|     const card = container.querySelector('.gallery-card') as HTMLEleme…
+    132|     fireEvent.click(card);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/48]⎯
+
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > navigates to the sample tab when clicking an already-imported sample
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > navigates to the sample tab when clicking an already-imported sample
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > navigates to the sample tab when clicking an already-imported sample
+Error: Unable to fire a "click" event - please provide a DOM element.
+ ❯ createEvent node_modules/@testing-library/dom/dist/events.js:27:11
+ ❯ Function.createEvent.<computed> [as click] node_modules/@testing-library/dom/dist/events.js:106:38
+ ❯ Function.fireEvent.<computed> [as click] node_modules/@testing-library/dom/dist/events.js:110:68
+ ❯ Function.fireEvent.<computed> [as click] node_modules/@testing-library/react/dist/fire-event.js:15:52
+ ❯ src/features/gallery/GalleryPage.test.tsx:148:15
+    146|     const domainBtns = container.querySelectorAll('.gallery-domain-btn…
+    147|     const testBtn = Array.from(domainBtns).find(btn => btn.textContent…
+    148|     fireEvent.click(testBtn!);
+       |               ^
+    149|     const card = container.querySelector('.gallery-card') as HTMLEleme…
+    150|     fireEvent.click(card);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/48]⎯
+
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > shows confirm dialog when a new version of a loaded sample is available
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > shows confirm dialog when a new version of a loaded sample is available
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > shows confirm dialog when a new version of a loaded sample is available
+Error: Unable to fire a "click" event - please provide a DOM element.
+ ❯ createEvent node_modules/@testing-library/dom/dist/events.js:27:11
+ ❯ Function.createEvent.<computed> [as click] node_modules/@testing-library/dom/dist/events.js:106:38
+ ❯ Function.fireEvent.<computed> [as click] node_modules/@testing-library/dom/dist/events.js:110:68
+ ❯ Function.fireEvent.<computed> [as click] node_modules/@testing-library/react/dist/fire-event.js:15:52
+ ❯ src/features/gallery/GalleryPage.test.tsx:168:15
+    166|     const domainBtns = container.querySelectorAll('.gallery-domain-btn…
+    167|     const testBtn = Array.from(domainBtns).find(btn => btn.textContent…
+    168|     fireEvent.click(testBtn!);
+       |               ^
+    169|     const card = container.querySelector('.gallery-card') as HTMLEleme…
+    170|     fireEvent.click(card);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/48]⎯
+
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > cancelling the update dialog does not re-import
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > cancelling the update dialog does not re-import
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > cancelling the update dialog does not re-import
+Error: Unable to fire a "click" event - please provide a DOM element.
+ ❯ createEvent node_modules/@testing-library/dom/dist/events.js:27:11
+ ❯ Function.createEvent.<computed> [as click] node_modules/@testing-library/dom/dist/events.js:106:38
+ ❯ Function.fireEvent.<computed> [as click] node_modules/@testing-library/dom/dist/events.js:110:68
+ ❯ Function.fireEvent.<computed> [as click] node_modules/@testing-library/react/dist/fire-event.js:15:52
+ ❯ src/features/gallery/GalleryPage.test.tsx:189:15
+    187|     const domainBtns = container.querySelectorAll('.gallery-domain-btn…
+    188|     const testBtn = Array.from(domainBtns).find(btn => btn.textContent…
+    189|     fireEvent.click(testBtn!);
+       |               ^
+    190|     const card = container.querySelector('.gallery-card') as HTMLEleme…
+    191|     fireEvent.click(card);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/48]⎯
+
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > clicking an already-imported sample does not call the import handler
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > clicking an already-imported sample does not call the import handler
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > clicking an already-imported sample does not call the import handler
+Error: Unable to fire a "click" event - please provide a DOM element.
+ ❯ createEvent node_modules/@testing-library/dom/dist/events.js:27:11
+ ❯ Function.createEvent.<computed> [as click] node_modules/@testing-library/dom/dist/events.js:106:38
+ ❯ Function.fireEvent.<computed> [as click] node_modules/@testing-library/dom/dist/events.js:110:68
+ ❯ Function.fireEvent.<computed> [as click] node_modules/@testing-library/react/dist/fire-event.js:15:52
+ ❯ src/features/gallery/GalleryPage.test.tsx:209:15
+    207|     const domainBtns = container.querySelectorAll('.gallery-domain-btn…
+    208|     const testBtn = Array.from(domainBtns).find(btn => btn.textContent…
+    209|     fireEvent.click(testBtn!);
+       |               ^
+    210|     const card = container.querySelector('.gallery-card') as HTMLEleme…
+    211|     fireEvent.click(card);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/48]⎯
+
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > renders non-request preview as text
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > renders non-request preview as text
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > renders non-request preview as text
+Error: Unable to fire a "click" event - please provide a DOM element.
+ ❯ createEvent node_modules/@testing-library/dom/dist/events.js:27:11
+ ❯ Function.createEvent.<computed> [as click] node_modules/@testing-library/dom/dist/events.js:106:38
+ ❯ Function.fireEvent.<computed> [as click] node_modules/@testing-library/dom/dist/events.js:110:68
+ ❯ Function.fireEvent.<computed> [as click] node_modules/@testing-library/react/dist/fire-event.js:15:52
+ ❯ src/features/gallery/GalleryPage.test.tsx:233:15
+    231|     const domainBtns = container.querySelectorAll('.gallery-domain-btn…
+    232|     const wfBtn = Array.from(domainBtns).find(btn => btn.textContent?.…
+    233|     fireEvent.click(wfBtn!);
+       |               ^
+    234|     const card = container.querySelector('.gallery-card') as HTMLEleme…
+    235|     fireEvent.click(card);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/48]⎯
+
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > treats LOADED_SENTINEL as imported without comparing factory hashes
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > treats LOADED_SENTINEL as imported without comparing factory hashes
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > treats LOADED_SENTINEL as imported without comparing factory hashes
+Error: Unable to fire a "click" event - please provide a DOM element.
+ ❯ createEvent node_modules/@testing-library/dom/dist/events.js:27:11
+ ❯ Function.createEvent.<computed> [as click] node_modules/@testing-library/dom/dist/events.js:106:38
+ ❯ Function.fireEvent.<computed> [as click] node_modules/@testing-library/dom/dist/events.js:110:68
+ ❯ Function.fireEvent.<computed> [as click] node_modules/@testing-library/react/dist/fire-event.js:15:52
+ ❯ src/features/gallery/GalleryPage.test.tsx:248:15
+    246|     const domainBtns = container.querySelectorAll('.gallery-domain-btn…
+    247|     const testBtn = Array.from(domainBtns).find(btn => btn.textContent…
+    248|     fireEvent.click(testBtn!);
+       |               ^
+    249|     fireEvent.click(screen.getByText(firstTest.name));
+    250|     expect(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/48]⎯
+
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > treats legacy __name: imports as imported without sample id
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > treats legacy __name: imports as imported without sample id
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > treats legacy __name: imports as imported without sample id
+Error: Unable to fire a "click" event - please provide a DOM element.
+ ❯ createEvent node_modules/@testing-library/dom/dist/events.js:27:11
+ ❯ Function.createEvent.<computed> [as click] node_modules/@testing-library/dom/dist/events.js:106:38
+ ❯ Function.fireEvent.<computed> [as click] node_modules/@testing-library/dom/dist/events.js:110:68
+ ❯ Function.fireEvent.<computed> [as click] node_modules/@testing-library/react/dist/fire-event.js:15:52
+ ❯ src/features/gallery/GalleryPage.test.tsx:265:15
+    263|     const domainBtns = container.querySelectorAll('.gallery-domain-btn…
+    264|     const testBtn = Array.from(domainBtns).find(btn => btn.textContent…
+    265|     fireEvent.click(testBtn!);
+       |               ^
+    266|     fireEvent.click(screen.getByText(firstTest.name));
+    267|     expect(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/48]⎯
+
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > does not compute sample status when importedSamples is empty
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > does not compute sample status when importedSamples is empty
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > does not compute sample status when importedSamples is empty
+Error: Unable to fire a "click" event - please provide a DOM element.
+ ❯ createEvent node_modules/@testing-library/dom/dist/events.js:27:11
+ ❯ Function.createEvent.<computed> [as click] node_modules/@testing-library/dom/dist/events.js:106:38
+ ❯ Function.fireEvent.<computed> [as click] node_modules/@testing-library/dom/dist/events.js:110:68
+ ❯ Function.fireEvent.<computed> [as click] node_modules/@testing-library/react/dist/fire-event.js:15:52
+ ❯ src/features/gallery/GalleryPage.test.tsx:276:15
+    274|     const domainBtns = container.querySelectorAll('.gallery-domain-btn…
+    275|     const testBtn = Array.from(domainBtns).find(btn => btn.textContent…
+    276|     fireEvent.click(testBtn!);
+       |               ^
+    277|     fireEvent.click(container.querySelector('.gallery-card') as HTMLEl…
+    278|     expect(container.querySelector('.gallery-detail-btn-primary')?.tex…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/48]⎯
+
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > omits primary import action for assertion preset entries
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > omits primary import action for assertion preset entries
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > omits primary import action for assertion preset entries
+AssertionError: expected undefined to be truthy
+
+- Expected:
+true
+
++ Received:
+undefined
+
+ ❯ src/features/gallery/GalleryPage.test.tsx:285:27
+    283|     const domainBtns = container.querySelectorAll('.gallery-domain-btn…
+    284|     const assertionsBtn = Array.from(domainBtns).find(btn => btn.textC…
+    285|     expect(assertionsBtn).toBeTruthy();
+       |                           ^
+    286|     fireEvent.click(assertionsBtn!);
+    287|     fireEvent.click(container.querySelector('.gallery-card') as HTMLEl…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/48]⎯
+
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > calls onImportTest when a data-mapper sample is loaded
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > calls onImportTest when a data-mapper sample is loaded
+ FAIL  |product| src/features/gallery/GalleryPage.test.tsx > GalleryPage > calls onImportTest when a data-mapper sample is loaded
+AssertionError: expected undefined to be truthy
+
+- Expected:
+true
+
++ Received:
+undefined
+
+ ❯ src/features/gallery/GalleryPage.test.tsx:341:19
+    339|     const domainBtns = container.querySelectorAll('.gallery-domain-btn…
+    340|     const dmBtn = Array.from(domainBtns).find(btn => btn.textContent?.…
+    341|     expect(dmBtn).toBeTruthy();
+       |                   ^
+    342|     fireEvent.click(dmBtn!);
+    343|     fireEvent.click(container.querySelector('.gallery-card') as HTMLEl…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/48]⎯
+
+ FAIL  |product| src/data/galleries/data-mapper/presets.test.ts > Data Mapper presets > all entries have domain data-mapper
+ FAIL  |product| src/data/galleries/data-mapper/presets.test.ts > Data Mapper presets > all entries have domain data-mapper
+ FAIL  |product| src/data/galleries/data-mapper/presets.test.ts > Data Mapper presets > all entries have domain data-mapper
+AssertionError: expected 'requests' to be 'data-mapper' // Object.is equality
+
+Expected: "data-mapper"
+Received: "requests"
+
+ ❯ src/data/galleries/data-mapper/presets.test.ts:41:28
+     39|   it('all entries have domain data-mapper', () => {
+     40|     for (const entry of dataMapperSampleCatalog) {
+     41|       expect(entry.domain).toBe('data-mapper');
+       |                            ^
+     42|     }
+     43|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/48]⎯
+
+ FAIL  |product| src/data/galleries/tests/tests.test.ts > testSampleCatalog > every entry has domain "tests"
+ FAIL  |product| src/data/galleries/tests/tests.test.ts > testSampleCatalog > every entry has domain "tests"
+ FAIL  |product| src/data/galleries/tests/tests.test.ts > testSampleCatalog > every entry has domain "tests"
+AssertionError: expected 'harness' to be 'tests' // Object.is equality
+
+Expected: "tests"
+Received: "harness"
+
+ ❯ src/data/galleries/tests/tests.test.ts:16:28
+     14|   it('every entry has domain "tests"', () => {
+     15|     for (const entry of testSampleCatalog) {
+     16|       expect(entry.domain).toBe('tests');
+       |                            ^
+     17|     }
+     18|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/48]⎯
+
+ FAIL  |product| src/data/galleries/workflows/workflows.test.ts > galleries/workflows — sampleWorkflowCatalog > every entry has domain "workflows"
+ FAIL  |product| src/data/galleries/workflows/workflows.test.ts > galleries/workflows — sampleWorkflowCatalog > every entry has domain "workflows"
+ FAIL  |product| src/data/galleries/workflows/workflows.test.ts > galleries/workflows — sampleWorkflowCatalog > every entry has domain "workflows"
+AssertionError: expected 'kafka' to be 'workflows' // Object.is equality
+
+Expected: "workflows"
+Received: "kafka"
+
+ ❯ src/data/galleries/workflows/workflows.test.ts:18:28
+     16|   it('every entry has domain "workflows"', () => {
+     17|     for (const entry of sampleWorkflowCatalog) {
+     18|       expect(entry.domain).toBe('workflows');
+       |                            ^
+     19|     }
+     20|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/48]⎯
+
+
+ Test Files  4 failed | 26 passed (30)
+      Tests  16 failed | 677 passed (693)
+   Start at  22:28:12
+   Duration  3.03s (transform 3.17s, setup 417ms, import 4.88s, tests 4.65s, environment 6.37s)
+

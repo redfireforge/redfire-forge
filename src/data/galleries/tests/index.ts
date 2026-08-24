@@ -60,7 +60,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   // ── Easy ──────────────────────────────────────────────
   {
     id: 'test-user-api-smoke',
-    domain: 'tests',
+    domain: 'harness',
     name: 'User API Smoke Test',
     description: 'Three quick checks on JSONPlaceholder — list users, get one, fetch posts',
     icon: '💨',
@@ -74,7 +74,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   },
   {
     id: 'test-product-listing',
-    domain: 'tests',
+    domain: 'harness',
     name: 'Product Listing Check',
     description: 'Verify DummyJSON returns a valid product list and single product detail',
     icon: '🛒',
@@ -90,7 +90,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   // ── Medium ────────────────────────────────────────────
   {
     id: 'test-paginated-regression',
-    domain: 'tests',
+    domain: 'harness',
     name: 'Paginated API Regression',
     description: 'Test pagination edge cases — page 1, page 2, out-of-range, and total consistency',
     icon: '📄',
@@ -104,7 +104,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   },
   {
     id: 'test-pokemon-contract',
-    domain: 'tests',
+    domain: 'harness',
     name: 'Pokémon Data Contract',
     description: 'Contract tests for PokéAPI — verify Pikachu shape, type list, and 404 handling',
     icon: '📋',
@@ -118,7 +118,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   },
   {
     id: 'test-country-search',
-    domain: 'tests',
+    domain: 'harness',
     name: 'Country Search Suite',
     description: 'Search REST Countries by name, code, and region — plus 404 edge case',
     icon: '🌍',
@@ -132,7 +132,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   },
   {
     id: 'test-auth-flow',
-    domain: 'tests',
+    domain: 'harness',
     name: 'Auth Flow Validation',
     description: 'Login success, login failure, and profile fetch via DummyJSON — auth lifecycle coverage',
     icon: '🔐',
@@ -148,7 +148,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   // ── Advanced ──────────────────────────────────────────
   {
     id: 'test-ecommerce-full',
-    domain: 'tests',
+    domain: 'harness',
     name: 'E-Commerce Full Suite',
     description: 'End-to-end DummyJSON coverage — products, search, categories, cart, and users',
     icon: '🏪',
@@ -162,7 +162,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   },
   {
     id: 'test-multi-api-load',
-    domain: 'tests',
+    domain: 'harness',
     name: 'Multi-API Load Profile',
     description: 'Response time checks across 5 public APIs — baseline for load testing',
     icon: '⚡',
@@ -176,7 +176,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   },
   {
     id: 'test-performance-regression-baseline',
-    domain: 'tests',
+    domain: 'harness',
     name: 'Performance Regression Baseline',
     description: 'Baseline/comparison demo: import this sample, run once at low concurrency, then rerun at higher concurrency to visualize regressions and trend shifts.',
     icon: '📉',
@@ -190,7 +190,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   },
   {
     id: 'test-catalog-export-demo',
-    domain: 'tests',
+    domain: 'harness',
     name: 'Catalog Export Demo',
     description: 'Demonstrates tests created via "Send to Harness" — POST with schema-generated body, GET with query params, PUT update',
     icon: '🚀',
@@ -204,7 +204,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   },
   {
     id: 'test-trash-recovery-demo',
-    domain: 'tests',
+    domain: 'harness',
     name: 'Trash Recovery Demo',
     description: 'Two simple scenarios to practice deleting, undoing, and restoring from the Trash Box',
     icon: '🗑️',
@@ -220,7 +220,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   // ── Parameterized (Data-Driven) ───────────────────────
   {
     id: 'test-param-user-sweep',
-    domain: 'tests',
+    domain: 'harness',
     name: 'User Lookup Sweep',
     description: 'Parameterized GET across 10 JSONPlaceholder users — data-driven with expected names and emails',
     icon: '📊',
@@ -235,7 +235,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   },
   {
     id: 'test-param-product-search',
-    domain: 'tests',
+    domain: 'harness',
     name: 'Product Search Matrix',
     description: 'Data-driven product search across 5 keywords on DummyJSON — validates result counts',
     icon: '📊',
@@ -250,7 +250,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   },
   {
     id: 'test-param-country-validation',
-    domain: 'tests',
+    domain: 'harness',
     name: 'Country Validation Suite',
     description: 'Validate 8 countries\u2019 capitals and regions against REST Countries API',
     icon: '📊',
@@ -265,7 +265,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   },
   {
     id: 'test-param-pokemon-contract',
-    domain: 'tests',
+    domain: 'harness',
     name: 'Pokémon Contract Sweep',
     description: 'Verify 10 Pokémon primary types and Pokédex IDs via PokéAPI — data-driven contract testing',
     icon: '📊',
@@ -280,7 +280,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   },
   {
     id: 'test-param-multi-endpoint',
-    domain: 'tests',
+    domain: 'harness',
     name: 'Multi-Endpoint Regression',
     description: 'Data-driven regression across 4 DummyJSON endpoints (users, products, recipes, quotes) — 20 total rows',
     icon: '📊',
@@ -295,7 +295,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   },
   {
     id: 'test-param-row-tags',
-    domain: 'tests',
+    domain: 'harness',
     name: 'Row Tags Demo',
     description: 'Posts test with categorized rows (smoke, regression, edge-case) — demonstrates row tagging and filtering',
     icon: '🏷️',
@@ -310,7 +310,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   },
   {
     id: 'test-param-auth-rotation',
-    domain: 'tests',
+    domain: 'harness',
     name: 'Auth Token Rotation',
     description: 'Login 5 DummyJSON users via POST body — validates access tokens and first names',
     icon: '📊',
@@ -327,7 +327,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   // ── Shared Data Sources ────────────────────────────────
   {
     id: 'test-shared-user-ids',
-    domain: 'tests',
+    domain: 'harness',
     name: 'Shared User IDs',
     description: 'One shared data source (10 users) used by 2 tests — demonstrates centralized test data management',
     icon: '📦',
@@ -343,7 +343,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   },
   {
     id: 'test-shared-product-catalog',
-    domain: 'tests',
+    domain: 'harness',
     name: 'Shared Product Catalog',
     description: 'Shared product data with fetchConfig for API-driven population — 8 products across 2 scenarios',
     icon: '📦',
@@ -359,7 +359,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   },
   {
     id: 'test-shared-pokemon-cross-fg',
-    domain: 'tests',
+    domain: 'harness',
     name: 'Cross-FG Pokémon Roster',
     description: 'One shared data source used across 2 feature groups — demonstrates harness-wide data sharing',
     icon: '📦',
@@ -376,7 +376,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   },
   {
     id: 'test-shared-auth-users',
-    domain: 'tests',
+    domain: 'harness',
     name: 'Shared Auth Users',
     description: 'Shared credentials with POST body rotation — 5 DummyJSON users for multi-user auth testing',
     icon: '📦',
@@ -392,7 +392,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   },
   {
     id: 'test-api-health-sla',
-    domain: 'tests',
+    domain: 'harness',
     name: 'API Health Check with SLA',
     description: 'Three-scenario health check with SLA targets — demonstrates the SLA badge, Configure panel, and pass/fail results in Test Runner',
     icon: '🎯',
@@ -408,7 +408,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   // ── GraphQL ───────────────────────────────────────────
   {
     id: 'test-graphql-first-query',
-    domain: 'tests',
+    domain: 'graphql',
     name: 'GraphQL: First Query',
     description: 'Two scenarios mirroring the First Query tutorial — literal argument then variable form, against countries.trevorblades.com',
     icon: '🔷',
@@ -422,7 +422,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   },
   {
     id: 'test-graphql-health',
-    domain: 'tests',
+    domain: 'graphql',
     name: 'GraphQL Health Check',
     description: 'Single-scenario introspection ping — POST { __typename } to countries.trevorblades.com and assert $.data.__typename === "Query"',
     icon: '🔷',
@@ -436,7 +436,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   },
   {
     id: 'test-graphql-crud',
-    domain: 'tests',
+    domain: 'graphql',
     name: 'GraphQL: Query & Mutation',
     description: 'Two scenarios — list posts query (assert array length ≥ 1) and createPost mutation (assert ID returned)',
     icon: '🔷',
@@ -452,7 +452,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   // ── gRPC ──────────────────────────────────────────────
   {
     id: 'test-grpc-health',
-    domain: 'tests',
+    domain: 'grpc',
     name: 'gRPC: Unary Smoke Test',
     description: 'Single scenario: call grpc.health.v1.Health/Check on grpcb.in and assert status === SERVING',
     icon: '🔌',
@@ -466,7 +466,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   },
   {
     id: 'test-grpc-crud',
-    domain: 'tests',
+    domain: 'grpc',
     name: 'gRPC: CRUD Scenarios',
     description: 'Three scenarios demonstrating Get / Create / Delete patterns with gRPC unary calls and field assertions',
     icon: '🔌',
@@ -482,7 +482,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   // ── WebSocket ─────────────────────────────────────────
   {
     id: 'test-ws-echo',
-    domain: 'tests',
+    domain: 'websocket',
     name: 'WebSocket: Echo Smoke Test',
     description: 'Three-step test: connect to echo.websocket.org, send "ping", receive the echo, and assert the message body matches',
     icon: '⚡',
@@ -496,7 +496,7 @@ export const testSampleCatalog: TestSampleEntry[] = [
   },
   {
     id: 'test-ws-subscribe',
-    domain: 'tests',
+    domain: 'websocket',
     name: 'WebSocket: JSON Subscribe & Assert',
     description: 'Connect to the Binance BTC/USDT trade stream, receive the first message, and assert the event type and symbol fields',
     icon: '⚡',
