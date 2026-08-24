@@ -951,7 +951,7 @@ export const contentPaths: TrainingPath[] = [
     id: 'gallery',
     name: 'Gallery',
     icon: '🖼️',
-    description: 'Master the Gallery — browse and import pre-built samples across 9 domains, follow structured Training Paths, and understand the badge lifecycle for loaded samples.',
+      description: 'Master the Gallery — browse and import pre-built samples across 9 domains, follow structured Training Tracks with progress tracking, and understand the badge lifecycle for loaded samples.',
     phases: [
       {
         id: 1,
@@ -982,8 +982,8 @@ export const contentPaths: TrainingPath[] = [
             manualPath: 'gallery/gallery-import-easy.html',
           },
           {
-            title: 'Training Paths Mode',
-            description: 'Switch to Training Paths view, browse structured curricula (paths → phases → manuals), search, and link manuals to samples.',
+            title: 'Training Tracks',
+            description: 'Open the Training Tracks tab to track progress, mark manuals complete, use Continue Learning and What\'s New, and search with difficulty and status filters.',
             difficulty: 'medium',
             manualPath: 'gallery/gallery-training-paths-medium.html',
           },
