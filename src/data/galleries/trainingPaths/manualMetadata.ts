@@ -434,6 +434,13 @@ export const manualMetadata: ManualMetadata[] = [
   { manualPath: 'webhooks/webhooks-delivery-logs-easy.html', addedAt: date('2026-08-23') },
   { manualPath: 'webhooks/webhooks-date-sort-medium.html', addedAt: date('2026-08-23') },
   { manualPath: 'webhooks/webhooks-trigger-setup-medium.html', addedAt: date('2026-08-23') },
+  // ============================================================================
+  // Gallery Path (contentPaths)
+  // ============================================================================
+  { manualPath: 'gallery/gallery.html', addedAt: date('2026-08-23') },
+  { manualPath: 'gallery/gallery-samples-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'gallery/gallery-import-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'gallery/gallery-training-paths-medium.html', addedAt: date('2026-08-23') },
 ];
 
 /** Map of manualPath -> ManualMetadata for fast lookup */

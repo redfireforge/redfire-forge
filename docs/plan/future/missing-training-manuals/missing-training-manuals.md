@@ -543,23 +543,81 @@ webhooks/
 
 **Folder:** `docs/training-manuals/gallery/`
 
-### Scope (from e2e + source)
-- Gallery page layout (test factory, workflow factory tabs)
-- Browse and preview gallery items
-- Import test from gallery (creates scenario with pre-filled steps)
-- Import workflow from gallery (creates workflow with nodes/connections)
-- Gallery badge (indicates loaded/imported state)
-- Sample templates (built-in starter configs)
+### Scope (from source audit — `src/features/gallery/GalleryPage.tsx`, `src/shared/components/gallery/GalleryGrid.tsx`, `e2e/gallery.spec.ts`, `e2e/gallery-loaded-badge.spec.ts`)
 
-### Planned Files
+The Gallery is a rich, multi-domain sample browser with **two distinct modes**:
+1. **Samples mode** (default) — paginated card grid across 9 domains with filter sidebar, search, and detail panel
+2. **Training Paths mode** — curriculum-first view with expandable phase cards, linked manuals, and full-text search
+
+> ❌ Original plan said "test factory, workflow factory tabs" — incorrect. The gallery is domain-filtered cards, not factory tabs.
+> ❌ `gallery-custom-templates-advanced.html` (create/register custom items) — this UI does **not exist**. Gallery items are TypeScript-only; there is no in-app custom template creator.
+> ❌ `gallery-import-test-easy.html` and `gallery-import-workflow-easy.html` (two narrow files) — the real story is a single unified import flow covering all 9 domains, with a badge lifecycle and a confirm-update modal.
+
+**Domains (9, each with a filter button):**
+| Domain | Label | Action Button | Notes |
+|--------|-------|--------------|-------|
+| `requests` | Requests 📡 | "Send Request" / secondary "Try It" | Rich RequestPreview; navigates away from gallery on import |
+| `catalog` | API Catalog 📚 | "Import Spec" | |
+| `tests` | Tests 🧪 | "Load Test" | |
+| `workflows` | Workflows ⚡ | "Load Workflow" | Opens wf-preview-banner; "Use as Template" to persist |
+| `assertions` | Assertions ✅ | "Apply Preset" | No import handler — applied inline; no navigation |
+| `data-mapper` | Data Mapper 🔀 | "Load Sample" | |
+| `api-mock` | API Mock 🧪 | "Load Mock Server" | |
+| `grpc` | gRPC 🔌 | "Load Sample" | Currently scaffold (0 entries) |
+| `websocket` | WebSocket ⚡ | "Load Sample" | Currently scaffold (0 entries) |
+
+**Filter sidebar (resizable):**
+- 10 domain buttons (All + 9 domains)
+- Category dropdown
+- Difficulty dropdown (All / Easy / Medium / Advanced)
+- Live API filter (by external hostname)
+- Tag filter
+
+**Gallery card features:**
+- Icon, name, description, difficulty dots
+- Domain badge (when viewing All domains)
+- Tags
+- Status badge: `✓ Loaded` (same version) or `↻ Reload (Updated)` (newer version available)
+
+**Detail panel:**
+- Entry name, description, difficulty dots, tags
+- Live API badges (link to external hostname)
+- Primary + secondary action buttons
+- Preview: `RequestPreview` for requests; truncated JSON (800 chars) for others; expand modal via button
+- **Related Training Manuals section** (`.gallery-detail-manuals`) — manual links with title and difficulty dots
+
+**✓ Loaded badge lifecycle (workflows most complex):**
+- Not imported: no badge
+- Loaded (same version): `✓ Loaded` — clicking navigates to the tab (no modal)
+- Loaded (newer version): `↻ Reload (Updated)` — clicking shows ConfirmModal before re-importing
+- Workflow-specific: must click "Use as Template" after loading to persist; closing preview without saving removes the badge
+
+**Training Paths mode:**
+- Toggle via "Training Paths" button in mode toggle strip
+- Shows all 27 training paths as expandable phase cards
+- Each path → phases → manuals (with difficulty dots)
+- Full-text search across path names, descriptions, phase names, and manual titles
+- Back button ("← All Training Paths") when a specific path is active
+- `onImportSample` chip navigates back to Samples mode for a specific sample
+
+### Planned Files (corrected)
 
 ```
 gallery/
-  gallery.html                              ← master overview
-  gallery-import-test-easy.html             ← browse + import a test template
-  gallery-import-workflow-easy.html         ← browse + import a workflow template
-  gallery-custom-templates-advanced.html    ← create and register custom gallery items
+  gallery.html                              ← master overview: two modes, 9 domains, entry anatomy, navigation
+  gallery-samples-easy.html                 ← Samples mode: domain filter, search, cards, detail panel, preview, related manuals
+  gallery-import-easy.html                  ← Importing: per-domain actions, badge lifecycle, ↻ Reload Updated modal, navigation
+  gallery-training-paths-medium.html        ← Training Paths mode: switching, browsing paths/phases/manuals, search (replaces custom-templates which doesn't exist)
 ```
+
+### Implementation Status
+
+| File | Status | Notes |
+|------|--------|-------|
+| `gallery.html` | ✅ | Overview: 2 modes, 9 domains, card anatomy, filter sidebar, detail panel |
+| `gallery-samples-easy.html` | ✅ | Replaces gallery-import-test-easy — domain filters, search, cards, detail panel, preview |
+| `gallery-import-easy.html` | ✅ | Replaces gallery-import-workflow-easy — covers all 9 domains' import actions + badge lifecycle |
+| `gallery-training-paths-medium.html` | ✅ | Replaces gallery-custom-templates-advanced — Training Paths mode, path/phase/manual hierarchy, search |
 
 ---
 
@@ -575,7 +633,7 @@ gallery/
 | API Mock (HTTP) | `api-mock/` | `api-mock.html` | 12 | ✅ Done (13 files — overview + 12 tutorials; 3 files renamed, 1 added) |
 | SSE | `sse/` | `sse.html` | 5 | ✅ Done (6 files — overview + 5 tutorials; console tab added, event-filtering expanded) |
 | Webhooks | `webhooks/` | `webhooks.html` | 4 | ✅ Complete |
-| Gallery | `gallery/` | `gallery.html` | 3 | 🔲 Not started |
+| Gallery | `gallery/` | `gallery.html` | 4 | ✅ Complete (4 files — overview + samples browsing + import lifecycle + training paths mode) |
 
 **Total planned files:** ~65 tutorial HTML files + 9 master overview files
 

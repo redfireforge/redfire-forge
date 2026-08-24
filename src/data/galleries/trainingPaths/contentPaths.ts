@@ -947,4 +947,48 @@ export const contentPaths: TrainingPath[] = [
       },
     ],
   },
+  {
+    id: 'gallery',
+    name: 'Gallery',
+    icon: '🖼️',
+    description: 'Master the Gallery — browse and import pre-built samples across 9 domains, follow structured Training Paths, and understand the badge lifecycle for loaded samples.',
+    phases: [
+      {
+        id: 1,
+        name: 'Getting Started',
+        manuals: [
+          {
+            title: 'Gallery — Overview',
+            description: 'Two modes (Samples / Training Paths), 9 domains, card anatomy, filter sidebar, detail panel.',
+            difficulty: 'easy',
+            manualPath: 'gallery/gallery.html',
+          },
+          {
+            title: 'Browsing the Gallery',
+            description: 'Navigate domains, search, apply filters, read detail panels, preview entries, and find related training manuals.',
+            difficulty: 'easy',
+            manualPath: 'gallery/gallery-samples-easy.html',
+          },
+        ],
+      },
+      {
+        id: 2,
+        name: 'Importing and Learning',
+        manuals: [
+          {
+            title: 'Importing Gallery Samples',
+            description: 'Per-domain import actions, ✓ Loaded badge lifecycle, ↻ Reload Updated modal, and navigation after import.',
+            difficulty: 'easy',
+            manualPath: 'gallery/gallery-import-easy.html',
+          },
+          {
+            title: 'Training Paths Mode',
+            description: 'Switch to Training Paths view, browse structured curricula (paths → phases → manuals), search, and link manuals to samples.',
+            difficulty: 'medium',
+            manualPath: 'gallery/gallery-training-paths-medium.html',
+          },
+        ],
+      },
+    ],
+  },
 ];

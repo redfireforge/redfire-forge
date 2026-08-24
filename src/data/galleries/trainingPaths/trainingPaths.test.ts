@@ -18,8 +18,8 @@ describe('trainingPaths barrel export', () => {
     expect(trainingPaths).toEqual([...corePaths, ...contentPaths, ...workflowPaths, ...protocolPaths]);
   });
 
-  it('has exactly 27 paths', () => {
-    expect(trainingPaths).toHaveLength(27);
+  it('has exactly 28 paths', () => {
+    expect(trainingPaths).toHaveLength(28);
   });
 });
 
@@ -35,13 +35,13 @@ describe('corePaths module', () => {
 });
 
 describe('contentPaths module', () => {
-  it('contains 8 paths', () => {
-    expect(contentPaths).toHaveLength(8);
+  it('contains 9 paths', () => {
+    expect(contentPaths).toHaveLength(9);
   });
 
   it('has expected path IDs', () => {
     const ids = contentPaths.map(p => p.id);
-    expect(ids).toEqual(['requests', 'tests', 'catalog', 'data-mapper', 'environments', 'results', 'api-mock', 'kafka-protocols']);
+    expect(ids).toEqual(['requests', 'tests', 'catalog', 'data-mapper', 'environments', 'results', 'api-mock', 'kafka-protocols', 'gallery']);
   });
 });
 
