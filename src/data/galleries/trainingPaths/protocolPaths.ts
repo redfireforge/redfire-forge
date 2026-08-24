@@ -1,6 +1,6 @@
 import type { TrainingPath } from './types';
 
-/** Protocol-specific training paths: GraphQL, gRPC, WebSocket. */
+/** Protocol-specific training paths: GraphQL, gRPC, WebSocket, SSE. */
 export const protocolPaths: TrainingPath[] = [
   {
     id: 'graphql',
@@ -295,6 +295,69 @@ export const protocolPaths: TrainingPath[] = [
             title: 'Workflow Runner Integration',
             description: 'Automate WS interactions with wsConnect, wsSend, wsReceive, and wsTrigger nodes in the Workflow Runner.',
             difficulty: 'advanced',
+          },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'sse',
+    name: 'SSE Studio',
+    icon: '📡',
+    description: 'Connect to Server-Sent Events streams, monitor live event feeds, filter and bookmark events, configure auth, and inspect connection lifecycle logs — all in one split-pane studio.',
+    phases: [
+      {
+        id: 1,
+        name: 'Getting Started',
+        manuals: [
+          {
+            title: 'SSE Studio — Overview',
+            description: 'Layout map, connection states, event log concepts, SSE wire format quick reference, and learning path.',
+            difficulty: 'easy',
+            manualPath: 'sse/sse.html',
+          },
+          {
+            title: 'Your First SSE Connection',
+            description: 'Enter an endpoint URL, connect, read the status strip, configure auto-reconnect and custom headers, and use env var interpolation.',
+            difficulty: 'easy',
+            manualPath: 'sse/sse-first-connection-easy.html',
+          },
+        ],
+      },
+      {
+        id: 2,
+        name: 'Event Log & Auth',
+        manuals: [
+          {
+            title: 'Event Log, Filtering & Bookmarks',
+            description: 'Search events by text, filter by event type, bookmark rows, export events as JSON, and inspect full event details with JSON auto-detection.',
+            difficulty: 'medium',
+            manualPath: 'sse/sse-event-filtering-medium.html',
+          },
+          {
+            title: 'Authentication for Protected Streams',
+            description: 'Configure Bearer tokens, API Key headers, and global auth profiles — with the "will send" resolved-auth preview and console handshake verification.',
+            difficulty: 'medium',
+            manualPath: 'sse/sse-auth-medium.html',
+          },
+          {
+            title: 'Console Tab & Lifecycle Logging',
+            description: 'Read lifecycle entries (connecting, handshake, error, reconnect), toggle structured/raw views, and use /help /clear /status /reconnect commands.',
+            difficulty: 'medium',
+            manualPath: 'sse/sse-console-medium.html',
+          },
+        ],
+      },
+      {
+        id: 3,
+        name: 'Advanced Topics',
+        manuals: [
+          {
+            title: 'Multi-Tab Streams & SSE Wire Format',
+            description: 'Run up to 8 independent SSE connections simultaneously, understand per-tab isolation and persistence, and master the W3C SSE wire format: fields, multi-line data, retry, and keep-alive comments.',
+            difficulty: 'advanced',
+            manualPath: 'sse/sse-multi-tab-advanced.html',
           },
         ],
       },

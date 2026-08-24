@@ -413,25 +413,77 @@ api-mock/
 
 **Folder:** `docs/training-manuals/sse/`
 
-### Scope (from e2e + source)
-- Connect to SSE endpoint
-- Multi-tab connections (independent streams)
-- Event log (filter by event type, search)
-- Event detail modal (data, type, id, retry)
-- Auth panel (Bearer, API Key)
-- SSE parser (custom event formats)
-- Console
+### Scope (from source audit — `src/features/sse/`, `e2e/sse-studio.spec.ts`)
+
+**Layout:**
+- Split-pane shell (`SseStudioShell`): resizable left / right panes
+- URL top bar + connect/disconnect button + state dot
+- Status strip below URL bar: event count, uptime, Last-Event-ID
+- Left tabs: **Connect** (URL, headers, auto-reconnect, max retries) | **Auth**
+- Right tabs: **Events** | **Console**
+- Max 8 tabs (`SSE_MAX_TABS`)
+- Per-tab state persisted via `sseStorage`
+
+**Connection:**
+- URL with `{{envVar}}` interpolation support
+- Custom request headers (KeyValueEditor with env vars)
+- Auto-reconnect toggle (default: on, max retries: 10)
+- Last-Event-ID tracking for resume-after-reconnect
+- States: idle → connecting → connected → disconnected → error
+
+**Event Log (right pane → Events tab):**
+- Virtualized list (28 px rows, `@tanstack/react-virtual`)
+- Per-row: bookmark star, timestamp, event-type badge (coloured by type), data preview (120 chars), byte size
+- Click row → inline Event Detail panel (type, Last-Event-ID, size, timestamp, data with JSON auto-detect + pretty-print)
+- Search by text (data + event type)
+- Filter by event type (dynamic dropdown from received types)
+- Bookmark filter (show starred only)
+- Clear all events button
+- Export events as JSON file
+- Max 10,000 events buffered
+
+**Auth tab (left pane):**
+- Wraps shared `AuthConfigPanel`
+- Modes: None, Bearer token, API Key, Global profile inherit
+- "Resolved as" preview (shows which header/param will be sent)
+- No browser-mode limitation (fetch-based, headers sent directly)
+
+**Console tab (right pane → Console tab):**
+- Shared `ConsolePanel` + `useSseConsole` observer
+- Logs connection lifecycle: connecting, handshake (with resolved URL + auth), connected, error, reconnecting, closed
+- Structured view + Raw view modes
+- Command input: `/help`, `/clear`, `/status`, `/reconnect` (SSE console commands)
+- Empty state when no entries
+
+**SSE Wire Format (W3C spec parser):**
+- Fields: `event:`, `data:`, `id:`, `retry:`, comments (`:`)
+- Multi-line data (multiple `data:` lines joined with `\n`)
+- BOM strip on first chunk
+- Default event type: `message` when no `event:` field
+- Partial-chunk buffering (`carry` mechanism)
 
 ### Planned Files
 
 ```
 sse/
-  sse.html                                  ← master overview
-  sse-first-connection-easy.html            ← connect + view live event stream
-  sse-event-filtering-medium.html           ← filter by type, search, inspect detail
-  sse-auth-medium.html                      ← auth header setup for protected endpoints
-  sse-multi-tab-advanced.html               ← independent SSE streams across tabs
+  sse.html                                  ← master overview + quick-reference
+  sse-first-connection-easy.html            ← connect, status strip, auto-reconnect, headers
+  sse-event-filtering-medium.html           ← event log, search, type filter, bookmarks, export, event detail (expanded scope)
+  sse-auth-medium.html                      ← auth modes: Bearer, API Key, global profile, "resolved as" preview
+  sse-console-medium.html                   ← NEW: console tab, lifecycle entries, /help /clear /status commands
+  sse-multi-tab-advanced.html               ← multi-tab independent streams, SSE wire format deep dive
 ```
+
+### Implementation Status
+
+| File | Status | Notes |
+|------|--------|-------|
+| `sse.html` | ✅ | |
+| `sse-first-connection-easy.html` | ✅ | |
+| `sse-event-filtering-medium.html` | ✅ | Expanded scope vs original plan |
+| `sse-auth-medium.html` | ✅ | |
+| `sse-console-medium.html` | ✅ | New file (console not in original plan) |
+| `sse-multi-tab-advanced.html` | ✅ | Adds wire format section |
 
 ---
 
@@ -491,7 +543,7 @@ gallery/
 | Environment Manager | `environments/` | `environments.html` | 5 | ✅ Done (6 files — overview + 5 tutorials) |
 | Results Dashboard | `results/` | `results.html` | 7 | ✅ Done (8 files — overview + 7 tutorials) |
 | API Mock (HTTP) | `api-mock/` | `api-mock.html` | 12 | ✅ Done (13 files — overview + 12 tutorials; 3 files renamed, 1 added) |
-| SSE | `sse/` | `sse.html` | 4 | 🔲 Not started |
+| SSE | `sse/` | `sse.html` | 5 | ✅ Done (6 files — overview + 5 tutorials; console tab added, event-filtering expanded) |
 | Webhooks | `webhooks/` | `webhooks.html` | 3 | 🔲 Not started |
 | Gallery | `gallery/` | `gallery.html` | 3 | 🔲 Not started |
 
