@@ -296,39 +296,116 @@ results/
 
 **Folder:** `docs/training-manuals/api-mock/`
 
-### Scope (from e2e + source)
-- Studio layout: route list, route editor, response rules
-- Add/edit/delete routes (method, path, status, headers, body)
-- Response rules (condition-based routing)
-- Journal (request log, replay, inspect)
-- Folder tree organization
-- Gallery import (load pre-built mock sets)
-- Server library (saved mock configurations)
-- Demo server presets (built-in mock APIs)
-- Export mock configuration
-- Expiry scheduling
-- **Auth-gated routes** — `security` predicate: Bearer token (`scheme = Bearer`), API Key header (`apiKeyName` present), returning 401 when absent
-- **GraphQL over HTTP mock** — `POST /graphql` route using `body → jsonPath_equals` on `$.operationName` / `$.query` to dispatch different stub responses per operation; no special GraphQL mode needed
-- **Stateful sequence** — `responseMode: 'state'` with `ApiMockStateTransitionV1`: multi-step lifecycle mocking (e.g. order → payment → confirmation) without any external store
-- **Webhook receiver** — inbound `POST /webhook` route; `json_subset` / `jsonPath_equals` body predicates to gate on `$.event` type; journal to inspect captured payloads; note that HMAC signature verification (`X-Hub-Signature-256`) is a planned engine feature not yet available
+### Scope (from e2e + source audit — corrected 2026-08-23)
 
-### Planned Files
+#### Core Studio
+- Studio layout: sidebar route list, route editor (5 tabs: Match / Response / Behavior / Examples / Documentation), runtime Dock panel
+- Add/edit/delete routes (method: ANY/GET/POST/PUT/PATCH/DELETE/OPTIONS/HEAD/TRACE; literal/glob/regex/prefix path matching)
+- Route folders: tree organisation, context menus, expand/collapse, drag-reorder
+- Undo toast for route edits (`useApiMockRouteUndo`)
+
+#### Match Tab — Predicates
+- 7 predicate sources: `pathParam`, `query`, `header`, `cookie`, `security`, `body`, `transport`
+- 24 predicate operators: exact/contains/prefix/suffix/regex/glob/present/absent; jsonPath_exists/jsonPath_equals/json_strict/json_subset/jsonSchema; xpath_exists/xpath_equals/xmlSchema; form_field_exact/form_field_regex/form_field_present; multipart_field/multipart_file; binary_exact/binary_sha256
+- Predicate combinator: ALL / ANY (nested groups)
+- **Pattern Toolbox** (🪄 wand button) — modal with 6 tabs: Regex builder, Path template, JSON body/JSONPath, XPath, Schema (JSON or XML), Query & headers
+- **Auth-gated routes** — `security` source predicate: Bearer (`scheme = Bearer`), API Key header (`apiKeyName`), returning 401 when absent; mTLS certificate subject matching
+
+#### Response Tab — Variants
+- **Response variants sidebar**: every route has ≥1 named response variant with `isDefault` flag
+- **Template expressions** in body: `{{variable}}`, `{{faker.name}}`, `{{request.headers.X-Foo}}`, `{{random.uuid}}` etc.; **Template Helper Modal** shows full function catalog
+- Content tabs per variant: Content (body, status, Content-Type preset), Headers (response headers), Timing, Faults, Selection, Outbound
+- **Timing tab**: fixed `delayMs`, `jitterMs` (random ±), `maxMatches` (auto-disable after N hits), `expiresAt` (calendar picker)
+- **Faults tab** (6 fault cards): None, Timeout / no-response (hold socket), Connection reset, Dribble chunks, Empty / close, Malformed HTTP framing
+- **Selection tab** (`ApiMockResponseSelectionPanel`): controls how variants are chosen — condition (`jsonPath_equals` on body), sequence (round-robin step), state (scenario-driven)
+- **Outbound tab** (`ApiMockVariantOutboundPanel`): post-response transforms (setHeader/appendHeader/removeHeader/setStatus/replaceBody) + outbound HTTP callbacks (POST/PUT/PATCH to a configured URL after each matched response)
+
+#### Simulate (no server needed)
+- **Simulate Modal** (⚗ flask button on each route): fire test requests against the current rule config without starting a live listener
+- 4 result tabs: Trace (per-predicate pass/fail with near-miss summary), Request (echoed), Rendered (template-evaluated body), Assertions
+- Saved samples: save named request/response pairs per route, replay with one click, export simulation trace
+
+#### Runtime Dock
+- **Transactions tab**: live request log (matched/unmatched/ambiguous outcomes); click row → detail (request, response, duration, policy, generation); "Create route from transaction", "Open in Requests", copy
+- **Conflicts tab** (`ApiMockConflictInspector`): overlap detection across rules, priority adjustment (↑/↓), acknowledge per-finding, priority policies (highest_priority vs reject_multiple, reject vs specificity_then_id)
+- **State tab**: current stateful-scenario state per route + counters + sequence positions; Reset State button
+- **Variables tab**: server-level key-value variables; add/edit/delete; values available as `{{variables.key}}` in templates
+- **Diagnostics tab** + **Console tab**: server health notices, raw log stream
+
+#### Import (7 sources)
+- cURL command → route + sample
+- OpenAPI / Swagger (JSON or YAML)
+- Catalog endpoints (select operations from API Catalog)
+- Requests collection (promote items or folders)
+- RedfireForge native export (round-trip)
+- WireMock mappings (stub definitions)
+- **HAR capture** (browser/devtools archive, auto-redacted) — **was missing from original plan**
+- Import mode: Merge / Replace / Copy; optional new folder assignment; import preview with diagnostics + loss report
+
+#### Server Library & Settings
+- Server library landing (`ApiMockLibraryLanding`): all saved servers with rule count, example count, open/parked status; max 8 tabs open simultaneously
+- **Server Settings Modal**: host (127.0.0.1 / localhost / 0.0.0.0), port, multiple-match policy (highest_priority / reject_multiple), equal-priority policy (reject / specificity_then_id), long-running max ms, fallback mode (static body / closest-match debug JSON / proxy to upstream)
+- mTLS settings; header-redact picker for journal sanitisation
+- Export: native JSON format; export confirm dialog; round-trip re-import via "RedfireForge export" source
+
+#### Advanced Patterns
+- **GraphQL over HTTP mock** — `POST /graphql` route, body `jsonPath_equals` on `$.operationName`/`$.query` to dispatch per-variant responses
+- **Stateful sequence** — Selection tab → state mode; `scenarios` panel tracks which step each route is at; reset rewinds to step 0
+- **Webhook receiver** — inbound `POST /webhook`, body `json_subset`/`jsonPath_equals` to gate on `$.event`; journal captures payloads; outbound callback on match fires confirmation back
+- **Outbound callbacks** after match — post-response HTTP webhook to another system; configurable method/URL/headers/body template; fire-and-forget, errors logged to console
+
+### Plan Corrections (2026-08-23)
+
+| # | Item | Original Plan | Correction |
+|---|------|--------------|------------|
+| 1 | `api-mock-response-rules-medium.html` | "conditional responses, status codes" | Renamed → `api-mock-response-variants-medium.html`; must cover the variant sidebar, selection modes, template expressions, Template Helper — not just status codes |
+| 2 | `api-mock-gallery-import-medium.html` | "import pre-built mock sets from gallery" | Renamed → `api-mock-import-medium.html`; gallery is one of 7 import sources; cover all sources |
+| 3 | `api-mock-advanced-routing-advanced.html` | "regex paths, dynamic responses, delays" | Renamed → `api-mock-faults-timing-advanced.html`; covers Pattern Toolbox, all 6 fault types, timing panel fields |
+| 4 | Simulate Modal | Missing from plan | New file: `api-mock-simulate-medium.html` — high-value feature |
+| 5 | HAR import | Missing from import source list | Added to import scope |
+| 6 | Template expressions + Helper Modal | Missing | Covered in `api-mock-response-variants-medium.html` |
+| 7 | Pattern Toolbox (🪄) | Missing | Covered in `api-mock-faults-timing-advanced.html` |
+| 8 | Response Faults (6 types) | Missing | Covered in `api-mock-faults-timing-advanced.html` |
+| 9 | Outbound callbacks | Missing | Covered in `api-mock-webhook-receiver-medium.html` |
+| 10 | Server variables | Missing | Covered in `api-mock-export-library-advanced.html` |
+| 11 | Conflict Inspector + priority | Missing | Covered in `api-mock-journal-medium.html` (dock tabs) |
+| 12 | Server Settings (host/port/policy/fallback/proxy/mTLS) | Missing | Covered in `api-mock-export-library-advanced.html` |
+
+### Planned Files (corrected — 13 files)
 
 ```
 api-mock/
-  api-mock.html                             ← master overview
-  api-mock-first-server-easy.html           ← create server, add route, test it
-  api-mock-response-rules-medium.html       ← conditional responses, status codes
-  api-mock-journal-medium.html              ← inspect request log, replay calls
-  api-mock-gallery-import-medium.html       ← import pre-built mock sets from gallery
-  api-mock-folder-organization-medium.html  ← folders, route grouping, naming
-  api-mock-auth-gated-medium.html           ← Bearer + API Key security predicates, 401 fallback
-  api-mock-graphql-medium.html              ← POST /graphql, jsonPath body matching per operation
-  api-mock-stateful-sequence-advanced.html  ← state mode, multi-step lifecycle transitions
-  api-mock-webhook-receiver-medium.html     ← inbound webhook capture, event routing, journal
-  api-mock-advanced-routing-advanced.html   ← regex paths, dynamic responses, delays
-  api-mock-export-library-advanced.html     ← save to library, export, share config
+  api-mock.html                             ← master overview: layout, studio sections, dock, key concepts
+  api-mock-first-server-easy.html           ← create server, add route, start listener, send first request
+  api-mock-response-variants-medium.html    ← variants sidebar, selection modes, template expressions, headers, faults overview
+  api-mock-simulate-medium.html             ← simulate without running: ⚗ modal, trace tab, near-miss, samples
+  api-mock-journal-medium.html              ← runtime dock: transactions, conflicts, priority, state, variables
+  api-mock-import-medium.html               ← all 7 import sources, merge/replace/copy, folder assignment, import review
+  api-mock-folder-organization-medium.html  ← folders, context menus, reorder, naming, undo toast
+  api-mock-auth-gated-medium.html           ← security predicate: Bearer, API Key, mTLS cert subject, 401 fallback
+  api-mock-graphql-medium.html              ← POST /graphql, jsonPath body dispatch per operation, variant conditions
+  api-mock-stateful-sequence-advanced.html  ← state/scenario panel, multi-step transitions, sequence mode, counters
+  api-mock-webhook-receiver-medium.html     ← inbound webhook capture, body predicates, journal + outbound callbacks
+  api-mock-faults-timing-advanced.html      ← faults (6 types), timing (delay/jitter/maxMatches/expiresAt), Pattern Toolbox
+  api-mock-export-library-advanced.html     ← library landing, tab management, server settings, variables, native export
 ```
+
+### Implementation Status
+| # | File | Status | Notes |
+|---|------|--------|-------|
+| 1 | `api-mock.html` | ✅ | |
+| 2 | `api-mock-first-server-easy.html` | ✅ | |
+| 3 | `api-mock-response-variants-medium.html` | ✅ | |
+| 4 | `api-mock-simulate-medium.html` | ✅ | |
+| 5 | `api-mock-journal-medium.html` | ✅ | |
+| 6 | `api-mock-import-medium.html` | ✅ | |
+| 7 | `api-mock-folder-organization-medium.html` | ✅ | |
+| 8 | `api-mock-auth-gated-medium.html` | ✅ | |
+| 9 | `api-mock-graphql-medium.html` | ✅ | |
+| 10 | `api-mock-stateful-sequence-advanced.html` | ✅ | |
+| 11 | `api-mock-webhook-receiver-medium.html` | ✅ | |
+| 12 | `api-mock-faults-timing-advanced.html` | ✅ | |
+| 13 | `api-mock-export-library-advanced.html` | ✅ | |
 
 ---
 
@@ -413,7 +490,7 @@ gallery/
 | WebSocket | `websocket/` | `websocket.html` | 13 | ✅ Done (13 files — overview + 12 tutorials) |
 | Environment Manager | `environments/` | `environments.html` | 5 | ✅ Done (6 files — overview + 5 tutorials) |
 | Results Dashboard | `results/` | `results.html` | 7 | ✅ Done (8 files — overview + 7 tutorials) |
-| API Mock (HTTP) | `api-mock/` | `api-mock.html` | 12 | 🔲 Not started |
+| API Mock (HTTP) | `api-mock/` | `api-mock.html` | 12 | ✅ Done (13 files — overview + 12 tutorials; 3 files renamed, 1 added) |
 | SSE | `sse/` | `sse.html` | 4 | 🔲 Not started |
 | Webhooks | `webhooks/` | `webhooks.html` | 3 | 🔲 Not started |
 | Gallery | `gallery/` | `gallery.html` | 3 | 🔲 Not started |

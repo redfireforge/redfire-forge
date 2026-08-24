@@ -787,6 +787,126 @@ export const contentPaths: TrainingPath[] = [
     ],
   },
 
+  /* ── API Mock (HTTP) ── */
+  {
+    id: 'api-mock',
+    name: 'API Mock Studio',
+    icon: '🔌',
+    description:
+      'Build and run HTTP mock servers: define routes with rich predicate matching, configure multi-variant responses with template expressions, simulate without running, and manage server libraries.',
+    phases: [
+      {
+        id: 1,
+        name: 'Getting Started',
+        manuals: [
+          {
+            title: 'API Mock Studio Overview',
+            description:
+              'Studio layout, route editor tabs, runtime dock tabs, import sources, and key concepts at a glance.',
+            difficulty: 'easy',
+            manualPath: 'api-mock/api-mock.html',
+          },
+          {
+            title: 'Your First Mock Server',
+            description:
+              'Create a server, add a route, start the live listener, and send your first request.',
+            difficulty: 'easy',
+            manualPath: 'api-mock/api-mock-first-server-easy.html',
+          },
+        ],
+      },
+      {
+        id: 2,
+        name: 'Core Features',
+        manuals: [
+          {
+            title: 'Response Variants & Templates',
+            description:
+              'Create multiple response variants per route, set selection modes (default/condition/sequence/state), and use template expressions in response bodies.',
+            difficulty: 'medium',
+            manualPath: 'api-mock/api-mock-response-variants-medium.html',
+          },
+          {
+            title: 'Simulate Without Running',
+            description:
+              'Use the ⚗ Simulate modal to fire test requests against rule config without starting a live server — read predicate traces and near-miss analysis.',
+            difficulty: 'medium',
+            manualPath: 'api-mock/api-mock-simulate-medium.html',
+          },
+          {
+            title: 'Journal & Conflict Inspector',
+            description:
+              'Inspect live transactions (matched/unmatched/ambiguous), detect and resolve conflicting routes, manage scenario state and server variables.',
+            difficulty: 'medium',
+            manualPath: 'api-mock/api-mock-journal-medium.html',
+          },
+          {
+            title: 'Import Routes',
+            description:
+              'Import from all 7 sources: cURL, OpenAPI, Catalog, Requests collection, native export, WireMock mappings, and HAR captures.',
+            difficulty: 'medium',
+            manualPath: 'api-mock/api-mock-import-medium.html',
+          },
+          {
+            title: 'Folder Organisation',
+            description:
+              'Organise routes into folders with context menus, drag-reorder, and the undo toast for safe editing.',
+            difficulty: 'medium',
+            manualPath: 'api-mock/api-mock-folder-organization-medium.html',
+          },
+          {
+            title: 'Auth-Gated Routes',
+            description:
+              'Gate routes on Bearer tokens, API Key headers, and mTLS certificate subjects using the security predicate source.',
+            difficulty: 'medium',
+            manualPath: 'api-mock/api-mock-auth-gated-medium.html',
+          },
+          {
+            title: 'GraphQL Over HTTP Mock',
+            description:
+              'Dispatch different variant responses per GraphQL operationName using jsonPath body predicates — no special GraphQL mode required.',
+            difficulty: 'medium',
+            manualPath: 'api-mock/api-mock-graphql-medium.html',
+          },
+          {
+            title: 'Webhook Receiver & Outbound Callbacks',
+            description:
+              'Capture inbound webhook payloads with body predicates, inspect them in the journal, and fire outbound HTTP callbacks after each matched response.',
+            difficulty: 'medium',
+            manualPath: 'api-mock/api-mock-webhook-receiver-medium.html',
+          },
+        ],
+      },
+      {
+        id: 3,
+        name: 'Advanced',
+        manuals: [
+          {
+            title: 'Stateful Sequences',
+            description:
+              'Use state and sequence selection modes to model multi-step workflows, inspect scenario state in the dock, and reset state between test runs.',
+            difficulty: 'advanced',
+            manualPath: 'api-mock/api-mock-stateful-sequence-advanced.html',
+          },
+          {
+            title: 'Faults, Timing & Pattern Toolbox',
+            description:
+              'Inject connection-level faults (6 types), configure timing delays and match limits, and use the Pattern Toolbox for regex, JSONPath, XPath, and schema matching.',
+            difficulty: 'advanced',
+            manualPath: 'api-mock/api-mock-faults-timing-advanced.html',
+          },
+          {
+            title: 'Library & Server Settings',
+            description:
+              'Manage the server library (park/open/delete), configure host, port, match policies, fallback mode, and export/import server configs natively.',
+            difficulty: 'advanced',
+            manualPath: 'api-mock/api-mock-export-library-advanced.html',
+          },
+        ],
+      },
+    ],
+  },
+
   /* ── Kafka Protocols ── */
   {
     id: 'kafka-protocols',
