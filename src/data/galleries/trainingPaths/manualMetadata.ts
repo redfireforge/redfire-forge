@@ -392,6 +392,16 @@ export const manualMetadata: ManualMetadata[] = [
   { manualPath: 'environments/environments-protocols-medium.html', addedAt: date('2026-08-23') },
   { manualPath: 'environments/environments-multi-run-advanced.html', addedAt: date('2026-08-23') },
   { manualPath: 'environments/environments-additional-env-medium.html', addedAt: date('2026-08-23') },
+
+  // Results Dashboard — added 2026-08-23
+  { manualPath: 'results/results.html', addedAt: date('2026-08-23') },
+  { manualPath: 'results/results-overview-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'results/results-request-details-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'results/results-sla-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'results/results-comparison-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'results/results-explorer-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'results/results-console-timeline-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'results/results-explorer-advanced.html', addedAt: date('2026-08-23') },
 ];
 
 /** Map of manualPath -> ManualMetadata for fast lookup */

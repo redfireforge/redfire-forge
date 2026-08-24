@@ -238,30 +238,57 @@ environments/
 
 **Folder:** `docs/training-manuals/results/`
 
-### Scope (from e2e + source)
-- Results explorer (flow canvas, node expand/collapse, fit-view)
-- Response detail modal (status, headers, body, assertion results)
-- Run comparison (side-by-side diff of two runs)
-- Timeline filters (filter by status, method, node type, tag)
-- Execution history (browse past runs, re-run, export)
-- Results console (live log during execution)
-- Parallel visualization (parallel branch results)
-- Sub-workflow drilldown
-- SLA overlay on results
+### Scope (from source audit — 2026-08-23)
+- Four-tab layout: **Overview** (metrics cards + histogram) · **Request Details** (grouped table) · **SLA** (target editor + check tree) · **Comparison & Trends** (baseline + regression + trend chart)
+- Run selector (`ResultsRunSelect`): dropdown with ★ baseline marker, SLA dot, regression dot, TPS, timestamp
+- Run type filter tabs: All Runs / 🧪 Test Runs / ⚡ Workflow Runs
+- Header actions: Refresh, Import Trace, **Results Explorer** (workflow runs only), Export JSON, Export CSV, Generate Report (HTML/JSON/Markdown), Delete
+- **Overview tab**: `ResultsMetricsCards` (TPS/TPM/TPH/TPD, avg/min/max, P50/P95/P99/P99.9, error rate), `SlaCompactBar`, `WorkflowResultsSummary` (workflow runs), `AggregatedTimingTable`, `ResponseTimeHistogram`
+- **Request Details tab**: pass/fail filter, search, group-by (scenario/tag/feature), sub-grouping, pagination, click row → response detail modal
+- **SLA tab**: `SlaTargetEditor` (add targets per metric/scope), `SlaStatusAccordion` (Feature → Scenario → Check tree), `SlaCompactBar`
+- **Comparison & Trends tab**: `BaselineListPanel` (mark/unmark/rename ★ baselines), `ResultsComparisonTrendsToolbar` (select compare run), `RunComparisonPanel` (metric deltas, scenario deltas, regression alerts, distribution overlay), `TrendChart`, `RegressionThresholdsPanel` (configurable warn/critical %/pp thresholds)
+- **Results Explorer modal** (`WorkflowResultsExplorerModal` / `FullPanelModal`):
+  - Left: `WorkflowExecutionCanvas` (flow diagram, pass/fail/skipped overlay, minimap, search, state filter: all/pass/fail/skipped)
+  - Toggle: Diagram view ↔ Timeline view (`ExecutionTimeline` — horizontal Gantt, zoom, hover tooltip)
+  - Right: `ResultsExplorerDetailPanel` tabs — Overview, Request, Response, Variables, Assertions
+  - Bottom: `IterationMatrixTable` (collapsible), `IterationPicker`
+  - `ResultsExplorerConsolePanel` (dockable/floating; log lines, node filter, search, match navigation)
+  - Sub-workflow drilldown via trace stack (breadcrumb back button)
+  - `MappingTraceOverlay` (data-mapper trace for mapper nodes)
+  - Export trace JSON button
 
-### Planned Files
+### Corrections vs Original Plan
+- **`results-console-easy.html`** — WRONG: the console is inside the Results Explorer modal (post-run replay), not a "live console during test run". Replaced by `results-sla-medium.html`.
+- **`results-timeline-filters-medium.html`** — WRONG: "filter by method" doesn't exist; the timeline is inside the Explorer, not the main dashboard. Replaced by `results-request-details-medium.html`.
+- **`results-explorer-easy.html`** — Difficulty wrong; the Explorer is a medium-difficulty feature. Renamed to `results-explorer-medium.html`.
+- **`results-history-medium.html`** — Too thin as a standalone; history = run selector + run type filter tabs. Folded into overview. Slot used for `results-console-timeline-medium.html`.
+- **Missing from plan**: Baseline management + regression detection (biggest gap), SLA target editor, trend chart, report generation, iteration matrix, data mapper overlay.
+
+### Planned Files (corrected)
 
 ```
 results/
-  results.html                              ← master overview
-  results-explorer-easy.html                ← navigate canvas, expand nodes, view response
-  results-console-easy.html                 ← live console during test run
-  results-timeline-filters-medium.html      ← filter by status/method/node
-  results-comparison-medium.html            ← compare two runs side-by-side
-  results-history-medium.html               ← browse, re-run, export past runs
-  results-parallel-advanced.html            ← visualize parallel branch execution
-  results-sub-workflow-advanced.html        ← drill into sub-workflow results
+  results.html                              ← master overview (4-tab layout, run selector, header actions)    [✅]
+  results-overview-easy.html                ← Overview tab: metrics, SLA bar, histogram, export, delete        [✅]
+  results-request-details-medium.html       ← Request Details tab: filter/search/group/paginate, row detail    [✅]
+  results-sla-medium.html                   ← SLA tab: add targets, check tree, compact bar, scopes            [✅]
+  results-comparison-medium.html            ← Comparison & Trends: baseline, regression, thresholds, trend     [✅]
+  results-explorer-medium.html              ← Results Explorer: canvas, node detail, iterations, console       [✅]
+  results-console-timeline-medium.html      ← Explorer: console panel modes + timeline view + zoom             [✅]
+  results-explorer-advanced.html            ← Explorer: sub-workflow drilldown, parallel, mapper, export       [✅]
 ```
+
+### Implementation Status
+| # | File | Status | Notes |
+|---|------|--------|-------|
+| 1 | `results.html` | ✅ | Overview: layout, tabs, run selector, header actions |
+| 2 | `results-overview-easy.html` | ✅ | Metrics cards, SLA bar, histogram, export, delete |
+| 3 | `results-request-details-medium.html` | ✅ | Filter/search/group, pagination, response detail modal |
+| 4 | `results-sla-medium.html` | ✅ | SLA target editor, check tree, scopes |
+| 5 | `results-comparison-medium.html` | ✅ | Baselines, regression, thresholds, trend chart |
+| 6 | `results-explorer-medium.html` | ✅ | Canvas, node detail, iterations, console |
+| 7 | `results-console-timeline-medium.html` | ✅ | Console modes, timeline view, zoom |
+| 8 | `results-explorer-advanced.html` | ✅ | Sub-workflow drilldown, parallel, mapper, export |
 
 ---
 
@@ -385,7 +412,7 @@ gallery/
 | gRPC | `grpc/` | `grpc.html` | 10 | ✅ Done (11 files — overview + 10 tutorials) |
 | WebSocket | `websocket/` | `websocket.html` | 13 | ✅ Done (13 files — overview + 12 tutorials) |
 | Environment Manager | `environments/` | `environments.html` | 5 | ✅ Done (6 files — overview + 5 tutorials) |
-| Results Dashboard | `results/` | `results.html` | 7 | 🔲 Not started |
+| Results Dashboard | `results/` | `results.html` | 7 | ✅ Done (8 files — overview + 7 tutorials) |
 | API Mock (HTTP) | `api-mock/` | `api-mock.html` | 12 | 🔲 Not started |
 | SSE | `sse/` | `sse.html` | 4 | 🔲 Not started |
 | Webhooks | `webhooks/` | `webhooks.html` | 3 | 🔲 Not started |
