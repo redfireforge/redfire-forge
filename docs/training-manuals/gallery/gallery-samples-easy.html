@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Browsing the Gallery — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; padding: 14px; border-radius: 6px; font-size: 12px; overflow-x: auto; margin: 10px 0; font-family: 'JetBrains Mono', monospace; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f57f17; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 14px; margin: 14px 0; }
+  .step-num { flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; background: #e63946; color: #fff; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+  .step-body { flex: 1; padding-top: 3px; }
+  .step-body strong { display: block; margin-bottom: 2px; font-size: 13.5px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>Browsing the Gallery</h1>
+  <p><span class="badge badge-easy">Easy</span> &nbsp; Domain filters · Search · Cards · Detail panel · Preview · Related manuals</p>
+
+  <h2>Overview</h2>
+  <p>In <strong>Samples mode</strong> (the default), the Gallery is a filterable, searchable grid of pre-built entries. This manual walks through how to navigate domains, narrow results with filters, read a card, open the detail panel, and find the training manual for a sample.</p>
+
+  <h2>Step-by-Step Walkthrough</h2>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <strong>Open the Gallery</strong>
+      Click the <strong>Gallery</strong> icon in the top navigation bar. The gallery opens in Samples mode with all 9 domains visible — you should see many cards.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <strong>Filter by domain</strong>
+      In the left sidebar, click one of the domain buttons (e.g. <strong>Tests 🧪</strong>). The grid immediately updates to show only entries from that domain. The active domain button is highlighted. Click <strong>All</strong> to return to the full view.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <strong>Search by keyword</strong>
+      Type in the search bar at the top of the gallery (placeholder: "Search gallery…"). The grid filters in real time across name, description, tags, and category. Try searching for "pokemon" or "auth" to see it narrow immediately. Clear the field to reset.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <strong>Refine with sidebar filters</strong>
+      Below the domain buttons in the sidebar are additional dropdowns:
+      <ul>
+        <li><strong>Category</strong> — sub-groups within the selected domain (e.g. "CRUD", "Auth")</li>
+        <li><strong>Difficulty</strong> — All / Easy / Medium / Advanced</li>
+        <li><strong>Live API</strong> — filter to samples that call a specific external API hostname</li>
+        <li><strong>Tag</strong> — filter by keyword tag</li>
+      </ul>
+      Drag the sidebar's right edge to resize it if needed.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <strong>Browse the card grid</strong>
+      Cards are paginated — 12 per page by default. Use the <strong>← Previous / Next →</strong> pagination controls at the bottom when there are more results than fit on one page. Each card shows: icon, name, description, difficulty dots, domain badge (in All view), and tags.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">6</div>
+    <div class="step-body">
+      <strong>Click a card to open the detail panel</strong>
+      Clicking any card opens the <strong>detail panel</strong> on the right. The panel stays open until you click a different card or click the ✕ close button (top-right of the panel). Clicking the same card again also closes it.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">7</div>
+    <div class="step-body">
+      <strong>Read the detail panel</strong>
+      The panel shows:
+      <ul>
+        <li><strong>Full description</strong> and difficulty dots</li>
+        <li><strong>Tags</strong> — keyword chips</li>
+        <li><strong>Live API badges</strong> — each external API the sample calls, shown as a hostname chip. Useful for checking if a live internet connection is required.</li>
+        <li><strong>Action buttons</strong> — primary (e.g. "Load Workflow") and, for Requests, a secondary "Try It" button</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">8</div>
+    <div class="step-body">
+      <strong>Inspect the preview</strong>
+      Below the action buttons is a <strong>Preview</strong> area:
+      <ul>
+        <li>For <strong>Requests</strong>: a rich `RequestPreview` showing method, URL, headers, and response structure</li>
+        <li>For <strong>other domains</strong>: up to 800 characters of the raw JSON payload (the sample data itself)</li>
+      </ul>
+      When the preview is plain text, an <strong>Expand ↗</strong> button opens a full-screen modal so you can read the whole content.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">9</div>
+    <div class="step-body">
+      <strong>Find related training manuals</strong>
+      At the bottom of the detail panel, the <strong>Training Manuals</strong> section (📖 header) lists HTML manuals linked to this sample. Each link shows the manual title and difficulty dots. Click a link to open the training manual PDF/HTML in a new tab — it provides step-by-step instructions for using this sample.
+    </div>
+  </div>
+
+  <h2>Pagination</h2>
+  <p>When more than 12 entries match the current filter/search combination, the gallery paginates them 12 at a time. The pagination controls appear at the bottom of the card grid. Changing the domain filter or search query resets to page 1 automatically.</p>
+
+  <h2>Difficulty Dots Reference</h2>
+  <table>
+    <thead><tr><th>Dots</th><th>Level</th><th>What to Expect</th></tr></thead>
+    <tbody>
+      <tr><td>● ○ ○</td><td>Easy</td><td>Simple, single-concept samples — good starting points</td></tr>
+      <tr><td>● ● ○</td><td>Medium</td><td>Multi-step samples with more configuration or data</td></tr>
+      <tr><td>● ● ●</td><td>Advanced</td><td>Complex patterns requiring deeper feature knowledge</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Smoke-Test Checklist</h2>
+  <ol>
+    <li>Open Gallery — verify multiple cards are visible</li>
+    <li>Click <strong>Workflows ⚡</strong> domain button — verify only workflow cards show</li>
+    <li>Type "pokemon" in search — verify cards related to Pokémon appear</li>
+    <li>Clear search — verify all domain-filtered cards return</li>
+    <li>Click a card — verify detail panel opens with name, description, difficulty, and action button</li>
+    <li>Verify Live API badges appear for entries that call external APIs</li>
+    <li>Verify the Training Manuals section appears (at least for Requests domain entries)</li>
+    <li>Click Expand ↗ on a non-Requests card preview — verify full-screen modal opens</li>
+    <li>Close detail panel with ✕ — verify panel disappears</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · Gallery — Browsing the Gallery · August 2026</footer>
+</body>
+</html>
