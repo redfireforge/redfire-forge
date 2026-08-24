@@ -416,6 +416,16 @@ export const manualMetadata: ManualMetadata[] = [
   { manualPath: 'api-mock/api-mock-webhook-receiver-medium.html', addedAt: date('2026-08-23') },
   { manualPath: 'api-mock/api-mock-faults-timing-advanced.html', addedAt: date('2026-08-23') },
   { manualPath: 'api-mock/api-mock-export-library-advanced.html', addedAt: date('2026-08-23') },
+
+  // ============================================================================
+  // SSE Studio Path
+  // ============================================================================
+  { manualPath: 'sse/sse.html', addedAt: date('2026-08-23') },
+  { manualPath: 'sse/sse-first-connection-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'sse/sse-event-filtering-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'sse/sse-auth-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'sse/sse-console-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'sse/sse-multi-tab-advanced.html', addedAt: date('2026-08-23') },
 ];
 
 /** Map of manualPath -> ManualMetadata for fast lookup */

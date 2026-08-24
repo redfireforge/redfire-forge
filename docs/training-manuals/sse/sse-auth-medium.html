@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SSE Studio — Authentication for Protected Streams — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f57f17; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 14px; margin: 14px 0; align-items: flex-start; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>Authentication for Protected SSE Streams</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; Auth tab · Bearer token · API Key · Global auth profiles · "Will send" preview · Dot indicator</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Switch to the Auth tab in the left pane</li>
+    <li>Configure a Bearer token for a protected SSE endpoint</li>
+    <li>Configure an API Key (header or query parameter)</li>
+    <li>Inherit auth from a global auth profile</li>
+    <li>Read the "Will send" resolved-auth preview</li>
+    <li>Identify when auth is configured via the Auth tab dot indicator</li>
+  </ul>
+
+  <div class="callout-tip callout">
+    <strong>SSE auth advantage over WebSocket</strong>
+    SSE connects via a standard HTTP GET request, so the studio can inject custom headers (Authorization, X-API-Key, etc.) directly in the fetch call — no proxy is required. WebSocket auth needs a proxy workaround because the browser's native WebSocket API does not allow custom upgrade headers.
+  </div>
+
+  <h2>Opening the Auth Tab</h2>
+  <div class="step"><div class="step-num">1</div><div class="step-body">In the left pane, click the <strong>Auth</strong> tab (second tab in the left-pane tab strip, after <strong>Connect</strong>).</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">The Auth panel loads with the current auth mode. Default is <strong>None</strong>. When auth is configured, a small dot appears on the Auth tab label so you can see at a glance that this connection uses auth.</div></div>
+
+  <h2>Auth Modes at a Glance</h2>
+  <table>
+    <thead><tr><th>Mode</th><th>What Gets Sent</th><th>When to Use</th></tr></thead>
+    <tbody>
+      <tr><td>None</td><td>Nothing</td><td>Public endpoints with no authentication</td></tr>
+      <tr><td>Bearer token</td><td><code>Authorization: Bearer &lt;token&gt;</code> header</td><td>OAuth 2, JWT-protected streams</td></tr>
+      <tr><td>API Key — Header</td><td>Custom header, e.g. <code>X-API-Key: &lt;key&gt;</code></td><td>Services that use a named header for auth</td></tr>
+      <tr><td>API Key — Query param</td><td>URL appended with <code>?api_key=&lt;key&gt;</code></td><td>Services that accept the key in the URL</td></tr>
+      <tr><td>Global profile</td><td>Whatever the selected profile resolves to</td><td>Team-shared credentials stored in Environment Manager</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Step-by-Step Walkthrough</h2>
+
+  <h3>Part 1 — Bearer Token</h3>
+  <div class="step"><div class="step-num">3</div><div class="step-body">In the Auth tab, open the <strong>Auth type</strong> dropdown and select <strong>Bearer token</strong>.</div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body">A token input field appears. Enter your token (for this walkthrough use a placeholder such as <code>my-test-jwt-token</code>). The token is stored masked — click the eye icon to reveal it.</div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body">Look at the <strong>Will send</strong> section near the bottom of the auth panel. It shows the resolved description of the auth, for example: <code>Authorization: Bearer my-test-jwt-token</code>. This confirms exactly which header will be included in the SSE GET request.</div></div>
+  <div class="step"><div class="step-num">6</div><div class="step-body">Switch to the <strong>Connect</strong> tab — the Auth tab label now has a presence dot (a small coloured circle) indicating auth is configured. This is useful when you have multiple tabs open and need to know which connections use auth.</div></div>
+  <div class="step"><div class="step-num">7</div><div class="step-body">Disconnect and reconnect to apply the new auth. Open the Console tab (right pane) — the handshake log entry will show the resolved URL and the auth header that was sent.</div></div>
+
+  <h3>Part 2 — API Key in a Custom Header</h3>
+  <div class="step"><div class="step-num">8</div><div class="step-body">Go back to the Auth tab. Change the auth type to <strong>API Key</strong>.</div></div>
+  <div class="step"><div class="step-num">9</div><div class="step-body">Two new fields appear: <strong>Header name</strong> (default: <code>X-API-Key</code>) and <strong>Key value</strong>. Enter a header name your API uses, e.g. <code>X-Service-Token</code>, and a value.</div></div>
+  <div class="step"><div class="step-num">10</div><div class="step-body">Confirm the <strong>Will send</strong> preview updates to show <code>X-Service-Token: &lt;value&gt;</code>.</div></div>
+  <div class="step"><div class="step-num">11</div><div class="step-body">Reconnect and verify in the Console tab that the custom header appears in the handshake entry.</div></div>
+
+  <h3>Part 3 — Global Auth Profile</h3>
+  <div class="step"><div class="step-num">12</div><div class="step-body">Global auth profiles are created in the Environment Manager. If your team has shared credentials stored there (e.g. a staging Bearer token), you can inherit them here instead of entering the token directly in every SSE tab.</div></div>
+  <div class="step"><div class="step-num">13</div><div class="step-body">In the Auth tab, change the auth type to <strong>Global profile</strong>. A dropdown appears listing all profiles available in the current environment.</div></div>
+  <div class="step"><div class="step-num">14</div><div class="step-body">Select a profile. The <strong>Will send</strong> preview shows the resolved auth from that profile — e.g. <code>Authorization: Bearer &lt;resolved-token&gt;</code>.</div></div>
+  <div class="step"><div class="step-num">15</div><div class="step-body">When the profile token is rotated in Environment Manager, all SSE tabs using that profile automatically pick up the new token on the next reconnect.</div></div>
+
+  <h3>Part 4 — Verify and Debug</h3>
+  <div class="step"><div class="step-num">16</div><div class="step-body">If your endpoint returns HTTP 401, the studio enters the <strong>error</strong> state (red dot) and the Console tab shows an error entry. Check the handshake log to verify the auth header that was actually sent.</div></div>
+  <div class="step"><div class="step-num">17</div><div class="step-body">Common debugging steps:
+    <ol>
+      <li>Open the Console tab — expand the handshake entry to see the full request headers</li>
+      <li>Check the "Will send" preview on the Auth tab — does it show the correct token?</li>
+      <li>Verify the token has not expired (check expiry in Environment Manager if using a profile)</li>
+      <li>Try connecting with auth mode set to None to confirm the endpoint is reachable without auth, then add auth back</li>
+    </ol>
+  </div></div>
+
+  <h2>Auth Configuration Quick Reference</h2>
+  <table>
+    <thead><tr><th>Scenario</th><th>Auth type to choose</th><th>What to fill in</th></tr></thead>
+    <tbody>
+      <tr><td>OAuth 2 / JWT protected stream</td><td>Bearer token</td><td>Access token or JWT string</td></tr>
+      <tr><td>API with <code>X-API-Key</code> header</td><td>API Key → Header</td><td>Header name: <code>X-API-Key</code>, value: your key</td></tr>
+      <tr><td>API with <code>?api_key=</code> in URL</td><td>API Key → Query param</td><td>Param name: <code>api_key</code>, value: your key</td></tr>
+      <tr><td>Team shared credentials</td><td>Global profile</td><td>Select the profile from the dropdown</td></tr>
+      <tr><td>Public endpoint</td><td>None</td><td>Nothing — leave as default</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout-warn callout">
+    <strong>Token security</strong>
+    Tokens are stored per-tab in the browser's local storage for the current session. Do not enter production secrets into a shared or public browser profile. Use global auth profiles backed by environment-level secrets instead.
+  </div>
+
+  <h2>Practice Exercises</h2>
+  <ol>
+    <li>Configure Bearer auth, connect, open the Console tab, and confirm the <code>Authorization</code> header appears in the handshake log entry.</li>
+    <li>Switch between Bearer and API Key auth on the same tab without disconnecting, then reconnect and compare console entries.</li>
+    <li>If you have a global auth profile: select it, check the "Will send" preview, and confirm the profile's resolved value matches what you see in the Console handshake entry.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · SSE Studio — Authentication for Protected Streams · August 2026</footer>
+</body>
+</html>
