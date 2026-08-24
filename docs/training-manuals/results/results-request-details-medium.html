@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Results Dashboard: Request Details Tab — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>Results Dashboard: Request Details Tab</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; Filter · Search · Group · Paginate · Inspect Individual Results</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Switch to the Request Details tab and understand the table layout</li>
+    <li>Filter requests by pass/fail status and by scenario tag</li>
+    <li>Search by scenario name or request name</li>
+    <li>Group results by scenario, tag, or feature group</li>
+    <li>Add sub-grouping for two-level hierarchies</li>
+    <li>Expand a group to see individual rows; paginate through large result sets</li>
+    <li>Click a row to open the Response Detail modal and read status, headers, body, and assertions</li>
+  </ul>
+
+  <h2>Step-by-Step Walkthrough</h2>
+
+  <h3>Part A — Open the Request Details Tab</h3>
+
+  <div class="step"><div class="step-num">1</div><div class="step-body">In the Results Dashboard, click the <strong>Request Details</strong> tab (test ID <code>results-tab-requests</code>). The tab content shows a toolbar and a grouped table.</div></div>
+
+  <h3>Part B — Filter by Pass / Fail Status</h3>
+
+  <div class="step"><div class="step-num">2</div><div class="step-body">In the tab toolbar, find the <strong>status filter dropdown</strong> (default: "All"). Its options are:
+    <ul style="margin-top: 6px">
+      <li><strong>All</strong> — show every request result</li>
+      <li><strong>Passed</strong> — only results where all assertions succeeded</li>
+      <li><strong>Failed</strong> — only results with at least one failed assertion or HTTP error</li>
+      <li><strong>Failed (data rows)</strong> — failed results that came from a data-driven test row</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Select <strong>Failed</strong>. The table immediately shows only failed requests. The group header counts update to reflect the filtered subset.</div></div>
+
+  <h3>Part C — Filter by Scenario Tag</h3>
+
+  <div class="step"><div class="step-num">4</div><div class="step-body">Next to the status filter, find the <strong>tag filter dropdown</strong>. It lists all unique scenario tags on results in the current run (e.g. <code>smoke</code>, <code>auth</code>, <code>regression</code>).</div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body">Select a tag. Only results whose scenario carries that tag are shown. Clear the tag filter by selecting <em>All tags</em>.</div></div>
+
+  <h3>Part D — Search by Name</h3>
+
+  <div class="step"><div class="step-num">6</div><div class="step-body">Find the <strong>search input</strong> in the toolbar. Type part of a scenario name, e.g. <code>user</code>. The table updates live to show only groups/rows matching the search term.</div></div>
+
+  <h3>Part E — Change Group-By</h3>
+
+  <div class="step"><div class="step-num">7</div><div class="step-body">Find the <strong>Group by</strong> dropdown. Default options include:
+    <ul style="margin-top: 6px">
+      <li><strong>Scenario</strong> — group by test scenario name</li>
+      <li><strong>Tag</strong> — group by the first scenario tag</li>
+      <li><strong>Feature Group</strong> — group by the feature group name (when present)</li>
+      <li><strong>None (flat)</strong> — all results in a flat list, no grouping</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">8</div><div class="step-body">Select <strong>Feature Group</strong>. The table re-groups by feature group. Each header row shows the group name, count, pass/fail indicator.</div></div>
+  <div class="step"><div class="step-num">9</div><div class="step-body">A <strong>Sub-group by</strong> dropdown appears. Select <strong>Scenario</strong> as a sub-group. You now have Feature Group → Scenario two-level grouping. Expand a feature group, then expand a scenario within it to reach individual request rows.</div></div>
+
+  <h3>Part F — Expand Groups and Navigate Rows</h3>
+
+  <div class="step"><div class="step-num">10</div><div class="step-body">Click a group header row. It expands to show individual result rows. Each row shows: result index, scenario name, status code, pass/fail indicator, response time, and (if failed) a short error snippet.</div></div>
+  <div class="step"><div class="step-num">11</div><div class="step-body">Use the <strong>Expand All</strong> / <strong>Collapse All</strong> buttons (if visible) to toggle all groups at once.</div></div>
+  <div class="step"><div class="step-num">12</div><div class="step-body">If there are more than 50 results visible at once, pagination controls appear at the bottom: <strong>← Prev / Next →</strong>. Click them to navigate pages within the expanded groups.</div></div>
+
+  <h3>Part G — Inspect a Single Result</h3>
+
+  <div class="step"><div class="step-num">13</div><div class="step-body">Click any individual result row (the row highlights as clickable). A <strong>Response Detail modal</strong> opens on the right (or as a slide-in panel).</div></div>
+  <div class="step"><div class="step-num">14</div><div class="step-body">The modal has multiple sections:
+    <ul style="margin-top: 6px">
+      <li><strong>Status</strong> — HTTP status code and text (e.g. <code>200 OK</code>, <code>404 Not Found</code>)</li>
+      <li><strong>Headers</strong> — all response headers as a key/value list</li>
+      <li><strong>Body</strong> — response body with syntax highlighting (JSON tree viewer)</li>
+      <li><strong>Assertions</strong> — each assertion with its expected value, actual value, and pass/fail</li>
+      <li><strong>Request</strong> — the outgoing method, URL, request headers, and request body</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">15</div><div class="step-body">Close the modal (click × or press <kbd>Escape</kbd>). Select a different row to compare results.</div></div>
+
+  <h2>Toolbar Controls Reference</h2>
+  <table>
+    <thead><tr><th>Control</th><th>Options</th><th>Effect</th></tr></thead>
+    <tbody>
+      <tr><td>Status filter</td><td>All / Passed / Failed / Failed (data rows)</td><td>Show only matching results</td></tr>
+      <tr><td>Tag filter</td><td>All tags + any scenario tag on results</td><td>Show only results in scenarios with that tag</td></tr>
+      <tr><td>Search</td><td>Free text</td><td>Match scenario or request name containing search term</td></tr>
+      <tr><td>Group by</td><td>Scenario / Tag / Feature Group / None</td><td>Primary grouping axis</td></tr>
+      <tr><td>Sub-group by</td><td>Same options minus current group-by</td><td>Secondary grouping axis inside primary</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Fastest path to failures</strong>
+    Set <strong>Status → Failed</strong>, leave group-by as <strong>Scenario</strong>, then expand each scenario that has red rows. Click the first failing row to open the Response Detail modal and check its assertion failures.
+  </div>
+
+  <h2>Self-Practice Exercises</h2>
+  <ol>
+    <li>Group by <strong>Feature Group</strong> with sub-group <strong>Scenario</strong>. Count how many groups have at least one failure.</li>
+    <li>Search for a specific endpoint name. Then combine the search with the <strong>Failed</strong> filter to find only failed calls to that endpoint.</li>
+    <li>Click a failed result row. In the Response Detail modal, find the assertion that failed and identify the expected vs actual value.</li>
+    <li>Switch to <strong>None (flat)</strong> grouping and paginate to the second page (if more than 50 results).</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · Results Dashboard — Request Details Tab · August 2026</footer>
+</body>
+</html>
