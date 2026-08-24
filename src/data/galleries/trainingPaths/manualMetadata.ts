@@ -402,6 +402,20 @@ export const manualMetadata: ManualMetadata[] = [
   { manualPath: 'results/results-explorer-medium.html', addedAt: date('2026-08-23') },
   { manualPath: 'results/results-console-timeline-medium.html', addedAt: date('2026-08-23') },
   { manualPath: 'results/results-explorer-advanced.html', addedAt: date('2026-08-23') },
+  // API Mock (HTTP) — added 2026-08-23
+  { manualPath: 'api-mock/api-mock.html', addedAt: date('2026-08-23') },
+  { manualPath: 'api-mock/api-mock-first-server-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'api-mock/api-mock-response-variants-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'api-mock/api-mock-simulate-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'api-mock/api-mock-journal-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'api-mock/api-mock-import-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'api-mock/api-mock-folder-organization-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'api-mock/api-mock-auth-gated-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'api-mock/api-mock-graphql-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'api-mock/api-mock-stateful-sequence-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'api-mock/api-mock-webhook-receiver-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'api-mock/api-mock-faults-timing-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'api-mock/api-mock-export-library-advanced.html', addedAt: date('2026-08-23') },
 ];
 
 /** Map of manualPath -> ManualMetadata for fast lookup */

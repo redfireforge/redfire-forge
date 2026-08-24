@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Mock: Folder Organisation — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>API Mock: Folder Organisation</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; Folder Tree · Context Menus · Drag Reorder · Undo Toast</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Create folders to group related routes</li>
+    <li>Move routes into folders by drag or context menu</li>
+    <li>Rename and delete folders</li>
+    <li>Reorder routes within a folder by dragging</li>
+    <li>Use the undo toast to recover from accidental edits</li>
+  </ul>
+
+  <h2>The Route Sidebar Structure</h2>
+  <p>The left sidebar shows a tree of <strong>folders</strong> at the top and <strong>uncategorised routes</strong> below. Folders collapse/expand with the ▶ chevron. Folders are purely organisational — they do not affect route priority or matching.</p>
+
+  <h2>Part A — Create a Folder</h2>
+
+  <div class="step"><div class="step-num">1</div><div class="step-body">Right-click any blank area in the sidebar (not on a route). Choose <strong>New Folder</strong> from the context menu. Alternatively, click the <strong>+</strong> folder icon at the top of the sidebar.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Type a name for the folder — e.g. <em>Auth Routes</em> — and press <kbd>Enter</kbd>. The folder appears at the top of the list.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Create two more folders: <em>User Endpoints</em> and <em>Error Scenarios</em>.</div></div>
+
+  <h2>Part B — Move Routes into Folders</h2>
+
+  <div class="step"><div class="step-num">4</div><div class="step-body"><strong>Drag method</strong>: click and hold a route row, then drag it onto a folder name. Release when the folder is highlighted. The route moves into the folder.</div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body"><strong>Context menu method</strong>: right-click a route → <strong>Move to folder</strong> → select a folder from the sub-menu. If no folders exist yet, you are prompted to create one.</div></div>
+  <div class="step"><div class="step-num">6</div><div class="step-body">Move your <code>GET /login</code> and <code>POST /logout</code> routes into <em>Auth Routes</em>. Move all user-related routes into <em>User Endpoints</em>.</div></div>
+
+  <h2>Part C — Rename a Folder</h2>
+
+  <div class="step"><div class="step-num">7</div><div class="step-body"><strong>Double-click</strong> the folder name to enter edit mode. Type the new name and press <kbd>Enter</kbd> or click elsewhere to confirm. Press <kbd>Esc</kbd> to cancel.</div></div>
+  <div class="step"><div class="step-num">8</div><div class="step-body">Alternatively, right-click the folder → <strong>Rename</strong>.</div></div>
+
+  <h2>Part D — Reorder Routes</h2>
+
+  <div class="step"><div class="step-num">9</div><div class="step-body">Within a folder, drag route rows up or down to reorder them. The order affects how conflicts are displayed in the Conflicts inspector (routes higher in the list have higher priority by default).</div></div>
+  <div class="step"><div class="step-num">10</div><div class="step-body">You can also drag routes between folders in the same drag operation — drop onto the target folder or between two routes inside an expanded folder.</div></div>
+
+  <h2>Part E — Delete a Folder</h2>
+
+  <div class="step"><div class="step-num">11</div><div class="step-body">Right-click a folder → <strong>Delete folder</strong>. A confirmation dialog appears with two options:
+    <ul style="margin-top: 6px">
+      <li><strong>Delete routes too</strong> — removes the folder and all routes inside it</li>
+      <li><strong>Move routes to root</strong> — removes the folder but keeps routes (moves them to uncategorised)</li>
+    </ul>
+  </div></div>
+
+  <h2>The Undo Toast</h2>
+
+  <div class="step"><div class="step-num">12</div><div class="step-body">After any destructive action (delete route, delete folder, move route), a <strong>toast notification</strong> appears in the bottom-right corner with an <strong>Undo</strong> button. You have 5 seconds to click it.</div></div>
+  <div class="step"><div class="step-num">13</div><div class="step-body">To test: delete a route, then immediately click <strong>Undo</strong> in the toast. The route and its entire configuration are restored.</div></div>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ Undo window</strong>
+    The undo toast expires after 5 seconds. After that, the action cannot be undone. For large deletions, verify your selection before confirming.
+  </div>
+
+  <h2>Context Menu Reference</h2>
+  <table>
+    <thead><tr><th>Target</th><th>Right-click action</th><th>Result</th></tr></thead>
+    <tbody>
+      <tr><td>Sidebar background</td><td>New Folder</td><td>Creates a new folder</td></tr>
+      <tr><td>Folder</td><td>Rename</td><td>Edits the folder name inline</td></tr>
+      <tr><td>Folder</td><td>Delete folder</td><td>Prompts: delete routes too / move to root</td></tr>
+      <tr><td>Route row</td><td>Move to folder</td><td>Shows sub-menu of folders</td></tr>
+      <tr><td>Route row</td><td>Rename</td><td>Edits the route name inline</td></tr>
+      <tr><td>Route row</td><td>Duplicate</td><td>Creates a copy of the route in the same folder</td></tr>
+      <tr><td>Route row</td><td>Delete</td><td>Deletes route (undo available for 5 s)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Organisation tip</strong>
+    Use folders to mirror your API's resource groups (e.g. <em>Users</em>, <em>Orders</em>, <em>Webhooks</em>) or by scenario type (<em>Happy Paths</em>, <em>Error Cases</em>, <em>Auth Flows</em>). Collapsed folders keep large route libraries manageable.
+  </div>
+
+  <h2>Self-Practice Exercises</h2>
+  <ol>
+    <li>Create 10 dummy routes and organise them into 3 folders. Verify the sidebar shows a clean tree.</li>
+    <li>Drag a route from one folder to another. Verify it appears in the destination folder.</li>
+    <li>Delete a folder using "Move routes to root". Verify the routes are now uncategorised.</li>
+    <li>Delete a route and click Undo within 5 seconds. Verify the route is restored with all its configuration intact.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · API Mock Studio — Folder Organisation · August 2026</footer>
+</body>
+</html>
