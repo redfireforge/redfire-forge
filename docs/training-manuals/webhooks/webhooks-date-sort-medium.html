@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Webhook Date Navigation &amp; Sort Order — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; padding: 14px; border-radius: 6px; font-size: 12px; overflow-x: auto; margin: 10px 0; font-family: 'JetBrains Mono', monospace; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f57f17; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 14px; margin: 14px 0; }
+  .step-num { flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; background: #e63946; color: #fff; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+  .step-body { flex: 1; padding-top: 3px; }
+  .step-body strong { display: block; margin-bottom: 2px; font-size: 13.5px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>Date Navigation &amp; Sort Order</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; Date picker · Prev/Next day buttons · Sort order toggle · Auto-refresh · Historical debugging</p>
+
+  <h2>Overview</h2>
+  <p>The Webhook Delivery Logs page loads deliveries for a <em>specific calendar date</em>. By default it shows <strong>today's date</strong> in <strong>newest-first order</strong>. This manual covers navigating across days, jumping directly to a date, toggling sort order, and understanding automatic refresh.</p>
+
+  <div class="callout">
+    <strong>Key insight: one page per day</strong>
+    Webhook deliveries are stored in daily log files (<code>YYYY-MM-DD.jsonl</code>). Every time you change the date, the UI fetches a fresh set of deliveries from the server. There is no combined multi-day view — each day is reviewed separately.
+  </div>
+
+  <h2>Date Controls Layout</h2>
+  <table>
+    <thead><tr><th>Control</th><th>Purpose</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td><strong>← Prev</strong></td><td>Go back one day</td><td>Always enabled; you can navigate as far back as deliveries exist</td></tr>
+      <tr><td><strong>Date picker</strong></td><td>Jump directly to any date</td><td>Click the date field and type or pick a date from the calendar</td></tr>
+      <tr><td><strong>Next →</strong></td><td>Go forward one day</td><td>Disabled when viewing today — you cannot browse future dates</td></tr>
+      <tr><td><strong>Refresh</strong> (⟳)</td><td>Reload the current date's deliveries from the server</td><td>Useful when auto-refresh has not triggered yet or after a server restart</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Step-by-Step: Navigating Historical Deliveries</h2>
+  <p>Scenario: You want to review webhook deliveries from last Tuesday to debug a failed overnight run.</p>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <strong>Open Webhook Deliveries</strong>
+      Click <strong>Workflow</strong> in the sidebar → click the <strong>Webhook Deliveries</strong> tab. The page defaults to today.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <strong>Click "← Prev" to go back one day at a time</strong>
+      Each click triggers a new API request: <code>GET /api/webhook-deliveries?date=YYYY-MM-DD</code>. The delivery list updates immediately. Repeat until you reach the target date, or use the date picker (step 3) for faster jumps.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <strong>Use the date picker to jump directly</strong>
+      Click the date field in the date controls bar. A date picker appears. Select the target date. The list loads immediately for that date.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <strong>Understand empty vs. loaded states</strong>
+      If no deliveries exist for the chosen date, the page shows the empty state: 🪝 <strong>"No webhook deliveries found"</strong>. This simply means no webhooks were received that day — not an error. Navigate back to another date or return to today via the date picker.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <strong>Return to today</strong>
+      Set the date picker to today's date, or click <strong>← Prev</strong> then <strong>Next →</strong> in sequence to step back forward. The <strong>Next →</strong> button becomes disabled again once you reach today.
+    </div>
+  </div>
+
+  <h2>Sort Order Toggle</h2>
+  <p>The sort badge controls the order of delivery cards in the list:</p>
+  <table>
+    <thead><tr><th>Badge Label</th><th>Order</th><th>Best For</th></tr></thead>
+    <tbody>
+      <tr><td><strong>↓ Newest</strong> (default)</td><td>Most recent delivery first</td><td>Monitoring live traffic; seeing the latest result immediately</td></tr>
+      <tr><td><strong>↑ Oldest</strong></td><td>Earliest delivery first</td><td>Tracing a sequence of events in chronological order; debugging multi-step failures</td></tr>
+    </tbody>
+  </table>
+  <p>Click the badge to toggle. The list re-sorts in place — no network request is made.</p>
+
+  <h2>Auto-Refresh (Today Only)</h2>
+  <p>When viewing <strong>today's date</strong>, the page subscribes to the server's real-time log stream via SSE. When a new webhook delivery arrives, the delivery list automatically refreshes within approximately 500 ms — you do not need to click Refresh.</p>
+
+  <div class="callout-tip callout">
+    <strong>When does auto-refresh kick in?</strong>
+    Auto-refresh only fires when viewing <em>today</em>. If you navigate to a historical date, real-time updates are paused. Navigate back to today to resume live monitoring.
+  </div>
+
+  <div class="callout-warn callout">
+    <strong>Auto-refresh is passive</strong>
+    Auto-refresh only <em>reloads the list</em> — it does not open the detail panel or scroll to the new delivery. Click a card manually to inspect any new delivery.
+  </div>
+
+  <h2>Debugging Workflow: "What Happened Last Tuesday at 3 PM?"</h2>
+  <ol>
+    <li>Open Webhook Deliveries</li>
+    <li>Use the date picker to jump to last Tuesday's date</li>
+    <li>Set sort order to <strong>↑ Oldest</strong> to see events in chronological sequence</li>
+    <li>Scroll to approximately 3 PM in the timestamp column</li>
+    <li>Click the delivery card for that time to open the detail panel</li>
+    <li>Check the <strong>Payload</strong> section — does it contain the expected data?</li>
+    <li>If status is <code>ERROR</code>, read the <strong>Error block</strong> to see exactly what went wrong</li>
+    <li>If status is <code>FAILED</code>, the payload was received but a workflow step failed — cross-reference with the Workflow execution history</li>
+  </ol>
+
+  <h2>Smoke-Test Checklist</h2>
+  <ol>
+    <li>Open Webhook Deliveries — verify today's date is pre-selected</li>
+    <li>Click <strong>← Prev</strong> — verify list reloads for yesterday</li>
+    <li>Verify <strong>Next →</strong> re-enables after going back one day</li>
+    <li>Use the date picker to jump to a specific date — verify list updates</li>
+    <li>Navigate back to today — verify <strong>Next →</strong> is disabled again</li>
+    <li>Click the sort badge — verify it toggles between ↓ Newest and ↑ Oldest</li>
+    <li>Verify list order reverses on toggle</li>
+    <li>With today selected and server running: trigger a webhook externally — verify the list updates automatically within ~1 second</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · Webhook Delivery Logs — Date Navigation &amp; Sort Order · August 2026</footer>
+</body>
+</html>

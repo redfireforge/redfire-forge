@@ -72,3 +72,23 @@ export function createRequiredFieldsAssertions(): Assertion[] {
     { type: 'existence', jsonPath: '$.deletedAt', expectExists: false },
   ];
 }
+
+// ─── 8. GraphQL No Errors Guard (Easy) ───────────────────────────────────────
+
+export function createGraphQLNoErrorsAssertions(): Assertion[] {
+  return [
+    { type: 'status', expected: '200' },
+    { type: 'existence', jsonPath: '$.errors', expectExists: false },
+    { type: 'existence', jsonPath: '$.data', expectExists: true },
+  ];
+}
+
+// ─── 9. GraphQL Data Shape (Medium) ──────────────────────────────────────────
+
+export function createGraphQLDataShapeAssertions(): Assertion[] {
+  return [
+    { type: 'existence', jsonPath: '$.data', expectExists: true },
+    { type: 'typeCheck', jsonPath: '$.data.user.id', expectedType: 'number' },
+    { type: 'regex', jsonPath: '$.data.user.email', pattern: '^[^@]+@[^@]+\\.[^@]+$' },
+  ];
+}

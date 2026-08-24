@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>gRPC: Collections &amp; History — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>gRPC: Collections &amp; History</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; Save · Replay · Import · Export</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Save a request to a collection and organise with folders</li>
+    <li>Replay a saved request in one click</li>
+    <li>Browse and replay calls from the execution history</li>
+    <li>Import a <code>grpcurl</code> CLI command into a collection</li>
+    <li>Export and share collections with team members</li>
+  </ul>
+
+  <h2>Collections vs History</h2>
+  <table>
+    <tr><th>Feature</th><th>Collections</th><th>History</th></tr>
+    <tr><td>What it stores</td><td>Manually saved requests (named, organised)</td><td>Auto-saved log of every call you made</td></tr>
+    <tr><td>Organisation</td><td>Folders, custom names, tags</td><td>Chronological, auto-named by method</td></tr>
+    <tr><td>Persistence</td><td>Permanent until deleted</td><td>Rolling window (last N calls)</td></tr>
+    <tr><td>Best for</td><td>Reproducible test scenarios</td><td>Quickly re-run a recent call</td></tr>
+  </table>
+
+  <h2>Collections View</h2>
+
+  <h3>Opening Collections</h3>
+  <div class="step"><div class="step-num">1</div><div class="step-body">In gRPC Studio, click the <strong>Collections</strong> tab in the sub-nav (or the folder icon in the top toolbar). The collections panel opens showing all saved request groups.</div></div>
+
+  <h3>Saving a Request to a Collection</h3>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Make a call from the request composer (e.g., a unary Echo call with a specific payload). After the call completes, click <strong>Save to Collection</strong> (the bookmark icon near the request editor, or the context menu → <em>Save</em>).</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">A dialog appears asking for a name, optional folder, and optional description. Enter a meaningful name such as <code>Echo — health ping</code>.</div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body">To create a folder, type a new folder name in the folder field and press <kbd>Enter</kbd>. Click <strong>Save</strong>. The request appears in the collections panel under the chosen folder.</div></div>
+
+  <h3>Replaying a Saved Request</h3>
+  <div class="step"><div class="step-num">5</div><div class="step-body">In the collections panel, click any saved request row. The studio loads the target host, schema, method, and request body into the composer.</div></div>
+  <div class="step"><div class="step-num">6</div><div class="step-body">Click <strong>Send</strong> (or <strong>Start Stream</strong> for streaming methods). The call executes immediately using the restored parameters.</div></div>
+
+  <h3>Editing a Saved Request</h3>
+  <div class="step"><div class="step-num">7</div><div class="step-body">Hover a collection entry and click the <strong>⋯</strong> (more) menu. Choose <strong>Edit</strong> to rename, move to a different folder, or update the description.</div></div>
+  <div class="step"><div class="step-num">8</div><div class="step-body">After loading a saved request and modifying the body, click <strong>Save</strong> again to update the existing entry (overwrite), or <strong>Save as New</strong> to create a copy.</div></div>
+
+  <h3>Deleting and Organising</h3>
+  <div class="step"><div class="step-num">9</div><div class="step-body">Drag and drop request rows within the collections panel to reorder them. Drag a request onto a folder to move it.</div></div>
+  <div class="step"><div class="step-num">10</div><div class="step-body">To delete an entry or folder, open its <strong>⋯</strong> menu and click <strong>Delete</strong>. Deleting a folder deletes all requests inside it.</div></div>
+
+  <h2>History View</h2>
+
+  <h3>Opening History</h3>
+  <div class="step"><div class="step-num">11</div><div class="step-body">Click the <strong>History</strong> tab in the gRPC Studio sub-nav. The history panel lists all past calls in reverse-chronological order, grouped by date.</div></div>
+
+  <h3>Replaying from History</h3>
+  <div class="step"><div class="step-num">12</div><div class="step-body">Click any history entry to load its parameters into the composer. The entry shows the method name, target host, timestamp, and final status (OK / error code).</div></div>
+  <div class="step"><div class="step-num">13</div><div class="step-body">Click <strong>Send</strong> to replay the call. History entries are read-only — to save a history entry for reuse, click <strong>Save to Collection</strong> from within the history detail panel.</div></div>
+
+  <h3>Copying a Call as cURL / grpcurl</h3>
+  <div class="step"><div class="step-num">14</div><div class="step-body">From any history entry's <strong>⋯</strong> menu, click <strong>Copy as grpcurl</strong>. The equivalent <code>grpcurl</code> CLI command is copied to your clipboard:</div></div>
+<pre>grpcurl -plaintext -d '{"message":"Hello"}' \
+  localhost:50051 echo.EchoService/Echo</pre>
+  <div class="step"><div class="step-num">15</div><div class="step-body">This is useful for sharing calls with teammates who prefer the CLI, or for reproducing issues in a terminal.</div></div>
+
+  <h2>Importing a grpcurl Command</h2>
+  <p>If a colleague sends you a <code>grpcurl</code> command, you can paste it directly into gRPC Studio without manually filling in fields.</p>
+
+  <div class="step"><div class="step-num">16</div><div class="step-body">In the collections panel, click <strong>Import</strong> (or the upload icon). Choose <strong>Import from grpcurl</strong>.</div></div>
+  <div class="step"><div class="step-num">17</div><div class="step-body">Paste the full <code>grpcurl</code> command into the text area:</div></div>
+<pre>grpcurl -plaintext \
+  -d '{"message":"imported-call","repeat_count":3}' \
+  localhost:50051 echo.EchoService/Echo</pre>
+  <div class="step"><div class="step-num">18</div><div class="step-body">Click <strong>Parse &amp; Import</strong>. The studio extracts the target, method, flags, and body. A preview shows the parsed fields. Click <strong>Save to Collection</strong> to keep it, or <strong>Load to Composer</strong> to run it immediately.</div></div>
+
+  <div class="callout callout-tip">
+    <strong>💡 Supported grpcurl flags</strong>
+    The parser understands common flags: <code>-d</code> (data), <code>-plaintext</code>, <code>-insecure</code>, <code>-H</code> (header), <code>-authority</code>, and <code>-proto</code>. Complex flags like <code>-import-path</code> are noted but not automatically applied.
+  </div>
+
+  <h2>Exporting Collections</h2>
+  <div class="step"><div class="step-num">19</div><div class="step-body">In the collections panel, click <strong>⋯</strong> on a folder or the root collection and choose <strong>Export</strong>. The studio downloads a JSON file containing all requests in that folder, preserving names and folder structure.</div></div>
+  <div class="step"><div class="step-num">20</div><div class="step-body">To import a shared collection, click <strong>Import → Import JSON</strong> and select the file. Imported entries are added to the existing collection without overwriting.</div></div>
+
+  <h2>Practice Exercises</h2>
+  <ol>
+    <li>Save three different unary calls to a folder called <em>Echo Tests</em>. Replay each one and confirm the correct payloads are loaded.</li>
+    <li>Find the most recent call in History and save it to a new collection entry.</li>
+    <li>Copy a call as grpcurl, paste it into the grpcurl import dialog, and run it from there.</li>
+    <li>Export your <em>Echo Tests</em> folder as JSON, then delete the folder and re-import the JSON to restore it.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · gRPC Studio — Collections &amp; History · August 2026</footer>
+</body>
+</html>

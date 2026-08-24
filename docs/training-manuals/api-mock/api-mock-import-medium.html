@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Mock: Import Routes — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>API Mock: Import Routes</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; 7 Import Sources · Merge / Replace / Copy · Folder Assignment · Import Review</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Open the Import modal and select a source</li>
+    <li>Import from cURL, OpenAPI/Swagger, Catalog, Requests, WireMock, HAR, and native export</li>
+    <li>Choose import mode: Merge, Replace, or Copy</li>
+    <li>Assign imported routes to a new folder</li>
+    <li>Read the import preview: routes list, diagnostics, loss report</li>
+  </ul>
+
+  <h2>Opening Import</h2>
+
+  <div class="step"><div class="step-num">1</div><div class="step-body">In the studio title bar, click <strong>⬆ Import</strong>. The Import modal opens showing a source selector on the left.</div></div>
+
+  <h2>Import Sources</h2>
+  <table>
+    <thead><tr><th>Source</th><th>Input</th><th>What is created</th></tr></thead>
+    <tbody>
+      <tr><td>cURL command</td><td>Paste a curl command (any flags)</td><td>1 route matching the curl request + 1 simulation sample</td></tr>
+      <tr><td>OpenAPI / Swagger</td><td>Paste JSON or YAML spec text</td><td>1 route per operation (method + path from spec)</td></tr>
+      <tr><td>Catalog endpoints</td><td>Select operations from your Catalog</td><td>1 route per selected operation</td></tr>
+      <tr><td>Requests collection</td><td>Select items or folders from Requests workspace</td><td>1 route per request item</td></tr>
+      <tr><td>RedfireForge export</td><td>JSON file previously exported from API Mock</td><td>Exact reproduction of the exported server's routes</td></tr>
+      <tr><td>WireMock mappings</td><td>WireMock stub JSON or ZIP</td><td>1 route per WireMock stub mapping</td></tr>
+      <tr><td>HAR capture</td><td>HAR file from browser DevTools / proxy</td><td>1 route per HAR entry (credentials auto-redacted)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Part A — Import from cURL</h3>
+
+  <div class="step"><div class="step-num">2</div><div class="step-body">Select <strong>cURL command</strong> in the source list. Paste a curl command in the text area:
+    <pre>curl -X POST https://api.example.com/orders \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer my-token" \
+  -d '{"item": "book", "qty": 2}'</pre>
+  </div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Click <strong>Preview</strong>. The preview panel shows the generated route:
+    <ul style="margin-top: 6px">
+      <li>Method: <code>POST</code></li>
+      <li>Path: <code>/orders</code></li>
+      <li>Predicate: body <code>json_subset</code> match for <code>{"item": "book", "qty": 2}</code></li>
+      <li>Sample: the curl request saved as a simulation sample</li>
+    </ul>
+  </div></div>
+
+  <h3>Part B — Import from OpenAPI / Swagger</h3>
+
+  <div class="step"><div class="step-num">4</div><div class="step-body">Select <strong>OpenAPI / Swagger</strong>. Paste a JSON or YAML spec. The parser extracts all operations (paths × methods) and creates one stub route per operation with a 200 OK placeholder response.</div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body">The Preview panel lists all routes to be created. Routes with no 200 response defined in the spec get a generic <code>{"status": "ok"}</code> placeholder — customise them after import.</div></div>
+
+  <h3>Part C — Import from HAR</h3>
+
+  <div class="step"><div class="step-num">6</div><div class="step-body">Select <strong>HAR capture</strong>. Click <strong>Choose file</strong> and select a <code>.har</code> file (exported from Chrome DevTools → Network tab → Save as HAR). The importer reads all entries and creates one route per unique (method, path) pair.</div></div>
+  <div class="step"><div class="step-num">7</div><div class="step-body">HAR imports auto-redact sensitive headers (<code>Authorization</code>, <code>Cookie</code>, etc.) from predicates and samples. A <strong>loss report</strong> at the bottom of the preview lists anything that could not be converted (e.g. binary bodies, websocket frames).</div></div>
+
+  <h2>Import Mode</h2>
+
+  <div class="step"><div class="step-num">8</div><div class="step-body">Before clicking <strong>Import</strong>, choose the import mode:
+    <ul style="margin-top: 6px">
+      <li><strong>Merge</strong> (default) — appends imported routes to the existing route list</li>
+      <li><strong>Replace</strong> — clears all existing routes and replaces with the imported set</li>
+      <li><strong>Copy</strong> — like Merge but gives each imported route a new ID and appends "(copy)" to the name (safe for duplicating without ID collisions)</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">9</div><div class="step-body">Optionally, enter a <strong>New folder name</strong> (e.g. <em>Imported from HAR 2026-08-23</em>). All imported routes are placed in that folder automatically.</div></div>
+
+  <h2>Import Review</h2>
+
+  <div class="step"><div class="step-num">10</div><div class="step-body">Click <strong>Preview</strong> on any source to see the import review panel:
+    <ul style="margin-top: 6px">
+      <li><strong>Routes list</strong> — each route that will be created (method, path, name)</li>
+      <li><strong>Diagnostics</strong> — warnings about predicates that could not be inferred (e.g. binary bodies)</li>
+      <li><strong>Loss report</strong> — items in the source file that were skipped or only partially converted</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">11</div><div class="step-body">Review the diagnostics. If acceptable, click <strong>Import</strong>. If the loss report lists something important, close, edit the source file, and re-import.</div></div>
+
+  <div class="callout callout-tip">
+    <strong>💡 Round-trip with RedfireForge export</strong>
+    Export your server (title bar → Export), share the JSON file, and another developer imports it via "RedfireForge export" source. The import is lossless — all routes, variants, predicates, samples, and variables are preserved.
+  </div>
+
+  <h2>Self-Practice Exercises</h2>
+  <ol>
+    <li>Find an OpenAPI YAML spec online (e.g. Petstore). Import it using the OpenAPI source. Count how many routes were created. Customise one route's response body.</li>
+    <li>Import a cURL command for a POST with a JSON body. Verify the generated route has a <code>json_subset</code> body predicate pre-filled.</li>
+    <li>Export your current server (title bar → Export). Create a new server. Import the exported file as "RedfireForge export" in Replace mode. Verify all routes are identical.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · API Mock Studio — Import Routes · August 2026</footer>
+</body>
+</html>

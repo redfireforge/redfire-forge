@@ -9,11 +9,14 @@ interface DomainBadgeProps {
 const DOMAIN_COLORS: Record<GalleryDomain, string> = {
   requests: '#60a5fa',
   catalog: '#a78bfa',
-  tests: '#34d399',
+  harness: '#34d399',
   workflows: '#fb923c',
-  assertions: '#f472b6',
-  'data-mapper': '#38bdf8',
   'api-mock': '#fbbf24',
+  kafka: '#f97316',
+  websocket: '#2dd4bf',
+  sse: '#6ee7b7',
+  graphql: '#e879f9',
+  grpc: '#818cf8',
 };
 
 /**

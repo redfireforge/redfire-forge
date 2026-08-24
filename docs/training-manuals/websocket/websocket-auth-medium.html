@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebSocket: Authentication — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>WebSocket: Authentication</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; Bearer · API Key · Basic · Custom Headers</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Understand how authentication works for WebSocket connections (HTTP Upgrade headers)</li>
+    <li>Configure Bearer token authentication</li>
+    <li>Use API Key and Basic authentication types</li>
+    <li>Add arbitrary custom headers alongside auth</li>
+    <li>Use environment variables in auth values</li>
+  </ul>
+
+  <h2>How WebSocket Auth Works</h2>
+  <p>Unlike HTTP requests, WebSocket frames do not carry per-frame headers. Authentication is injected during the initial <strong>HTTP Upgrade handshake</strong> — the one-time HTTP request that promotes the connection to a WebSocket. Any headers or query parameters you configure in the Auth and Headers tabs are sent on this upgrade request and never again.</p>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ Browser limitation</strong>
+    Standard browser WebSocket APIs (<code>new WebSocket(url)</code>) cannot set custom HTTP headers. RedfireForge routes connections through its Express proxy backend, which adds the headers server-side. This transparent proxying applies to all auth types.
+  </div>
+
+  <h2>The Auth Tab</h2>
+  <p>Click the <strong>Auth</strong> left-tab (<code>left-tab-auth</code>) to configure authentication. The <strong>type selector</strong> (<code>ws-auth-type-trigger</code>) shows the current auth type. Click it to open the dropdown.</p>
+
+  <h2>Auth Types</h2>
+
+  <h3>None (default)</h3>
+  <p>No authentication headers are added. Select this when the server has no auth requirement, or when you are providing auth as a query parameter instead.</p>
+
+  <h3>Bearer Token</h3>
+  <div class="step"><div class="step-num">1</div><div class="step-body">Click the auth type trigger → select <strong>Bearer</strong> (<code>ws-auth-type-opt-bearer</code>).</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">A <strong>Token</strong> input field appears. Enter your JWT or opaque token, e.g.:</div></div>
+<pre>eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...</pre>
+  <div class="step"><div class="step-num">3</div><div class="step-body">On connect, the studio adds the header:</div></div>
+<pre>Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...</pre>
+  <div class="step"><div class="step-num">4</div><div class="step-body">To use an environment variable, type the variable name in double braces: <code>{{AUTH_TOKEN}}</code>. The variable is resolved at connection time from the active environment.</div></div>
+
+  <h3>API Key</h3>
+  <div class="step"><div class="step-num">1</div><div class="step-body">Click the auth type trigger → select <strong>API Key</strong> (<code>ws-auth-type-opt-api-key</code>).</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Two fields appear: <strong>Header Name</strong> and <strong>Header Value</strong>. Common combinations:</div></div>
+  <table>
+    <tr><th>Header Name</th><th>Header Value</th></tr>
+    <tr><td><code>X-API-Key</code></td><td><code>my-secret-key</code></td></tr>
+    <tr><td><code>x-api-key</code></td><td><code>{{API_KEY}}</code></td></tr>
+  </table>
+  <div class="step"><div class="step-num">3</div><div class="step-body">The specified header is added to the upgrade request exactly as entered.</div></div>
+
+  <h3>Basic Auth</h3>
+  <div class="step"><div class="step-num">1</div><div class="step-body">Click the auth type trigger → select <strong>Basic</strong> (<code>ws-auth-type-opt-basic</code>).</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Enter <strong>Username</strong> and <strong>Password</strong> fields.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">RedfireForge encodes these as <code>base64(username:password)</code> and adds:</div></div>
+<pre>Authorization: Basic dXNlcjpwYXNzd29yZA==</pre>
+  <div class="callout callout-warn">
+    <strong>⚠️ Basic auth security</strong>
+    Basic auth sends credentials in every connection upgrade. Always pair with <code>wss://</code> TLS to prevent credential exposure in transit.
+  </div>
+
+  <h2>Custom Headers</h2>
+  <p>The <strong>Headers</strong> left-tab (<code>left-tab-headers</code>) lets you add arbitrary key-value header pairs to the upgrade request, independently of the auth type. This is useful for:</p>
+  <ul>
+    <li>Tenant or workspace identifiers (<code>X-Tenant-ID: org-42</code>)</li>
+    <li>Correlation IDs (<code>X-Correlation-ID: {{$guid}}</code>)</li>
+    <li>Protocol sub-negotiation (<code>Sec-WebSocket-Protocol: chat</code>)</li>
+  </ul>
+
+  <h3>Adding a Header</h3>
+  <div class="step"><div class="step-num">1</div><div class="step-body">Click the <strong>Headers</strong> tab. Click <strong>+ Add Header</strong>.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Enter a key, e.g. <code>X-Tenant-ID</code>, and a value, e.g. <code>tenant-001</code>.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Add as many rows as needed. Click the trash icon to remove a row. Headers are sent in addition to the Auth tab headers.</div></div>
+
+  <h2>Using Environment Variables in Auth</h2>
+  <p>All auth and header value fields support <code>{{variable}}</code> interpolation from the active RedfireForge environment. This lets you keep credentials out of saved connection files and rotate them by updating the environment.</p>
+
+  <table>
+    <tr><th>Syntax</th><th>Meaning</th></tr>
+    <tr><td><code>{{AUTH_TOKEN}}</code></td><td>Resolved from environment key <code>AUTH_TOKEN</code></td></tr>
+    <tr><td><code>{{$guid}}</code></td><td>Auto-generated UUID per connection</td></tr>
+    <tr><td><code>{{$timestamp}}</code></td><td>Unix timestamp at connection time</td></tr>
+  </table>
+
+  <h2>Practice Exercises</h2>
+  <ol>
+    <li>Configure Bearer auth with a static token. Connect to <code>ws://localhost:9876</code> (local mock). Observe the auth header in the console log at connection time.</li>
+    <li>Switch to API Key auth. Set <code>X-API-Key: test-key</code>. Reconnect. Confirm the header appears in the console.</li>
+    <li>Add a custom header <code>X-Test-ID: run-001</code> in the Headers tab. Connect and verify it is visible in the request headers.</li>
+    <li>Create an environment variable <code>MY_TOKEN=secret</code>. Set Bearer token to <code>{{MY_TOKEN}}</code>. Confirm the resolved value is used on connect.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · WebSocket Studio — Authentication · August 2026</footer>
+</body>
+</html>

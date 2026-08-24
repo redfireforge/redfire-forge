@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebSocket: Workflow Runner Integration — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>WebSocket: Workflow Runner Integration</h1>
+  <p><span class="badge badge-advanced">Advanced</span> &nbsp; Automate WS interactions with workflow nodes</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Identify the four WebSocket workflow nodes in the node palette</li>
+    <li>Configure wsConnect, wsSend, wsReceive, and wsTrigger nodes</li>
+    <li>Build a complete workflow that connects, sends a message, receives a response, and asserts</li>
+    <li>Use the mock server as an isolated CI-safe backend for WS workflow tests</li>
+  </ul>
+
+  <h2>WebSocket Workflow Nodes</h2>
+  <p>The Workflow Runner's node palette includes four WebSocket-specific nodes. In the palette, search for <strong>WS</strong> to filter them.</p>
+  <table>
+    <tr><th>Node</th><th>Palette testid</th><th>Purpose</th></tr>
+    <tr><td><strong>WS Connect</strong></td><td><code>wf-palette-block-wsConnect</code></td><td>Open a WebSocket connection and assign it a named connection ID for later nodes to reference</td></tr>
+    <tr><td><strong>WS Send</strong></td><td><code>wf-palette-block-wsSend</code></td><td>Send a message over a named connection</td></tr>
+    <tr><td><strong>WS Receive</strong></td><td><code>wf-palette-block-wsReceive</code></td><td>Wait for a message matching a pattern; capture it into a variable</td></tr>
+    <tr><td><strong>WS Trigger</strong></td><td><code>wf-palette-block-wsTrigger</code></td><td>Trigger the workflow when a specific WS message arrives (event-driven entry point)</td></tr>
+  </table>
+
+  <h2>WS Connect Configuration</h2>
+  <p>Double-click a WS Connect node on the canvas to open its config dialog (<code>ws-connect-config</code>).</p>
+  <table>
+    <tr><th>Field</th><th>Placeholder / Example</th><th>Description</th></tr>
+    <tr><td><strong>URL</strong></td><td><code>wss://example.com/ws</code></td><td>Target WebSocket URL. Supports <code>{{variable}}</code> substitution.</td></tr>
+    <tr><td><strong>Connection ID</strong></td><td><code>ws1</code></td><td>A local name for this connection. Other nodes reference it by this ID.</td></tr>
+    <tr><td><strong>Protocol</strong></td><td><code>plain</code> / <code>socket-io</code> / <code>stomp</code></td><td>Protocol adapter to use (same options as WebSocket Studio)</td></tr>
+    <tr><td><strong>Auth Type</strong></td><td><code>none</code> / <code>bearer</code></td><td>Auth for the upgrade request (same options as the Auth tab)</td></tr>
+    <tr><td><strong>Timeout</strong></td><td><code>5000</code></td><td>Milliseconds to wait for the connection to open before failing the step</td></tr>
+  </table>
+
+  <h2>WS Send Configuration</h2>
+  <table>
+    <tr><th>Field</th><th>Description</th></tr>
+    <tr><td><strong>Connection ID</strong></td><td>Must match the ID set in a preceding WS Connect node</td></tr>
+    <tr><td><strong>Payload</strong></td><td>Message to send (text or JSON). Supports <code>{{variable}}</code> and <code>{{$env.NAME}}</code>.</td></tr>
+    <tr><td><strong>Format</strong></td><td>Text / JSON (validated before send)</td></tr>
+  </table>
+
+  <h2>WS Receive Configuration</h2>
+  <table>
+    <tr><th>Field</th><th>Description</th></tr>
+    <tr><td><strong>Connection ID</strong></td><td>Connection to listen on</td></tr>
+    <tr><td><strong>Match</strong></td><td>Pattern to match incoming messages: <code>contains</code>, <code>equals</code>, <code>jsonPath</code>, or <code>any</code></td></tr>
+    <tr><td><strong>Capture As</strong></td><td>Variable name to store the matched message payload for downstream use</td></tr>
+    <tr><td><strong>Timeout</strong></td><td>Milliseconds to wait for a matching message before failing the step</td></tr>
+  </table>
+
+  <h2>WS Trigger Configuration</h2>
+  <p>WS Trigger is an <strong>event-driven start node</strong> — the workflow begins when a message arrives on the monitored connection matching the trigger condition. It replaces the standard Start node when building reactive workflows.</p>
+  <table>
+    <tr><th>Field</th><th>Description</th></tr>
+    <tr><td><strong>Connection ID</strong></td><td>Connection to monitor for trigger messages</td></tr>
+    <tr><td><strong>Match</strong></td><td>Trigger fires when an incoming message matches this pattern</td></tr>
+    <tr><td><strong>Capture As</strong></td><td>Variable name for the triggering message payload</td></tr>
+  </table>
+
+  <h2>Walkthrough: Request–Response Workflow</h2>
+  <p>Build a workflow that connects to an echo server, sends a JSON request, waits for the echoed response, and asserts the payload is correct.</p>
+
+  <div class="step"><div class="step-num">1</div><div class="step-body">Open the Workflow Runner. Create a new workflow. On the canvas, drag from the palette:
+    <ul style="margin-top:6px">
+      <li>Start node (auto-added)</li>
+      <li><strong>WS Connect</strong> node</li>
+      <li><strong>WS Send</strong> node</li>
+      <li><strong>WS Receive</strong> node</li>
+      <li><strong>Assert</strong> node</li>
+      <li>End node (auto-added)</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Wire them in sequence: Start → WS Connect → WS Send → WS Receive → Assert → End.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Configure <strong>WS Connect</strong>:
+    <ul style="margin-top:6px">
+      <li>URL: <code>ws://localhost:9876</code></li>
+      <li>Connection ID: <code>echo</code></li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Configure <strong>WS Send</strong>:
+    <ul style="margin-top:6px">
+      <li>Connection ID: <code>echo</code></li>
+      <li>Payload: <code>{"action":"ping","timestamp":"{{$timestamp}}"}</code></li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body">Configure <strong>WS Receive</strong>:
+    <ul style="margin-top:6px">
+      <li>Connection ID: <code>echo</code></li>
+      <li>Match: <code>jsonPath: $.action === "ping"</code></li>
+      <li>Capture As: <code>response</code></li>
+      <li>Timeout: <code>5000</code></li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">6</div><div class="step-body">Configure <strong>Assert</strong>:
+    <ul style="margin-top:6px">
+      <li>Expression: <code>{{response.action}} === "ping"</code></li>
+      <li>Message: <code>Echo action mismatch</code></li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">7</div><div class="step-body">Click <strong>Run Workflow</strong>. The workflow opens a WS connection, sends the ping, receives the echoed response, and asserts. All steps turn green if successful.</div></div>
+
+  <h2>Event-Driven Workflow (WS Trigger)</h2>
+  <div class="step"><div class="step-num">1</div><div class="step-body">Replace the Start node with a <strong>WS Trigger</strong> node. Configure it:
+    <ul style="margin-top:6px">
+      <li>Connection ID: <code>listener</code> (connect a separate WS Connect node first, or use an already-open connection)</li>
+      <li>Match: <code>jsonPath: $.type === "alert"</code></li>
+      <li>Capture As: <code>alertMessage</code></li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Wire downstream nodes: WS Trigger → Assert → HTTP Post (notify team) → End.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Run the workflow. It sits in <em>Waiting for trigger</em> state until a message matching <code>$.type === "alert"</code> arrives on the <code>listener</code> connection. When it does, the workflow continues automatically.</div></div>
+
+  <h2>CI Usage with Mock Server</h2>
+  <p>For automated test pipelines, combine the mock server with WS workflow tests:</p>
+<pre># 1. Start mock server (headless CLI)
+npx redfire ws-mock --port 9880 --rules ./mock-rules.json
+
+# 2. Run workflow tests
+npx redfire run-workflow ./workflows/ws-ping-assert.json --env ci</pre>
+  <p>Both commands exit cleanly after completion, making them suitable for CI scripts.</p>
+
+  <h2>Practice Exercises</h2>
+  <ol>
+    <li>Build the request–response workflow from the walkthrough above. Run it. Confirm all steps pass.</li>
+    <li>Modify the WS Receive step to use <code>Timeout: 500</code> ms. Run again but ensure the mock server is stopped so no response arrives. Confirm the step times out and the workflow fails with a clear error.</li>
+    <li>Add a second WS Connect → WS Send → WS Receive chain to the same workflow (using connection ID <code>echo2</code>). Wire both chains in parallel (join them with a Merge node before Assert). Run the workflow and confirm both connections operate concurrently.</li>
+    <li>Build an event-driven workflow using WS Trigger. Use the mock server's broadcast button to trigger it. Confirm the workflow fires when the broadcast message matches the trigger condition.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · WebSocket Studio — Workflow Runner Integration · August 2026</footer>
+</body>
+</html>

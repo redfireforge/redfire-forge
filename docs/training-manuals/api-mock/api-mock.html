@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Mock Studio — Overview — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>API Mock Studio — Overview</h1>
+  <p><span class="badge badge-easy">Reference</span> &nbsp; Studio Layout · Route Editor Tabs · Runtime Dock · Import Sources · Learning Path</p>
+
+  <h2>What is API Mock Studio?</h2>
+  <p>API Mock Studio lets you create lightweight HTTP mock servers that intercept, match, and respond to real HTTP traffic — no backend code needed. Each <strong>mock server</strong> listens on a configurable host/port. Each server has <strong>routes</strong> (rules that match incoming requests) and <strong>response variants</strong> (what to send back). You can run the mock live, or simulate requests against the rule configuration without starting a real listener.</p>
+
+  <h2>Studio Layout</h2>
+  <table>
+    <thead><tr><th>Region</th><th>Component</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>Top bar</td><td>ApiMockStudioTitleBar</td><td>Server tabs (max 8 open), + New Server button, Library button, Start/Stop, Settings, Export, Import</td></tr>
+      <tr><td>Left sidebar</td><td>ApiMockSidebar / ApiMockRouteExplorer</td><td>Folder tree + route list; drag-reorder, context menus, search/filter</td></tr>
+      <tr><td>Centre</td><td>ApiMockRouteEditor</td><td>5-tab editor for the selected route: Match · Response · Behavior · Examples · Documentation</td></tr>
+      <tr><td>Bottom dock</td><td>ApiMockDock</td><td>Runtime tabs: Transactions · Conflicts · State · Variables · Diagnostics · Console</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Route Editor Tabs</h2>
+  <table>
+    <thead><tr><th>Tab</th><th>What You Configure</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Match</strong></td><td>HTTP method, URL path (literal/glob/regex/prefix), predicate rules (header/query/body/cookie/security/transport/pathParam), predicate combinator (ALL/ANY), nested groups</td></tr>
+      <tr><td><strong>Response</strong></td><td>Response variants sidebar (add/rename/delete), per-variant: status code, Content-Type, body (with template helpers), response headers, response cookies</td></tr>
+      <tr><td><strong>Behavior</strong></td><td>Timing (delay, jitter, max-matches, expires-at), Faults (timeout/reset/dribble/close/malformed), Selection mode (condition/sequence/state), Outbound callbacks and transforms</td></tr>
+      <tr><td><strong>Examples</strong></td><td>Saved simulation samples: named request/response pairs for one-click replay in the Simulate modal</td></tr>
+      <tr><td><strong>Documentation</strong></td><td>Free-text markdown notes attached to the route</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Runtime Dock Tabs</h2>
+  <table>
+    <thead><tr><th>Tab</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>Transactions</td><td>Live log of every request: matched/unmatched/ambiguous outcome, matched route name, duration, policy</td></tr>
+      <tr><td>Conflicts</td><td>Automatic overlap detection: shows which routes' predicates shadow each other; adjust priority or acknowledge</td></tr>
+      <tr><td>State</td><td>Current stateful-scenario position per route, sequence counters; Reset State button</td></tr>
+      <tr><td>Variables</td><td>Server-level key-value store; values used as <code>{{variables.key}}</code> in response templates</td></tr>
+      <tr><td>Diagnostics</td><td>Server health notices and configuration warnings</td></tr>
+      <tr><td>Console</td><td>Raw log stream from the live listener (errors, match events)</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Import Sources (7)</h2>
+  <table>
+    <thead><tr><th>Source</th><th>Use When</th></tr></thead>
+    <tbody>
+      <tr><td>cURL command</td><td>You have a curl invocation and want a matching route + sample automatically</td></tr>
+      <tr><td>OpenAPI / Swagger</td><td>Paste JSON or YAML spec — one route per operation</td></tr>
+      <tr><td>Catalog endpoints</td><td>Select operations already in your API Catalog</td></tr>
+      <tr><td>Requests collection</td><td>Promote items or folders from your Requests workspace</td></tr>
+      <tr><td>RedfireForge export</td><td>Round-trip reload of a previously exported mock config</td></tr>
+      <tr><td>WireMock mappings</td><td>Import WireMock stub JSON files</td></tr>
+      <tr><td>HAR capture</td><td>Browser/devtools archive (auto-redacted credentials)</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Key Concepts</h2>
+  <table>
+    <thead><tr><th>Concept</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td>Route</td><td>A matching rule (method + path + predicates) with one or more response variants</td></tr>
+      <tr><td>Variant</td><td>One possible response for a route. Multiple variants let one route return different bodies depending on selection mode</td></tr>
+      <tr><td>Selection mode</td><td>How the server picks which variant to send: default (first enabled), condition (per-request body match), sequence (round-robin), or state (scenario-driven)</td></tr>
+      <tr><td>Predicate</td><td>A single match condition on an incoming request field (header, query param, body path, etc.)</td></tr>
+      <tr><td>Template expression</td><td><code>{{faker.name}}</code>, <code>{{request.headers.X-Foo}}</code>, <code>{{variables.key}}</code> — evaluated per request</td></tr>
+      <tr><td>Simulate</td><td>Test request/rule matching without starting a live listener (⚗ button)</td></tr>
+      <tr><td>Fault</td><td>Connection-level error injection: timeout, reset, dribble, close, or malformed framing</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Learning Path</h2>
+  <table>
+    <thead><tr><th>#</th><th>Manual</th><th>Difficulty</th><th>Topics</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>This overview</td><td>Reference</td><td>Studio layout, dock, import sources, key concepts</td></tr>
+      <tr><td>2</td><td>First Server</td><td>Easy</td><td>Create server, add route, start listener, send first request</td></tr>
+      <tr><td>3</td><td>Response Variants</td><td>Medium</td><td>Variants, selection modes, template expressions</td></tr>
+      <tr><td>4</td><td>Simulate</td><td>Medium</td><td>⚗ simulate modal, predicate trace, near-miss, samples</td></tr>
+      <tr><td>5</td><td>Journal & Conflicts</td><td>Medium</td><td>Runtime dock tabs, conflict inspector, priority</td></tr>
+      <tr><td>6</td><td>Import Routes</td><td>Medium</td><td>All 7 import sources, merge/replace/copy, import review</td></tr>
+      <tr><td>7</td><td>Folder Organisation</td><td>Medium</td><td>Folders, context menus, reorder, undo</td></tr>
+      <tr><td>8</td><td>Auth-Gated Routes</td><td>Medium</td><td>Bearer, API Key, mTLS, 401 fallback</td></tr>
+      <tr><td>9</td><td>GraphQL Mock</td><td>Medium</td><td>POST /graphql, jsonPath dispatch, variant conditions</td></tr>
+      <tr><td>10</td><td>Stateful Sequences</td><td>Advanced</td><td>State/scenario panel, step transitions, sequence mode</td></tr>
+      <tr><td>11</td><td>Webhook Receiver</td><td>Medium</td><td>Inbound capture, event routing, outbound callbacks</td></tr>
+      <tr><td>12</td><td>Faults, Timing &amp; Toolbox</td><td>Advanced</td><td>6 fault types, timing panel, Pattern Toolbox (6 tabs)</td></tr>
+      <tr><td>13</td><td>Library &amp; Settings</td><td>Advanced</td><td>Server library, tab management, settings, native export</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Start here if you're new</strong>
+    Follow the learning path in order. Each manual builds on the previous one. The first two (this overview + First Server) are all you need to evaluate API Mock Studio for your project.
+  </div>
+
+  <footer>RedfireForge v0.6.0 · API Mock Studio — Overview · August 2026</footer>
+</body>
+</html>
