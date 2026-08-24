@@ -45,7 +45,7 @@ export function GalleryFilters({
     onChange({ ...value, [key]: v });
 
   const handleDomainClick = (domainKey: GalleryDomain | 'all') => {
-    onChange({ ...value, domain: domainKey, tag: '' });
+    onChange({ ...value, domain: domainKey, category: '', liveApi: '', tag: '' });
     onModeChange('samples');
   };
 
