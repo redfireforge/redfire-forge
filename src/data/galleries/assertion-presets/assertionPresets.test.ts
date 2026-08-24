@@ -7,6 +7,8 @@ import {
   createApiContractAssertions,
   createDataTypeGuardAssertions,
   createRequiredFieldsAssertions,
+  createGraphQLNoErrorsAssertions,
+  createGraphQLDataShapeAssertions,
 } from './presets';
 import { assertionPresetCatalog, ASSERTION_PRESET_CATEGORIES } from './index';
 import type { Assertion } from '@shared/types';
@@ -276,8 +278,8 @@ describe('createRequiredFieldsAssertions', () => {
 // ─── Catalog & categories ────────────────────────────────────────────────────
 
 describe('assertionPresetCatalog', () => {
-  it('contains 7 presets', () => {
-    expect(assertionPresetCatalog).toHaveLength(7);
+  it('contains 9 presets', () => {
+    expect(assertionPresetCatalog).toHaveLength(9);
   });
 
   it('each entry has unique id', () => {
@@ -327,5 +329,56 @@ describe('ASSERTION_PRESET_CATEGORIES', () => {
     for (const cat of usedCats) {
       expect(catKeys).toContain(cat);
     }
+  });
+});
+
+describe('createGraphQLNoErrorsAssertions', () => {
+  it('returns 3 assertions', () => {
+    expect(createGraphQLNoErrorsAssertions()).toHaveLength(3);
+  });
+
+  it('contains status, existence types', () => {
+    const types = assertTypes(createGraphQLNoErrorsAssertions());
+    expect(types).toContain('status');
+    expect(types).toContain('existence');
+  });
+
+  it('asserts $.errors absent and $.data present', () => {
+    const a = createGraphQLNoErrorsAssertions();
+    const errorsAbsent = a.find(x => x.type === 'existence' && x.jsonPath === '$.errors');
+    const dataPresent = a.find(x => x.type === 'existence' && x.jsonPath === '$.data');
+    expect(errorsAbsent?.type === 'existence' && errorsAbsent.expectExists).toBe(false);
+    expect(dataPresent?.type === 'existence' && dataPresent.expectExists).toBe(true);
+  });
+
+  it('returns a fresh array on each call', () => {
+    expect(createGraphQLNoErrorsAssertions()).not.toBe(createGraphQLNoErrorsAssertions());
+  });
+});
+
+describe('createGraphQLDataShapeAssertions', () => {
+  it('returns 3 assertions', () => {
+    expect(createGraphQLDataShapeAssertions()).toHaveLength(3);
+  });
+
+  it('contains existence, typeCheck, regex types', () => {
+    const types = assertTypes(createGraphQLDataShapeAssertions());
+    expect(types).toContain('existence');
+    expect(types).toContain('typeCheck');
+    expect(types).toContain('regex');
+  });
+
+  it('type-checks $.data.user.id as number', () => {
+    const a = createGraphQLDataShapeAssertions();
+    const tc = a.find(x => x.type === 'typeCheck');
+    expect(tc?.type === 'typeCheck' && tc.jsonPath).toBe('$.data.user.id');
+    expect(tc?.type === 'typeCheck' && tc.expectedType).toBe('number');
+  });
+
+  it('validates $.data.user.email with email regex', () => {
+    const a = createGraphQLDataShapeAssertions();
+    const rx = a.find(x => x.type === 'regex');
+    expect(rx?.type === 'regex' && rx.jsonPath).toBe('$.data.user.email');
+    expect(rx?.type === 'regex' && rx.pattern).toContain('@');
   });
 });

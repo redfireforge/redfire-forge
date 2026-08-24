@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>gRPC Studio — Training Manual Overview</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print {
+    .page-break { page-break-before: always; }
+    body { font-size: 10pt; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 16pt; }
+    h3 { font-size: 13pt; }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.6;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 24px;
+    background: #fff;
+  }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code {
+    background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px; padding: 1px 5px; border-radius: 3px;
+  }
+  pre {
+    background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto;
+    margin: 10px 0 16px; line-height: 1.5;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    vertical-align: middle;
+  }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout {
+    background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px;
+    margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px;
+  }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 85vh; text-align: center;
+  }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  .tutorial-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+  .tutorial-card {
+    border: 1px solid #dee2e6; border-radius: 8px; padding: 14px 16px;
+    background: #f8f9fa;
+  }
+  .tutorial-card h4 { margin: 0 0 4px; font-size: 13px; color: #1d3557; }
+  .tutorial-card p { font-size: 12px; color: #6c757d; margin: 0; }
+  .tutorial-card a { text-decoration: none; color: #e63946; font-weight: 600; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔌</div>
+    <h1>gRPC Studio</h1>
+    <div class="subtitle">Complete Training Manual</div>
+    <p>Everything you need to master gRPC in RedfireForge — from your first unary call through streaming, TLS, schema management, mock servers, and workflow automation.</p>
+    <div class="meta">
+      RedfireForge v0.6.0<br />
+      10 tutorials · Easy → Advanced<br />
+      Protocols → gRPC tab
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>What is gRPC Studio?</h2>
+  <p>gRPC Studio is RedfireForge's dedicated client for the gRPC protocol. gRPC is a high-performance RPC framework built on HTTP/2 and Protocol Buffers (protobuf), used widely in microservices and cloud-native systems. The studio provides:</p>
+  <ul>
+    <li>A connection bar where you enter the target host and port (e.g. <code>localhost:50051</code>)</li>
+    <li>Schema loading via reflection, <code>.proto</code> file upload, protoset, URL fetch, or BSR import</li>
+    <li>A method picker — browse services and select unary or streaming methods</li>
+    <li>A JSON-based request composer that maps to your protobuf message schema</li>
+    <li>Stream panel with live inbound/outbound message log for all streaming modes</li>
+    <li>Schema browser — tree-view explorer of all loaded types and methods</li>
+    <li>Collections — save, organise, and replay frequently used calls</li>
+    <li>Schema drift detection — compare two descriptor snapshots for breaking changes</li>
+    <li>TLS panel — configure Plaintext, TLS, or mutual TLS per connection</li>
+    <li>Mock listener — start a gRPC server stub directly from the studio (desktop only)</li>
+    <li>Interpolation — inject <code>{{variable}}</code> values into host and request fields</li>
+  </ul>
+
+  <h2>gRPC vs REST — Key Differences</h2>
+  <table>
+    <tr><th>Aspect</th><th>REST / HTTP</th><th>gRPC</th></tr>
+    <tr><td>Transport</td><td>HTTP/1.1 or HTTP/2</td><td>Always HTTP/2</td></tr>
+    <tr><td>Serialisation</td><td>JSON (text)</td><td>Protocol Buffers (binary)</td></tr>
+    <tr><td>Schema</td><td>Optional (OpenAPI)</td><td>Always present — <code>.proto</code> file</td></tr>
+    <tr><td>Streaming</td><td>Limited (SSE, WebSocket separate)</td><td>Native: server, client, and bidirectional</td></tr>
+    <tr><td>Code generation</td><td>Optional</td><td>First-class — generate clients from <code>.proto</code></td></tr>
+    <tr><td>Error model</td><td>HTTP status codes</td><td>gRPC status codes (<code>OK</code>, <code>NOT_FOUND</code>, <code>UNAVAILABLE</code>, …)</td></tr>
+    <tr><td>Discoverability</td><td>Manual or OpenAPI spec</td><td>Built-in server reflection (if enabled)</td></tr>
+  </table>
+
+  <h2>gRPC Method Types</h2>
+  <table>
+    <tr><th>Type</th><th>Direction</th><th>Use Case</th></tr>
+    <tr><td><strong>Unary</strong></td><td>1 request → 1 response</td><td>CRUD, lookups, commands</td></tr>
+    <tr><td><strong>Server streaming</strong></td><td>1 request → N responses</td><td>Event feeds, large result sets, log tailing</td></tr>
+    <tr><td><strong>Client streaming</strong></td><td>N requests → 1 response</td><td>Bulk upload, chunked ingestion</td></tr>
+    <tr><td><strong>Bidirectional streaming</strong></td><td>N requests ↔ N responses</td><td>Chat, real-time collaboration, sensor telemetry</td></tr>
+  </table>
+
+  <h2>Studio Layout</h2>
+  <p>When you open gRPC Studio (<strong>Protocols → gRPC</strong>), you see four main areas:</p>
+  <ul>
+    <li><strong>Connection bar</strong> (top) — enter <code>host:port</code>, see connection status badge, access the TLS badge</li>
+    <li><strong>Schema panel</strong> (left sidebar) — click <strong>Manage Schemas</strong> to load a descriptor; once loaded, services and methods appear as a tree</li>
+    <li><strong>Request composer</strong> (centre) — select a method, fill in the JSON request body, then click <strong>Send</strong> or <strong>Start Stream</strong></li>
+    <li><strong>Response / Stream panel</strong> (right/bottom) — shows status code, response body, and for streams a live message log</li>
+  </ul>
+  <p>The sub-nav at the top of the studio switches between <strong>Request</strong>, <strong>Collections</strong>, <strong>History</strong>, and <strong>Advanced</strong> views.</p>
+
+  <h2>Tutorial Map</h2>
+  <div class="tutorial-grid">
+    <div class="tutorial-card">
+      <h4><a href="grpc-first-call-easy.html">1. Your First Call</a> <span class="badge badge-easy">Easy</span></h4>
+      <p>Connect to a live endpoint, load a schema via reflection, and make your first unary call.</p>
+    </div>
+    <div class="tutorial-card">
+      <h4><a href="grpc-schema-management-easy.html">2. Schema Management</a> <span class="badge badge-easy">Easy</span></h4>
+      <p>Upload <code>.proto</code> files, import protosets, fetch from URL, and connect to the Buf Schema Registry.</p>
+    </div>
+    <div class="tutorial-card">
+      <h4><a href="grpc-server-streaming-medium.html">3. Server Streaming</a> <span class="badge badge-medium">Medium</span></h4>
+      <p>Invoke a server-streaming method, watch the live message log, and cancel mid-stream.</p>
+    </div>
+    <div class="tutorial-card">
+      <h4><a href="grpc-client-streaming-medium.html">4. Client Streaming</a> <span class="badge badge-medium">Medium</span></h4>
+      <p>Send multiple messages in a single stream, close the client side, and receive the aggregated response.</p>
+    </div>
+    <div class="tutorial-card">
+      <h4><a href="grpc-bidi-streaming-medium.html">5. Bidirectional Streaming</a> <span class="badge badge-medium">Medium</span></h4>
+      <p>Open a full-duplex stream, send and receive messages simultaneously, and close gracefully.</p>
+    </div>
+    <div class="tutorial-card">
+      <h4><a href="grpc-collections-medium.html">6. Collections &amp; History</a> <span class="badge badge-medium">Medium</span></h4>
+      <p>Save calls to a collection, replay from history, and import grpcurl commands.</p>
+    </div>
+    <div class="tutorial-card">
+      <h4><a href="grpc-tls-advanced.html">7. TLS &amp; Transport</a> <span class="badge badge-advanced">Advanced</span></h4>
+      <p>Configure Plaintext, TLS, and mutual TLS; switch between proxy and native transport modes.</p>
+    </div>
+    <div class="tutorial-card">
+      <h4><a href="grpc-mock-server-advanced.html">8. Mock Server</a> <span class="badge badge-advanced">Advanced</span></h4>
+      <p>Start a local gRPC mock listener, define unary and streaming stubs, and test against it.</p>
+    </div>
+    <div class="tutorial-card">
+      <h4><a href="grpc-schema-drift-advanced.html">9. Schema Drift Detection</a> <span class="badge badge-advanced">Advanced</span></h4>
+      <p>Compare two descriptor snapshots to surface breaking changes before they hit production.</p>
+    </div>
+    <div class="tutorial-card">
+      <h4><a href="grpc-interpolation-advanced.html">10. Interpolation &amp; Variables</a> <span class="badge badge-advanced">Advanced</span></h4>
+      <p>Inject <code>{{variable}}</code> tokens into the target host, metadata headers, and request fields.</p>
+    </div>
+  </div>
+
+  <h2>Learning Path</h2>
+  <p>Recommended order for new users:</p>
+  <ol>
+    <li>Start with <strong>Your First Call</strong> to learn connection and schema loading basics.</li>
+    <li>Work through <strong>Schema Management</strong> to understand all schema ingestion options.</li>
+    <li>Follow the streaming trilogy (<strong>Server → Client → Bidirectional</strong>) in order — each builds on the previous.</li>
+    <li>Add <strong>Collections &amp; History</strong> to build a personal library of test calls.</li>
+    <li>Tackle the advanced trio — <strong>TLS</strong>, <strong>Mock Server</strong>, and <strong>Schema Drift</strong> — once you are comfortable with the basics.</li>
+    <li>Finish with <strong>Interpolation</strong> to parameterise everything for CI/CD and environment switching.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Public test endpoint</strong>
+    The tutorials use <code>grpcb.in:443</code> — a free public gRPC testing service with TLS and server reflection enabled. Any gRPC server with reflection will work equally well.
+  </div>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ Desktop-only features</strong>
+    The <strong>Mock Server</strong> and <strong>native transport mode</strong> require the RedfireForge desktop (Tauri) app. Browser mode uses a proxy transport and cannot bind a local gRPC listener.
+  </div>
+
+  <footer>RedfireForge v0.6.0 · gRPC Studio Training Manual · August 2026</footer>
+</body>
+</html>

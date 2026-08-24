@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebSocket: TLS / WSS Configuration — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>WebSocket: TLS / WSS Configuration</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; Skip-cert · CA cert · mTLS · Proxy architecture</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Understand when the TLS panel appears and why</li>
+    <li>Skip certificate validation for self-signed dev certificates</li>
+    <li>Provide a custom CA certificate for private PKI</li>
+    <li>Configure mutual TLS (mTLS) with client certificate and key</li>
+    <li>Understand how RedfireForge proxies WSS connections</li>
+  </ul>
+
+  <h2>When the TLS Panel Appears</h2>
+  <p>The TLS panel (<code>tls-panel</code>) appears automatically below the URL field on the <strong>Connect</strong> tab whenever the URL begins with <code>wss://</code>. For plain <code>ws://</code> connections, the panel is hidden — TLS does not apply.</p>
+
+  <p>By default, the panel is collapsed. Click the toggle arrow (<code>tls-toggle</code>) to expand the TLS settings body (<code>tls-body</code>).</p>
+
+  <h2>How RedfireForge Proxies WSS</h2>
+  <p>Browser JavaScript cannot override TLS certificate validation. RedfireForge solves this by routing <code>wss://</code> connections through its <strong>Express backend proxy</strong>. The flow is:</p>
+  <pre>Browser client
+    ↕ (ws://) plain websocket to Express proxy
+  Express proxy (Node.js)
+    ↕ (wss://) TLS-verified connection to target server</pre>
+  <p>This is the same architecture used by the gRPC Studio proxy. The proxy notice (<code>tls-proxy-notice</code>) in the panel confirms this mode is active. TLS options you configure apply to the Node.js backend connection — not to the browser.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Desktop app</strong>
+    In the Tauri desktop build, the proxy is embedded in the Tauri sidecar. TLS still goes through the same Node.js proxy layer.
+  </div>
+
+  <h2>TLS Settings Reference</h2>
+
+  <table>
+    <tr><th>Setting</th><th>Testid</th><th>Description</th></tr>
+    <tr><td><strong>Skip Certificate Validation</strong></td><td><code>tls-skip-cert</code></td><td>Bypasses all server certificate checks. Use in dev/test with self-signed certs only — never in production.</td></tr>
+    <tr><td><strong>CA Certificate</strong></td><td><code>tls-ca-cert</code></td><td>Upload a PEM-encoded CA certificate. Used to validate the server certificate when it was signed by a private CA.</td></tr>
+    <tr><td><strong>Client Certificate</strong></td><td><code>tls-client-cert</code></td><td>Upload a PEM-encoded client certificate for mutual TLS (mTLS). The server uses this to authenticate the client.</td></tr>
+    <tr><td><strong>Client Key</strong></td><td><code>tls-client-key</code></td><td>Upload the private key corresponding to the client certificate (PEM). Required when a client cert is provided.</td></tr>
+    <tr><td><strong>Save</strong></td><td><code>tls-save</code></td><td>Persists TLS settings for this connection tab to localStorage.</td></tr>
+    <tr><td><strong>Cancel</strong></td><td><code>tls-cancel</code></td><td>Discards unsaved TLS changes and reverts to the last saved state.</td></tr>
+  </table>
+
+  <h2>Walkthrough: Self-Signed Certificate (Dev)</h2>
+  <div class="step"><div class="step-num">1</div><div class="step-body">Set the URL to your local WSS server, e.g., <code>wss://localhost:8443/ws</code>. The TLS panel appears.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Click the expand toggle (<code>tls-toggle</code>) to open the TLS body.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Check the <strong>Skip Certificate Validation</strong> checkbox (<code>tls-skip-cert</code>). A warning banner appears reminding you this setting is insecure.</div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Click <strong>Save</strong> (<code>tls-save</code>). The setting is persisted for this connection tab.</div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body">Click <strong>Connect</strong>. The proxy connects to your local server without verifying the self-signed certificate. The connection succeeds.</div></div>
+
+  <h2>Walkthrough: Private CA</h2>
+  <div class="step"><div class="step-num">1</div><div class="step-body">Your server uses a certificate signed by your internal CA. You have the CA cert as <code>ca.pem</code>.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Expand the TLS panel. Leave <strong>Skip Certificate Validation</strong> unchecked.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Click the <strong>CA Certificate</strong> upload area (<code>tls-ca-cert</code>). Select <code>ca.pem</code>. The filename appears next to the upload field.</div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Click <strong>Save</strong> and <strong>Connect</strong>. The proxy uses your CA cert to validate the server certificate chain.</div></div>
+
+  <h2>Walkthrough: Mutual TLS (mTLS)</h2>
+  <div class="step"><div class="step-num">1</div><div class="step-body">In addition to the CA cert (see above), upload your client certificate (<code>tls-client-cert</code>) and client private key (<code>tls-client-key</code>).</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Both files must be PEM-encoded. The client cert must match the private key (the studio validates this on Save and shows an error if they mismatch).</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Click <strong>Save</strong>. On connect, the proxy presents the client certificate during the TLS handshake. The server authenticates both client identity and server certificate.</div></div>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ Key security</strong>
+    Private keys uploaded to the TLS panel are stored in the browser's <code>localStorage</code> for the session. They are never sent to any remote server — only used by the local Express proxy. Clear browser storage or restart the app to remove stored keys.
+  </div>
+
+  <h2>TLS Persistence</h2>
+  <p>TLS settings are persisted per connection tab using <code>localStorage</code>. When you close and reopen the application, TLS settings for saved connections are restored automatically. Certificate file contents are stored (not just file paths), so the proxy can use them without re-prompting for the file.</p>
+
+  <h2>Practice Exercises</h2>
+  <ol>
+    <li>Connect to <code>wss://echo.websocket.org</code> (public CA, no custom cert needed). Confirm the TLS panel appears but no special settings are required for a successful connection.</li>
+    <li>Generate a self-signed certificate with OpenSSL. Run a local WSS echo server using it. Enable <code>tls-skip-cert</code> in the panel and confirm a successful connection.</li>
+    <li>With a private CA setup, provide the CA cert via <code>tls-ca-cert</code> instead of skipping validation. Confirm the connection succeeds and the Skip option is not enabled.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · WebSocket Studio — TLS / WSS Configuration · August 2026</footer>
+</body>
+</html>

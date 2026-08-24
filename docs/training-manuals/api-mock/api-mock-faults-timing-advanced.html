@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Mock: Faults, Timing &amp; Pattern Toolbox — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>API Mock: Faults, Timing &amp; Pattern Toolbox</h1>
+  <p><span class="badge badge-advanced">Advanced</span> &nbsp; 6 Fault Types · Timing Panel · Pattern Toolbox (🪄 Wand, 6 Tabs)</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Use the Pattern Toolbox (🪄) to build regex, JSONPath, XPath, and schema matchers</li>
+    <li>Configure the 6 connection-level fault types</li>
+    <li>Set response timing: fixed delay, jitter, max matches, and expiry datetime</li>
+    <li>Understand why faults are live-server-only and don't fire in Simulate</li>
+  </ul>
+
+  <h2>Part A — Pattern Toolbox (🪄)</h2>
+
+  <p>The Pattern Toolbox is a guided builder for complex predicate patterns. It opens from the <strong>🪄 wand</strong> button next to any selector/value field on the Match tab.</p>
+
+  <table>
+    <thead><tr><th>Toolbox Tab</th><th>Purpose</th><th>Example output</th></tr></thead>
+    <tbody>
+      <tr><td>Regex</td><td>Build and test a regex pattern interactively</td><td><code>^/users/[0-9]+/orders$</code></td></tr>
+      <tr><td>Path Template</td><td>Convert a URL template to a glob or regex for path matching</td><td><code>/orders/{id}/items/{itemId}</code> → <code>/orders/*/items/*</code></td></tr>
+      <tr><td>JSON Body / JSONPath</td><td>Paste a sample JSON body, click a field to auto-generate its JSONPath</td><td><code>$.customer.billing.zipCode</code></td></tr>
+      <tr><td>XPath</td><td>Paste XML, click an element to generate its XPath</td><td><code>/order/customer/address/zip</code></td></tr>
+      <tr><td>Schema</td><td>Paste a JSON Schema or XML Schema for schema-validation matching</td><td>Validates body structure on match</td></tr>
+      <tr><td>Query &amp; Headers</td><td>Compose multi-field query string / header constraints visually</td><td><code>page=present AND size=regex:\d+</code></td></tr>
+    </tbody>
+  </table>
+
+  <h3>Using the JSON Body Tab</h3>
+
+  <div class="step"><div class="step-num">1</div><div class="step-body">In a route's Match tab, add a body predicate. Next to the Selector field, click the <strong>🪄</strong> button. The Pattern Toolbox opens.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Select the <strong>JSON Body / JSONPath</strong> tab. Paste a sample request body:
+    <pre>{"order": {"id": "ord-1", "customer": {"email": "alice@ex.com"}, "items": [{"sku": "WIDGET"}]}}</pre>
+  </div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Click the <code>email</code> field in the rendered JSON tree. The toolbox shows the auto-generated path: <code>$.order.customer.email</code>. Click <strong>Insert</strong> — the path is copied into the Selector field automatically.</div></div>
+
+  <h3>Using the Regex Tab</h3>
+
+  <div class="step"><div class="step-num">4</div><div class="step-body">Open the <strong>Regex</strong> tab. Type your pattern in the Pattern field, e.g. <code>^v[0-9]+\.[0-9]+$</code>. In the Test Samples area, enter values like <code>v1.0</code> (should match) and <code>latest</code> (should not match). The tool highlights each sample green or red in real-time.</div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body">Click <strong>Insert</strong> when satisfied. The pattern is pasted into the predicate's Expected field and the operator is set to <code>regex</code>.</div></div>
+
+  <h2>Part B — Faults</h2>
+
+  <p>Faults are configured in the <strong>Behavior</strong> tab → <strong>Faults</strong> panel. Each route variant can have at most one active fault type.</p>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ Faults are live-server-only</strong>
+    Faults only fire when the live HTTP listener is running. In the Simulate modal, the server renders the intended response body as if no fault were configured. Verify faults with real HTTP requests (e.g. curl) against the running server.
+  </div>
+
+  <table>
+    <thead><tr><th>Fault Type</th><th>Behaviour</th><th>Config options</th></tr></thead>
+    <tbody>
+      <tr><td><code>none</code></td><td>No fault — normal response (default)</td><td>—</td></tr>
+      <tr><td><code>timeout</code></td><td>Opens the socket but holds it open without sending any data for the configured duration, then closes</td><td>Hold duration (ms); capped by server <em>longRunningMaxMs</em></td></tr>
+      <tr><td><code>reset</code></td><td>Sends TCP RST mid-response — connection is abruptly dropped</td><td>—</td></tr>
+      <tr><td><code>dribble</code></td><td>Sends the response body in small chunks with pauses between them (slow drip)</td><td>Chunk schedule (bytes per interval, interval ms)</td></tr>
+      <tr><td><code>close</code></td><td>Sends an empty response body and closes the connection immediately</td><td>—</td></tr>
+      <tr><td><code>malformed</code></td><td>Sends invalid HTTP framing bytes — causes most clients to error with a parse failure</td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Configuring a Timeout Fault</h3>
+
+  <div class="step"><div class="step-num">6</div><div class="step-body">Select a route variant. Open <strong>Behavior → Faults</strong>. Click the <strong>Timeout</strong> card to enable it.</div></div>
+  <div class="step"><div class="step-num">7</div><div class="step-body">Set the <strong>Hold duration</strong> to <code>30000</code> ms (30 seconds). Note: the effective maximum is the server's <em>longRunningMaxMs</em> setting (configurable in Server Settings).</div></div>
+  <div class="step"><div class="step-num">8</div><div class="step-body">Start the server. Send a request to this route via curl. Your curl command will hang for 30 seconds before the connection closes. Your application's timeout handling should trigger before that if properly configured.</div></div>
+
+  <h3>Configuring a Dribble Fault</h3>
+
+  <div class="step"><div class="step-num">9</div><div class="step-body">Enable the <strong>Dribble</strong> fault card. Set:
+    <ul style="margin-top: 6px">
+      <li><strong>Chunk size</strong>: 10 bytes</li>
+      <li><strong>Interval</strong>: 500 ms</li>
+    </ul>
+    The response body is sent 10 bytes every 500 ms — mimicking a very slow upstream or saturated connection.
+  </div></div>
+
+  <h2>Part C — Timing Panel</h2>
+
+  <p>The Timing panel is in <strong>Behavior → Timing</strong>. Settings apply to the variant, not the fault.</p>
+
+  <table>
+    <thead><tr><th>Setting</th><th>Effect</th></tr></thead>
+    <tbody>
+      <tr><td>Delay (ms)</td><td>Fixed latency added before the response is sent. Use to simulate a slow API.</td></tr>
+      <tr><td>Jitter (ms)</td><td>Random variation added to the delay on each request (uniformly distributed ± jitter). Combines with Delay.</td></tr>
+      <tr><td>Max matches</td><td>After this many successful matches, the variant is automatically disabled. Leave blank for unlimited.</td></tr>
+      <tr><td>Expires at</td><td>Calendar/datetime picker. The variant is automatically disabled after this moment.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="step"><div class="step-num">10</div><div class="step-body">Set Delay = <code>200</code> ms, Jitter = <code>50</code> ms. Start the server and send several requests. The Transactions log duration column shows varied response times in the 150–250 ms range.</div></div>
+  <div class="step"><div class="step-num">11</div><div class="step-body">Set Max matches = <code>3</code>. Send 4 requests. The 4th request matches a different variant (or is unmatched if none exist). Check the State tab to see the match counter reach the limit.</div></div>
+  <div class="step"><div class="step-num">12</div><div class="step-body">Set Expires at to 2 minutes from now (use the datetime picker). After the time passes, the variant is automatically disabled. The route continues to exist — only this variant is skipped.</div></div>
+
+  <div class="callout callout-tip">
+    <strong>💡 Chaos testing combination</strong>
+    Combine Timing + Sequence mode: Variant 1 (200 OK, no delay), Variant 2 (200 OK, 1000 ms delay + 200 ms jitter), Variant 3 (timeout fault). Every 3rd request simulates a network timeout. This is a simple chaos testing pattern without external tooling.
+  </div>
+
+  <h2>Self-Practice Exercises</h2>
+  <ol>
+    <li>Use the Regex Toolbox tab to build a pattern that matches semantic version strings (<code>v1.2.3</code>). Insert it into a path predicate for a route like <code>GET /releases/{version}</code>.</li>
+    <li>Use the JSON Body tab to auto-generate the JSONPath for a deeply nested field in your domain's request body. Insert it into a body predicate.</li>
+    <li>Configure a Reset fault on a variant. Start the server. Run <code>curl -v http://127.0.0.1:4001/test</code> and observe the "connection reset by peer" error.</li>
+    <li>Set Max matches to 1 on a variant. Send two requests. The second should hit a different variant or be unmatched. Verify in the Transactions log.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · API Mock Studio — Faults, Timing &amp; Pattern Toolbox · August 2026</footer>
+</body>
+</html>

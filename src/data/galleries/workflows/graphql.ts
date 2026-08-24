@@ -10,11 +10,13 @@ import {
 /**
  * GraphQL gallery workflow samples.
  *
- * Four samples spanning easy → medium:
- *  1. GraphQL Health Check (easy)     — Introspect + sentinel query + assert latency
- *  2. GraphQL E-Commerce Flow (medium)— Mutation → Subscription → Assert
- *  3. GraphQL Schema Watchdog (medium)— Schedule → Introspect → Condition (hash diff)
- *  4. GraphQL User CRUD (medium)      — Create → Fetch → Assert → Delete
+ * Six samples spanning easy → medium:
+ *  1. GraphQL Health Check (easy)            — Introspect + sentinel query + assert latency
+ *  2. GraphQL E-Commerce Flow (medium)       — Mutation → Subscription → Assert
+ *  3. GraphQL Schema Watchdog (medium)       — Schedule → Introspect → Condition (hash diff)
+ *  4. GraphQL User CRUD (medium)             — Create → Fetch → Assert → Delete
+ *  5. GraphQL Subscription over WebSocket    — Subscribe via graphql-ws, collect events, branch
+ *  6. GraphQL Subscription over SSE          — Same pattern with subscriptionTransport: 'sse'
  */
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -351,6 +353,114 @@ export function createGraphqlUserCrudWorkflow(): Workflow {
       makeEdge('guc-e3', 'guc-fetch', 'guc-assert'),
       makeEdge('guc-e4', 'guc-assert', 'guc-delete'),
       makeEdge('guc-e5', 'guc-delete', 'guc-end'),
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 5. Medium: GraphQL Subscription over WebSocket (graphql-ws)
+//    Start → graphqlSubscription (graphql-ws) → condition → logDebug → End
+// ────────────────────────────────────────────────────────────────────────────
+export function createGraphqlSubscriptionWsWorkflow(): Workflow {
+  return {
+    id: 'sample-graphql-subscription-ws',
+    name: 'GraphQL: Subscription over WebSocket',
+    description: 'Subscribes to a live event feed via graphql-ws, collects up to 5 messages or 15 s, then branches on whether any events were received',
+    variables: {
+      gqlEndpoint: 'http://localhost:4000/graphql',
+      receivedCount: '',
+      lastEvent: '',
+    },
+    nodes: [
+      makeStartNode('gsw-start', { gqlEndpoint: 'http://localhost:4000/graphql' }, { x: 240, y: 30 }),
+      {
+        id: 'gsw-subscribe',
+        type: 'graphqlSubscription',
+        position: { x: 240, y: 150 },
+        data: {
+          label: '1. Subscribe (graphql-ws)',
+          endpoint: '{{gqlEndpoint}}',
+          subscriptionQuery: 'subscription OnOrderUpdated {\n  onOrderUpdated {\n    id\n    status\n    updatedAt\n  }\n}',
+          variables: '{}',
+          headers: [],
+          subscriptionTransport: 'graphql-ws',
+          stopAfterMessages: 5,
+          stopAfterMs: 15000,
+          extractionRules: [],
+          outputBindings: [
+            { field: 'messageCount', variableName: 'receivedCount', enabled: true },
+            { field: 'lastMessage', variableName: 'lastEvent', enabled: true },
+          ],
+        },
+      },
+      makeConditionNode('gsw-check', '3. Events Received?', '{{receivedCount}}', '0', { operator: '>', x: 240, y: 310 }),
+      makeLogDebugNode('gsw-log-ok', '4. Log Success', 'Received {{receivedCount}} live events via WebSocket', 'info', { x: 120, y: 450 }),
+      makeLogDebugNode('gsw-log-warn', '4. Log No Events', 'No events received — verify endpoint and transport', 'warn', { x: 380, y: 450 }),
+      makeEndNode('gsw-end', 'Subscription Complete', { x: 240, y: 570 }),
+    ],
+    edges: [
+      makeEdge('gsw-e1', 'gsw-start', 'gsw-subscribe'),
+      makeEdge('gsw-e2', 'gsw-subscribe', 'gsw-check'),
+      makeEdge('gsw-e3', 'gsw-check', 'gsw-log-ok', 'true'),
+      makeEdge('gsw-e4', 'gsw-check', 'gsw-log-warn', 'false'),
+      makeEdge('gsw-e5', 'gsw-log-ok', 'gsw-end'),
+      makeEdge('gsw-e6', 'gsw-log-warn', 'gsw-end'),
+    ],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 6. Medium: GraphQL Subscription over SSE
+//    Same topology as #5 but with subscriptionTransport: 'sse'
+// ────────────────────────────────────────────────────────────────────────────
+export function createGraphqlSubscriptionSseWorkflow(): Workflow {
+  return {
+    id: 'sample-graphql-subscription-sse',
+    name: 'GraphQL: Subscription over SSE',
+    description: 'Same subscription pattern as the WebSocket variant but uses SSE transport — demonstrates the single-field difference between transport modes',
+    variables: {
+      gqlEndpoint: 'http://localhost:4000/graphql/stream',
+      receivedCount: '',
+      lastEvent: '',
+    },
+    nodes: [
+      makeStartNode('gss-start', { gqlEndpoint: 'http://localhost:4000/graphql/stream' }, { x: 240, y: 30 }),
+      {
+        id: 'gss-subscribe',
+        type: 'graphqlSubscription',
+        position: { x: 240, y: 150 },
+        data: {
+          label: '1. Subscribe (SSE)',
+          endpoint: '{{gqlEndpoint}}',
+          subscriptionQuery: 'subscription OnOrderUpdated {\n  onOrderUpdated {\n    id\n    status\n    updatedAt\n  }\n}',
+          variables: '{}',
+          headers: [],
+          subscriptionTransport: 'sse',
+          stopAfterMessages: 5,
+          stopAfterMs: 15000,
+          extractionRules: [],
+          outputBindings: [
+            { field: 'messageCount', variableName: 'receivedCount', enabled: true },
+            { field: 'lastMessage', variableName: 'lastEvent', enabled: true },
+          ],
+        },
+      },
+      makeConditionNode('gss-check', '3. Events Received?', '{{receivedCount}}', '0', { operator: '>', x: 240, y: 310 }),
+      makeLogDebugNode('gss-log-ok', '4. Log Success', 'Received {{receivedCount}} events via SSE', 'info', { x: 120, y: 450 }),
+      makeLogDebugNode('gss-log-warn', '4. Log No Events', 'No events received — verify SSE endpoint path', 'warn', { x: 380, y: 450 }),
+      makeEndNode('gss-end', 'Subscription Complete', { x: 240, y: 570 }),
+    ],
+    edges: [
+      makeEdge('gss-e1', 'gss-start', 'gss-subscribe'),
+      makeEdge('gss-e2', 'gss-subscribe', 'gss-check'),
+      makeEdge('gss-e3', 'gss-check', 'gss-log-ok', 'true'),
+      makeEdge('gss-e4', 'gss-check', 'gss-log-warn', 'false'),
+      makeEdge('gss-e5', 'gss-log-ok', 'gss-end'),
+      makeEdge('gss-e6', 'gss-log-warn', 'gss-end'),
     ],
     createdAt: Date.now(),
     updatedAt: Date.now(),

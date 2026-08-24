@@ -1,7 +1,7 @@
 import type { Scenario } from '@shared/types';
 import type { GalleryEntry } from '../types';
 
-export type RequestCategory = 'crud' | 'search' | 'auth' | 'pagination';
+export type RequestCategory = 'crud' | 'search' | 'auth' | 'pagination' | 'graphql';
 
 export interface RequestSampleEntry extends GalleryEntry<Scenario> {
   category: RequestCategory;

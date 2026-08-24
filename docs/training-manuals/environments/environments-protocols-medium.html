@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Environment Manager: Protocols &amp; Auth — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>Environment Manager: Protocols &amp; Auth</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; Protocol Tabs · gRPC Endpoints · Auth Profiles · SSE Fallback</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Add a second protocol (gRPC) to an existing microservice</li>
+    <li>Set per-environment gRPC endpoints and enable TLS</li>
+    <li>Assign a global auth profile to each microservice × environment cell</li>
+    <li>Add a GraphQL protocol tab and set its path per environment</li>
+    <li>Understand the SSE fallback and gRPC unresolved notices</li>
+    <li>Remove a protocol tab you no longer need</li>
+  </ul>
+
+  <h2>Prerequisite</h2>
+  <p>Complete <em>Environment Manager: Basics</em>. You should have <em>user-api</em> deployed to <em>dev</em> and <em>staging</em> with HTTP base URLs set. You should also have at least one Global Auth Profile already created (Settings → Auth Profiles).</p>
+
+  <h2>Protocol Tabs Overview</h2>
+  <p>Each microservice defaults to an <strong>HTTP</strong> tab. Additional protocol tabs (gRPC, GraphQL, WebSocket, SSE) can be added when a service supports those protocols. Each tab has its own endpoint table, independent of HTTP.</p>
+
+  <table>
+    <thead><tr><th>Protocol</th><th>Tab Key</th><th>Endpoint Format</th><th>Extras</th></tr></thead>
+    <tbody>
+      <tr><td>HTTP</td><td><code>http</code></td><td><code>http://host:port</code></td><td>Env vars, Auth profiles</td></tr>
+      <tr><td>gRPC</td><td><code>grpc</code></td><td><code>host:port</code></td><td>TLS toggle, env vars, auth profiles</td></tr>
+      <tr><td>GraphQL</td><td><code>graphql</code></td><td><code>http://host:port</code> + path</td><td>Path field (<code>/graphql</code>), auth profiles</td></tr>
+      <tr><td>WebSocket</td><td><code>ws</code></td><td><code>ws://host:port</code> or <code>wss://</code></td><td>Auth profiles</td></tr>
+      <tr><td>SSE</td><td><code>sse</code></td><td>Falls back to HTTP base URL if not set</td><td>Fallback notice</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Step-by-Step Walkthrough</h2>
+
+  <h3>Part A — Add a gRPC Protocol Tab</h3>
+
+  <div class="step"><div class="step-num">1</div><div class="step-body">Open the <em>user-api</em> configuration panel (click <strong>Configure</strong>).</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">In the protocol tab bar, click the <strong>+</strong> button (<code>em-add-protocol-btn</code>). A small dropdown menu (<code>em-add-protocol-menu</code>) appears listing available protocols.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Click <strong>gRPC</strong> (<code>em-add-protocol-item-grpc</code>). A new <strong>gRPC</strong> tab appears in the tab bar (<code>em-protocol-tab-grpc</code>).</div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Click the <strong>gRPC</strong> tab to activate it. The endpoint table now shows gRPC-specific columns: Deploy checkbox, Environment, gRPC Target, Env vars, and Auth profile.</div></div>
+
+  <div class="callout callout-tip">
+    <strong>💡 Protocols are independent</strong>
+    Deploying to an environment on the HTTP tab does not automatically deploy on gRPC. Each protocol tab has its own deploy checkboxes.
+  </div>
+
+  <h3>Part B — Set gRPC Endpoints</h3>
+
+  <div class="step"><div class="step-num">5</div><div class="step-body">In the gRPC tab, tick the deploy checkbox for <em>dev</em>. The endpoint cell becomes editable.</div></div>
+  <div class="step"><div class="step-num">6</div><div class="step-body">Click the edit icon (<code>em-endpoint-edit-btn</code>) in the gRPC Target cell for dev. Type:</div></div>
+<pre>localhost:50051</pre>
+  <div class="step"><div class="step-num">7</div><div class="step-body">Click <strong>Save</strong>. The target is stored.</div></div>
+  <div class="step"><div class="step-num">8</div><div class="step-body">Deploy <em>staging</em> and set its gRPC target to <code>staging.internal:50051</code>.</div></div>
+
+  <h3>Part C — Enable TLS for a gRPC Environment</h3>
+
+  <div class="step"><div class="step-num">9</div><div class="step-body">In the gRPC tab for <em>staging</em>, locate the <strong>TLS</strong> toggle in the endpoint row. Toggle it on. The endpoint cell updates to reflect the TLS setting — gRPC Studio will use a TLS-enabled channel for this environment.</div></div>
+
+  <div class="callout>
+    <strong>gRPC unresolved notice</strong>
+    If you have deployed environments but none have a gRPC target set, a warning notice (<code>grpc-unresolved-notice</code>) appears at the bottom of the panel. Set at least one gRPC target to dismiss it.
+  </div>
+
+  <h3>Part D — Assign Auth Profiles</h3>
+
+  <div class="step"><div class="step-num">10</div><div class="step-body">Switch back to the <strong>HTTP</strong> tab in the protocol panel.</div></div>
+  <div class="step"><div class="step-num">11</div><div class="step-body">In the <em>dev</em> row, look at the <strong>Auth profile</strong> column. It shows a dropdown (or <em>None</em> if empty). Click the dropdown and select a pre-created auth profile (e.g. <em>Dev Bearer Token</em>).</div></div>
+  <div class="step"><div class="step-num">12</div><div class="step-body">For <em>staging</em>, select a different profile (e.g. <em>Staging API Key</em>).</div></div>
+  <div class="step"><div class="step-num">13</div><div class="step-body">When a request is sent with <em>dev</em> active, the auth header from the <em>Dev Bearer Token</em> profile is injected automatically. Switching to <em>staging</em> swaps the auth without touching the request.</div></div>
+
+  <div class="callout callout-tip">
+    <strong>💡 Where to create auth profiles</strong>
+    Go to <strong>Settings → Auth Profiles</strong> to create Bearer, API Key, or Basic profiles. Once created, they appear in every microservice's auth dropdown.
+  </div>
+
+  <h3>Part E — Add a GraphQL Protocol Tab</h3>
+
+  <div class="step"><div class="step-num">14</div><div class="step-body">Click the <strong>+</strong> button in the protocol tab bar and select <strong>GraphQL</strong> (<code>em-add-protocol-item-graphql</code>).</div></div>
+  <div class="step"><div class="step-num">15</div><div class="step-body">Activate the <strong>GraphQL</strong> tab. The table has an extra column: <strong>GraphQL Path</strong>.</div></div>
+  <div class="step"><div class="step-num">16</div><div class="step-body">Deploy <em>dev</em> and set the endpoint to <code>http://localhost:4000</code>.</div></div>
+  <div class="step"><div class="step-num">17</div><div class="step-body">In the GraphQL path input (<code>em-graphql-path-input</code>), type <code>/graphql</code>. This is the path appended to the base URL when GraphQL Studio connects for this microservice.</div></div>
+
+  <h3>Part F — Understand SSE Fallback</h3>
+
+  <div class="step"><div class="step-num">18</div><div class="step-body">Add an SSE tab for <em>user-api</em>. Leave the endpoint blank (don't deploy any environment).</div></div>
+  <div class="step"><div class="step-num">19</div><div class="step-body">A yellow notice (<code>sse-fallback-notice</code>) appears: <em>"SSE endpoint not configured — falling back to HTTP base URL."</em> This means SSE Studio will use the HTTP base URL as the SSE stream URL for those environments.</div></div>
+  <div class="step"><div class="step-num">20</div><div class="step-body">If your SSE endpoint differs from the HTTP base URL (e.g. <code>http://localhost:3001/events</code>), deploy the SSE tab and set the dedicated URL.</div></div>
+
+  <h3>Part G — Remove a Protocol Tab</h3>
+
+  <div class="step"><div class="step-num">21</div><div class="step-body">To remove a protocol you no longer need, hover over its tab label. A small × appears next to the tab name (test ID <code>em-remove-protocol-{key}</code>).</div></div>
+  <div class="step"><div class="step-num">22</div><div class="step-body">Click × to remove the protocol tab. The tab disappears and all stored endpoints for that protocol on this service are cleared.</div></div>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ Cannot remove HTTP</strong>
+    The HTTP tab is always present and cannot be removed. It is the foundation of the base URL system.
+  </div>
+
+  <h2>Protocol Status Quick Reference</h2>
+  <table>
+    <thead><tr><th>Protocol</th><th>Notice / Warning</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td>SSE</td><td>Yellow fallback notice</td><td>No SSE endpoint set; falls back to HTTP baseUrl</td></tr>
+      <tr><td>gRPC</td><td>Red unresolved notice</td><td>Deployed envs have no gRPC target configured</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Self-Practice Exercises</h2>
+  <ol>
+    <li>Add a WebSocket protocol tab to <em>user-api</em> and set a <code>ws://localhost:8080</code> target for dev.</li>
+    <li>Assign different auth profiles to dev, staging, and prod on the HTTP tab.</li>
+    <li>Add a GraphQL tab to <em>order-api</em>, deploy all three environments, and set different paths (<code>/graphql</code> for dev/staging, <code>/api/graphql</code> for prod).</li>
+    <li>Remove the WebSocket tab you added in step 1 and observe the protocol badge update on the service card.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · Environment Manager — Protocols &amp; Auth · August 2026</footer>
+</body>
+</html>

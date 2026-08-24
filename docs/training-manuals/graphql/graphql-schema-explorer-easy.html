@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GraphQL: Schema Explorer — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } h1 { font-size: 20pt; } h2 { font-size: 16pt; } h3 { font-size: 13pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 85vh; text-align: center; }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🗺️</div>
+    <h1>Schema Explorer</h1>
+    <div class="subtitle">Easy — Training Guide</div>
+    <p>Browse every type, field, and relationship in your GraphQL API without writing a single query. Learn to search types, navigate nested objects, and read the inline documentation that schema authors embed directly in the SDL.</p>
+    <div class="meta">
+      RedfireForge v0.6.0<br />
+      Difficulty: ★☆☆<br />
+      GraphQL Studio · Schema tab
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>Before writing a query you need to know what fields are available. The Schema Explorer is your interactive documentation browser — it shows the same information as a hand-written API reference, but it is always in sync with the live schema because it's built from introspection results.</p>
+  <p>This is especially valuable when:</p>
+  <ul>
+    <li>You've just connected to an unfamiliar API and want to understand its data model</li>
+    <li>You're not sure of the exact field name or argument type</li>
+    <li>You want to read the documentation strings the schema author wrote for each field</li>
+    <li>You're hunting for the relationship between two types (e.g. <code>User → Order → LineItem</code>)</li>
+  </ul>
+
+  <h2>2. Concepts You'll Learn</h2>
+  <ul>
+    <li><strong>SDL types</strong> — Object types (<code>type User</code>), scalars (<code>String</code>, <code>Int</code>, <code>ID</code>), enums, input types, interfaces, unions</li>
+    <li><strong>Nullable vs non-null</strong> — a field followed by <code>!</code> is required (never null)</li>
+    <li><strong>List types</strong> — <code>[Order]</code> returns an array; <code>[Order!]!</code> is a non-null array of non-null orders</li>
+    <li><strong>Deprecation markers</strong> — the explorer highlights deprecated fields with a warning</li>
+    <li><strong>Root types</strong> — Query (reads), Mutation (writes), Subscription (streams) are the three entry points</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <h2>3. Step-by-Step Walkthrough</h2>
+
+  <h3>Step 1 — Connect and Introspect</h3>
+  <p>Open GraphQL Studio and connect to:</p>
+  <pre>https://countries.trevorblades.com/graphql</pre>
+  <p>Click <strong>Introspect</strong>. The studio loads the schema and the Schema Explorer icon in the activity sidebar becomes active.</p>
+
+  <h3>Step 2 — Open the Schema Explorer</h3>
+  <p>Click the <strong>Schema</strong> icon in the left activity bar (looks like a diagram or grid). The Schema Explorer panel opens, showing a scrollable list of all types defined in the schema.</p>
+  <p>You will see three root types at the top: <code>Query</code>, <code>Mutation</code>, <code>Subscription</code> (if the schema has them), followed by all object types in alphabetical order.</p>
+
+  <h3>Step 3 — Browse the Query Root</h3>
+  <p>Click on <strong>Query</strong> in the type list. The detail panel on the right shows all fields available on the Query root — these are the top-level operations you can call. For the countries API you'll see:</p>
+  <ul>
+    <li><code>continent(code: ID!): Continent</code></li>
+    <li><code>continents(filter: ContinentFilterInput): [Continent!]!</code></li>
+    <li><code>countries(filter: CountryFilterInput): [Country!]!</code></li>
+    <li><code>country(code: ID!): Country</code></li>
+    <li><code>language(code: ID!): Language</code></li>
+    <li><code>languages(filter: LanguageFilterInput): [Language!]!</code></li>
+  </ul>
+
+  <h3>Step 4 — Navigate to a Type</h3>
+  <p>Click on the <code>Country</code> type name (shown as a hyperlink in the field list). The detail panel switches to show the <code>Country</code> object type with all its fields:</p>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+    <tr><td><code>code</code></td><td><code>ID!</code></td><td>Two-letter country code (ISO 3166-1)</td></tr>
+    <tr><td><code>name</code></td><td><code>String!</code></td><td>Country name in English</td></tr>
+    <tr><td><code>native</code></td><td><code>String!</code></td><td>Country name in native language</td></tr>
+    <tr><td><code>capital</code></td><td><code>String</code></td><td>Capital city (nullable)</td></tr>
+    <tr><td><code>currency</code></td><td><code>String</code></td><td>Currency codes, comma-separated</td></tr>
+    <tr><td><code>languages</code></td><td><code>[Language!]!</code></td><td>Array of Language objects</td></tr>
+    <tr><td><code>continent</code></td><td><code>Continent!</code></td><td>Owning continent</td></tr>
+    <tr><td><code>emoji</code></td><td><code>String!</code></td><td>Country flag emoji</td></tr>
+  </table>
+  <p>Notice that <code>capital</code> has type <code>String</code> (nullable — no <code>!</code>). Some countries don't have a recognised capital, so the field can return <code>null</code>.</p>
+
+  <h3>Step 5 — Search Types</h3>
+  <p>At the top of the type list there is a search input. Type <code>Lang</code> to filter the list to only <code>Language</code> and <code>LanguageFilterInput</code>. The search is instant and case-insensitive.</p>
+
+  <h3>Step 6 — Inspect an Input Type</h3>
+  <p>Click on <code>CountryFilterInput</code>. Input types define the shape of query arguments — you'll see fields like <code>continent</code>, <code>currency</code>, and <code>code</code>, each of type <code>StringQueryOperatorInput</code>. These are the filter arguments you can pass to the <code>countries</code> query.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 From schema to query</strong>
+    Once you've found a field in the Schema Explorer, you can click <strong>"Add to Query"</strong> (if available) or simply start typing in the editor — the auto-complete will suggest the exact field names and argument types you just browsed.
+  </div>
+
+  <h3>Step 7 — Read Documentation Strings</h3>
+  <p>Well-authored GraphQL schemas include description strings for types and fields. Click on any field to see its full description in the detail panel. In the countries API, most fields have short descriptions. In production APIs (e.g. GitHub, Shopify), descriptions are extensive and include examples.</p>
+
+  <h2>4. Schema Type Reference</h2>
+  <table>
+    <tr><th>Type Kind</th><th>SDL Syntax</th><th>What it represents</th></tr>
+    <tr><td>Object</td><td><code>type Country { ... }</code></td><td>A data record with named fields</td></tr>
+    <tr><td>Scalar</td><td><code>String</code>, <code>Int</code>, <code>Float</code>, <code>Boolean</code>, <code>ID</code></td><td>Leaf values — no sub-fields</td></tr>
+    <tr><td>Enum</td><td><code>enum Status { ACTIVE INACTIVE }</code></td><td>A fixed set of string constants</td></tr>
+    <tr><td>Input</td><td><code>input CreateUserInput { ... }</code></td><td>Argument shape for mutations/queries</td></tr>
+    <tr><td>Interface</td><td><code>interface Node { id: ID! }</code></td><td>Shared field contract across types</td></tr>
+    <tr><td>Union</td><td><code>union Result = A | B</code></td><td>A field that may return one of several types</td></tr>
+    <tr><td>List</td><td><code>[Country!]!</code></td><td>Array — outer <code>!</code> = non-null array, inner <code>!</code> = non-null items</td></tr>
+  </table>
+
+  <h2>5. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Find a Deprecated Field</h3>
+  <p>Connect to a schema that has deprecation markers (try the GitHub or Shopify public APIs). Browse the type list and find a field with a deprecation warning. What is the recommended replacement?</p>
+
+  <h3>Exercise 2 — Trace a Relationship Chain</h3>
+  <p>Starting from <code>Query → countries → Country → continent → Continent</code>, trace the full chain in the Schema Explorer using only clicks. Write a query that traverses this relationship:</p>
+  <pre>query ChainTraversal {
+  country(code: "AU") {
+    name
+    continent {
+      name
+      countries {
+        name
+      }
+    }
+  }
+}</pre>
+
+  <h3>Exercise 3 — Identify All Non-Null Fields</h3>
+  <p>Open the <code>Language</code> type. Which fields are non-null (<code>!</code>)? Which are nullable? What does that tell you about what you can reliably assert against in a test?</p>
+
+  <footer>
+    RedfireForge Training Manual — GraphQL: Schema Explorer · August 2026
+  </footer>
+
+</body>
+</html>
