@@ -8,7 +8,17 @@
 
 export type GalleryDifficulty = 'easy' | 'medium' | 'advanced';
 
-export type GalleryDomain = 'requests' | 'catalog' | 'tests' | 'workflows' | 'assertions' | 'data-mapper' | 'api-mock' | 'grpc' | 'websocket';
+export type GalleryDomain =
+  | 'requests'
+  | 'catalog'
+  | 'harness'
+  | 'workflows'
+  | 'api-mock'
+  | 'kafka'
+  | 'websocket'
+  | 'sse'
+  | 'graphql'
+  | 'grpc';
 
 /** Reference to a training manual related to a gallery sample. */
 export interface RelatedManual {

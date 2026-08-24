@@ -11,6 +11,7 @@ import { dataMapperSampleCatalog } from '../../data/galleries/data-mapper';
 import { apiMockSampleCatalog } from '../../data/galleries/api-mock';
 import { grpcSampleCatalog } from '../../data/galleries/grpc';
 import { wsSampleCatalog } from '../../data/galleries/websocket';
+import { sseSampleCatalog } from '../../data/galleries/sse';
 import { GalleryGrid } from '@shared/components/gallery';
 import ConfirmModal from '@shared/components/ConfirmModal';
 import RequestPreview from './RequestPreview';
@@ -34,6 +35,7 @@ const ALL_ENTRIES: GalleryEntry<unknown>[] = [
   ...apiMockSampleCatalog,
   ...grpcSampleCatalog,
   ...wsSampleCatalog,
+  ...sseSampleCatalog,
 ];
 
 export interface GalleryPageProps {
@@ -63,13 +65,14 @@ export interface GalleryPageProps {
 const ACTION_LABELS: Record<GalleryDomain, string> = {
   requests: 'Send Request',
   catalog: 'Import Spec',
-  tests: 'Load Test',
+  harness: 'Load Test',
   workflows: 'Load Workflow',
-  assertions: 'Apply Preset',
-  'data-mapper': 'Load Sample',
   'api-mock': 'Load Mock Server',
-  grpc: 'Load Sample',
+  kafka: 'Load Workflow',
   websocket: 'Load Sample',
+  sse: 'Load Config',
+  graphql: 'Load Sample',
+  grpc: 'Load Sample',
 };
 
 const SECONDARY_LABELS: Partial<Record<GalleryDomain, string>> = {
@@ -115,13 +118,14 @@ export function GalleryPage({
   const importHandlers: Record<GalleryDomain, ((entry: GalleryEntry<unknown>) => void) | undefined> = useMemo(() => ({
     requests: onImportRequest,
     catalog: onImportCatalog,
-    tests: onImportTest,
+    harness: onImportTest,
     workflows: onImportWorkflow,
-    assertions: undefined,
-    'data-mapper': onImportTest,
     'api-mock': onImportApiMock,
-    grpc: onImportTest,
+    kafka: onImportWorkflow,
     websocket: onImportTest,
+    sse: undefined,
+    graphql: onImportTest,
+    grpc: onImportTest,
   }), [onImportRequest, onImportCatalog, onImportTest, onImportWorkflow, onImportApiMock]);
 
   const handleAction = useCallback((entry: GalleryEntry<unknown>) => {
