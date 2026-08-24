@@ -638,6 +638,70 @@ export const contentPaths: TrainingPath[] = [
     ],
   },
 
+  /* ── Environment Manager ── */
+  {
+    id: 'environments',
+    name: 'Environment Manager',
+    icon: '🌍',
+    description: 'Configure environments, microservices, base URLs, variables, and protocol endpoints — the foundation that makes all multi-environment testing possible.',
+    phases: [
+      {
+        id: 1,
+        name: 'Getting Started',
+        manuals: [
+          {
+            title: 'Environment Manager Overview',
+            description: 'Two-panel layout, environment chips, microservice cards, variable system, and active environment selector.',
+            difficulty: 'easy',
+            manualPath: 'environments/environments.html',
+          },
+          {
+            title: 'Environments Basics',
+            description: 'Create environments and microservices, toggle deploy, set a base URL, and verify {{baseUrl}} resolves in a request.',
+            difficulty: 'easy',
+            manualPath: 'environments/environments-basics-easy.html',
+          },
+        ],
+      },
+      {
+        id: 2,
+        name: 'Variables &amp; Configuration',
+        manuals: [
+          {
+            title: 'Variables &amp; Overrides',
+            description: 'Define global vars in the Protocol Vars modal, add per-environment overrides, and use {{varName}} in requests, headers, and bodies.',
+            difficulty: 'medium',
+            manualPath: 'environments/environments-variables-medium.html',
+          },
+          {
+            title: 'Protocols &amp; Auth',
+            description: 'Add gRPC, GraphQL, WebSocket, and SSE protocol tabs; configure per-protocol endpoints per environment; assign auth profiles.',
+            difficulty: 'medium',
+            manualPath: 'environments/environments-protocols-medium.html',
+          },
+          {
+            title: 'Additional Environments',
+            description: 'Add microservice-specific deployment slots, drag-reorder environments and services, and safely delete environments.',
+            difficulty: 'medium',
+            manualPath: 'environments/environments-additional-env-medium.html',
+          },
+        ],
+      },
+      {
+        id: 3,
+        name: 'Advanced Usage',
+        manuals: [
+          {
+            title: 'Multi-Env Test Runs',
+            description: 'Cascade environment in the harness modal, parameterized env rotation, and diagnosing unresolved variable warnings.',
+            difficulty: 'advanced',
+            manualPath: 'environments/environments-multi-run-advanced.html',
+          },
+        ],
+      },
+    ],
+  },
+
   /* ── Kafka Protocols ── */
   {
     id: 'kafka-protocols',

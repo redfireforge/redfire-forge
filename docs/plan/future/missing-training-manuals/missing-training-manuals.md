@@ -191,25 +191,46 @@ websocket/
 **Folder:** `docs/training-manuals/environments/`
 
 ### Scope (from e2e + source)
-- Create and edit environments (global, feature-group scoped)
-- Variable types (string, secret)
-- Environment inheritance (child overrides parent)
-- Activate/switch environments
-- Use variables in requests via `{{variableName}}`
-- Promote/demote shared data sources between environments
-- Multi-environment test runs (parameterized env rotation)
+- Create and manage environments (global app-level: dev, staging, prod) — drag to reorder, × to delete
+- Create and manage microservices — cards with expand/configure panel
+- Deploy toggle — enable a microservice for a specific environment (base URL table checkbox)
+- Base URL per microservice × environment — drives `{{baseUrl}}` and `{{host}}` built-in vars
+- Global vars — per-microservice key/value pairs shared across all environments (`{{varName}}`)
+- Env-var overrides — per-microservice × per-env overrides; "overridden" tag when shadowing a global
+- Protocol tabs — add gRPC, GraphQL, SSE, WebSocket per service (`em-protocol-tab-*`)
+- Per-protocol endpoints per environment — gRPC target, GraphQL path, WS URL, SSE URL
+- Auth profiles — assign a global auth profile to each microservice × env cell
+- Microservice-specific additional environments — service-level extra envs beyond global list
+- Active environment selector in app header (`header-env-select`)
+- Parameterized test runs — cascade environment selection (`send-harness-cascade-environment`)
+
+### Notes on original plan (corrected after code audit 2026-08-23)
+- "Secret variables / masking in logs" — **not present** in the EM; secret/masked vars exist only in
+  GraphQL Studio's own env modal. Replaced with `environments-protocols-medium.html`.
+- "Promote/demote shared data sources" — **not in EM**; SharedDataSource lives in the Scenarios
+  feature. Replaced with `environments-additional-env-medium.html`.
 
 ### Planned Files
 
 ```
 environments/
-  environments.html                         ← master overview
-  environments-basics-easy.html             ← create env, add variables, use in request
-  environments-inheritance-medium.html      ← global → feature-group scope chain
-  environments-secrets-medium.html          ← secret variables, masking in logs
-  environments-multi-run-advanced.html      ← rotate envs across parameterized test
-  environments-shared-ds-advanced.html      ← promote/demote shared data sources
+  environments.html                         ← master overview                        [✅]
+  environments-basics-easy.html             ← create envs + microservice, deploy, base URL [✅]
+  environments-variables-medium.html        ← global vars, env overrides, {{}} interpolation [✅]
+  environments-protocols-medium.html        ← protocol tabs, per-env URLs, auth profiles [✅]
+  environments-multi-run-advanced.html      ← parameterized runs, cascade env, env selector [✅]
+  environments-additional-env-medium.html   ← microservice-specific envs, drag reorder [✅]
 ```
+
+### Implementation Status
+| # | File | Status | Notes |
+|---|------|--------|-------|
+| 1 | `environments.html` | ✅ | Overview, 2-panel layout, variable system, learning path map |
+| 2 | `environments-basics-easy.html` | ✅ | Create 3 envs, add svc, deploy, base URL, verify {{baseUrl}} |
+| 3 | `environments-variables-medium.html` | ✅ | Protocol vars modal, env-var overrides, derived vars panel |
+| 4 | `environments-protocols-medium.html` | ✅ | Protocol tabs, gRPC TLS, GraphQL path, auth profiles, SSE fallback |
+| 5 | `environments-multi-run-advanced.html` | ✅ | Cascade env, parameterized runner, unresolved warning |
+| 6 | `environments-additional-env-medium.html` | ✅ | Service-scoped envs, drag reorder, impact-safe deletion |
 
 ---
 
@@ -363,7 +384,7 @@ gallery/
 | GraphQL | `graphql/` | `graphql.html` | 13 | ✅ Done (14 files — overview + 13 tutorials) |
 | gRPC | `grpc/` | `grpc.html` | 10 | ✅ Done (11 files — overview + 10 tutorials) |
 | WebSocket | `websocket/` | `websocket.html` | 13 | ✅ Done (13 files — overview + 12 tutorials) |
-| Environment Manager | `environments/` | `environments.html` | 5 | 🔲 Not started |
+| Environment Manager | `environments/` | `environments.html` | 5 | ✅ Done (6 files — overview + 5 tutorials) |
 | Results Dashboard | `results/` | `results.html` | 7 | 🔲 Not started |
 | API Mock (HTTP) | `api-mock/` | `api-mock.html` | 12 | 🔲 Not started |
 | SSE | `sse/` | `sse.html` | 4 | 🔲 Not started |
