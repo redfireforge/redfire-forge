@@ -18,8 +18,8 @@ describe('trainingPaths barrel export', () => {
     expect(trainingPaths).toEqual([...corePaths, ...contentPaths, ...workflowPaths, ...protocolPaths]);
   });
 
-  it('has exactly 26 paths', () => {
-    expect(trainingPaths).toHaveLength(26);
+  it('has exactly 27 paths', () => {
+    expect(trainingPaths).toHaveLength(27);
   });
 });
 
@@ -46,13 +46,13 @@ describe('contentPaths module', () => {
 });
 
 describe('protocolPaths module', () => {
-  it('contains 4 paths', () => {
-    expect(protocolPaths).toHaveLength(4);
+  it('contains 5 paths', () => {
+    expect(protocolPaths).toHaveLength(5);
   });
 
   it('has expected path IDs', () => {
     const ids = protocolPaths.map(p => p.id);
-    expect(ids).toEqual(['graphql', 'grpc', 'websocket', 'sse']);
+    expect(ids).toEqual(['graphql', 'grpc', 'websocket', 'sse', 'webhooks']);
   });
 });
 

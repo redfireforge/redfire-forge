@@ -491,21 +491,51 @@ sse/
 
 **Folder:** `docs/training-manuals/webhooks/`
 
-### Scope (from e2e + source)
-- Webhook delivery log viewer
-- Auto-layout of delivery graph
-- Retry/replay from log
-- Filtering and search
+### Scope (from source audit — `src/features/webhooks/WebhookDeliveryLogs.tsx`, `src-server/webhook-server.ts`, `e2e/webhook-delivery-logs.spec.ts`)
+
+**What "Webhooks" covers in RedfireForge:**
+1. **Webhook Delivery Logs** — a read-only viewer for inbound webhook deliveries that triggered workflows (accessed via Workflow tab → Webhook Deliveries)
+2. **Webhook Trigger node** — a workflow node type that defines an inbound HTTP endpoint; the URL, method, variable extraction from the request payload
+
+> ❌ Original plan had "auto-layout of delivery graph" and "retry/replay from log" — neither exists. The delivery log is read-only. Auto-layout is a workflow canvas concern, not a logs feature.
+> ❌ "Filtering by status/source" does not exist — the only filter is by **date** (prev/next day, date picker); there's a sort order toggle (newest/oldest).
+
+**Delivery Logs page (WebhookDeliveryLogs.tsx):**
+- Header: "Webhook Delivery Logs", delivery count, sort toggle badge (↓ Newest / ↑ Oldest)
+- Date navigation: ← Prev / date picker / Next → (disabled if today) / Refresh
+- Delivery card list: method badge, trigger ID, status badge (`SUCCESS`/`FAILED`/`ERROR`), timestamp, duration
+- Detail panel: opens on card click → trigger ID, method, status, duration, timestamp, payload (pretty-printed), error block (if status=error); close button (✕)
+- Auto-refresh: subscribes to SSE log stream — when new webhook deliveries arrive today, the list refreshes (500ms debounce)
+- Empty state: 🪝 icon + "No webhook deliveries found"
+- Error state: error card + Retry button (when server is unavailable)
+- Loading state: shown while API call is in-flight
+
+**Webhook Trigger node (server-side):**
+- URL format: `POST|PUT|PATCH /webhooks/:workflowId/:triggerId`
+- Accepts all HTTP methods that match the node's configured method; 405 if mismatch
+- Extracts variables via JSONPath from body, headers, or query params (`$.body.orderId`, `$.headers.x-user-id`, `$.query.page`)
+- Defaults to body extraction if path doesn't start with `body`/`headers`/`query`
+- Logs every delivery (triggerId, method, payload, status, duration, timestamp, error)
+- Optional `_trace=true` query param for full execution trace capture
 
 ### Planned Files
 
 ```
 webhooks/
-  webhooks.html                             ← master overview
-  webhooks-delivery-logs-easy.html          ← view incoming webhook deliveries
-  webhooks-filtering-medium.html            ← filter by status, source, date
-  webhooks-retry-advanced.html              ← replay failed deliveries
+  webhooks.html                                 ← master overview
+  webhooks-delivery-logs-easy.html              ← read delivery cards, view detail panel, status badges, error block
+  webhooks-date-sort-medium.html                ← date navigation, sort order toggle, auto-refresh (was "filtering")
+  webhooks-trigger-setup-medium.html            ← webhook trigger node: URL, method, JSONPath variable extraction (replaces non-existent "retry" feature)
 ```
+
+### Implementation Status
+
+| File | Status | Notes |
+|------|--------|-------|
+| `webhooks.html` | ✅ Done | |
+| `webhooks-delivery-logs-easy.html` | ✅ Done | |
+| `webhooks-date-sort-medium.html` | ✅ Done | Renamed from webhooks-filtering-medium — date + sort is what actually exists |
+| `webhooks-trigger-setup-medium.html` | ✅ Done | Replaces webhooks-retry-advanced — retry UI does not exist |
 
 ---
 
@@ -544,7 +574,7 @@ gallery/
 | Results Dashboard | `results/` | `results.html` | 7 | ✅ Done (8 files — overview + 7 tutorials) |
 | API Mock (HTTP) | `api-mock/` | `api-mock.html` | 12 | ✅ Done (13 files — overview + 12 tutorials; 3 files renamed, 1 added) |
 | SSE | `sse/` | `sse.html` | 5 | ✅ Done (6 files — overview + 5 tutorials; console tab added, event-filtering expanded) |
-| Webhooks | `webhooks/` | `webhooks.html` | 3 | 🔲 Not started |
+| Webhooks | `webhooks/` | `webhooks.html` | 4 | ✅ Complete |
 | Gallery | `gallery/` | `gallery.html` | 3 | 🔲 Not started |
 
 **Total planned files:** ~65 tutorial HTML files + 9 master overview files
