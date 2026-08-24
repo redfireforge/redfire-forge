@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Results Explorer: Canvas &amp; Node Detail — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>Results Explorer: Canvas &amp; Node Detail</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; Open Explorer · Workflow Canvas · Node Detail Tabs · Iterations · Console</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Open the Results Explorer modal for a workflow run</li>
+    <li>Read the execution canvas: pass/fail/skipped colours, node badges</li>
+    <li>Search and filter nodes by state</li>
+    <li>Click a node to open its detail panel and navigate all five tabs</li>
+    <li>Switch between aggregate view (all iterations) and a single iteration</li>
+    <li>Open the Console panel and filter log output by node</li>
+    <li>Expand the Iteration Matrix Table</li>
+  </ul>
+
+  <h2>Prerequisites</h2>
+  <p>You need at least one <strong>workflow run</strong> with an execution trace. Workflow runs with a trace show the <code>📊 Results Explorer</code> button in the header action bar. Test-only runs (no workflow) do not have the Explorer.</p>
+
+  <h2>Step-by-Step Walkthrough</h2>
+
+  <h3>Part A — Open the Results Explorer</h3>
+
+  <div class="step"><div class="step-num">1</div><div class="step-body">Select a workflow run using the run selector (look for the ⚡ icon in the run label). The <code>📊 Results Explorer</code> button becomes active in the header.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Click <strong>📊 Results Explorer</strong> (test ID <code>results-explorer-open-btn</code>). A full-screen modal opens. If the trace is large, a spinner shows while it decompresses: <em>⏳ Loading trace…</em></div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">The modal has three regions:
+    <ul style="margin-top: 6px">
+      <li><strong>Left panel</strong> — the workflow execution canvas (diagram with coloured nodes)</li>
+      <li><strong>Right panel</strong> — node detail (hidden until you select a node)</li>
+      <li><strong>Bottom strip</strong> — collapsed by default: Iteration Matrix Table</li>
+    </ul>
+  </div></div>
+
+  <h3>Part B — Read the Execution Canvas</h3>
+
+  <div class="step"><div class="step-num">4</div><div class="step-body">Every node in the canvas is coloured by its final execution state:
+    <ul style="margin-top: 6px">
+      <li>🟢 Green border — <strong>pass</strong></li>
+      <li>🔴 Red border — <strong>fail</strong></li>
+      <li>Grey border — <strong>skipped</strong></li>
+      <li>Purple border — <strong>sub-workflow</strong> node (pass)</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body">In the canvas toolbar, use the <strong>state filter</strong> dropdown (<em>All / Pass / Fail / Skipped</em>) to dim nodes not matching the filter. Select <strong>Fail</strong> — only failing nodes remain fully opaque.</div></div>
+  <div class="step"><div class="step-num">6</div><div class="step-body">Use the <strong>search input</strong> in the canvas toolbar. Type part of a node name (e.g. <code>Auth</code>). Matching nodes highlight; others dim.</div></div>
+  <div class="step"><div class="step-num">7</div><div class="step-body">Click the <strong>Fit View</strong> button to reset the canvas zoom and center all nodes. Toggle the <strong>Minimap</strong> button to show/hide the overview minimap in the corner.</div></div>
+
+  <h3>Part C — Select a Node and Read Detail Tabs</h3>
+
+  <div class="step"><div class="step-num">8</div><div class="step-body">Click any node on the canvas. The right panel opens showing the node's name, type, and five tabs.</div></div>
+  <div class="step"><div class="step-num">9</div><div class="step-body"><strong>Overview tab</strong> (default) — shows aggregate statistics for this node across all iterations:
+    <ul style="margin-top: 6px">
+      <li>Total invocations, pass count, fail count</li>
+      <li>Duration stats: avg, P95, min, max</li>
+      <li>For nodes with retries or wait steps: wait duration stats</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">10</div><div class="step-body"><strong>Request tab</strong> — the outgoing HTTP (or gRPC/WS/etc.) request for the selected iteration: method, URL, request headers, request body.</div></div>
+  <div class="step"><div class="step-num">11</div><div class="step-body"><strong>Response tab</strong> — HTTP status code, response headers, response body (JSON tree view with expand/collapse). For large bodies, scroll within the panel.</div></div>
+  <div class="step"><div class="step-num">12</div><div class="step-body"><strong>Variables tab</strong> — the variable scope snapshot at the time this node executed: each variable name and its value at that point in the workflow.</div></div>
+  <div class="step"><div class="step-num">13</div><div class="step-body"><strong>Assertions tab</strong> — lists every assertion configured on this node with pass/fail indicator, expected value, and actual value. Failed assertions show the mismatch prominently.</div></div>
+
+  <h3>Part D — Switch Iterations</h3>
+
+  <div class="step"><div class="step-num">14</div><div class="step-body">If the workflow ran more than one iteration, an <strong>Iteration Picker</strong> appears above the detail panel: <em>Iteration 1 of N ▾</em>. Click it to select a specific iteration index.</div></div>
+  <div class="step"><div class="step-num">15</div><div class="step-body">Selecting iteration <code>3</code> updates the detail panel to show that iteration's specific request/response/variables/assertions. The canvas may also highlight the selected iteration's state on each node.</div></div>
+  <div class="step"><div class="step-num">16</div><div class="step-body">To return to <strong>aggregate view</strong> (all iterations combined), select <em>All iterations</em> from the iteration picker.</div></div>
+
+  <h3>Part E — Iteration Matrix Table</h3>
+
+  <div class="step"><div class="step-num">17</div><div class="step-body">Click the <strong>▲ Iterations</strong> collapse control at the bottom of the modal to expand the <strong>Iteration Matrix Table</strong>.</div></div>
+  <div class="step"><div class="step-num">18</div><div class="step-body">The table shows rows = nodes, columns = iterations. Each cell shows the node's state for that iteration (green/red/grey) and duration. Hover a cell for a tooltip.</div></div>
+  <div class="step"><div class="step-num">19</div><div class="step-body">Click any cell to jump directly to that node × iteration — the canvas selects the node and the iteration picker switches to that iteration.</div></div>
+
+  <h3>Part F — Open the Console Panel</h3>
+
+  <div class="step"><div class="step-num">20</div><div class="step-body">In the Explorer modal toolbar, click the <strong>Console</strong> button. The console panel docks to the bottom of the modal.</div></div>
+  <div class="step"><div class="step-num">21</div><div class="step-body">The console shows log lines from the run: requests, responses, assertions, variable assignments, and errors. Each line shows the node name, log level, and message.</div></div>
+  <div class="step"><div class="step-num">22</div><div class="step-body">Use the <strong>Node filter</strong> dropdown to show log lines from a single node only. This isolates the output of a specific step when troubleshooting.</div></div>
+
+  <h2>Node Detail Tab Summary</h2>
+  <table>
+    <thead><tr><th>Tab</th><th>Shows</th><th>Iteration-aware?</th></tr></thead>
+    <tbody>
+      <tr><td>Overview</td><td>Aggregate stats: pass/fail counts, duration percentiles</td><td>Aggregate (all iters)</td></tr>
+      <tr><td>Request</td><td>Method, URL, headers, body of the outgoing request</td><td>Per iteration</td></tr>
+      <tr><td>Response</td><td>Status, headers, body of the received response</td><td>Per iteration</td></tr>
+      <tr><td>Variables</td><td>Variable scope snapshot at execution time</td><td>Per iteration</td></tr>
+      <tr><td>Assertions</td><td>Each assertion with expected, actual, pass/fail</td><td>Per iteration</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Fastest failure diagnosis in the Explorer</strong>
+    1) Set state filter to <strong>Fail</strong> — only failing nodes show fully. 2) Click the red node. 3) Go to <strong>Assertions</strong> tab to see exactly which check failed and why. 4) Switch to <strong>Response</strong> tab to see the actual server response.
+  </div>
+
+  <h2>Self-Practice Exercises</h2>
+  <ol>
+    <li>Open the Explorer on a multi-iteration run. Select iteration 2 in the picker. Compare the Response body on iteration 2 vs iteration 1 for the same node.</li>
+    <li>Use the canvas search to find a specific node by name. Then filter by <strong>Fail</strong> state. Note how these two filters compose.</li>
+    <li>Expand the Iteration Matrix Table. Click a cell where the node shows a fail state. Verify the detail panel switches to that iteration and the Assertions tab shows the failure.</li>
+    <li>Open the Console. Filter to a single failing node. Read the log lines to understand the failure sequence.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · Results Explorer — Canvas &amp; Node Detail · August 2026</footer>
+</body>
+</html>

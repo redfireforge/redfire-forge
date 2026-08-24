@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Results Dashboard — Training Manual Overview</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+  .card { border: 1px solid #dee2e6; border-radius: 8px; padding: 14px 16px; }
+  .card h4 { font-size: 14px; color: #1d3557; margin-bottom: 6px; }
+  .card p { font-size: 12px; color: #495057; margin: 0; }
+  .tab-row { display: flex; gap: 6px; margin: 10px 0; flex-wrap: wrap; }
+  .tab-pill { background: #1d3557; color: #fff; padding: 4px 12px; border-radius: 14px; font-size: 12px; font-weight: 600; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>Results Dashboard</h1>
+  <p>The Results Dashboard is where all test and workflow run data lives — metrics, SLA evaluation, run comparison, and deep execution inspection.</p>
+
+  <h2>Dashboard Layout</h2>
+  <p>The dashboard has three structural layers from top to bottom:</p>
+
+  <h3>Layer 1 — Run Selection Bar</h3>
+  <p>At the very top: the <strong>run type filter tabs</strong> (All Runs / 🧪 Test Runs / ⚡ Workflow Runs) and the <strong>run selector dropdown</strong>. Each entry shows timestamp, project, service, environment, TPS, and status indicators (★ baseline, SLA dot 🟢/🔴/🟡, regression dot R:🟢/🟡/🔴).</p>
+
+  <h3>Layer 2 — Header Actions</h3>
+  <table>
+    <thead><tr><th>Button</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td>Refresh</td><td>Reload all runs from storage</td></tr>
+      <tr><td>📂 Import Trace</td><td>Load a previously exported trace JSON file</td></tr>
+      <tr><td>📊 Results Explorer</td><td>Open the full-screen Explorer modal (workflow runs with a trace only)</td></tr>
+      <tr><td>Export JSON</td><td>Download the selected run as a JSON file</td></tr>
+      <tr><td>Export CSV</td><td>Download individual request results as CSV</td></tr>
+      <tr><td>Generate Report ▾</td><td>Produce a downloadable HTML, JSON, or Markdown report</td></tr>
+      <tr><td>Delete</td><td>Permanently remove the selected run</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Layer 3 — Four-Tab Content Area</h3>
+  <div class="tab-row">
+    <span class="tab-pill">Overview</span>
+    <span class="tab-pill">Request Details</span>
+    <span class="tab-pill">SLA</span>
+    <span class="tab-pill">Comparison &amp; Trends</span>
+  </div>
+
+  <h2>Tab Reference</h2>
+  <table>
+    <thead><tr><th>Tab</th><th>Key Components</th><th>Use For</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Overview</strong></td>
+        <td>Metrics cards (TPS/TPM/TPH, avg/min/max, P50–P99.9, error rate), SLA compact bar, response-time histogram, workflow summary</td>
+        <td>First stop after a run — quick health check</td>
+      </tr>
+      <tr>
+        <td><strong>Request Details</strong></td>
+        <td>Filterable/searchable/grouped table of every request result; click a row to open the Response Detail modal</td>
+        <td>Diagnose which specific requests failed and why</td>
+      </tr>
+      <tr>
+        <td><strong>SLA</strong></td>
+        <td>SLA Target Editor (add/edit targets), SLA Status Accordion (Feature → Scenario → Check tree)</td>
+        <td>Define performance gates and see which checks pass/fail</td>
+      </tr>
+      <tr>
+        <td><strong>Comparison &amp; Trends</strong></td>
+        <td>Baseline list (★ mark/rename/unmark), comparison panel (metric deltas, regression alerts), trend chart, regression thresholds editor</td>
+        <td>Compare runs, detect regressions, track metrics over time</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Results Explorer Modal</h2>
+  <p>The <strong>Results Explorer</strong> (📊 button) is a full-screen modal available for workflow runs that have a captured execution trace. It provides:</p>
+  <div class="grid">
+    <div class="card">
+      <h4>Left Panel — Execution Canvas</h4>
+      <p>Workflow diagram with pass/fail/skipped colour overlay on every node. Search by node name. Filter by state (all/pass/fail/skipped). Minimap toggle. Fit-view button.</p>
+    </div>
+    <div class="card">
+      <h4>Right Panel — Node Detail</h4>
+      <p>Five tabs: <strong>Overview</strong> (aggregate stats), <strong>Request</strong> (method/URL/headers/body), <strong>Response</strong> (status/headers/body), <strong>Variables</strong> (scope snapshot), <strong>Assertions</strong> (pass/fail per check).</p>
+    </div>
+    <div class="card">
+      <h4>Bottom — Iteration Matrix</h4>
+      <p>Collapsible table showing all iterations. Rows = nodes, columns = iterations. Click a cell to jump to that node × iteration. Heat-map colouring by duration.</p>
+    </div>
+    <div class="card">
+      <h4>Timeline View</h4>
+      <p>Toggle the left panel from Diagram to Timeline. Horizontal Gantt bars per node per iteration. Hover for tooltip. Zoom in/out.</p>
+    </div>
+    <div class="card">
+      <h4>Console Panel</h4>
+      <p>Log output for the run. Dockable (bottom strip) or floating window. Filter by node, search text, navigate matches.</p>
+    </div>
+    <div class="card">
+      <h4>Sub-Workflow Drilldown</h4>
+      <p>Click into a Sub-Workflow node to open its inner trace. Breadcrumb bar shows the stack. Back button pops up one level.</p>
+    </div>
+  </div>
+
+  <h2>Learning Path</h2>
+  <table>
+    <thead><tr><th>Manual</th><th>Difficulty</th><th>Topics</th></tr></thead>
+    <tbody>
+      <tr><td>Results Dashboard Overview</td><td><span class="badge badge-easy">Easy</span></td><td>This page — layout map</td></tr>
+      <tr><td>Reading the Overview Tab</td><td><span class="badge badge-easy">Easy</span></td><td>Metrics cards, histogram, SLA bar, export, delete</td></tr>
+      <tr><td>Request Details Tab</td><td><span class="badge badge-medium">Medium</span></td><td>Filter, search, group, pagination, response detail</td></tr>
+      <tr><td>SLA Targets &amp; Check Tree</td><td><span class="badge badge-medium">Medium</span></td><td>Add SLA targets, read the accordion, fix failures</td></tr>
+      <tr><td>Comparison &amp; Regression</td><td><span class="badge badge-medium">Medium</span></td><td>Baselines, comparison panel, thresholds, trend chart</td></tr>
+      <tr><td>Results Explorer</td><td><span class="badge badge-medium">Medium</span></td><td>Canvas, node detail tabs, iterations, console</td></tr>
+      <tr><td>Console &amp; Timeline</td><td><span class="badge badge-medium">Medium</span></td><td>Console modes, timeline view, zoom</td></tr>
+      <tr><td>Explorer Advanced</td><td><span class="badge badge-advanced">Advanced</span></td><td>Sub-workflow drilldown, parallel branches, mapper overlay, export trace</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Where to start</strong>
+    If you just ran a test: go to the <strong>Overview</strong> tab for a health check, then <strong>Request Details</strong> to see failures. If you want to improve performance: set SLA targets in the <strong>SLA</strong> tab, then use <strong>Comparison &amp; Trends</strong> to track progress run-over-run.
+  </div>
+
+  <footer>RedfireForge v0.6.0 · Results Dashboard — Overview · August 2026</footer>
+</body>
+</html>

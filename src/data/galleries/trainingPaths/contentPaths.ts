@@ -702,6 +702,91 @@ export const contentPaths: TrainingPath[] = [
     ],
   },
 
+  /* ── Results Dashboard ── */
+  {
+    id: 'results',
+    name: 'Results Dashboard',
+    icon: '📊',
+    description:
+      'Analyse test and workflow runs: read metrics, set SLA targets, compare against baselines, detect regressions, and deep-dive execution with the Results Explorer.',
+    phases: [
+      {
+        id: 1,
+        name: 'Getting Started',
+        manuals: [
+          {
+            title: 'Results Dashboard Overview',
+            description:
+              'Four-tab layout, run selector, run type filter tabs, header actions, and the Results Explorer modal at a glance.',
+            difficulty: 'easy',
+            manualPath: 'results/results.html',
+          },
+          {
+            title: 'Reading the Overview Tab',
+            description:
+              'Navigate runs, read metrics cards (TPS, latency percentiles, error rate), SLA bar, histogram, and export or delete a run.',
+            difficulty: 'easy',
+            manualPath: 'results/results-overview-easy.html',
+          },
+        ],
+      },
+      {
+        id: 2,
+        name: 'Core Features',
+        manuals: [
+          {
+            title: 'Request Details Tab',
+            description:
+              'Filter by pass/fail, search by name, group by scenario or feature, paginate, and inspect individual request/response/assertion detail.',
+            difficulty: 'medium',
+            manualPath: 'results/results-request-details-medium.html',
+          },
+          {
+            title: 'SLA Targets & Check Tree',
+            description:
+              'Add SLA targets per metric and scope, read the Feature→Scenario→Check accordion, and diagnose SLA failures.',
+            difficulty: 'medium',
+            manualPath: 'results/results-sla-medium.html',
+          },
+          {
+            title: 'Comparison & Regression',
+            description:
+              'Mark baselines (★), compare runs, read metric deltas, configure regression thresholds, enable the Trend Chart, and export comparison reports.',
+            difficulty: 'medium',
+            manualPath: 'results/results-comparison-medium.html',
+          },
+          {
+            title: 'Results Explorer',
+            description:
+              'Open the full-screen Explorer for workflow runs: execution canvas, node detail tabs, iteration picker, iteration matrix, and console.',
+            difficulty: 'medium',
+            manualPath: 'results/results-explorer-medium.html',
+          },
+        ],
+      },
+      {
+        id: 3,
+        name: 'Advanced',
+        manuals: [
+          {
+            title: 'Console & Timeline View',
+            description:
+              'Use the console panel in docked or floating mode, filter by node, search logs, and switch to the Timeline Gantt view with zoom.',
+            difficulty: 'medium',
+            manualPath: 'results/results-console-timeline-medium.html',
+          },
+          {
+            title: 'Explorer Advanced',
+            description:
+              'Drill into sub-workflows via the trace stack, inspect parallel branch comparisons, open the data mapper overlay, and export/import traces.',
+            difficulty: 'advanced',
+            manualPath: 'results/results-explorer-advanced.html',
+          },
+        ],
+      },
+    ],
+  },
+
   /* ── Kafka Protocols ── */
   {
     id: 'kafka-protocols',

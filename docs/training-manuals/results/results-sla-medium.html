@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Results Dashboard: SLA Targets &amp; Check Tree — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>Results Dashboard: SLA Targets &amp; Check Tree</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; Define SLA Targets · Understand the Check Tree · Fix SLA Failures</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Open the SLA tab and understand the compact bar vs the full accordion</li>
+    <li>Add SLA targets using the inline target editor</li>
+    <li>Understand metric types, operators, scopes, and scenario targeting</li>
+    <li>Read the Feature → Scenario → Check tree and identify failures</li>
+    <li>Understand SLA target scopes: ad-hoc (this run) vs workflow-attached</li>
+  </ul>
+
+  <h2>SLA Concepts</h2>
+
+  <h3>What is an SLA Target?</h3>
+  <p>An SLA target is a performance contract: <em>"For this scenario, P95 response time must be ≤ 500 ms."</em> Each target defines a metric, an operator (≤ or ≥), a threshold value, and optionally a scope (global or per-scenario).</p>
+
+  <h3>How Targets are Evaluated</h3>
+  <p>After a run completes, every target is evaluated against the run's actual measured values. Results are shown as a tree:</p>
+  <pre>Feature Group: Checkout
+  └─ Scenario: Place Order
+      ├─ ✅ P95 ≤ 500 ms   →  actual: 312 ms
+      └─ ❌ Error Rate ≤ 1%  →  actual: 3.2%</pre>
+
+  <h2>Step-by-Step Walkthrough</h2>
+
+  <h3>Part A — Open the SLA Tab</h3>
+
+  <div class="step"><div class="step-num">1</div><div class="step-body">Click the <strong>SLA</strong> tab. The tab shows the compact bar (same as Overview tab) and, below it, the full <strong>SLA Status Accordion</strong>.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">If no targets are defined yet, the compact bar shows: <em>No SLA targets defined — Edit Targets</em>. Click <strong>Edit Targets</strong> to open the inline target editor.</div></div>
+
+  <h3>Part B — Add Your First SLA Target</h3>
+
+  <div class="step"><div class="step-num">3</div><div class="step-body">The <strong>SLA Target Editor</strong> opens below the compact bar. It has a table of targets (empty initially) and an <strong>+ Add Target</strong> button at the bottom.</div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Click <strong>+ Add Target</strong>. A new row appears with dropdowns for:
+    <ul style="margin-top: 6px">
+      <li><strong>Metric</strong> — choose from: Avg Response, P50, P95, P99, P99.9, Error Rate, TPS</li>
+      <li><strong>Operator</strong> — <code>≤</code> (less-than-or-equal, for response time / error rate) or <code>≥</code> (greater-than-or-equal, for TPS)</li>
+      <li><strong>Value</strong> — the threshold number (ms for latency, % for error rate, count for TPS)</li>
+      <li><strong>Scope</strong> — <em>All scenarios</em> or a specific scenario name</li>
+      <li><strong>Label</strong> (optional) — a human-readable name for this check</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body">Configure the first target:
+<pre>Metric:   P95 Response Time
+Operator: ≤
+Value:    500
+Scope:    All scenarios
+Label:    P95 under 500ms</pre>
+  </div></div>
+  <div class="step"><div class="step-num">6</div><div class="step-body">Click <strong>+ Add Target</strong> again and add a second:
+<pre>Metric:   Error Rate
+Operator: ≤
+Value:    1
+Scope:    All scenarios
+Label:    Error rate below 1%</pre>
+  </div></div>
+  <div class="step"><div class="step-num">7</div><div class="step-body">Click <strong>Save targets</strong>. The compact bar updates immediately. If the current run meets both targets, it shows 🟢 PASS. If not, 🔴 FAIL.</div></div>
+
+  <h3>Part C — Add a Scenario-Scoped Target</h3>
+
+  <div class="step"><div class="step-num">8</div><div class="step-body">Click <strong>Edit Targets</strong> again. Add a third target with a specific scenario scope:
+<pre>Metric:   Avg Response Time
+Operator: ≤
+Value:    200
+Scope:    [select a scenario name from the dropdown]
+Label:    Critical path under 200ms</pre>
+  </div></div>
+  <div class="step"><div class="step-num">9</div><div class="step-body">Save. The accordion tree now shows this check only under the matching scenario — not globally.</div></div>
+
+  <h3>Part D — Read the SLA Accordion Tree</h3>
+
+  <div class="step"><div class="step-num">10</div><div class="step-body">Below the compact bar and editor, the <strong>SLA Status Accordion</strong> shows a tree. It auto-expands failing nodes (🔴).</div></div>
+  <div class="step"><div class="step-num">11</div><div class="step-body">Tree structure:
+    <ul style="margin-top: 6px">
+      <li><strong>Feature Group row</strong> — aggregate status dot + group name + scenario count</li>
+      <li><strong>Scenario row</strong> (inside feature group) — scenario name + check count; click to expand</li>
+      <li><strong>Check row</strong> (inside scenario) — status dot + label + actual value + operator + threshold</li>
+    </ul>
+    If all results belong to a single feature group, the feature group level is hidden to reduce noise.
+  </div></div>
+  <div class="step"><div class="step-num">12</div><div class="step-body">Find a 🔴 FAIL check. Read its row:
+    <ul style="margin-top: 6px">
+      <li>Left: status dot</li>
+      <li>Center: check label and actual measured value (in red)</li>
+      <li>Right: operator + threshold (e.g. <code>≤ 500 ms</code>)</li>
+    </ul>
+    If the actual value exceeds the threshold, the check fails.
+  </div></div>
+
+  <h3>Part E — SLA Scopes</h3>
+
+  <div class="step"><div class="step-num">13</div><div class="step-body">The compact bar shows a scope badge:
+    <ul style="margin-top: 6px">
+      <li>No badge — ad-hoc targets defined for this run only. Editable.</li>
+      <li><strong>🔒 This Run</strong> — targets saved to this specific run. Read-only (scope = <code>run</code>).</li>
+      <li><strong>📋 Workflow</strong> — targets attached to the workflow definition. Read-only here (scope = <code>workflow-def</code>). Edit from the Workflow Editor instead.</li>
+    </ul>
+  </div></div>
+
+  <h2>SLA Metrics Reference</h2>
+  <table>
+    <thead><tr><th>Metric</th><th>Operator</th><th>Unit</th><th>Typical Threshold</th></tr></thead>
+    <tbody>
+      <tr><td>Avg Response Time</td><td>≤</td><td>ms</td><td>500–2000</td></tr>
+      <tr><td>P50</td><td>≤</td><td>ms</td><td>200–500</td></tr>
+      <tr><td>P95</td><td>≤</td><td>ms</td><td>500–2000</td></tr>
+      <tr><td>P99</td><td>≤</td><td>ms</td><td>1000–5000</td></tr>
+      <tr><td>P99.9</td><td>≤</td><td>ms</td><td>5000–10000</td></tr>
+      <tr><td>Error Rate</td><td>≤</td><td>%</td><td>0.1–5</td></tr>
+      <tr><td>TPS</td><td>≥</td><td>tx/s</td><td>Depends on load</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Start broad, then narrow</strong>
+    Add global P95 and error rate targets first. Once you have visibility, add stricter scenario-scoped targets for your critical user journeys.
+  </div>
+
+  <h2>Self-Practice Exercises</h2>
+  <ol>
+    <li>Add a TPS ≥ target with a threshold higher than your last run's actual TPS. Observe the 🔴 FAIL result and identify it in the accordion.</li>
+    <li>Add a P99.9 target scoped to your slowest scenario. Find the failing check and note the actual vs threshold values.</li>
+    <li>Delete a target (× button on the row in the editor). Save. Verify the check disappears from the accordion.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · Results Dashboard — SLA Targets &amp; Check Tree · August 2026</footer>
+</body>
+</html>
