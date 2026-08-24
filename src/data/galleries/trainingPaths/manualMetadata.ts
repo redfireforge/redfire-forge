@@ -384,6 +384,14 @@ export const manualMetadata: ManualMetadata[] = [
   { manualPath: 'websocket/websocket-diff-console-advanced.html', addedAt: date('2026-08-23') },
   { manualPath: 'websocket/websocket-load-test-advanced.html', addedAt: date('2026-08-23') },
   { manualPath: 'websocket/websocket-workflow-runner-advanced.html', addedAt: date('2026-08-23') },
+
+  // Environment Manager — added 2026-08-23
+  { manualPath: 'environments/environments.html', addedAt: date('2026-08-23') },
+  { manualPath: 'environments/environments-basics-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'environments/environments-variables-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'environments/environments-protocols-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'environments/environments-multi-run-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'environments/environments-additional-env-medium.html', addedAt: date('2026-08-23') },
 ];
 
 /** Map of manualPath -> ManualMetadata for fast lookup */
