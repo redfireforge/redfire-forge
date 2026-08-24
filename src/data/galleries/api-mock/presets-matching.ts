@@ -2,8 +2,8 @@
  * Matching-track API Mock gallery factories.
  */
 import type { ApiMockServerDefinitionV1 } from '@shared/api-mock/contracts';
-import { DEFAULT_SETTINGS } from '@shared/api-mock/defaults';
-import { TS, storeRoute } from './presets-helpers';
+import { DEFAULT_SETTINGS, createDefaultResponse } from '@shared/api-mock/defaults';
+import { TS, storeRoute, emptyGroup, jsonBody, jsonHeader } from './presets-helpers';
 
 /**
  * One literal rule, captured from a single real request — the starting point for
@@ -255,6 +255,238 @@ export function createSelectionPolicyMock(): ApiMockServerDefinitionV1 {
         body: '{"catalog":"default"}',
       }),
     ],
+    samples: [],
+    variables: [],
+    settings: structuredClone(DEFAULT_SETTINGS),
+    createdAt: TS,
+    updatedAt: TS,
+  };
+}
+
+/**
+ * AM-AUTH-01 — Two protected endpoints (Bearer + API Key) and one public route.
+ *
+ * Each protected route has two response variants: the 200 success and the 401
+ * fallback, ordered so the authenticated variant wins when the `security`
+ * predicate matches. The public endpoint ships with no conditions at all so
+ * learners can see the contrast.
+ */
+export function createAuthGatedMock(): ApiMockServerDefinitionV1 {
+  const profileAuthed = createDefaultResponse('resp-profile-ok');
+  profileAuthed.name = '200 Authenticated';
+  profileAuthed.status = 200;
+  profileAuthed.headers = [jsonHeader('h-profile-ok')];
+  profileAuthed.body = jsonBody('{"id":1,"name":"Alice","role":"admin"}');
+  profileAuthed.conditions = {
+    id: 'cond-profile-bearer',
+    combinator: 'all',
+    children: [{
+      id: 'pred-profile-scheme',
+      source: 'security',
+      selector: 'scheme',
+      operator: 'exact',
+      expected: 'Bearer',
+    }],
+  };
+
+  const profileUnauthed = createDefaultResponse('resp-profile-401');
+  profileUnauthed.name = '401 Unauthorized';
+  profileUnauthed.isDefault = false;
+  profileUnauthed.status = 401;
+  profileUnauthed.headers = [jsonHeader('h-profile-401')];
+  profileUnauthed.body = jsonBody('{"error":"Unauthorized","hint":"Provide a Bearer token"}');
+  profileUnauthed.conditions = {
+    id: 'cond-profile-no-bearer',
+    combinator: 'all',
+    children: [{
+      id: 'pred-profile-absent',
+      source: 'security',
+      selector: 'scheme',
+      operator: 'absent',
+    }],
+  };
+
+  const dataAuthed = createDefaultResponse('resp-data-ok');
+  dataAuthed.name = '200 API Key present';
+  dataAuthed.status = 200;
+  dataAuthed.headers = [jsonHeader('h-data-ok')];
+  dataAuthed.body = jsonBody('{"rows":[{"id":1,"metric":"revenue","value":42800}]}');
+  dataAuthed.conditions = {
+    id: 'cond-data-apikey',
+    combinator: 'all',
+    children: [{
+      id: 'pred-data-apikey',
+      source: 'security',
+      selector: 'apiKeyName',
+      operator: 'present',
+    }],
+  };
+
+  const dataUnauthed = createDefaultResponse('resp-data-401');
+  dataUnauthed.name = '401 API Key missing';
+  dataUnauthed.isDefault = false;
+  dataUnauthed.status = 401;
+  dataUnauthed.headers = [jsonHeader('h-data-401')];
+  dataUnauthed.body = jsonBody('{"error":"API key required","hint":"Set X-Api-Key header"}');
+  dataUnauthed.conditions = {
+    id: 'cond-data-no-apikey',
+    combinator: 'all',
+    children: [{
+      id: 'pred-data-absent',
+      source: 'security',
+      selector: 'apiKeyName',
+      operator: 'absent',
+    }],
+  };
+
+  const publicResp = createDefaultResponse('resp-public');
+  publicResp.status = 200;
+  publicResp.headers = [jsonHeader('h-public')];
+  publicResp.body = jsonBody('{"status":"ok","version":"1.0"}');
+
+  return {
+    id: 'srv-gallery-auth-gated',
+    name: 'Auth-gated API',
+    enabled: true,
+    host: '127.0.0.1',
+    port: 4600,
+    basePath: '',
+    folders: [],
+    routes: [
+      {
+        id: 'route-profile',
+        name: 'GET /api/profile',
+        enabled: true,
+        method: 'GET',
+        path: { kind: 'exact', value: '/api/profile' },
+        priority: 10,
+        predicates: emptyGroup('pg-profile'),
+        responseMode: 'rules',
+        responses: [profileAuthed, profileUnauthed],
+        tags: ['gallery', 'auth', 'bearer'],
+        operationId: 'getProfile',
+        createdAt: TS,
+        updatedAt: TS,
+      },
+      {
+        id: 'route-data',
+        name: 'GET /api/data',
+        enabled: true,
+        method: 'GET',
+        path: { kind: 'exact', value: '/api/data' },
+        priority: 10,
+        predicates: emptyGroup('pg-data'),
+        responseMode: 'rules',
+        responses: [dataAuthed, dataUnauthed],
+        tags: ['gallery', 'auth', 'api-key'],
+        operationId: 'getData',
+        createdAt: TS,
+        updatedAt: TS,
+      },
+      storeRoute({
+        id: 'route-public',
+        name: 'GET /api/public',
+        method: 'GET',
+        path: { kind: 'exact', value: '/api/public' },
+        priority: 10,
+        operationId: 'getPublic',
+        tags: ['gallery', 'auth', 'public'],
+        body: '{"status":"ok","version":"1.0"}',
+      }),
+    ],
+    samples: [],
+    variables: [],
+    settings: structuredClone(DEFAULT_SETTINGS),
+    createdAt: TS,
+    updatedAt: TS,
+  };
+}
+
+/**
+ * AM-GQL-01 — POST /graphql with three variants dispatched by $.operationName.
+ *
+ * GraphQL-over-HTTP is just a POST with a JSON body. Each response variant carries
+ * a `jsonPath_equals` condition on `$.operationName` so the mock returns different
+ * stub payloads per operation. The third variant matches the `__typename`
+ * introspection query via a `contains` on the raw `$.query` string.
+ */
+export function createGraphQLMock(): ApiMockServerDefinitionV1 {
+  const getUserResp = createDefaultResponse('resp-graphql-get-user');
+  getUserResp.name = 'GetUser response';
+  getUserResp.status = 200;
+  getUserResp.headers = [jsonHeader('h-graphql-get-user')];
+  getUserResp.body = jsonBody('{"data":{"user":{"id":1,"name":"Alice","email":"alice@example.com"}}}');
+  getUserResp.conditions = {
+    id: 'cond-graphql-get-user',
+    combinator: 'all',
+    children: [{
+      id: 'pred-graphql-op-get-user',
+      source: 'body',
+      selector: '$.operationName',
+      operator: 'exact',
+      expected: 'GetUser',
+    }],
+  };
+
+  const createUserResp = createDefaultResponse('resp-graphql-create-user');
+  createUserResp.name = 'CreateUser response';
+  createUserResp.isDefault = false;
+  createUserResp.status = 200;
+  createUserResp.headers = [jsonHeader('h-graphql-create-user')];
+  createUserResp.body = jsonBody('{"data":{"createUser":{"id":99,"name":"New User","email":"new@example.com"}}}');
+  createUserResp.conditions = {
+    id: 'cond-graphql-create-user',
+    combinator: 'all',
+    children: [{
+      id: 'pred-graphql-op-create-user',
+      source: 'body',
+      selector: '$.operationName',
+      operator: 'exact',
+      expected: 'CreateUser',
+    }],
+  };
+
+  const introspectResp = createDefaultResponse('resp-graphql-introspect');
+  introspectResp.name = '__typename introspection';
+  introspectResp.isDefault = false;
+  introspectResp.status = 200;
+  introspectResp.headers = [jsonHeader('h-graphql-introspect')];
+  introspectResp.body = jsonBody('{"data":{"__typename":"Query"}}');
+  introspectResp.conditions = {
+    id: 'cond-graphql-introspect',
+    combinator: 'all',
+    children: [{
+      id: 'pred-graphql-typename',
+      source: 'body',
+      selector: '$.query',
+      operator: 'contains',
+      expected: '__typename',
+    }],
+  };
+
+  return {
+    id: 'srv-gallery-graphql',
+    name: 'GraphQL API mock',
+    enabled: true,
+    host: '127.0.0.1',
+    port: 4600,
+    basePath: '',
+    folders: [],
+    routes: [{
+      id: 'route-graphql',
+      name: 'POST /graphql',
+      enabled: true,
+      method: 'POST',
+      path: { kind: 'exact', value: '/graphql' },
+      priority: 10,
+      predicates: emptyGroup('pg-graphql'),
+      responseMode: 'rules',
+      responses: [getUserResp, createUserResp, introspectResp],
+      tags: ['gallery', 'graphql', 'body-matching', 'jsonpath'],
+      operationId: 'graphqlEndpoint',
+      createdAt: TS,
+      updatedAt: TS,
+    }],
     samples: [],
     variables: [],
     settings: structuredClone(DEFAULT_SETTINGS),

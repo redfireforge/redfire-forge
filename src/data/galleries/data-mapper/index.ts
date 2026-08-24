@@ -25,7 +25,7 @@ interface DataMapperSampleEntry extends GalleryEntry<FeatureGroup> {
 export const dataMapperSampleCatalog: DataMapperSampleEntry[] = [
   {
     id: 'dm-extraction-mapping',
-    domain: 'data-mapper',
+    domain: 'requests',
     name: 'Extraction Mapping',
     description: 'Fetch a user, extract 5 fields, pass them to a follow-up request. Open "Map Fields" in the Extract tab.',
     icon: '🔀',
@@ -39,7 +39,7 @@ export const dataMapperSampleCatalog: DataMapperSampleEntry[] = [
   },
   {
     id: 'dm-validation-mapping',
-    domain: 'data-mapper',
+    domain: 'requests',
     name: 'Validation Mapping',
     description: 'Validate product fields with selective mode. Open "⚡ Data Mapper" in the Validation tab.',
     icon: '🔀',
@@ -53,7 +53,7 @@ export const dataMapperSampleCatalog: DataMapperSampleEntry[] = [
   },
   {
     id: 'dm-body-builder',
-    domain: 'data-mapper',
+    domain: 'requests',
     name: 'Body Builder Mapping',
     description: 'Extract user fields, then build a POST body template with {{variables}}. Open "Open Mapper" in the Body tab.',
     icon: '🔀',
@@ -67,7 +67,7 @@ export const dataMapperSampleCatalog: DataMapperSampleEntry[] = [
   },
   {
     id: 'dm-multi-step-chain',
-    domain: 'data-mapper',
+    domain: 'requests',
     name: 'Multi-Step Chain',
     description: 'User → Posts → Comments chain. Each step extracts and passes variables to the next.',
     icon: '🔀',
@@ -81,7 +81,7 @@ export const dataMapperSampleCatalog: DataMapperSampleEntry[] = [
   },
   {
     id: 'dm-combo-mapper',
-    domain: 'data-mapper',
+    domain: 'requests',
     name: 'Full Combo — Extract + Validate + Body',
     description: 'All Data Mapper surfaces in one scenario: extraction, selective validation, and body template with mapped variables.',
     icon: '🔀',
@@ -95,7 +95,7 @@ export const dataMapperSampleCatalog: DataMapperSampleEntry[] = [
   },
   {
     id: 'dm-validation-operators',
-    domain: 'data-mapper',
+    domain: 'requests',
     name: 'Validation Operators Showcase',
     description: 'All 24 field operators in action: equality, comparison, string, boolean, existence, type check, and set membership — using DummyJSON products.',
     icon: '🔀',
@@ -109,7 +109,7 @@ export const dataMapperSampleCatalog: DataMapperSampleEntry[] = [
   },
   {
     id: 'dm-array-assertions-dsl',
-    domain: 'data-mapper',
+    domain: 'requests',
     name: 'Array Assertions & DSL Editor',
     description: 'LENGTH, EACH, CONTAINS, SUBSET array assertions plus DSL rules, ASSERT custom predicates, and universal negation (NOT) — using DummyJSON products.',
     icon: '🔀',
@@ -123,7 +123,7 @@ export const dataMapperSampleCatalog: DataMapperSampleEntry[] = [
   },
   {
     id: 'dm-users-validation',
-    domain: 'data-mapper',
+    domain: 'requests',
     name: 'Users Validation (Nested Objects)',
     description: 'Validate deeply nested user objects — address, geo, company — with diverse operators and ASSERT expressions using JSONPlaceholder.',
     icon: '🔀',

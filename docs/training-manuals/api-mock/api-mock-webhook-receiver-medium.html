@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Mock: Webhook Receiver &amp; Outbound Callbacks — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>API Mock: Webhook Receiver &amp; Outbound Callbacks</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; Inbound Capture · Event Routing · Journal Inspection · Outbound Fire-and-Forget</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Create a webhook receiver route that accepts any POST with a JSON payload</li>
+    <li>Route to different response variants based on the event type in the payload</li>
+    <li>Inspect captured webhook payloads in the Transactions journal</li>
+    <li>Configure outbound HTTP callbacks that fire after a match (fire-and-forget)</li>
+    <li>Observe outbound errors in the Console dock tab</li>
+  </ul>
+
+  <h2>How Webhook Receiving Works</h2>
+  <p>The mock server can act as a webhook receiver — it accepts inbound POST requests from any external system (payment processor, CI/CD pipeline, SaaS tool) and records them in the Transactions journal. You use <strong>body predicates</strong> to differentiate event types and respond appropriately.</p>
+
+  <h2>Part A — Create the Webhook Receiver Route</h2>
+
+  <div class="step"><div class="step-num">1</div><div class="step-body">Add a new route. Set Method to <code>POST</code>, Path to <code>/webhooks</code>.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">In the <strong>Match</strong> tab, no predicates are required at the route level — all differentiation happens at the variant level. The route accepts any POST to <code>/webhooks</code>.</div></div>
+
+  <h2>Part B — Add Per-Event Variants</h2>
+
+  <div class="step"><div class="step-num">3</div><div class="step-body">Open the <strong>Response</strong> tab. Rename the default variant to <em>user.created</em>. Set:
+    <ul style="margin-top: 6px">
+      <li>Status: <code>200</code></li>
+      <li>Body: <pre>{"received": true, "event": "user.created", "processingId": "{{random.uuid}}"}</pre></li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Add a second variant named <em>payment.processed</em>:
+    <ul style="margin-top: 6px">
+      <li>Status: <code>200</code></li>
+      <li>Body: <pre>{"received": true, "event": "payment.processed", "amount": "{{request.body.$.data.amount}}"}</pre></li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body">Add a third variant named <em>Unknown Event</em> (the catch-all):
+    <ul style="margin-top: 6px">
+      <li>Status: <code>422</code></li>
+      <li>Body: <pre>{"error": "Unrecognised event type", "received": "{{request.body.$.event}}"}</pre></li>
+    </ul>
+    Mark this variant as <strong>isDefault</strong>.
+  </div></div>
+
+  <h2>Part C — Configure Event Routing (Condition Mode)</h2>
+
+  <div class="step"><div class="step-num">6</div><div class="step-body">Open <strong>Behavior → Selection</strong>. Set mode to <strong>Condition</strong>.</div></div>
+  <div class="step"><div class="step-num">7</div><div class="step-body">For the <em>user.created</em> variant, add condition:
+    <ul style="margin-top: 6px">
+      <li>Source: <code>body</code>, Selector: <code>$.event</code>, Operator: <code>jsonPath_equals</code>, Expected: <code>user.created</code></li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">8</div><div class="step-body">For the <em>payment.processed</em> variant:
+    <ul style="margin-top: 6px">
+      <li>Source: <code>body</code>, Selector: <code>$.event</code>, Operator: <code>jsonPath_equals</code>, Expected: <code>payment.processed</code></li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">9</div><div class="step-body">The <em>Unknown Event</em> variant (isDefault) fires when no condition matches.</div></div>
+
+  <h2>Part D — Inspect Webhooks in the Journal</h2>
+
+  <div class="step"><div class="step-num">10</div><div class="step-body">Start the server. Send a test webhook payload:
+    <pre>curl -X POST http://127.0.0.1:4001/webhooks \
+  -H "Content-Type: application/json" \
+  -d '{"event": "user.created", "data": {"id": "u-123", "email": "alice@example.com"}}'</pre>
+  </div></div>
+  <div class="step"><div class="step-num">11</div><div class="step-body">In the Transactions dock tab, a new row appears for the POST. Click it to open Transaction Detail. The full request body is visible — you can inspect exactly what the external system sent.</div></div>
+  <div class="step"><div class="step-num">12</div><div class="step-body">Send a payload with an unknown event type (<code>"event": "order.shipped"</code>). The 422 variant fires and appears as <code>matched</code> with the Unknown Event variant name in the Transactions log.</div></div>
+
+  <h2>Part E — Outbound Callbacks</h2>
+
+  <div class="step"><div class="step-num">13</div><div class="step-body">Select the <em>user.created</em> variant in the sidebar. Open the <strong>Behavior</strong> tab → find the <strong>Outbound</strong> panel (or "Callbacks" sub-section).</div></div>
+  <div class="step"><div class="step-num">14</div><div class="step-body">Click <strong>+ Add Callback</strong>. Configure:
+    <ul style="margin-top: 6px">
+      <li><strong>URL</strong>: <code>http://localhost:3001/audit</code> (or any target)</li>
+      <li><strong>Method</strong>: <code>POST</code></li>
+      <li><strong>Headers</strong>: <code>Content-Type: application/json</code></li>
+      <li><strong>Body</strong>: <pre>{"source": "api-mock", "event": "{{request.body.$.event}}", "timestamp": "{{datetime.now}}"}</pre></li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">15</div><div class="step-body">Callbacks are <strong>fire-and-forget</strong>: the mock sends the callback request after the response has been sent to the caller. The original caller does not wait for the callback to complete.</div></div>
+  <div class="step"><div class="step-num">16</div><div class="step-body">If the callback target is unreachable, the error appears in the <strong>Console</strong> dock tab (not as a failure for the original request).</div></div>
+
+  <div class="callout callout-tip">
+    <strong>💡 Outbound delay</strong>
+    Callbacks fire asynchronously. If you need to verify they were sent, check the Console dock tab for the outbound request log entry.
+  </div>
+
+  <h2>Event Routing Summary</h2>
+  <table>
+    <thead><tr><th>Incoming <code>$.event</code></th><th>Variant</th><th>Status</th><th>Outbound callback?</th></tr></thead>
+    <tbody>
+      <tr><td><code>user.created</code></td><td>user.created</td><td>200</td><td>Yes — POST /audit</td></tr>
+      <tr><td><code>payment.processed</code></td><td>payment.processed</td><td>200</td><td>No</td></tr>
+      <tr><td>Anything else</td><td>Unknown Event (default)</td><td>422</td><td>No</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Self-Practice Exercises</h2>
+  <ol>
+    <li>Add a <em>subscription.cancelled</em> event variant with a 200 response. Verify routing from the Transactions tab.</li>
+    <li>Configure an outbound callback on the <em>payment.processed</em> variant that fires to <code>http://localhost:9000/notify</code>. Start a simple HTTP listener on that port (<code>python3 -m http.server 9000</code>) and verify the callback arrives.</li>
+    <li>Send a payload with no <code>event</code> field. Verify the Unknown Event variant (422) is selected.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · API Mock Studio — Webhook Receiver &amp; Outbound Callbacks · August 2026</footer>
+</body>
+</html>

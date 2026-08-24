@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>gRPC: Mock Server — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .badge-desktop { background: #1d3557; color: #fff; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout-desktop { background: #f3e5f5; border-left-color: #6a1b9a; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>gRPC: Mock Server</h1>
+  <p>
+    <span class="badge badge-advanced">Advanced</span>
+    &nbsp;
+    <span class="badge badge-desktop">Desktop Only</span>
+  </p>
+
+  <div class="callout callout-desktop">
+    <strong>🖥️ Desktop-only feature</strong>
+    The gRPC Mock Server runs as a local process inside the Tauri desktop application. It is not available in browser mode because it requires native TCP port binding and HTTP/2 server capabilities. If you are using the browser build, upgrade to the desktop app to access this feature.
+  </div>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Start and stop the built-in gRPC mock server</li>
+    <li>Define unary method stubs (fixed response JSON)</li>
+    <li>Define streaming stubs (emit N messages on stream request)</li>
+    <li>Use the mock server as a target for gRPC Studio requests</li>
+    <li>Common use cases: CI isolation, offline development, error simulation</li>
+  </ul>
+
+  <h2>Why Use a Mock Server?</h2>
+  <p>A mock gRPC server lets you test your gRPC client code or develop against an API contract before the real backend is ready. It is also ideal for:</p>
+  <ul>
+    <li>Reproducing error conditions (status codes, trailers) that are hard to trigger on a real server</li>
+    <li>Running integration tests in CI without network dependencies</li>
+    <li>Simulating slow or degraded responses for resilience testing</li>
+    <li>Iterating on request/response schemas without deploying a service</li>
+  </ul>
+
+  <h2>Navigating to the Mock Server Panel</h2>
+  <div class="step"><div class="step-num">1</div><div class="step-body">In gRPC Studio (desktop), click the <strong>Advanced</strong> sub-navigation tab (or icon) in the toolbar. The Advanced panel opens.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Inside the Advanced panel, click the <strong>Mock Server</strong> tab. The mock server panel shows the current server status, listen address, and stub definitions.</div></div>
+
+  <h2>Starting the Mock Server</h2>
+  <div class="step"><div class="step-num">3</div><div class="step-body">In the Mock Server panel, click <strong>Start Mock Server</strong>. The server binds to a local TCP port (e.g., <code>127.0.0.1:50071</code>) and the status badge changes to <strong>Running</strong>.</div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body">The listen address is shown beneath the status badge, e.g., <code>127.0.0.1:50071</code>. This is the address you use as the gRPC target in the connection bar.</div></div>
+
+  <div class="callout callout-tip">
+    <strong>💡 Port assignment</strong>
+    If port 50071 is already in use, the mock server automatically selects the next available port. The assigned port is always shown in the panel — copy it before configuring your target.
+  </div>
+
+  <h2>Defining Unary Stubs</h2>
+  <p>A <strong>unary stub</strong> tells the mock server: "when you receive a request for method X, respond with this JSON payload and status code."</p>
+
+  <div class="step"><div class="step-num">5</div><div class="step-body">In the <strong>Stubs</strong> section of the Mock Server panel, click <strong>+ Add Unary Stub</strong>.</div></div>
+  <div class="step"><div class="step-num">6</div><div class="step-body">Fill in the stub fields:
+    <ul style="margin-top:8px">
+      <li><strong>Service</strong>: the fully qualified service name, e.g., <code>echo.EchoService</code></li>
+      <li><strong>Method</strong>: the method name, e.g., <code>Echo</code></li>
+      <li><strong>Response JSON</strong>: the JSON payload the server should return</li>
+      <li><strong>Status Code</strong>: <code>OK</code>, or any gRPC error code (e.g., <code>NOT_FOUND</code>, <code>INTERNAL</code>)</li>
+      <li><strong>Delay (ms)</strong>: optional artificial delay before the response is sent (useful for latency testing)</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">7</div><div class="step-body">Click <strong>Save Stub</strong>. The stub appears in the list with a summary label.</div></div>
+
+  <h4>Example: Echo unary stub returning a fixed message</h4>
+<pre>{
+  "service": "echo.EchoService",
+  "method": "Echo",
+  "response": { "message": "mocked-response" },
+  "statusCode": "OK",
+  "delayMs": 0
+}</pre>
+
+  <h4>Example: Stub returning an error</h4>
+<pre>{
+  "service": "echo.EchoService",
+  "method": "Echo",
+  "response": {},
+  "statusCode": "INTERNAL",
+  "statusMessage": "simulated internal error",
+  "delayMs": 0
+}</pre>
+
+  <h2>Defining Streaming Stubs</h2>
+  <p>A <strong>streaming stub</strong> emits a sequence of messages when the client opens a server-stream or bidi stream.</p>
+
+  <div class="step"><div class="step-num">8</div><div class="step-body">Click <strong>+ Add Streaming Stub</strong>. Fill in the service and method (e.g., <code>ServerStream</code>).</div></div>
+  <div class="step"><div class="step-num">9</div><div class="step-body">In the <strong>Messages</strong> field, add one JSON object per line. Each object is one stream frame the server will send in order:</div></div>
+<pre>{ "message": "stream-frame-1" }
+{ "message": "stream-frame-2" }
+{ "message": "stream-frame-3" }</pre>
+  <div class="step"><div class="step-num">10</div><div class="step-body">Set the <strong>Inter-message delay (ms)</strong> to simulate a real server that produces data at intervals (e.g., <code>200</code> ms between frames). Set to <code>0</code> for immediate back-to-back frames.</div></div>
+  <div class="step"><div class="step-num">11</div><div class="step-body">Click <strong>Save Stub</strong>.</div></div>
+
+  <h2>Using the Mock Server as a Target</h2>
+  <div class="step"><div class="step-num">12</div><div class="step-body">In the gRPC Studio connection bar, enter the mock server listen address, e.g., <code>127.0.0.1:50071</code>.</div></div>
+  <div class="step"><div class="step-num">13</div><div class="step-body">Set the TLS badge to <strong>Plaintext</strong> (the mock server does not use TLS by default).</div></div>
+  <div class="step"><div class="step-num">14</div><div class="step-body">Load the schema manually (upload proto file or protoset) since the mock server does not expose gRPC reflection.</div></div>
+  <div class="step"><div class="step-num">15</div><div class="step-body">Send a request using the method you stubbed. The mock server returns the defined response. The stream panel shows the stubbed messages for streaming methods.</div></div>
+
+  <h2>Stopping the Mock Server</h2>
+  <div class="step"><div class="step-num">16</div><div class="step-body">In the Mock Server panel, click <strong>Stop Mock Server</strong>. The status badge changes to <strong>Completed</strong> and the port is released. Any in-flight connections are terminated.</div></div>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ Stubs are ephemeral</strong>
+    Mock server stubs defined in the UI are held in memory for the current session. If you close the desktop app, stubs are lost. Export stubs to JSON if you need to preserve them across sessions (File → Export Mock Stubs).
+  </div>
+
+  <h2>Mock Server Status Reference</h2>
+  <table>
+    <tr><th>Status</th><th>Meaning</th></tr>
+    <tr><td><strong>Not started</strong></td><td>Server has not been started. No port is bound.</td></tr>
+    <tr><td><strong>Running</strong></td><td>Server is listening. Ready to accept connections on the shown address.</td></tr>
+    <tr><td><strong>Completed</strong></td><td>Server was running and has since been stopped.</td></tr>
+    <tr><td><strong>Error</strong></td><td>Server failed to start (e.g., port in use). Check the error message and try again.</td></tr>
+  </table>
+
+  <h2>Practice Exercises</h2>
+  <ol>
+    <li>Start the mock server. Define a unary Echo stub that returns <code>{ "message": "hello from mock" }</code>. Connect gRPC Studio to the mock and run the Echo call. Verify the response matches your stub.</li>
+    <li>Add a second stub for the same method that returns <code>INTERNAL</code> error with a custom message. Verify the error response is received.</li>
+    <li>Define a streaming stub for <code>ServerStream</code> with 4 frames and a 300 ms delay. Run the call and observe the stream panel filling in with the frames over ~1.2 seconds.</li>
+    <li>Stop the mock server and attempt a connection. Confirm the request fails with a connection refused error.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · gRPC Studio — Mock Server · August 2026</footer>
+</body>
+</html>

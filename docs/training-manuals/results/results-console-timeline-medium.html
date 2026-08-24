@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Results Explorer: Console &amp; Timeline View — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>Results Explorer: Console &amp; Timeline View</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; Console Panel Modes · Node Filter · Log Search · Timeline Gantt · Zoom</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Understand the two panel modes for the Console: docked strip vs floating window</li>
+    <li>Filter the console to a single node, search log lines, and navigate matches</li>
+    <li>Understand the capture level (minimal / standard / full / debug) and how it affects log content</li>
+    <li>Toggle the Execution Canvas to Timeline view</li>
+    <li>Read the horizontal Gantt timeline, hover for node timing details, zoom in/out</li>
+    <li>Click a timeline bar to select a node and open its detail panel</li>
+  </ul>
+
+  <h2>Console Panel</h2>
+
+  <h3>Opening the Console</h3>
+
+  <div class="step"><div class="step-num">1</div><div class="step-body">Inside the Results Explorer modal, click the <strong>Console</strong> button in the modal toolbar. The console panel appears as a docked strip at the bottom of the modal.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">The console shows structured log lines from the run. Each line has:
+    <ul style="margin-top: 6px">
+      <li><strong>Node name</strong> — which workflow node emitted this line</li>
+      <li><strong>Level</strong> — INFO, WARN, ERROR, or DEBUG</li>
+      <li><strong>Message</strong> — request URL, response body excerpt, assertion message, or variable assignment</li>
+    </ul>
+  </div></div>
+
+  <h3>Panel Modes</h3>
+
+  <div class="step"><div class="step-num">3</div><div class="step-body">The console header has a <strong>mode selector</strong> (dropdown or button group):
+    <ul style="margin-top: 6px">
+      <li><strong>Docked</strong> — strip anchored to the bottom of the modal. Drag the top edge to resize height.</li>
+      <li><strong>Floating</strong> — detached window you can drag anywhere. Drag the corner to resize.</li>
+    </ul>
+    Switch to <strong>Floating</strong>. Drag the floating console to the side so the canvas is fully visible.
+  </div></div>
+
+  <h3>Capture Level Notice</h3>
+
+  <div class="step"><div class="step-num">4</div><div class="step-body">A banner at the top of the console may show the <strong>capture level</strong>:
+    <ul style="margin-top: 6px">
+      <li><strong>minimal</strong> — only errors are logged. Console shows a compact summary for passing iterations.</li>
+      <li><strong>standard</strong> — request/response summaries but not full bodies.</li>
+      <li><strong>full</strong> — request and response bodies included.</li>
+      <li><strong>debug</strong> — full bodies plus raw log messages.</li>
+    </ul>
+    If you see very few log lines, the run was captured at <em>minimal</em> level. Configure capture level in the test/workflow settings before the next run.
+  </div></div>
+
+  <h3>Filter by Node</h3>
+
+  <div class="step"><div class="step-num">5</div><div class="step-body">Find the <strong>Node filter</strong> dropdown in the console toolbar. It lists all nodes that executed in the current iteration. Select a specific node (e.g. <code>Validate Token</code>).</div></div>
+  <div class="step"><div class="step-num">6</div><div class="step-body">Only log lines from that node are shown. This is useful when one node's output is buried among hundreds of lines from other nodes.</div></div>
+  <div class="step"><div class="step-num">7</div><div class="step-body">Clear the node filter (select <em>All nodes</em>) to restore the full log.</div></div>
+
+  <h3>Search and Navigate Matches</h3>
+
+  <div class="step"><div class="step-num">8</div><div class="step-body">Click the 🔍 search button in the console toolbar. A search input appears.</div></div>
+  <div class="step"><div class="step-num">9</div><div class="step-body">Type a search term (e.g. <code>401</code> or <code>timeout</code>). Matching log lines are highlighted. A counter shows <em>Match N of M</em>.</div></div>
+  <div class="step"><div class="step-num">10</div><div class="step-body">Use the <strong>↑ / ↓</strong> navigation arrows to scroll between matches. The console auto-scrolls to each highlighted line.</div></div>
+  <div class="step"><div class="step-num">11</div><div class="step-body">Click the × to clear the search and return to normal scrolling.</div></div>
+
+  <div class="callout callout-tip">
+    <strong>💡 Combining filters</strong>
+    Node filter + text search compose: select node <code>Auth Request</code> AND search for <code>401</code> to find all 401 responses specifically from the Auth Request node.
+  </div>
+
+  <h2>Timeline View</h2>
+
+  <h3>Switching to Timeline</h3>
+
+  <div class="step"><div class="step-num">12</div><div class="step-body">In the Results Explorer canvas toolbar, find the <strong>view toggle</strong>: <code>Diagram</code> | <code>Timeline</code>. Click <strong>Timeline</strong>.</div></div>
+  <div class="step"><div class="step-num">13</div><div class="step-body">The canvas area switches from the React Flow diagram to a horizontal Gantt-style chart. The Y-axis lists node names in topological order (top = first executed). The X-axis is wall-clock time in ms from the start of the iteration.</div></div>
+
+  <h3>Reading the Timeline Bars</h3>
+
+  <div class="step"><div class="step-num">14</div><div class="step-body">Each row has one or more coloured bars (one per iteration if multiple iterations ran). Bar colours:
+    <ul style="margin-top: 6px">
+      <li>🟢 Green — pass</li>
+      <li>🔴 Red — fail</li>
+      <li>Grey — skipped</li>
+      <li>Purple — sub-workflow node (pass)</li>
+      <li>Dimmed / semi-transparent — other iterations when one iteration is selected</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">15</div><div class="step-body">Hover any bar. A tooltip appears showing:
+    <ul style="margin-top: 6px">
+      <li>Node name and type</li>
+      <li>Iteration index</li>
+      <li>Start time offset (ms from run start)</li>
+      <li>Duration (ms)</li>
+      <li>State (pass / fail / skipped)</li>
+    </ul>
+  </div></div>
+
+  <h3>Zoom and Navigate</h3>
+
+  <div class="step"><div class="step-num">16</div><div class="step-body">Use the <strong>Zoom In / Zoom Out</strong> buttons (or scroll with mouse wheel over the timeline). Zooming in expands the time axis to reveal finer resolution between overlapping or sequential bars.</div></div>
+  <div class="step"><div class="step-num">17</div><div class="step-body">Scroll horizontally within the timeline to navigate through a long run. Scroll vertically to see all nodes in a large workflow.</div></div>
+
+  <h3>Select a Node via Timeline</h3>
+
+  <div class="step"><div class="step-num">18</div><div class="step-body">Click any bar on the timeline. The corresponding node is selected and the right detail panel opens — exactly as if you had clicked the node on the canvas diagram. The iteration picker also switches to the clicked iteration.</div></div>
+
+  <h2>Timeline vs Diagram — When to Use Each</h2>
+  <table>
+    <thead><tr><th>Use Case</th><th>Best View</th></tr></thead>
+    <tbody>
+      <tr><td>Understand workflow structure and branching</td><td>Diagram</td></tr>
+      <tr><td>Find which node took the longest</td><td>Timeline (visual bar width = duration)</td></tr>
+      <tr><td>See parallelism — which nodes ran concurrently</td><td>Timeline (overlapping bars at same X position)</td></tr>
+      <tr><td>Click a specific node quickly</td><td>Diagram</td></tr>
+      <tr><td>Identify bottleneck at a specific time offset</td><td>Timeline (hover at the X position)</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Self-Practice Exercises</h2>
+  <ol>
+    <li>Open the console in <strong>floating</strong> mode. Drag it so you can see both the canvas and the console simultaneously. Filter to a failing node and read its log lines.</li>
+    <li>Search the console for a specific HTTP status code (e.g. <code>500</code>). Navigate all matches. Note which nodes produced that error.</li>
+    <li>Switch to Timeline view. Identify the <strong>three longest-running nodes</strong> by bar width. Click each to open its detail panel and check its P95 duration on the Overview tab.</li>
+    <li>In Timeline view with a multi-iteration run, hover bars from different iterations on the same node row. Compare their start offsets — do later iterations start earlier (faster upstream) or later (slower)?</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · Results Explorer — Console &amp; Timeline View · August 2026</footer>
+</body>
+</html>

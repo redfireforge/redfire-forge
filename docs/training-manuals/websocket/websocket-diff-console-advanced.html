@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebSocket: Diff &amp; Console — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>WebSocket: Diff &amp; Console</h1>
+  <p><span class="badge badge-advanced">Advanced</span> &nbsp; Compare messages side-by-side · Scripted console commands</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Use the message diff modal to compare two WebSocket frames side-by-side</li>
+    <li>Navigate to the Console panel and understand its output categories</li>
+    <li>Filter console entries by category</li>
+    <li>Send scripted commands via the console command input</li>
+  </ul>
+
+  <h2>Part 1: Message Diff</h2>
+
+  <h3>Why Diff Messages?</h3>
+  <p>When debugging a WebSocket API, you often want to know: <em>how did this response differ from the last one?</em> The diff modal provides a side-by-side, character-level comparison of any two frames in the Events log — without copying payloads to an external tool.</p>
+
+  <h3>Selecting Two Messages to Compare</h3>
+  <div class="step"><div class="step-num">1</div><div class="step-body">In the Events log, hover over a message row. A <strong>checkbox</strong> appears on the left side of the row. Check it. The row is highlighted with a "selected" indicator.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Check a second message row. A <strong>Compare</strong> button or toolbar action appears when exactly 2 rows are selected.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Click <strong>Compare</strong>. The diff modal (<code>diff-modal</code>) opens.</div></div>
+
+  <h3>The Diff Modal</h3>
+  <p>The diff modal presents two panels side by side:</p>
+  <ul>
+    <li><strong>Left panel</strong> — the earlier-selected message (by timestamp order)</li>
+    <li><strong>Right panel</strong> — the later-selected message</li>
+  </ul>
+  <p>Differences are highlighted inline:</p>
+  <table>
+    <tr><th>Colour</th><th>Meaning</th></tr>
+    <tr><td>Green background</td><td>Text added in the right message that wasn't in the left</td></tr>
+    <tr><td>Red background</td><td>Text in the left message that is absent from the right</td></tr>
+    <tr><td>No highlight</td><td>Identical content in both messages</td></tr>
+  </table>
+  <p>If both payloads are valid JSON, the modal automatically pretty-prints and JSON-normalises them before diffing (key ordering is normalised to remove spurious differences).</p>
+
+  <div class="step"><div class="step-num">4</div><div class="step-body">Close the modal by clicking the <strong>×</strong> button (<code>diff-close</code>) or pressing <kbd>Escape</kbd>.</div></div>
+
+  <div class="callout callout-tip">
+    <strong>💡 Compare across sessions</strong>
+    You can diff a sent message with a received message, or two consecutive received messages. The checkbox selection is not limited to same-direction frames.
+  </div>
+
+  <h2>Part 2: Console Panel</h2>
+
+  <h3>Opening the Console</h3>
+  <div class="step"><div class="step-num">1</div><div class="step-body">In the right panel, click the <strong>Console</strong> tab (<code>right-tab-console</code>). The console pane (<code>ws-studio-console-pane</code>) appears.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">The console count badge (<code>ws-console-count</code>) in the tab label shows the number of unread console entries. It resets to 0 when you open the Console tab.</div></div>
+
+  <h3>Console Entry Categories</h3>
+  <table>
+    <tr><th>Category</th><th>Entries shown</th></tr>
+    <tr><td><strong>Connection</strong></td><td>Open, close, and reconnect events with timestamps and close codes</td></tr>
+    <tr><td><strong>Error</strong></td><td>Connection errors, TLS handshake failures, proxy errors</td></tr>
+    <tr><td><strong>Protocol</strong></td><td>Protocol-level handshake events (Socket.IO EIO negotiation, STOMP CONNECT/CONNECTED, graphql-ws <code>connection_init</code>)</td></tr>
+    <tr><td><strong>System</strong></td><td>Studio-generated messages: recording started/stopped, schema validation toggled, replay started</td></tr>
+    <tr><td><strong>Command</strong></td><td>Results of commands sent via the console command input</td></tr>
+  </table>
+
+  <h3>Filtering by Category</h3>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Click the <strong>Category</strong> filter dropdown (<code>ws-console-category</code>). It lists all categories. Select a category option (e.g., <code>ws-console-category-opt-error</code>) to show only error entries. Select <em>All</em> to reset the filter.</div></div>
+
+  <h3>Console Command Input</h3>
+  <p>The console input field (<code>ws-console-cmd-input</code>) at the bottom of the console pane accepts <strong>scripted commands</strong> that control the connection programmatically:</p>
+
+  <table>
+    <tr><th>Command</th><th>Effect</th></tr>
+    <tr><td><code>send "hello"</code></td><td>Sends the string <code>hello</code> over the active connection</td></tr>
+    <tr><td><code>send {"key":"value"}</code></td><td>Sends a JSON payload</td></tr>
+    <tr><td><code>send-repeat "ping" 5 100</code></td><td>Sends <code>ping</code> 5 times with 100 ms delay between sends</td></tr>
+    <tr><td><code>close 1000</code></td><td>Sends a WebSocket close frame with close code 1000</td></tr>
+    <tr><td><code>stats</code></td><td>Prints current stats values to the console</td></tr>
+    <tr><td><code>clear</code></td><td>Clears the console log</td></tr>
+  </table>
+
+  <div class="step"><div class="step-num">4</div><div class="step-body">Click the command input field (<code>ws-console-cmd-input</code>) and type a command. Press <kbd>Enter</kbd> to execute. The command and its result appear in the console log under the <em>Command</em> category.</div></div>
+
+  <h3>Command History</h3>
+  <p>Press <kbd>↑</kbd> / <kbd>↓</kbd> arrows in the console input to navigate previous commands, similar to a terminal shell. Commands are remembered per session.</p>
+
+  <h2>Combined Workflow: Diff + Console</h2>
+  <p>A useful debugging workflow:</p>
+  <div class="step"><div class="step-num">1</div><div class="step-body">Connect to your server. In the Console, run <code>send-repeat {"type":"query","id":1} 3 500</code> to send 3 query messages with IDs 1, 2, 3 at 500 ms intervals.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Switch to the Events tab. Three received responses appear. Select the first and third responses for comparison.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Open the diff modal. Observe whether the response structure changed between request 1 and request 3 — useful for detecting server-side state drift.</div></div>
+
+  <h2>Practice Exercises</h2>
+  <ol>
+    <li>Connect to an echo server. Send two messages with different payloads. Select both in the Events log. Open the diff modal and verify the difference is highlighted.</li>
+    <li>Compare a sent message with its received echo. In the diff view, confirm both payloads are identical (no diff highlighted).</li>
+    <li>Open the Console tab. Disconnect and reconnect. Confirm <em>Connection</em> category entries appear for both events.</li>
+    <li>Use the command input to run <code>send-repeat "test" 5 200</code>. Confirm 5 sent frames appear in the Events log.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · WebSocket Studio — Diff &amp; Console · August 2026</footer>
+</body>
+</html>
