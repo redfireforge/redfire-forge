@@ -1,9 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { requestSampleCatalog } from './index';
+import {
+  createGraphQLIntrospectScenario,
+  createGraphQLCountryQueryScenario,
+  createGraphQLMutationScenario,
+} from './presets';
 
 describe('requestSampleCatalog', () => {
-  it('has 13 entries', () => {
-    expect(requestSampleCatalog).toHaveLength(13);
+  it('has 16 entries', () => {
+    expect(requestSampleCatalog).toHaveLength(16);
   });
 
   it('every entry has a unique id', () => {
@@ -52,5 +57,44 @@ describe('requestSampleCatalog', () => {
       const scenario = entry.factory();
       expect(entry.method).toBe(scenario.method);
     }
+  });
+
+  it('graphql entries use POST and graphql category', () => {
+    const gql = requestSampleCatalog.filter(e => e.category === 'graphql');
+    expect(gql).toHaveLength(3);
+    for (const e of gql) {
+      expect(e.method).toBe('POST');
+      expect(e.liveApis.length).toBeGreaterThanOrEqual(1);
+    }
+  });
+});
+
+describe('GraphQL request factories', () => {
+  it('introspect: POST with JSON body, existence assertions', () => {
+    const s = createGraphQLIntrospectScenario();
+    expect(s.method).toBe('POST');
+    expect(s.bodyType).toBe('json');
+    const body = JSON.parse(s.body);
+    expect(body.query).toContain('__typename');
+    const assertions = s.validation.mode === 'full' ? s.validation.assertions : [];
+    expect(assertions.some(a => a.type === 'existence')).toBe(true);
+  });
+
+  it('country query: POST with nested response assertions', () => {
+    const s = createGraphQLCountryQueryScenario();
+    expect(s.method).toBe('POST');
+    const body = JSON.parse(s.body);
+    expect(body.query).toContain('country');
+    const assertions = s.validation.mode === 'full' ? s.validation.assertions : [];
+    expect(assertions.some(a => a.type === 'existence' && a.type === 'existence')).toBe(true);
+  });
+
+  it('mutation: POST with mutation keyword in body', () => {
+    const s = createGraphQLMutationScenario();
+    expect(s.method).toBe('POST');
+    const body = JSON.parse(s.body);
+    expect(body.query).toContain('mutation');
+    const assertions = s.validation.mode === 'full' ? s.validation.assertions : [];
+    expect(assertions.some(a => a.type === 'existence')).toBe(true);
   });
 });

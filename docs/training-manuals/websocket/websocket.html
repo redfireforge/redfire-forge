@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebSocket Studio Overview — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .map { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 16px 0; }
+  .map-card { border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; background: #f8f9fa; }
+  .map-card h4 { font-size: 13px; color: #1d3557; margin-bottom: 6px; }
+  .map-card ul { padding-left: 14px; }
+  .map-card li { font-size: 12px; margin-bottom: 3px; }
+  .path { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+  .path-item { background: #e8f4fd; border: 1px solid #457b9d; border-radius: 4px; padding: 4px 10px; font-size: 12px; }
+  .path-item.advanced { background: #fce4ec; border-color: #e63946; }
+  .path-item.medium { background: #fff8e1; border-color: #f59e0b; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>WebSocket Studio</h1>
+  <p>The complete guide to testing WebSocket APIs — from a first <code>ws://</code> connection through protocol adapters, load testing, and workflow automation.</p>
+
+  <h2>What is WebSocket Studio?</h2>
+  <p>WebSocket Studio is the persistent-connection testing environment inside RedfireForge. Unlike REST clients that open a new connection per request, WebSocket Studio maintains a stateful, bidirectional channel. You can send and receive messages at any time, monitor a live stream of frames, record sessions, and replay them — all from a multi-tab interface that supports up to 8 simultaneous connections.</p>
+
+  <h2>Interface Overview</h2>
+
+  <h3>Mode Switcher</h3>
+  <p>The three buttons at the top of the pane switch the active connection into a different operating mode:</p>
+  <table>
+    <tr><th>Mode</th><th>Purpose</th></tr>
+    <tr><td><strong>Client</strong> (<code>mode-client</code>)</td><td>Standard WebSocket client — connect to any server, send/receive messages</td></tr>
+    <tr><td><strong>Mock</strong> (<code>mode-mock</code>)</td><td>Start a built-in WebSocket server that responds to clients under rules you define</td></tr>
+    <tr><td><strong>Saved</strong> (<code>mode-saved</code>)</td><td>Browse and replay previously saved connection presets and session recordings</td></tr>
+  </table>
+
+  <h3>Left Panel Tabs</h3>
+  <table>
+    <tr><th>Tab</th><th>Contents</th></tr>
+    <tr><td><strong>Connect</strong></td><td>URL field, protocol selector, TLS settings, connect/disconnect button, status badge</td></tr>
+    <tr><td><strong>Params</strong></td><td>Query-string parameters appended to the WebSocket URL at connection time</td></tr>
+    <tr><td><strong>Auth</strong></td><td>Authentication type (None, Bearer, API Key, Basic, Custom) — injected as headers on the HTTP upgrade request</td></tr>
+    <tr><td><strong>Headers</strong></td><td>Custom HTTP headers sent during the WebSocket upgrade handshake</td></tr>
+    <tr><td><strong>Send</strong></td><td>Message compose area, format selector (text/JSON/binary), Send button, STOMP/Socket.IO compose fields</td></tr>
+  </table>
+
+  <h3>Right Panel Tabs</h3>
+  <table>
+    <tr><th>Tab</th><th>Contents</th></tr>
+    <tr><td><strong>Events</strong></td><td>Live message log — all sent and received frames with timestamps, size, direction arrow</td></tr>
+    <tr><td><strong>Console</strong></td><td>Lifecycle log + command console for scripted send sequences</td></tr>
+    <tr><td><strong>Stats</strong></td><td>Real-time metrics: messages/sec, bytes in/out, total frames, uptime</td></tr>
+    <tr><td><strong>Load Test</strong></td><td>Concurrent connection launcher — configurable worker count, duration, and rate</td></tr>
+    <tr><td><strong>Schema</strong></td><td>JSON schema editor and message validator — infer from traffic or define manually</td></tr>
+  </table>
+
+  <h2>Multi-Tab Connections</h2>
+  <p>WebSocket Studio maintains a <strong>tab bar</strong> (<code>conn-tab-bar</code>) that lets you open up to 8 independent connections simultaneously — each with its own URL, auth, headers, message log, and stats. Tabs can be renamed, reordered by drag-and-drop, and navigated with keyboard shortcuts.</p>
+
+  <h2>Protocol Support</h2>
+  <table>
+    <tr><th>Protocol</th><th>Use Case</th><th>Notes</th></tr>
+    <tr><td><strong>Plain WebSocket</strong></td><td>Raw <code>ws://</code> / <code>wss://</code> connections</td><td>Default mode</td></tr>
+    <tr><td><strong>Socket.IO</strong></td><td>Socket.IO EIO4 event-based protocol</td><td>Requires Socket.IO server; adds event envelope</td></tr>
+    <tr><td><strong>STOMP</strong></td><td>Messaging protocol over WebSocket (RabbitMQ, ActiveMQ)</td><td>Adds COMMAND/HEADER/BODY compose UI</td></tr>
+    <tr><td><strong>GraphQL-WS</strong></td><td>GraphQL subscriptions over WebSocket (<code>graphql-ws</code>)</td><td>Handles <code>connection_init</code> / <code>subscribe</code> framing</td></tr>
+  </table>
+
+  <h2>Learning Path</h2>
+  <div class="path">
+    <div class="path-item">Overview (this page)</div>
+    <div class="path-item">First Connection</div>
+    <div class="path-item">Multi-Tab</div>
+    <div class="path-item medium">Protocols</div>
+    <div class="path-item medium">Auth</div>
+    <div class="path-item medium">Recording &amp; Replay</div>
+    <div class="path-item medium">Stats</div>
+    <div class="path-item medium">TLS</div>
+    <div class="path-item advanced">Mock Server</div>
+    <div class="path-item advanced">Schema Validation</div>
+    <div class="path-item advanced">Diff &amp; Console</div>
+    <div class="path-item advanced">Load Test</div>
+    <div class="path-item advanced">Workflow Runner</div>
+  </div>
+
+  <h2>Quick Reference: Testids</h2>
+  <div class="map">
+    <div class="map-card">
+      <h4>Connection</h4>
+      <ul>
+        <li><code>connect-btn</code></li>
+        <li><code>disconnect-btn</code></li>
+        <li><code>status-badge</code></li>
+        <li><code>conn-tab-bar</code></li>
+        <li><code>protocol-select</code></li>
+      </ul>
+    </div>
+    <div class="map-card">
+      <h4>Messaging</h4>
+      <ul>
+        <li><code>send-btn</code></li>
+        <li><code>.ws-compose-input</code></li>
+        <li><code>.ws-message-row</code></li>
+        <li><code>direction-filter</code></li>
+        <li><code>filter-toggle-btn</code></li>
+      </ul>
+    </div>
+    <div class="map-card">
+      <h4>Mock Server</h4>
+      <ul>
+        <li><code>mock-start-btn</code></li>
+        <li><code>mock-stop-btn</code></li>
+        <li><code>mock-port-input</code></li>
+        <li><code>mock-status-label</code></li>
+        <li><code>mock-server-panel</code></li>
+      </ul>
+    </div>
+    <div class="map-card">
+      <h4>Recording</h4>
+      <ul>
+        <li><code>start-recording-btn</code></li>
+        <li><code>stop-recording-btn</code></li>
+        <li><code>replay-bar</code></li>
+        <li><code>replay-playpause-btn</code></li>
+        <li><code>replay-exit-btn</code></li>
+      </ul>
+    </div>
+    <div class="map-card">
+      <h4>Stats &amp; Schema</h4>
+      <ul>
+        <li><code>right-tab-stats</code></li>
+        <li><code>stats-msg-rate</code></li>
+        <li><code>ws-schema-panel</code></li>
+        <li><code>ws-schema-generate-btn</code></li>
+        <li><code>ws-validation-toggle</code></li>
+      </ul>
+    </div>
+    <div class="map-card">
+      <h4>Load Test</h4>
+      <ul>
+        <li><code>right-tab-loadtest</code></li>
+        <li><code>lt-start-btn</code></li>
+        <li><code>lt-running</code></li>
+        <li><code>ws-console-cmd-input</code></li>
+        <li><code>tls-skip-cert</code></li>
+      </ul>
+    </div>
+  </div>
+
+  <footer>RedfireForge v0.6.0 · WebSocket Studio — Overview · August 2026</footer>
+</body>
+</html>

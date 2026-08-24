@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Environment Manager: Additional Environments — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>Environment Manager: Additional Environments</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; Microservice-Specific Envs · Drag Reorder · Impact-Safe Deletion</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Understand the difference between global environments and microservice-specific additional environments</li>
+    <li>Add a custom environment to a single microservice (e.g. a canary or blue/green slot)</li>
+    <li>Set a base URL and env-var overrides for the additional environment</li>
+    <li>Reorder environments and microservices by drag-and-drop</li>
+    <li>Safely delete an environment — understand the impact warning dialog</li>
+  </ul>
+
+  <h2>Global Environments vs Additional Environments</h2>
+  <p>The <strong>Environments</strong> section at the top of the Environment Manager defines <em>global</em> environments — labels visible to every microservice. All services share the same global list.</p>
+  <p>Some services have deployment slots that don't map to any global environment. For example, a canary deployment URL that exists only for <em>payment-api</em> and no other service. For these cases, <strong>additional environments</strong> let you add service-scoped deployment targets.</p>
+
+  <table>
+    <thead><tr><th>Type</th><th>Scope</th><th>Appears In</th><th>Deletable Via</th></tr></thead>
+    <tbody>
+      <tr><td>Global environment</td><td>All microservices</td><td>Every service's HTTP/gRPC/etc. table</td><td>Environment chip × (with impact warning)</td></tr>
+      <tr><td>Additional environment</td><td>One microservice only</td><td>Only that service's deploy table (shown with <em>additional</em> tag)</td><td>× button in the additional-env row of that service</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Step-by-Step Walkthrough</h2>
+
+  <h3>Part A — Add a Microservice-Specific Additional Environment</h3>
+
+  <div class="step"><div class="step-num">1</div><div class="step-body">Open the Environment Manager and expand <em>user-api</em> (click <strong>Configure</strong>).</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">In the HTTP tab's deploy table, scroll past the global environment rows. At the very bottom of the table (in the <code>tfoot</code> area) there is a text input with placeholder <em>"+ Add additional environment (e.g. staging-2)"</em>.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Click the input and type <code>canary</code>. Press <kbd>Enter</kbd>. A new row appears in the table under a separator row labelled <em>Additional environments</em>. The row shows the name <code>canary</code> with a distinct tag style.</div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Tick the deploy checkbox for the <code>canary</code> row to enable it.</div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body">Click the edit icon in the Base URL cell for <code>canary</code> and enter:</div></div>
+<pre>http://canary.user-api.internal:3000</pre>
+  <div class="step"><div class="step-num">6</div><div class="step-body">Click <strong>Save</strong>. The canary environment is now configured for <em>user-api</em>. It does not appear in any other microservice's table.</div></div>
+
+  <div class="callout callout-tip">
+    <strong>💡 When to use additional environments</strong>
+    Use global environments for standard deployment tiers (dev / staging / prod) that all services share. Use additional environments for one-off deployment slots: canary releases, blue/green switches, hotfix branches, tenant-specific URLs.
+  </div>
+
+  <h3>Part B — Set Variables for the Additional Environment</h3>
+
+  <div class="step"><div class="step-num">7</div><div class="step-body">In the <code>canary</code> row, click the <strong>Env vars</strong> badge (test ID <code>env-vars-badge-{canaryEnvId}</code>). The Env Vars modal opens for this additional environment.</div></div>
+  <div class="step"><div class="step-num">8</div><div class="step-body">The modal behaves identically to any other environment: global vars appear as read-only references at the top; you can add key/value overrides specific to <code>canary</code>.</div></div>
+  <div class="step"><div class="step-num">9</div><div class="step-body">Add an override:</div></div>
+<pre>Key:   featureFlags
+Value: canary-v2</pre>
+  <div class="step"><div class="step-num">10</div><div class="step-body">Click <strong>Save changes</strong>. The <code>canary</code> env vars badge now shows count <code>1</code>.</div></div>
+
+  <h3>Part C — Remove an Additional Environment</h3>
+
+  <div class="step"><div class="step-num">11</div><div class="step-body">In the <code>canary</code> row, locate the red × button at the far right of the row (class <code>svc-env-additional-del</code>). This button is only shown for additional environments, not global ones.</div></div>
+  <div class="step"><div class="step-num">12</div><div class="step-body">Click × to remove the <code>canary</code> additional environment. The row disappears immediately. No confirmation dialog — additional environments are scoped to one service and have no cross-feature impact.</div></div>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ Additional environment removal is immediate</strong>
+    Unlike deleting a global environment (which shows an impact dialog), removing an additional environment from a service's table is instant. There is no undo. Any feature groups or scenarios bound to that additional env ID will lose their environment association.
+  </div>
+
+  <h3>Part D — Reorder Environments (Drag and Drop)</h3>
+
+  <div class="step"><div class="step-num">13</div><div class="step-body">In the <strong>Environments</strong> section, identify the ⠿ grip on the left side of each environment chip.</div></div>
+  <div class="step"><div class="step-num">14</div><div class="step-body">Drag the <em>prod</em> chip upward to place it before <em>staging</em>. Release. The chips reorder immediately. The order in this list controls the column order in each service's deploy table.</div></div>
+
+  <div class="callout callout-tip">
+    <strong>💡 Order affects usability, not function</strong>
+    Reordering environments changes visual presentation only. Variable resolution and test execution are not affected by the display order.
+  </div>
+
+  <h3>Part E — Reorder Microservices (Drag and Drop)</h3>
+
+  <div class="step"><div class="step-num">15</div><div class="step-body">In the <strong>Microservices</strong> section, each service card has a ⠿ grip on the left edge of its header bar (class <code>svc-drag-grip</code>).</div></div>
+  <div class="step"><div class="step-num">16</div><div class="step-body">Drag <em>order-api</em> above <em>user-api</em>. The card list reorders. Note: dragging is disabled while a card is expanded — collapse it first.</div></div>
+
+  <h3>Part F — Delete a Global Environment Safely</h3>
+
+  <div class="step"><div class="step-num">17</div><div class="step-body">Click the × on the <em>prod</em> environment chip. If any microservices have base URLs set for prod, or if any feature groups are scoped to prod, a confirmation dialog appears.</div></div>
+  <div class="step"><div class="step-num">18</div><div class="step-body">The dialog message lists:
+    <ul style="margin-top:6px">
+      <li>How many microservices will lose their prod base URL</li>
+      <li>How many feature groups (and their scenarios/tests) will become unassociated</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">19</div><div class="step-body">The dialog explicitly notes: <em>"They will NOT be deleted but will lose their environment association."</em> Confirm if you want to proceed. The environment chip is removed and all prod base URLs are cleared from every service.</div></div>
+
+  <h2>Additional Environment — Key Facts</h2>
+  <table>
+    <thead><tr><th>Property</th><th>Additional Environment</th><th>Global Environment</th></tr></thead>
+    <tbody>
+      <tr><td>Scope</td><td>One microservice only</td><td>All microservices</td></tr>
+      <tr><td>Appears in header env selector</td><td>No</td><td>Yes</td></tr>
+      <tr><td>Deletion requires confirmation</td><td>No — immediate</td><td>Yes — impact dialog</td></tr>
+      <tr><td>ID format</td><td><code>custom-{timestamp}</code></td><td>UUID v4</td></tr>
+      <tr><td>Can hold env-var overrides</td><td>Yes</td><td>N/A (overrides are on services, not envs)</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Self-Practice Exercises</h2>
+  <ol>
+    <li>Add two additional environments to <em>order-api</em>: <code>blue</code> and <code>green</code>. Deploy both and set different base URLs. Add a distinct <code>slot</code> env-var override for each.</li>
+    <li>Reorder the global environments so that <em>prod</em> is last. Verify that the deploy table column order updates in all expanded service panels.</li>
+    <li>Delete the <em>staging</em> global environment. Review the impact dialog. Then recreate it and redeploy all services to it.</li>
+    <li>Attempt to drag a microservice card while it is expanded. Confirm that dragging is blocked, then collapse and try again.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · Environment Manager — Additional Environments · August 2026</footer>
+</body>
+</html>

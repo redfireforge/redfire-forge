@@ -8,9 +8,11 @@ import { createPaymentCallbackEasyWorkflow, createApprovalWorkflowMediumWorkflow
 import { createPokemonEvolutionWorkflow, createCountryCurrencyWorkflow, createProductCartWorkflow, createBookSearchWorkflow, createMultiApiDashboardWorkflow } from './diverseApis';
 import { createPerfSimpleWorkflow, createPerfBranchingWorkflow, createPerfParallelWorkflow, createPerfEdgePercentageWorkflow, createPerfBottleneckDemoWorkflow } from './performance';
 import { createParallelShowcaseWorkflow } from './parallelShowcase';
-import { createKafkaProduceWorkflow, createKafkaTriggerWorkflow, createKafkaEventPipelineWorkflow, createKafkaAsyncCorrelationWorkflow } from './kafka';
-import { createGraphqlHealthCheckWorkflow, createGraphqlECommerceFlowWorkflow, createGraphqlSchemaWatchdogWorkflow, createGraphqlUserCrudWorkflow } from './graphql';
 import type { SampleWorkflowEntry } from './types';
+import { kafkaWorkflowSamples } from './protocolKafka';
+import { graphqlWorkflowSamples } from './protocolGraphQL';
+import { grpcWorkflowSamples } from './protocolGrpc';
+import { websocketWorkflowSamples } from './protocolWebSocket';
 
 // Re-export all factory functions
 export { createOrderWorkflow, createParallelForkWorkflow, createLogDebugWorkflow, createExpressionFunctionsWorkflow, createScriptEasyWorkflow } from './apiPatterns';
@@ -22,10 +24,12 @@ export { createPokemonEvolutionWorkflow, createCountryCurrencyWorkflow, createPr
 export { createPerfSimpleWorkflow, createPerfBranchingWorkflow, createPerfParallelWorkflow, createPerfEdgePercentageWorkflow } from './performance';
 export { createParallelShowcaseWorkflow } from './parallelShowcase';
 export { createKafkaProduceWorkflow, createKafkaTriggerWorkflow, createKafkaEventPipelineWorkflow, createKafkaAsyncCorrelationWorkflow } from './kafka';
-export { createGraphqlHealthCheckWorkflow, createGraphqlECommerceFlowWorkflow, createGraphqlSchemaWatchdogWorkflow, createGraphqlUserCrudWorkflow } from './graphql';
+export { createGraphqlHealthCheckWorkflow, createGraphqlECommerceFlowWorkflow, createGraphqlSchemaWatchdogWorkflow, createGraphqlUserCrudWorkflow, createGraphqlSubscriptionWsWorkflow, createGraphqlSubscriptionSseWorkflow } from './graphql';
+export { createGrpcHealthCheckWorkflow, createGrpcUserLookupWorkflow, createGrpcServerStreamWorkflow, createGrpcCrudWorkflow, createGrpcSchemaDiffWorkflow, createGrpcLoadTestWorkflow } from './grpc';
+export { createWsEchoPingWorkflow, createWsJsonExchangeWorkflow, createWsChatFlowWorkflow, createWsTriggerWorkflow, createWsHttpHybridWorkflow } from './websocket';
 
-/** All available sample workflows. */
-export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
+/** HTTP and core (non-protocol-specific) workflow samples. */
+const httpAndCoreWorkflowSamples: SampleWorkflowEntry[] = [
   {
     id: 'sample-workflow-001',
     name: 'Create → Extract → Verify',
@@ -597,127 +601,31 @@ export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
     factory: createSlaMonitorWorkflow,
   },
 
-  // ── Kafka Workflow Samples ───────────────────────────────────────────────
-  {
-    id: 'sample-kafka-produce',
-    name: 'Kafka: Publish Order Event',
-    description: 'Create an order via HTTP then publish an enriched event to a Kafka topic using KafkaProduce with headers and output bindings',
-    domain: 'workflows',
-    tags: ['kafka', 'produce', 'event-driven', 'messaging', 'output-bindings'],
-    liveApis: ['jsonplaceholder.typicode.com', 'localhost:19092 (Redpanda)'],
-    category: 'event-driven',
-    difficulty: 'easy',
-    icon: '📤',
-    nodeCount: 5,
-    primaryNodes: ['KafkaProduce'],
-    secondaryNodes: ['HTTP', 'Log'],
-    factory: createKafkaProduceWorkflow,
-  },
-  {
-    id: 'sample-kafka-trigger',
-    name: 'Kafka: Event-Triggered Processor',
-    description: 'Subscribe to a Kafka topic — automatically start a workflow per message, extract fields, enrich from HTTP, and route by order value',
-    domain: 'workflows',
-    tags: ['kafka', 'trigger', 'event-driven', 'messaging', 'subscription', 'conditional'],
-    liveApis: ['jsonplaceholder.typicode.com', 'localhost:19092 (Redpanda)'],
-    category: 'event-driven',
-    difficulty: 'easy',
-    icon: '📥',
-    nodeCount: 7,
-    primaryNodes: ['KafkaTrigger'],
-    secondaryNodes: ['HTTP', 'Condition', 'Log'],
-    factory: createKafkaTriggerWorkflow,
-  },
-  {
-    id: 'sample-kafka-event-pipeline',
-    name: 'Kafka: Full Event Pipeline',
-    description: 'End-to-end Kafka pipeline: trigger on incoming order → validate via HTTP → publish result event → consume to confirm delivery',
-    domain: 'workflows',
-    tags: ['kafka', 'trigger', 'produce', 'consume', 'event-driven', 'pipeline', 'messaging'],
-    liveApis: ['jsonplaceholder.typicode.com', 'localhost:19092 (Redpanda)'],
-    category: 'event-driven',
-    difficulty: 'medium',
-    icon: '🔄',
-    nodeCount: 9,
-    primaryNodes: ['KafkaTrigger', 'KafkaProduce', 'KafkaConsume'],
-    secondaryNodes: ['HTTP', 'Condition', 'SetVariable'],
-    factory: createKafkaEventPipelineWorkflow,
-  },
-  {
-    id: 'sample-kafka-async-correlation',
-    name: 'Kafka: Async Request–Reply',
-    description: 'Advanced async correlation pattern: receive payment request, produce to processing topic, wait for correlated response by orderId',
-    domain: 'workflows',
-    tags: ['kafka', 'trigger', 'produce', 'wait', 'async', 'correlation', 'request-reply', 'messaging'],
-    liveApis: ['jsonplaceholder.typicode.com', 'localhost:19092 (Redpanda)'],
-    category: 'event-driven',
-    difficulty: 'advanced',
-    icon: '⚡',
-    nodeCount: 9,
-    primaryNodes: ['KafkaTrigger', 'KafkaProduce', 'KafkaWait'],
-    secondaryNodes: ['HTTP', 'Condition', 'Log'],
-    factory: createKafkaAsyncCorrelationWorkflow,
-  },
-
-  // ── GraphQL Workflow Samples ─────────────────────────────────────────────
-  {
-    id: 'sample-graphql-health-check',
-    name: 'GraphQL: Health Check',
-    description: 'Verifies a GraphQL API is reachable via introspection, runs a sentinel query, and asserts response latency is under 500ms',
-    domain: 'workflows',
-    tags: ['graphql', 'health-check', 'introspection', 'assert', 'latency', 'api-patterns'],
-    liveApis: ['(configurable GraphQL endpoint)'],
-    category: 'api-patterns',
-    difficulty: 'easy',
-    icon: '🔍',
-    nodeCount: 5,
-    primaryNodes: ['GraphqlIntrospect', 'GraphqlQuery', 'GraphqlAssert'],
-    secondaryNodes: ['Start', 'End'],
-    factory: createGraphqlHealthCheckWorkflow,
-  },
-  {
-    id: 'sample-graphql-e-commerce-flow',
-    name: 'GraphQL: E-Commerce Order Flow',
-    description: 'Creates an order via GraphQL mutation, subscribes to status updates until COMPLETE, then asserts the final status',
-    domain: 'workflows',
-    tags: ['graphql', 'mutation', 'subscription', 'assert', 'event-driven', 'order-flow'],
-    liveApis: ['(configurable GraphQL endpoint)'],
-    category: 'event-driven',
-    difficulty: 'medium',
-    icon: '🛒',
-    nodeCount: 5,
-    primaryNodes: ['GraphqlMutation', 'GraphqlSubscription', 'GraphqlAssert'],
-    secondaryNodes: ['Start', 'End'],
-    factory: createGraphqlECommerceFlowWorkflow,
-  },
-  {
-    id: 'sample-graphql-schema-watchdog',
-    name: 'GraphQL: Schema Watchdog',
-    description: 'Polls a GraphQL schema on a cron schedule; logs a warning whenever the schema hash changes',
-    domain: 'workflows',
-    tags: ['graphql', 'introspection', 'schedule', 'schema', 'watchdog', 'event-driven'],
-    liveApis: ['(configurable GraphQL endpoint)'],
-    category: 'event-driven',
-    difficulty: 'medium',
-    icon: '👁️',
-    nodeCount: 5,
-    primaryNodes: ['GraphqlIntrospect'],
-    secondaryNodes: ['ScheduleTrigger', 'Condition', 'Log'],
-    factory: createGraphqlSchemaWatchdogWorkflow,
-  },
-  {
-    id: 'sample-graphql-user-crud',
-    name: 'GraphQL: User CRUD',
-    description: 'Full user lifecycle via GraphQL: create a user, fetch it back, assert the ID matches, then delete it',
-    domain: 'workflows',
-    tags: ['graphql', 'mutation', 'query', 'assert', 'crud', 'api-patterns'],
-    liveApis: ['(configurable GraphQL endpoint)'],
-    category: 'api-patterns',
-    difficulty: 'medium',
-    icon: '👤',
-    nodeCount: 6,
-    primaryNodes: ['GraphqlMutation', 'GraphqlQuery', 'GraphqlAssert'],
-    secondaryNodes: ['Start', 'End'],
-    factory: createGraphqlUserCrudWorkflow,
-  },
+  // ── Protocol-specific samples are imported from dedicated modules ──────────────────────────────────────────────
 ];
+
+/**
+ * All available sample workflows.
+ * Combines core non-protocol samples with protocol-specific samples imported from separate modules
+ * to keep individual files under the 750-line monolith threshold.
+ */
+export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
+  ...httpAndCoreWorkflowSamples,
+  ...kafkaWorkflowSamples,
+  ...graphqlWorkflowSamples,
+  ...grpcWorkflowSamples,
+  ...websocketWorkflowSamples,
+];
+
+// Re-export protocol samples for direct access if needed
+export { kafkaWorkflowSamples } from './protocolKafka';
+export { graphqlWorkflowSamples } from './protocolGraphQL';
+export { grpcWorkflowSamples } from './protocolGrpc';
+export { websocketWorkflowSamples } from './protocolWebSocket';
+
+// Reference: combined catalog contains 58 total workflow samples:
+// - HTTP/Core: 38 samples (api-patterns, flow-control, orchestration, performance, async-correlation, diverse-apis)
+// - Kafka: 4 samples
+// - GraphQL: 6 samples
+// - gRPC: 6 samples
+// - WebSocket: 5 samples

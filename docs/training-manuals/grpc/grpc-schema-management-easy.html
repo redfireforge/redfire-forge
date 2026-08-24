@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>gRPC: Schema Management — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>gRPC: Schema Management</h1>
+  <p><span class="badge badge-easy">Easy</span> &nbsp; Upload · Protoset · URL · BSR · Browser</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>The five schema ingestion modes in gRPC Studio</li>
+    <li>Upload individual <code>.proto</code> files (with import resolution)</li>
+    <li>Upload a compiled <code>.protoset</code> binary descriptor</li>
+    <li>Fetch a descriptor from a URL</li>
+    <li>Import a schema from the Buf Schema Registry (BSR)</li>
+    <li>Explore loaded types and methods in the Schema Browser</li>
+    <li>Understand when to use each ingestion method</li>
+  </ul>
+
+  <h2>Why Schema Management Matters</h2>
+  <p>Every gRPC call requires a schema — the <code>.proto</code> definition that describes message shapes, field types, and service methods. Without a schema, the studio cannot build the request editor or validate your inputs. gRPC Studio supports five ways to load a schema, each suited to different environments:</p>
+
+  <table>
+    <tr><th>Method</th><th>Best For</th><th>Requirement</th></tr>
+    <tr><td><strong>Reflection</strong></td><td>Quick exploration of live dev servers</td><td>Server must have reflection enabled</td></tr>
+    <tr><td><strong>Proto Files</strong></td><td>Local development, CI environments</td><td>Access to <code>.proto</code> files</td></tr>
+    <tr><td><strong>Protoset</strong></td><td>Compiled descriptor from build system</td><td>Pre-compiled <code>.protoset</code> binary</td></tr>
+    <tr><td><strong>URL</strong></td><td>Shared team endpoint for descriptor</td><td>HTTP URL serving a descriptor JSON/binary</td></tr>
+    <tr><td><strong>BSR</strong></td><td>Teams using Buf Schema Registry</td><td>BSR module path + optional auth token</td></tr>
+  </table>
+
+  <h2>Opening the Manage Schemas Modal</h2>
+  <div class="step"><div class="step-num">1</div><div class="step-body">Open gRPC Studio (<strong>Protocols → gRPC</strong>). Enter a target host in the connection bar (e.g. <code>localhost:50051</code>).</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">In the left schema panel, click <strong>Manage Schemas</strong>. The modal opens with five tabs: <em>Proto Files</em>, <em>Protoset</em>, <em>URL</em>, <em>BSR</em>, and <em>Schema Browser</em>.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">The <strong>Schema Browser</strong> tab is disabled (greyed out) until at least one descriptor has been loaded. All other tabs are always accessible.</div></div>
+
+  <h2>Method A — Upload Proto Files</h2>
+  <p>Use this method when you have the <code>.proto</code> source files on your machine. You can upload a single file or multiple files (e.g., a service proto plus shared message protos).</p>
+
+  <div class="step"><div class="step-num">1</div><div class="step-body">Click the <strong>Proto Files</strong> tab in the Manage Schemas modal.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Click <strong>Browse</strong> or drag and drop your <code>.proto</code> file(s) into the upload zone. For a simple service without imports, a single file is sufficient.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">If your proto imports other protos (e.g., <code>import "google/protobuf/timestamp.proto"</code>), upload all imported files in the same batch. The studio resolves imports by filename.</div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Click <strong>Load</strong>. The descriptor is compiled in the browser. If there are import errors, the modal shows which imports are unresolved.</div></div>
+
+  <div class="callout callout-tip">
+    <strong>💡 Well-known types</strong>
+    The studio bundles Google's well-known proto types (<code>google/protobuf/*.proto</code>). You do not need to upload <code>timestamp.proto</code>, <code>struct.proto</code>, <code>any.proto</code>, etc.
+  </div>
+
+  <h3>Example Proto File</h3>
+<pre>syntax = "proto3";
+package echo;
+
+service EchoService {
+  rpc Echo(EchoRequest) returns (EchoResponse);
+  rpc ServerStream(EchoRequest) returns (stream EchoResponse);
+  rpc ClientStream(stream EchoRequest) returns (EchoResponse);
+  rpc BidiStream(stream EchoRequest) returns (stream EchoResponse);
+}
+
+message EchoRequest  { string message = 1; int32 repeat_count = 2; int64 interval_ms = 3; }
+message EchoResponse { string message = 1; }</pre>
+
+  <h2>Method B — Upload Protoset</h2>
+  <p>A <code>.protoset</code> (also called a FileDescriptorSet) is a binary file containing compiled descriptor information for one or more proto files. Build systems like Bazel and <code>buf build</code> can produce these.</p>
+
+  <div class="step"><div class="step-num">1</div><div class="step-body">Click the <strong>Protoset</strong> tab.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Drag your <code>.protoset</code> or <code>.pb</code> file into the upload zone, or click <strong>Browse</strong>.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Click <strong>Load</strong>. Because the protoset is already compiled, import resolution is not needed — all types are embedded in the file.</div></div>
+
+  <h4>Generate a protoset with buf:</h4>
+<pre>buf build -o descriptor.protoset</pre>
+
+  <h4>Generate a protoset with protoc:</h4>
+<pre>protoc --descriptor_set_out=descriptor.protoset \
+       --include_imports \
+       -I./proto \
+       ./proto/echo.proto</pre>
+
+  <h2>Method C — Fetch from URL</h2>
+  <p>If your team hosts a descriptor endpoint (e.g., an internal schema registry), you can fetch it directly without downloading the file.</p>
+
+  <div class="step"><div class="step-num">1</div><div class="step-body">Click the <strong>URL</strong> tab.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Paste the URL serving a <code>.protoset</code> or JSON descriptor. The URL can include <code>{{variable}}</code> tokens if you have environment variables configured.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Click <strong>Fetch</strong>. The studio downloads and parses the descriptor. If the endpoint requires auth, add the token to your environment variables and inject it via interpolation.</div></div>
+
+  <h2>Method D — Buf Schema Registry (BSR)</h2>
+  <p>BSR is Buf's hosted schema registry at <code>buf.build</code>. It hosts public and private proto modules with versioning and dependency management.</p>
+
+  <div class="step"><div class="step-num">1</div><div class="step-body">Click the <strong>BSR</strong> tab.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Enter the BSR module path, for example: <code>buf.build/connectrpc/eliza</code>. For private modules, also enter your BSR API token.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Optionally pin a specific version (commit hash or tag). Leave blank for the latest commit on the module's default branch.</div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Click <strong>Fetch from BSR</strong>. The studio calls the BSR API, downloads the compiled descriptor, and loads it.</div></div>
+
+  <div class="callout">
+    <strong>Public BSR modules to try</strong>
+    <ul style="margin-top:6px">
+      <li><code>buf.build/connectrpc/eliza</code> — Connect-RPC demo service</li>
+      <li><code>buf.build/grpc/testing</code> — gRPC testing service</li>
+    </ul>
+  </div>
+
+  <h2>Method E — Server Reflection</h2>
+  <p>Reflection requires no file upload — the studio asks the live server for its descriptor. See the <strong>Your First Call</strong> tutorial for the full reflection walkthrough. Use it as a quick shortcut; always keep a versioned <code>.proto</code> or BSR pin for reproducibility.</p>
+
+  <div class="step"><div class="step-num">1</div><div class="step-body">Ensure the target server is entered in the connection bar and is reachable.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Click <strong>Reflect</strong> at the bottom of the Manage Schemas modal (available from any tab).</div></div>
+
+  <h2>Using the Schema Browser</h2>
+  <p>Once a descriptor is loaded, the <strong>Schema Browser</strong> tab unlocks. It renders a tree of all services, methods, and message types in the loaded schema.</p>
+
+  <div class="step"><div class="step-num">1</div><div class="step-body">Click the <strong>Schema Browser</strong> tab inside Manage Schemas.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Expand a service node to see its methods. Click a method to see its input and output message types.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Expand a message node to see its fields, types, and field numbers. Nested messages expand recursively.</div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Click any method in the Schema Browser to jump directly to that method in the request composer — the modal closes and the method is selected.</div></div>
+
+  <h2>Managing Multiple Descriptors</h2>
+  <p>The studio can hold multiple descriptors simultaneously — one per schema ingestion event. Each loaded descriptor appears as a named entry in the schema panel. You can:</p>
+  <ul>
+    <li>Switch the active descriptor using the descriptor selector dropdown</li>
+    <li>Remove a descriptor by clicking the trash icon next to its name</li>
+    <li>Add another descriptor at any time via Manage Schemas</li>
+  </ul>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ Schema mismatch errors</strong>
+    If you reload a descriptor after the server schema has changed, existing saved requests may have field names that no longer exist. The studio will highlight unknown fields in orange. Re-save the request after correcting the fields.
+  </div>
+
+  <h2>Practice Exercises</h2>
+  <ol>
+    <li>Create the example <code>echo.proto</code> shown above, save it as a file, and upload it via the Proto Files tab. Verify the EchoService appears in the schema panel.</li>
+    <li>Load the same schema via reflection from <code>grpcb.in:443</code> and compare the two descriptors in the Schema Browser.</li>
+    <li>Fetch <code>buf.build/connectrpc/eliza</code> from BSR and explore its services in the Schema Browser.</li>
+    <li>Remove a descriptor and confirm the schema panel returns to its empty state.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · gRPC Studio — Schema Management · August 2026</footer>
+</body>
+</html>

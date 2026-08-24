@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SSE Studio — Your First SSE Connection — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f57f17; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 14px; margin: 14px 0; align-items: flex-start; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>Your First SSE Connection</h1>
+  <p><span class="badge badge-easy">Easy</span> &nbsp; Connect to an SSE endpoint · Status strip · Auto-reconnect · Custom headers · Env var interpolation</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Navigate to SSE Studio and open a connection tab</li>
+    <li>Enter an endpoint URL and connect to a live SSE stream</li>
+    <li>Read connection state and the status strip (event count, uptime, Last-Event-ID)</li>
+    <li>Configure auto-reconnect settings</li>
+    <li>Add custom request headers using the key-value editor</li>
+    <li>Use <code>{{variable}}</code> interpolation in the URL</li>
+  </ul>
+
+  <h2>Opening SSE Studio</h2>
+  <div class="step"><div class="step-num">1</div><div class="step-body">From the main navigation, click <strong>Protocols</strong>. In the sub-navigation panel that slides out, click <strong>SSE</strong>.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">The SSE Studio shell appears — a horizontal split pane with the Connection config on the left and the Events log on the right. A single empty tab is pre-created.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">The left pane shows two tabs at the top: <strong>Connect</strong> and <strong>Auth</strong>. The right pane shows <strong>Events</strong> and <strong>Console</strong>. You start in Connect → Events view.</div></div>
+
+  <h2>Step-by-Step Walkthrough</h2>
+
+  <h3>Entering the Endpoint URL</h3>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Click inside the URL input at the very top of the studio (the large text field across the full width, above the split pane).</div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body">
+    Type a public SSE endpoint. For this walkthrough use:
+    <br /><code>https://sse.dev/test</code>
+    <br />This endpoint sends a new event every second.
+  </div></div>
+  <div class="step"><div class="step-num">6</div><div class="step-body">Click the <strong>Connect</strong> button (or press <strong>Enter</strong> when focus is in the URL input). The state dot to the right of the button turns <em>yellow</em> (connecting), then <em>green</em> (connected) within a second.</div></div>
+
+  <div class="callout-tip callout">
+    <strong>State dot colours at a glance</strong>
+    Grey = idle · Yellow pulse = connecting · Green = connected · Red = error · Grey (again) = disconnected
+  </div>
+
+  <h3>Reading the Status Strip</h3>
+  <div class="step"><div class="step-num">7</div><div class="step-body">Look at the status strip — the slim row between the URL bar and the split pane. It shows three live values:
+    <ul>
+      <li><strong>Event count</strong> — total events received this session</li>
+      <li><strong>Uptime</strong> — elapsed time since connection opened</li>
+      <li><strong>Last-Event-ID</strong> — the most recent <code>id:</code> field from the stream (empty if the server does not send IDs)</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">8</div><div class="step-body">Let the connection run for 10 seconds. Watch the event count increment and the uptime clock tick.</div></div>
+
+  <h3>Disconnecting and Reconnecting</h3>
+  <div class="step"><div class="step-num">9</div><div class="step-body">Click <strong>Disconnect</strong> (the Connect button toggles label when connected). The state dot turns grey. Events already in the log are preserved.</div></div>
+  <div class="step"><div class="step-num">10</div><div class="step-body">Click <strong>Connect</strong> again. The studio reconnects immediately and new events continue appending to the existing log.</div></div>
+
+  <h3>Configuring Auto-Reconnect</h3>
+  <div class="step"><div class="step-num">11</div><div class="step-body">In the left pane (Connect tab), scroll down to the <strong>Connection Settings</strong> section. You will see:
+    <ul>
+      <li><strong>Auto-reconnect</strong> — toggle (default: on). When on, the studio automatically reconnects after a drop, sending the <code>Last-Event-ID</code> header so the server can resume the stream.</li>
+      <li><strong>Max retries</strong> — number input (default: 10). After this many failed attempts the studio gives up and shows an error state.</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">12</div><div class="step-body">Turn auto-reconnect <strong>off</strong> to observe the difference: if the server closes the stream, the studio will show a disconnected state rather than retrying.</div></div>
+  <div class="step"><div class="step-num">13</div><div class="step-body">Re-enable auto-reconnect for the rest of this walkthrough.</div></div>
+
+  <h3>Adding Custom Request Headers</h3>
+  <div class="step"><div class="step-num">14</div><div class="step-body">In the left pane (Connect tab), find the <strong>Headers</strong> section. Click <strong>+ Add header</strong>.</div></div>
+  <div class="step"><div class="step-num">15</div><div class="step-body">Enter <code>X-Client-ID</code> as the key and <code>training-session-1</code> as the value. This header is sent with the SSE <code>GET</code> request when you next connect.</div></div>
+  <div class="step"><div class="step-num">16</div><div class="step-body">Disconnect and reconnect. The header is included in the fetch request. You can confirm this in the Console tab — the handshake entry lists the request headers sent.</div></div>
+
+  <h3>Env Var Interpolation in the URL</h3>
+  <div class="step"><div class="step-num">17</div><div class="step-body">Change the URL field to: <code>{{sseUrl}}/test</code></div></div>
+  <div class="step"><div class="step-num">18</div><div class="step-body">Open the <strong>Environment Manager</strong> and add a variable <code>sseUrl</code> = <code>https://sse.dev</code> in your active environment.</div></div>
+  <div class="step"><div class="step-num">19</div><div class="step-body">Return to SSE Studio. The URL field still shows the template, but when you connect the studio resolves <code>{{sseUrl}}</code> using the active environment. The Console tab shows the resolved URL in the handshake log entry.</div></div>
+  <div class="step"><div class="step-num">20</div><div class="step-body">Restore the literal URL <code>https://sse.dev/test</code> for subsequent exercises.</div></div>
+
+  <h2>Connection Config Reference</h2>
+  <table>
+    <thead><tr><th>Setting</th><th>Default</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>URL</td><td>empty</td><td>Supports <code>{{variable}}</code> interpolation from active environment</td></tr>
+      <tr><td>Headers</td><td>empty</td><td>Key-value pairs added to the GET request; support <code>{{variable}}</code> in values</td></tr>
+      <tr><td>Auto-reconnect</td><td>on</td><td>Retries after drop, sending <code>Last-Event-ID</code> for resumable streams</td></tr>
+      <tr><td>Max retries</td><td>10</td><td>After this count the studio stops retrying and shows error state</td></tr>
+    </tbody>
+  </table>
+
+  <h2>What to Try Next</h2>
+  <ul>
+    <li>Open the <strong>Console</strong> tab (right pane) while connected — watch lifecycle entries appear for connect, handshake, and events.</li>
+    <li>Proceed to <strong>Event Log, Filtering &amp; Bookmarks</strong> to learn how to search, filter by event type, and export events.</li>
+    <li>Proceed to <strong>Authentication for Protected Streams</strong> to configure Bearer tokens and API Keys.</li>
+  </ul>
+
+  <footer>RedfireForge v0.6.0 · SSE Studio — Your First SSE Connection · August 2026</footer>
+</body>
+</html>

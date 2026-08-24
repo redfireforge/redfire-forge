@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GraphQL: Query Builder — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } h1 { font-size: 20pt; } h2 { font-size: 16pt; } h3 { font-size: 13pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 85vh; text-align: center; }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🏗️</div>
+    <h1>Query Builder</h1>
+    <div class="subtitle">Medium — Training Guide</div>
+    <p>Build complex GraphQL queries by checking boxes — no syntax knowledge required. The Builder generates valid GraphQL in real time as you select fields, then lets you execute directly or send the query to the Monaco editor for fine-tuning.</p>
+    <div class="meta">
+      RedfireForge v0.6.0<br />
+      Difficulty: ★★☆<br />
+      GraphQL Studio · Builder mode
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>The Query Builder is ideal for:</p>
+  <ul>
+    <li>Exploring a new API — tick fields and immediately see what data you get back</li>
+    <li>Team members who know the domain but not GraphQL syntax</li>
+    <li>Quickly prototyping queries before saving them to a Collection</li>
+    <li>Generating a starting-point query to paste into a workflow node</li>
+  </ul>
+  <p>The Builder is powered by the same introspected schema as the Schema Explorer. It requires a successful introspection before it can show the type tree.</p>
+
+  <h2>2. Builder vs Editor Mode</h2>
+  <table>
+    <tr><th>Mode</th><th>Best for</th><th>How to switch</th></tr>
+    <tr><td><strong>Editor</strong> (default)</td><td>Full control — write any valid GraphQL by hand</td><td>Click <strong>Edit</strong> toggle at top of editor pane</td></tr>
+    <tr><td><strong>Builder</strong></td><td>Visual field selection, no syntax needed</td><td>Click <strong>Build</strong> toggle at top of editor pane</td></tr>
+  </table>
+  <p>The two modes share the same active query. Switching from Builder to Editor preserves the generated query so you can hand-edit it.</p>
+
+  <h2>3. Step-by-Step Walkthrough</h2>
+
+  <h3>Step 1 — Connect and Introspect</h3>
+  <p>Open GraphQL Studio and connect to:</p>
+  <pre>https://countries.trevorblades.com/graphql</pre>
+  <p>Click <strong>Introspect</strong> and wait for the schema to load.</p>
+
+  <h3>Step 2 — Switch to Builder Mode</h3>
+  <p>Above the editor pane you will see a toggle (or two buttons labelled <strong>Editor</strong> / <strong>Builder</strong>). Click <strong>Builder</strong>. The Monaco editor is replaced by the visual field tree.</p>
+
+  <h3>Step 3 — Select an Operation Type</h3>
+  <p>At the top of the Builder panel there is an operation type selector: <strong>Query</strong> · <strong>Mutation</strong> · <strong>Subscription</strong>. Select <strong>Query</strong> (the default). The tree shows all root query fields.</p>
+
+  <h3>Step 4 — Select Root Fields</h3>
+  <p>You'll see a list of root query fields from the schema (<code>country</code>, <code>countries</code>, <code>continent</code>, etc.). Click the checkbox next to <strong>country</strong>. An argument row appears asking for the required <code>code</code> argument. Enter <code>AU</code>.</p>
+
+  <h3>Step 5 — Expand and Select Sub-Fields</h3>
+  <p>After selecting <code>country</code>, a nested field list appears for the <code>Country</code> type. Check the boxes for:</p>
+  <ul>
+    <li><code>name</code></li>
+    <li><code>capital</code></li>
+    <li><code>emoji</code></li>
+    <li><code>continent</code> — this expands further; check <code>name</code> inside continent</li>
+  </ul>
+  <p>As you select each field, watch the code preview panel update in real time.</p>
+
+  <h3>Step 6 — View the Generated Query</h3>
+  <p>The code preview (usually shown to the right of the field tree or below it) displays the valid GraphQL query being constructed:</p>
+  <pre>query {
+  country(code: "AU") {
+    name
+    capital
+    emoji
+    continent {
+      name
+    }
+  }
+}</pre>
+
+  <h3>Step 7 — Execute from Builder</h3>
+  <p>Click the <strong>▶ Execute</strong> button in the Builder toolbar. The query runs and the response appears in the right-hand response pane — no need to switch to Editor mode first.</p>
+
+  <h3>Step 8 — Send to Editor</h3>
+  <p>Click <strong>Edit in Editor</strong> (or the "Open in editor" button). The query is transferred to the Monaco editor and Builder mode is deactivated. From here you can hand-edit arguments, add fragments, add directives, or anything else that isn't supported in the visual Builder.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Builder is a starting point</strong>
+    The Builder generates syntactically correct queries but does not support all GraphQL features (fragments, directives, inline fragments on union types). Use it to get a query skeleton, then refine it in Editor mode.
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>4. Switching Operation Type</h2>
+  <p>If the schema includes mutations, you can switch the operation type selector to <strong>Mutation</strong>. The field tree resets and shows root mutation fields. The same checkbox-based selection applies — select the mutation, fill in required input arguments, and execute.</p>
+
+  <div class="callout">
+    <strong>📋 Live Server Required for Mutations</strong>
+    Mutations modify server-side data. If your endpoint is read-only (like the countries API), mutation execution will return an error. Use the Mock Server (see <a href="graphql-mock-server-advanced.html">graphql-mock-server-advanced.html</a>) to test mutations safely.
+  </div>
+
+  <h2>5. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Build a Multi-Field Query</h3>
+  <p>Use the Builder to select <code>countries</code> (no argument needed) and check 4–5 fields from the <code>Country</code> type. Execute. How many countries are returned?</p>
+
+  <h3>Exercise 2 — Send to Editor and Add a Variable</h3>
+  <p>Build a <code>country(code: "US")</code> query in Builder mode, then click <strong>Edit in Editor</strong>. Replace the hard-coded <code>"US"</code> with a variable <code>$code</code>, add the variable declaration in the query header (<code>query GetCountry($code: ID!)</code>), and supply the value in the Variables panel.</p>
+
+  <h3>Exercise 3 — Build a Mutation (if available)</h3>
+  <p>Switch the operation type to <strong>Mutation</strong>. Select the first mutation field, fill in any required arguments, and execute. Observe the response and any error messages if the server is read-only.</p>
+
+  <footer>
+    RedfireForge Training Manual — GraphQL: Query Builder · August 2026
+  </footer>
+
+</body>
+</html>

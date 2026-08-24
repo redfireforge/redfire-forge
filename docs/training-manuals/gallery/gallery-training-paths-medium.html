@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gallery — Training Tracks — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; padding: 14px; border-radius: 6px; font-size: 12px; overflow-x: auto; margin: 10px 0; font-family: 'JetBrains Mono', monospace; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f57f17; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 14px; margin: 14px 0; }
+  .step-num { flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; background: #e63946; color: #fff; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+  .step-body { flex: 1; padding-top: 3px; }
+  .step-body strong { display: block; margin-bottom: 2px; font-size: 13.5px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>Gallery — Training Tracks</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; Progress dashboard · Continue Learning · What's New · Search & filter · Mark complete</p>
+
+  <h2>Overview</h2>
+  <p>The <strong>Training Tracks</strong> tab (Gallery → Training Tracks) is a full learning-progress system. Unlike the Samples tab, Training Tracks is not about importing data — it is about following a structured curriculum, tracking which manuals you have read, and resuming where you left off.</p>
+
+  <div class="callout">
+    <strong>Training Tracks vs. Gallery Samples</strong>
+    <ul>
+      <li><strong>Samples tab</strong> — browse and import pre-built entries across 9 domains</li>
+      <li><strong>Training Tracks tab</strong> — follow a guided curriculum, track progress, mark manuals as completed</li>
+    </ul>
+    Both live under the Gallery navigation item. Switch between them using the sub-nav tabs at the top of the Gallery page.
+  </div>
+
+  <h2>Opening Training Tracks</h2>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <strong>Click Gallery in the sidebar</strong>
+      Click the <strong>Gallery</strong> icon in the left navigation. The Gallery page opens.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <strong>Click "Training Tracks" in the sub-nav</strong>
+      At the top of the Gallery page, two tabs appear: <strong>Samples</strong> and <strong>Training Tracks</strong>. Click <strong>Training Tracks</strong>. The full training dashboard replaces the sample grid.
+    </div>
+  </div>
+
+  <h2>Page Layout</h2>
+  <table>
+    <thead><tr><th>Section</th><th>What It Shows</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Header</strong></td><td>"Training Manual Tracks" title with subtitle: "Master RedfireForge through structured learning paths. Track your progress and level up your API testing skills."</td></tr>
+      <tr><td><strong>Progress Dashboard</strong></td><td>Stats bar — total manuals available, how many you have viewed, how many marked complete</td></tr>
+      <tr><td><strong>Continue Learning card</strong></td><td>Shows the last manual you opened that is still In Progress — one-click to resume</td></tr>
+      <tr><td><strong>What's New banner</strong></td><td>Recently added manuals, newest first — expandable list with "Show more" toggle</td></tr>
+      <tr><td><strong>Search &amp; filter bar</strong></td><td>Full-text search + difficulty dropdown + status dropdown (Not Started / Viewed / Completed)</td></tr>
+      <tr><td><strong>Learning Paths list</strong></td><td>All training paths as expandable cards — path → phases → manuals</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Walkthrough</h2>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <strong>Read the Progress Dashboard</strong>
+      The stats bar at the top shows three numbers: how many manuals exist in total, how many you have opened (Viewed), and how many you have marked as Completed. These update automatically as you use the system.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <strong>Use "Continue Learning"</strong>
+      If you have previously opened any manual, the <strong>Continue Learning</strong> card shows the last in-progress manual with its path name, phase name, difficulty dots, and an <strong>Open Manual</strong> button. Click it to reopen the manual in a new tab.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <strong>Check What's New</strong>
+      The <strong>What's New</strong> banner lists manuals added in recent releases. Click any item to open it. Click <strong>Show more</strong> to expand the full list. The banner is hidden when the search filter is active.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">6</div>
+    <div class="step-body">
+      <strong>Browse the Learning Paths list</strong>
+      Below the banner you see all active training paths under the heading "Learning Paths — N paths available · N manuals total". Each path is a collapsible card. Click a card header to expand it and see its phases and manuals.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">7</div>
+    <div class="step-body">
+      <strong>Read a manual</strong>
+      Inside an expanded path card, find a manual row. Each row shows:
+      <ul>
+        <li>Manual title and difficulty dots</li>
+        <li>Status badge (Not Started / Viewed / Completed) — shown as a colored chip</li>
+        <li><strong>Open Manual</strong> button — opens the HTML training document in a new browser tab, and automatically marks the manual as Viewed</li>
+        <li><strong>→ Sample</strong> chip — if the manual is linked to a gallery sample, this navigates to that sample in the Samples tab</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">8</div>
+    <div class="step-body">
+      <strong>Mark a manual as Completed</strong>
+      After reading a manual, click its status chip and select <strong>Completed</strong>. The badge updates, and the Progress Dashboard's Completed count increments. You can also set status to <strong>Not Started</strong> to reset it.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">9</div>
+    <div class="step-body">
+      <strong>Search and filter manuals</strong>
+      Use the <strong>search bar</strong> to filter manuals by keyword (matches title, description, path name, phase name). Use the <strong>Difficulty</strong> dropdown (All / Easy / Medium / Advanced) and <strong>Status</strong> dropdown (All / Not Started / Viewed / Completed) to narrow down. When filters are active, the path list shows only matching manuals — and each matching path card is auto-expanded. Clear filters to return to the full list.
+    </div>
+  </div>
+
+  <h2>Manual Status Reference</h2>
+  <table>
+    <thead><tr><th>Status</th><th>Meaning</th><th>How It Changes</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Not Started</strong></td><td>Manual has never been opened</td><td>Default for all new manuals; you can reset to this manually</td></tr>
+      <tr><td><strong>Viewed</strong></td><td>Manual was opened at least once</td><td>Set automatically when you click "Open Manual"</td></tr>
+      <tr><td><strong>Completed</strong></td><td>You have finished and marked the manual done</td><td>Set manually via the status chip after reading</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Progress Persistence</h2>
+  <p>Training progress is saved locally in the browser (local storage). It persists across page reloads and browser restarts on the same machine. Progress is <em>not</em> synced across devices or browsers.</p>
+
+  <h2>Smoke-Test Checklist</h2>
+  <ol>
+    <li>Click Gallery → click <strong>Training Tracks</strong> sub-nav tab → verify progress dashboard appears</li>
+    <li>Verify "Learning Paths" section shows multiple path cards</li>
+    <li>Click a path card → verify it expands to show phases and manuals</li>
+    <li>Click <strong>Open Manual</strong> on any manual → verify it opens in a new tab and the status badge changes to "Viewed"</li>
+    <li>Click the status chip on a Viewed manual → select <strong>Completed</strong> → verify badge updates and Progress Dashboard completed count increments</li>
+    <li>Type a keyword in the search bar → verify only matching manuals appear (in auto-expanded path cards)</li>
+    <li>Click <strong>→ Sample</strong> chip on a manual that has a linked sample → verify gallery switches to Samples tab for that entry</li>
+    <li>Click <strong>Samples</strong> sub-nav tab → verify you return to the sample grid</li>
+  </ol>
+
+  <footer>RedfireForge v0.8.0 · Gallery — Training Tracks · August 2026</footer>
+</body>
+</html>

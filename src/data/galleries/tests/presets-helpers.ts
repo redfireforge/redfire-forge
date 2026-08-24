@@ -2,7 +2,17 @@
  * Shared builder helpers for test gallery preset factories.
  */
 
-import type { FeatureGroup, Scenario, Assertion, TestScenario } from '@shared/types';
+import type {
+  FeatureGroup,
+  Scenario,
+  Assertion,
+  TestScenario,
+  ScenarioActionType,
+  WsConnectActionConfig,
+  WsSendActionConfig,
+  WsReceiveActionConfig,
+  GrpcHarnessCallActionConfig,
+} from '@shared/types';
 
 export const noAuth = { type: 'none' as const };
 
@@ -17,8 +27,14 @@ export function s(partial: Pick<Scenario, 'id' | 'name' | 'url' | 'method'> & {
   headers?: Scenario['headers'];
   extractions?: Scenario['extractions'];
   sampleJson?: string;
+  /** Transport action type for non-HTTP protocols (ws, gRPC). */
+  actionType?: ScenarioActionType;
+  wsConnectAction?: WsConnectActionConfig;
+  wsSendAction?: WsSendActionConfig;
+  wsReceiveAction?: WsReceiveActionConfig;
+  grpcCallAction?: GrpcHarnessCallActionConfig;
 }): Scenario {
-  return {
+  const base: Scenario = {
     headers: partial.headers ?? [],
     body: partial.body ?? '',
     bodyType: partial.bodyType,
@@ -34,6 +50,12 @@ export function s(partial: Pick<Scenario, 'id' | 'name' | 'url' | 'method'> & {
     url: partial.url,
     method: partial.method,
   };
+  if (partial.actionType !== undefined) base.actionType = partial.actionType;
+  if (partial.wsConnectAction !== undefined) base.wsConnectAction = partial.wsConnectAction;
+  if (partial.wsSendAction !== undefined) base.wsSendAction = partial.wsSendAction;
+  if (partial.wsReceiveAction !== undefined) base.wsReceiveAction = partial.wsReceiveAction;
+  if (partial.grpcCallAction !== undefined) base.grpcCallAction = partial.grpcCallAction;
+  return base;
 }
 
 export type { FeatureGroup };
