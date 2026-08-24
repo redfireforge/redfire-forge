@@ -11,9 +11,10 @@ describe('testSampleCatalog', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('every entry has domain "tests"', () => {
+  it('every entry has a valid domain (harness, graphql, grpc, or websocket)', () => {
+    const validDomains = new Set(['harness', 'graphql', 'grpc', 'websocket']);
     for (const entry of testSampleCatalog) {
-      expect(entry.domain).toBe('tests');
+      expect(validDomains.has(entry.domain)).toBe(true);
     }
   });
 

@@ -34,7 +34,7 @@ export const ASSERTION_PRESET_CATEGORIES: { key: AssertionPresetEntry['category'
 export const assertionPresetCatalog: AssertionPresetEntry[] = [
   {
     id: 'preset-api-healthcheck',
-    domain: 'assertions',
+    domain: 'requests',
     name: 'API Health Check',
     description: 'Verify a health endpoint returns 2xx and lists at least one service',
     icon: '💚',
@@ -48,7 +48,7 @@ export const assertionPresetCatalog: AssertionPresetEntry[] = [
   },
   {
     id: 'preset-paginated-list',
-    domain: 'assertions',
+    domain: 'requests',
     name: 'Paginated List Validation',
     description: 'Validate a paginated API returns items on the first page with a valid total',
     icon: '📄',
@@ -62,7 +62,7 @@ export const assertionPresetCatalog: AssertionPresetEntry[] = [
   },
   {
     id: 'preset-token-expiry',
-    domain: 'assertions',
+    domain: 'requests',
     name: 'Token Expiry Guard',
     description: 'Verify an auth token has valid JWT format and hasn\'t expired',
     icon: '🔐',
@@ -76,7 +76,7 @@ export const assertionPresetCatalog: AssertionPresetEntry[] = [
   },
   {
     id: 'preset-price-guard',
-    domain: 'assertions',
+    domain: 'requests',
     name: 'E-commerce Price Guard',
     description: 'Validate product prices are within a reasonable range with at least one variant',
     icon: '💰',
@@ -90,7 +90,7 @@ export const assertionPresetCatalog: AssertionPresetEntry[] = [
   },
   {
     id: 'preset-api-contract',
-    domain: 'assertions',
+    domain: 'requests',
     name: 'Full API Contract',
     description: 'Complete contract validation — exact values, ranges, and format checks',
     icon: '📝',
@@ -104,7 +104,7 @@ export const assertionPresetCatalog: AssertionPresetEntry[] = [
   },
   {
     id: 'preset-data-type-guard',
-    domain: 'assertions',
+    domain: 'requests',
     name: 'Data Type Guard',
     description: 'Verify core fields have the expected JSON types (string, number, boolean, array)',
     icon: '🏷',
@@ -118,7 +118,7 @@ export const assertionPresetCatalog: AssertionPresetEntry[] = [
   },
   {
     id: 'preset-required-fields',
-    domain: 'assertions',
+    domain: 'requests',
     name: 'Required Fields Check',
     description: 'Assert required fields exist and deprecated fields are absent',
     icon: '🔍',
@@ -132,7 +132,7 @@ export const assertionPresetCatalog: AssertionPresetEntry[] = [
   },
   {
     id: 'preset-graphql-no-errors',
-    domain: 'assertions',
+    domain: 'requests',
     name: 'GraphQL No Errors Guard',
     description: 'Assert the response returns 200, $.data exists, and $.errors is absent — the baseline GraphQL contract',
     icon: '⬡',
@@ -146,7 +146,7 @@ export const assertionPresetCatalog: AssertionPresetEntry[] = [
   },
   {
     id: 'preset-graphql-data-shape',
-    domain: 'assertions',
+    domain: 'requests',
     name: 'GraphQL Data Shape',
     description: 'Validate $.data is present, $.data.user.id is numeric, and $.data.user.email matches email regex',
     icon: '📐',
