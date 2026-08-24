@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebSocket: Mock Server — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>WebSocket: Mock Server</h1>
+  <p><span class="badge badge-advanced">Advanced</span> &nbsp; Run a local WS server with custom rules from within the studio</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Switch to Mock mode and start a local WebSocket server</li>
+    <li>Configure the listen port</li>
+    <li>Define match rules and responses</li>
+    <li>Broadcast messages to all connected clients</li>
+    <li>Use mock + client tabs together for isolated CI testing</li>
+  </ul>
+
+  <h2>What is Mock Mode?</h2>
+  <p>Mock mode turns WebSocket Studio into a <strong>server</strong> instead of a client. The built-in mock server listens on a local port and handles incoming connections from any WebSocket client — your own client tab, a browser app under development, or an automated test suite. You define <strong>rules</strong> that control how the server responds, making it an ideal stand-in for a real backend that may not yet exist or may be too slow to run locally.</p>
+
+  <h2>Switching to Mock Mode</h2>
+  <div class="step"><div class="step-num">1</div><div class="step-body">Click <strong>Mock</strong> in the mode switcher (<code>mode-mock</code>). The left panel changes to show the <strong>mock server panel</strong> (<code>mock-server-panel</code>).</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">The panel shows:
+    <ul style="margin-top:6px">
+      <li><strong>Port</strong> input (<code>mock-port-input</code>) — default 9876, editable when server is stopped</li>
+      <li><strong>Start</strong> button (<code>mock-start-btn</code>)</li>
+      <li><strong>Status label</strong> (<code>mock-status-label</code>) — "Stopped" / "Starting…" / "Running"</li>
+      <li><strong>Connected clients</strong> count (updates live)</li>
+    </ul>
+  </div></div>
+
+  <h2>Configuring the Port</h2>
+  <div class="step"><div class="step-num">3</div><div class="step-body">The default port is <strong>9876</strong>. To change it, click the <code>mock-port-input</code> field and type a different port, e.g., <code>9880</code>. The port field is <em>only editable while the server is stopped</em>.</div></div>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ Port conflicts</strong>
+    Port 9876 is the shared default and may already be in use by a running test suite or another RedfireForge instance. Use an alternate port (e.g., 9880 or 9881) when running the mock server alongside automated tests.
+  </div>
+
+  <h2>Starting and Stopping</h2>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Click <strong>Start</strong> (<code>mock-start-btn</code>). The status label changes to "Starting…" then "Running". The server is now accepting connections at <code>ws://localhost:9876</code> (or your chosen port).</div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body">The Start button becomes a <strong>Stop</strong> button (<code>mock-stop-btn</code>). Click it to stop the server. The status label changes to "Completed" (then "Stopped" after a brief settling period).</div></div>
+
+  <h2>Defining Response Rules</h2>
+  <p>The mock server panel includes a <strong>Rules</strong> section. Rules are evaluated in order; the first match wins. If no rule matches, the default behaviour is <strong>echo</strong> (return the message unchanged).</p>
+
+  <h3>Rule Structure</h3>
+  <pre>{
+  "match": { "contains": "ping" },
+  "response": { "payload": "{\"pong\":true}", "delay": 0 }
+}</pre>
+
+  <table>
+    <tr><th>Match field</th><th>Behaviour</th></tr>
+    <tr><td><code>contains</code></td><td>Matches if the incoming payload contains this substring</td></tr>
+    <tr><td><code>equals</code></td><td>Exact payload match</td></tr>
+    <tr><td><code>regex</code></td><td>Regex match on the payload string</td></tr>
+    <tr><td><code>jsonPath</code></td><td>JSONPath expression evaluates truthy against the parsed payload</td></tr>
+    <tr><td><em>(no match field)</em></td><td>Matches all messages — use as a catch-all rule at the end</td></tr>
+  </table>
+
+  <table>
+    <tr><th>Response field</th><th>Description</th></tr>
+    <tr><td><code>payload</code></td><td>The text or JSON payload to send back</td></tr>
+    <tr><td><code>delay</code></td><td>Milliseconds to wait before sending the response (simulates latency)</td></tr>
+    <tr><td><code>close</code></td><td>If <code>true</code>, close the connection after responding</td></tr>
+    <tr><td><code>broadcast</code></td><td>If <code>true</code>, send the response to all connected clients, not just the sender</td></tr>
+  </table>
+
+  <h3>Example Ruleset</h3>
+<pre>[
+  {
+    "match": { "contains": "ping" },
+    "response": { "payload": "pong", "delay": 0 }
+  },
+  {
+    "match": { "jsonPath": "$.type === 'subscribe'" },
+    "response": { "payload": "{\"type\":\"ack\"}", "delay": 50 }
+  },
+  {
+    "response": { "payload": "echo: {{$message}}", "delay": 0 }
+  }
+]</pre>
+  <p>The <code>{{$message}}</code> placeholder is replaced with the original incoming message payload, enabling a dynamic echo fallback.</p>
+
+  <h2>Broadcasting to All Clients</h2>
+  <p>The mock panel's toolbar has a <strong>Broadcast</strong> button. Enter a payload in the broadcast compose field and click Send. The message is delivered to every currently connected client simultaneously — useful for testing push notification or pub/sub scenarios.</p>
+
+  <h2>Two-Tab Testing Pattern</h2>
+  <div class="step"><div class="step-num">1</div><div class="step-body">Open Tab 1. Switch to Mock mode. Configure rules. Start the server on port 9880.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Open Tab 2. Stay in Client mode. Set URL to <code>ws://localhost:9880</code>. Connect.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Tab 1 shows "1 client connected". Send messages from Tab 2. Watch Tab 1's Events log receive them. Tab 2 receives the mock response.</div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Open Tab 3. Set URL to <code>ws://localhost:9880</code>. Connect. Tab 1 now shows "2 clients connected". Use the Broadcast feature to send a push to both.</div></div>
+
+  <h2>Practice Exercises</h2>
+  <ol>
+    <li>Start the mock server. Define a rule: if the message contains <code>hello</code>, respond with <code>Hi there!</code> after 100 ms. Connect a client tab. Send <code>hello world</code>. Verify the response.</li>
+    <li>Add a catch-all echo rule. Send a message that doesn't match any rule. Confirm it echoes.</li>
+    <li>Use the Broadcast button to push a message while two client tabs are connected. Confirm both receive it.</li>
+    <li>Stop the mock server while a client is connected. Observe the client tab's status badge change to Disconnected.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · WebSocket Studio — Mock Server · August 2026</footer>
+</body>
+</html>

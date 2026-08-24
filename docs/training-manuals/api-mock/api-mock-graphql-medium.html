@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Mock: GraphQL Over HTTP Mock — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>API Mock: GraphQL Over HTTP Mock</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; POST /graphql · operationName Dispatch · JSONPath Body Predicates · Per-Operation Variants</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Create a single <code>POST /graphql</code> route that handles all GraphQL operations</li>
+    <li>Dispatch to different response variants based on <code>operationName</code> in the request body</li>
+    <li>Add per-variant condition predicates using <code>jsonPath_equals</code></li>
+    <li>Return a default 400 error for unknown operations</li>
+    <li>Verify operation routing with the Simulate modal</li>
+  </ul>
+
+  <h2>GraphQL Transport — How It Works</h2>
+  <p>GraphQL APIs typically receive all requests at a single endpoint (<code>POST /graphql</code>) and differentiate operations by the JSON field <code>operationName</code> in the request body. API Mock Studio handles this natively using <strong>body predicates</strong> on response variant conditions — no special "GraphQL mode" is required.</p>
+
+  <h2>Step-by-Step Walkthrough</h2>
+
+  <h3>Part A — Create the Route</h3>
+
+  <div class="step"><div class="step-num">1</div><div class="step-body">Add a new route. Set Method to <code>POST</code> and Path to <code>/graphql</code> (Literal).</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">In the <strong>Match</strong> tab, add a predicate to ensure the Content-Type is JSON:
+    <ul style="margin-top: 6px">
+      <li><strong>Source</strong>: <code>header</code></li>
+      <li><strong>Selector</strong>: <code>Content-Type</code></li>
+      <li><strong>Operator</strong>: <code>prefix</code></li>
+      <li><strong>Expected</strong>: <code>application/json</code></li>
+    </ul>
+  </div></div>
+
+  <h3>Part B — Add Variants per Operation</h3>
+
+  <div class="step"><div class="step-num">3</div><div class="step-body">Open the <strong>Response</strong> tab. The default variant is already there — rename it to <em>GetUser</em>. Set:
+    <ul style="margin-top: 6px">
+      <li>Status: <code>200</code></li>
+      <li>Content-Type: <code>application/json</code></li>
+      <li>Body:
+        <pre>{
+  "data": {
+    "user": {
+      "id":    "{{request.body.$.variables.id}}",
+      "name":  "{{faker.name.fullName}}",
+      "email": "{{faker.internet.email}}"
+    }
+  }
+}</pre>
+      </li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Click <strong>+ Add Variant</strong> → rename to <em>CreatePost</em>. Set:
+    <ul style="margin-top: 6px">
+      <li>Status: <code>200</code></li>
+      <li>Body:
+        <pre>{
+  "data": {
+    "createPost": {
+      "id":    "{{random.uuid}}",
+      "title": "{{request.body.$.variables.title}}",
+      "published": true
+    }
+  }
+}</pre>
+      </li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body">Click <strong>+ Add Variant</strong> → rename to <em>Unknown Operation</em>. Set:
+    <ul style="margin-top: 6px">
+      <li>Status: <code>400</code></li>
+      <li>Body: <pre>{"errors": [{"message": "Unknown operation", "extensions": {"code": "OPERATION_NOT_FOUND"}}]}</pre></li>
+    </ul>
+    This variant is the catch-all for unrecognised operations.
+  </div></div>
+
+  <h3>Part C — Configure Variant Conditions</h3>
+
+  <div class="step"><div class="step-num">6</div><div class="step-body">Open the <strong>Behavior</strong> tab → <strong>Selection</strong>. Set mode to <strong>Condition</strong>.</div></div>
+  <div class="step"><div class="step-num">7</div><div class="step-body">For the <em>GetUser</em> variant, add a condition:
+    <ul style="margin-top: 6px">
+      <li><strong>Source</strong>: <code>body</code></li>
+      <li><strong>Selector</strong>: <code>$.operationName</code></li>
+      <li><strong>Operator</strong>: <code>jsonPath_equals</code></li>
+      <li><strong>Expected</strong>: <code>GetUser</code></li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">8</div><div class="step-body">For the <em>CreatePost</em> variant, add condition selector <code>$.operationName</code> equals <code>CreatePost</code>.</div></div>
+  <div class="step"><div class="step-num">9</div><div class="step-body">The <em>Unknown Operation</em> variant has no condition — set the <strong>isDefault</strong> flag (star icon) on it. It fires when no condition matches.</div></div>
+
+  <h3>Part D — Verify with Simulate</h3>
+
+  <div class="step"><div class="step-num">10</div><div class="step-body">Open the <strong>⚗ Simulate</strong> modal. Set method to <code>POST</code>, path to <code>/graphql</code>. Add header <code>Content-Type: application/json</code>.</div></div>
+  <div class="step"><div class="step-num">11</div><div class="step-body">Test GetUser: set body to:
+    <pre>{"operationName": "GetUser", "variables": {"id": "u-123"}, "query": "query GetUser($id: ID!) { user(id: $id) { id name email } }"}</pre>
+    Click ▶ Run. Trace shows <em>GetUser</em> variant selected. Rendered tab shows faker name + email.
+  </div></div>
+  <div class="step"><div class="step-num">12</div><div class="step-body">Test CreatePost: set body to:
+    <pre>{"operationName": "CreatePost", "variables": {"title": "Hello World"}, "query": "mutation CreatePost($title: String!) { createPost(title: $title) { id title } }"}</pre>
+    Trace shows <em>CreatePost</em> variant.
+  </div></div>
+  <div class="step"><div class="step-num">13</div><div class="step-body">Test unknown: set <code>operationName</code> to <code>DeleteEverything</code>. Trace shows <em>Unknown Operation</em> variant with status 400.</div></div>
+
+  <div class="callout callout-tip">
+    <strong>💡 Handling introspection queries</strong>
+    Add a fourth variant named <em>Introspection</em> with condition: <code>$.operationName</code> <code>absent</code> AND body <code>contains</code> <code>__schema</code>. Return a minimal schema stub so tools that send introspection on startup don't get a 400.
+  </div>
+
+  <h2>Operation Routing Summary</h2>
+  <table>
+    <thead><tr><th>Request body <code>operationName</code></th><th>Variant selected</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td><code>GetUser</code></td><td>GetUser</td><td>200</td></tr>
+      <tr><td><code>CreatePost</code></td><td>CreatePost</td><td>200</td></tr>
+      <tr><td>Any other / absent</td><td>Unknown Operation (default)</td><td>400</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Self-Practice Exercises</h2>
+  <ol>
+    <li>Add a <em>ListPosts</em> operation variant that returns a JSON array of 3 fake posts using <code>faker</code> template expressions.</li>
+    <li>Add an <em>Introspection</em> variant as described in the tip above. Simulate an introspection query and verify it matches.</li>
+    <li>Update the <em>GetUser</em> body to echo back <code>{{request.body.$.variables.id}}</code> in the response. Simulate with different variable IDs and check the Rendered tab each time.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · API Mock Studio — GraphQL Over HTTP Mock · August 2026</footer>
+</body>
+</html>

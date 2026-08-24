@@ -8,6 +8,8 @@ const CATEGORIES: { key: SampleCategory | 'all'; label: string }[] = [
   { key: 'flow-control', label: 'Flow Control' },
   { key: 'event-driven', label: 'Event-Driven' },
   { key: 'orchestration', label: 'Orchestration' },
+  { key: 'grpc', label: 'gRPC' },
+  { key: 'websocket', label: 'WebSocket' },
 ];
 
 const NODE_TYPES = [

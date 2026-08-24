@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Environment Manager — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .path-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0; }
+  .path-card { border: 1px solid #dee2e6; border-radius: 8px; padding: 14px; background: #f8f9fa; }
+  .path-card h4 { font-size: 13px; color: #1d3557; margin-bottom: 6px; }
+  .path-card p { font-size: 11.5px; color: #495057; margin: 0; }
+  .path-card .badge { margin-bottom: 6px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>Environment Manager</h1>
+  <p><span class="badge badge-easy">Overview</span> &nbsp; Environments · Microservices · Variables · Protocols</p>
+
+  <h2>What Is the Environment Manager?</h2>
+  <p>The Environment Manager is the central configuration panel where you define the infrastructure that all your tests and requests run against. It has two sides:</p>
+  <ul>
+    <li><strong>Environments</strong> — named deployment targets such as <code>dev</code>, <code>staging</code>, and <code>prod</code>. These are app-wide labels shared by all microservices.</li>
+    <li><strong>Microservices</strong> — the individual services under test. Each microservice is configured independently with base URLs, protocols, variables, and auth profiles per environment.</li>
+  </ul>
+
+  <div class="callout callout-tip">
+    <strong>💡 Why two separate concepts?</strong>
+    Separating environments from microservices lets you add a new environment (e.g. <code>perf</code>) once and immediately have a slot for every microservice — rather than editing each service individually.
+  </div>
+
+  <h2>Navigating to the Environment Manager</h2>
+  <p>Click <strong>Environments</strong> in the left sidebar (or select it from the app tab bar). The panel opens showing two sections stacked vertically: <strong>Environments</strong> at the top and <strong>Microservices</strong> below.</p>
+
+  <h2>Panel Layout</h2>
+
+  <h3>Environments Section</h3>
+  <table>
+    <thead><tr><th>Element</th><th>Purpose</th><th>Test ID</th></tr></thead>
+    <tbody>
+      <tr><td>Name input</td><td>Type a new environment name (e.g. <code>dev</code>)</td><td><code>em-new-env-input</code></td></tr>
+      <tr><td>Add button</td><td>Create the environment; also triggered by Enter</td><td><code>em-add-env-btn</code></td></tr>
+      <tr><td>Environment chip</td><td>Rendered pill showing name; drag ⠿ to reorder</td><td><code>[data-env-name]</code></td></tr>
+      <tr><td>× on chip</td><td>Delete environment (with impact confirmation)</td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Microservices Section</h3>
+  <table>
+    <thead><tr><th>Element</th><th>Purpose</th><th>Test ID</th></tr></thead>
+    <tbody>
+      <tr><td>Name input</td><td>Type a new microservice name</td><td><code>em-new-svc-input</code></td></tr>
+      <tr><td>Add button</td><td>Create the microservice card</td><td><code>em-add-svc-btn</code></td></tr>
+      <tr><td>Configure button</td><td>Expand the protocol panel for this service</td><td><code>em-svc-configure-{id}</code></td></tr>
+      <tr><td>Protocol badges</td><td>Quick-view of configured protocol count</td><td><code>protocol-header-badges</code></td></tr>
+      <tr><td>N/M envs</td><td>Count of environments this service is deployed into</td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <h2>The Variable System</h2>
+  <p>Every request, header, body, and URL in RedfireForge can reference variables using double-brace syntax: <code>{{variableName}}</code>. The Environment Manager is the primary source for these variables.</p>
+
+  <h3>Built-in Variables (Auto-derived)</h3>
+  <table>
+    <thead><tr><th>Variable</th><th>Value</th><th>Where Set</th></tr></thead>
+    <tbody>
+      <tr><td><code>{{baseUrl}}</code></td><td>HTTP base URL for the active microservice × environment</td><td>Base URL column in the deploy table</td></tr>
+      <tr><td><code>{{host}}</code></td><td>Hostname extracted from <code>baseUrl</code> (no protocol/port)</td><td>Auto-derived from <code>baseUrl</code></td></tr>
+    </tbody>
+  </table>
+
+  <h3>Custom Variables</h3>
+  <table>
+    <thead><tr><th>Type</th><th>Scope</th><th>Opened Via</th></tr></thead>
+    <tbody>
+      <tr><td>Global vars</td><td>All environments for this microservice</td><td>Protocol vars badge (<code>protocol-vars-badge</code>)</td></tr>
+      <tr><td>Env-var overrides</td><td>One specific environment only</td><td>Env vars badge (<code>env-vars-badge-{envId}</code>)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <strong>Resolution order</strong>
+    When a variable is referenced in a request, the runtime resolves it by checking env-var overrides first, then global vars. This means you can set a global default and override it per environment without touching the request definition.
+  </div>
+
+  <h2>Active Environment Selector</h2>
+  <p>The app header contains a dropdown (<code>header-env-select</code>) that controls which environment is currently active. All requests, workflow runs, and test runs resolve <code>{{baseUrl}}</code> and custom variables against this selection. You can switch environments without editing any test or request.</p>
+
+  <h2>How Environments Flow Through the App</h2>
+  <table>
+    <thead><tr><th>Feature</th><th>How Environments Appear</th></tr></thead>
+    <tbody>
+      <tr><td>Request Editor</td><td>Active env label on the request bar; URL resolves <code>{{baseUrl}}</code></td></tr>
+      <tr><td>Test Runner</td><td>Cascade environment selector (<em>Send to Harness</em> modal)</td></tr>
+      <tr><td>Parameterized Runner</td><td>Environment rotation across test iterations</td></tr>
+      <tr><td>Workflow Runner</td><td>Service nodes use the env selected at run time</td></tr>
+      <tr><td>WebSocket / gRPC / GraphQL Studios</td><td>Env badge opens per-studio environment modal</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Learning Path</h2>
+  <div class="path-grid">
+    <div class="path-card">
+      <span class="badge badge-easy">Easy</span>
+      <h4>Environments Basics</h4>
+      <p>Create environments, add a microservice, toggle deploy, and set your first base URL.</p>
+    </div>
+    <div class="path-card">
+      <span class="badge badge-medium">Medium</span>
+      <h4>Variables &amp; Overrides</h4>
+      <p>Define global vars, add per-env overrides, and use <code>{{varName}}</code> in requests.</p>
+    </div>
+    <div class="path-card">
+      <span class="badge badge-medium">Medium</span>
+      <h4>Protocols &amp; Auth</h4>
+      <p>Add gRPC, GraphQL, or WebSocket tabs; configure per-protocol endpoints; assign auth profiles.</p>
+    </div>
+    <div class="path-card">
+      <span class="badge badge-advanced">Advanced</span>
+      <h4>Multi-Env Test Runs</h4>
+      <p>Rotate environments across parameterized runs; understand cascade env in the test harness.</p>
+    </div>
+    <div class="path-card">
+      <span class="badge badge-medium">Medium</span>
+      <h4>Additional Environments</h4>
+      <p>Add microservice-specific extra environments; reorder environments and services.</p>
+    </div>
+  </div>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ Before you start</strong>
+    The Environment Manager stores data in your local workspace file. Environments and microservices are not per-user — they are part of the shared workspace configuration exported with your project.
+  </div>
+
+  <footer>RedfireForge v0.6.0 · Environment Manager — Overview · August 2026</footer>
+</body>
+</html>
