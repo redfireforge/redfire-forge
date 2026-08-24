@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gallery Training Paths Mode — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; padding: 14px; border-radius: 6px; font-size: 12px; overflow-x: auto; margin: 10px 0; font-family: 'JetBrains Mono', monospace; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f57f17; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 14px; margin: 14px 0; }
+  .step-num { flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; background: #e63946; color: #fff; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+  .step-body { flex: 1; padding-top: 3px; }
+  .step-body strong { display: block; margin-bottom: 2px; font-size: 13.5px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>Gallery — Training Paths Mode</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; Switching modes · Path/phase/manual hierarchy · Search · Active path · Sample links</p>
+
+  <h2>Overview</h2>
+  <p>In addition to the sample grid, the Gallery has a <strong>Training Paths mode</strong> — a structured curriculum view that organises all training manuals into logical learning journeys. Instead of browsing individual samples, you follow a sequence of phases and manuals from beginner to advanced.</p>
+
+  <div class="callout">
+    <strong>Samples mode vs. Training Paths mode</strong>
+    <ul>
+      <li><strong>Samples mode</strong> — "I want to load a specific sample and get to work immediately"</li>
+      <li><strong>Training Paths mode</strong> — "I want to learn a feature from scratch, following a guided curriculum"</li>
+    </ul>
+    Both modes are in the same gallery page — use the mode toggle to switch instantly.
+  </div>
+
+  <h2>Switching to Training Paths Mode</h2>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <strong>Open the Gallery</strong>
+      Click the Gallery icon in the top navigation. The page opens in Samples mode (card grid).
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <strong>Click "Training Paths" in the mode toggle</strong>
+      At the top of the gallery, find the <strong>Samples / Training Paths</strong> toggle strip. Click <strong>Training Paths</strong>. The card grid is replaced by a vertical list of training path cards.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <strong>Read the header</strong>
+      The view now shows a <strong>📖 Training Paths</strong> heading with the subtitle: "Structured learning journeys. Click a path to see its phases, manuals, and linked samples."
+    </div>
+  </div>
+
+  <h2>The Path / Phase / Manual Hierarchy</h2>
+  <p>Every item of training content is organised in three levels:</p>
+
+  <table>
+    <thead><tr><th>Level</th><th>What It Is</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Path</strong></td><td>A complete learning journey covering one feature area</td><td>"GraphQL Studio", "Webhook Delivery Logs", "Request Basics"</td></tr>
+      <tr><td><strong>Phase</strong></td><td>A group of related manuals within a path, representing a stage of learning</td><td>"Getting Started", "Core Operations", "Advanced Topics"</td></tr>
+      <tr><td><strong>Manual</strong></td><td>An individual training HTML document covering a specific topic</td><td>"Your First Query", "Schema Explorer", "Mutations"</td></tr>
+    </tbody>
+  </table>
+
+  <p>In the Training Paths view, each path is displayed as a collapsible card. Clicking a path card expands it to reveal its phases and the manuals within each phase.</p>
+
+  <h2>Step-by-Step Walkthrough</h2>
+
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <strong>Browse the path list</strong>
+      You will see all ~27 training paths listed. Each card shows: path name, icon, and a brief description. Scroll to see paths across all feature areas (Requests, Workflow, GraphQL, gRPC, WebSocket, SSE, Webhooks, etc.).
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <strong>Click a path card to expand it</strong>
+      Click any path card. It expands to show its phases (e.g. "Getting Started", "Core Operations"). Each phase header lists the phase name, and below it are the manuals in that phase.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">6</div>
+    <div class="step-body">
+      <strong>Read a manual row</strong>
+      Each manual row shows:
+      <ul>
+        <li><strong>Manual title</strong> — e.g. "Your First Query"</li>
+        <li><strong>Difficulty dots</strong> — how complex this manual is</li>
+        <li><strong>Sample chip</strong> (if linked) — a clickable chip that navigates to the corresponding gallery sample in Samples mode</li>
+        <li><strong>Manual link</strong> — opens the HTML training document in a new tab</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">7</div>
+    <div class="step-body">
+      <strong>Search within Training Paths</strong>
+      The search bar above the path list filters across path names, descriptions, phase names, and manual titles simultaneously. Type "webhook" to find any path, phase, or manual mentioning webhooks. Clear the search to see all paths again.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">8</div>
+    <div class="step-body">
+      <strong>Focus on a single path</strong>
+      If you navigate to the gallery from a feature-specific link (e.g. from a "View Learning Path" button on a feature page), the gallery may open with a specific path already active. When a path is active:
+      <ul>
+        <li>Only that path's card is shown (all others hidden)</li>
+        <li>A <strong>← All Training Paths</strong> back button appears at the top</li>
+        <li>Click it to return to the full list of all paths</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">9</div>
+    <div class="step-body">
+      <strong>Click a sample chip to jump to the sample</strong>
+      If a manual row has a linked sample chip, clicking it switches the gallery back to <strong>Samples mode</strong> and scrolls to / highlights that specific sample card. This lets you move from "read the manual" to "load the sample" with one click.
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">10</div>
+    <div class="step-body">
+      <strong>Open a training manual</strong>
+      Click the manual title link in any manual row. The HTML training document opens in a new browser tab, ready to follow along.
+    </div>
+  </div>
+
+  <h2>Training Path Coverage</h2>
+  <p>As of August 2026, RedfireForge ships with ~27 training paths grouped into four categories:</p>
+  <table>
+    <thead><tr><th>Category</th><th>Paths</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Core</strong></td><td>Versioning, Workflow Patterns, Auth Strategies, Assertion Mastery</td></tr>
+      <tr><td><strong>Content</strong></td><td>Request Basics, Tests, API Catalog, Data Mapper, Environment Manager, Results Dashboard, API Mock, Kafka Protocols, Gallery</td></tr>
+      <tr><td><strong>Workflow</strong></td><td>Flow Control, API Patterns, Diverse APIs, Script Node, Event-Driven, Async Correlation, Orchestration, Node Reference, Workflow Runner, Kafka Event-Driven</td></tr>
+      <tr><td><strong>Protocol</strong></td><td>GraphQL Studio, gRPC Studio, WebSocket Studio, SSE Studio, Webhook Delivery Logs</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Switching Back to Samples Mode</h2>
+  <p>Click <strong>Samples</strong> in the mode toggle at any time to return to the card grid. Any domain filter or search you had active before switching to Training Paths mode is preserved.</p>
+
+  <h2>Smoke-Test Checklist</h2>
+  <ol>
+    <li>Open Gallery → click <strong>Training Paths</strong> in the mode toggle → verify card grid disappears and path list appears</li>
+    <li>Verify "📖 Training Paths" heading and subtitle are visible</li>
+    <li>Click any path card → verify it expands to show phases and manuals</li>
+    <li>Verify each manual row shows title + difficulty dots</li>
+    <li>Type "graphql" in the search bar → verify only GraphQL-related paths/phases/manuals appear</li>
+    <li>Clear search → verify all paths reappear</li>
+    <li>If a manual has a sample chip, click it → verify gallery switches to Samples mode for that sample</li>
+    <li>Click <strong>Samples</strong> in mode toggle → verify card grid returns</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · Gallery — Training Paths Mode · August 2026</footer>
+</body>
+</html>
