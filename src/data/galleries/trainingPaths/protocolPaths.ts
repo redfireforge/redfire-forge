@@ -363,4 +363,49 @@ export const protocolPaths: TrainingPath[] = [
       },
     ],
   },
+
+  {
+    id: 'webhooks',
+    name: 'Webhook Delivery Logs',
+    icon: '🪝',
+    description: 'Audit inbound webhook deliveries, inspect payloads and error messages by date, and set up Webhook Trigger nodes with JSONPath variable extraction to react to external events.',
+    phases: [
+      {
+        id: 1,
+        name: 'Getting Started',
+        manuals: [
+          {
+            title: 'Webhooks — Overview',
+            description: 'Two-aspect coverage: Delivery Logs page layout, status badges (SUCCESS / FAILED / ERROR), Webhook Trigger node URL format, and learning path.',
+            difficulty: 'easy',
+            manualPath: 'webhooks/webhooks.html',
+          },
+          {
+            title: 'Webhook Delivery Logs',
+            description: 'Navigate to the Webhook Deliveries tab, read delivery cards (method / trigger ID / status / duration), open the detail panel, inspect payloads and error blocks, and understand empty and error states.',
+            difficulty: 'easy',
+            manualPath: 'webhooks/webhooks-delivery-logs-easy.html',
+          },
+        ],
+      },
+      {
+        id: 2,
+        name: 'Date Navigation & Trigger Setup',
+        manuals: [
+          {
+            title: 'Date Navigation & Sort Order',
+            description: 'Navigate across days with Prev/Next buttons, jump to any date with the date picker, toggle newest-first vs oldest-first sort, and understand auto-refresh via the live log stream.',
+            difficulty: 'medium',
+            manualPath: 'webhooks/webhooks-date-sort-medium.html',
+          },
+          {
+            title: 'Webhook Trigger Node Setup',
+            description: 'Configure a Webhook Trigger node (method, sample payload, JSONPath variable extraction from body/headers/query), understand the URL format, HTTP response codes, and test with curl.',
+            difficulty: 'medium',
+            manualPath: 'webhooks/webhooks-trigger-setup-medium.html',
+          },
+        ],
+      },
+    ],
+  },
 ];
