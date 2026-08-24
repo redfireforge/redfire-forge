@@ -426,6 +426,14 @@ export const manualMetadata: ManualMetadata[] = [
   { manualPath: 'sse/sse-auth-medium.html', addedAt: date('2026-08-23') },
   { manualPath: 'sse/sse-console-medium.html', addedAt: date('2026-08-23') },
   { manualPath: 'sse/sse-multi-tab-advanced.html', addedAt: date('2026-08-23') },
+
+  // ============================================================================
+  // Webhook Delivery Logs Path (protocolPaths)
+  // ============================================================================
+  { manualPath: 'webhooks/webhooks.html', addedAt: date('2026-08-23') },
+  { manualPath: 'webhooks/webhooks-delivery-logs-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'webhooks/webhooks-date-sort-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'webhooks/webhooks-trigger-setup-medium.html', addedAt: date('2026-08-23') },
 ];
 
 /** Map of manualPath -> ManualMetadata for fast lookup */
