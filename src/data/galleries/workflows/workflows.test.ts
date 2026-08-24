@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { sampleWorkflowCatalog, type SampleCategory } from './index';
 
-const VALID_CATEGORIES: SampleCategory[] = ['api-patterns', 'flow-control', 'event-driven', 'orchestration', 'performance'];
+const VALID_CATEGORIES: SampleCategory[] = ['api-patterns', 'flow-control', 'event-driven', 'orchestration', 'performance', 'grpc', 'websocket'];
 
 describe('galleries/workflows — sampleWorkflowCatalog', () => {
-  it('has 45 entries', () => {
-    expect(sampleWorkflowCatalog).toHaveLength(45);
+  it('has 51 entries', () => {
+    expect(sampleWorkflowCatalog).toHaveLength(58);
   });
 
   it('every entry has a unique id', () => {
@@ -13,9 +13,10 @@ describe('galleries/workflows — sampleWorkflowCatalog', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('every entry has domain "workflows"', () => {
+  it('every entry has a valid domain (workflows, kafka, graphql, grpc, or websocket)', () => {
+    const validDomains = new Set(['workflows', 'kafka', 'graphql', 'grpc', 'websocket']);
     for (const entry of sampleWorkflowCatalog) {
-      expect(entry.domain).toBe('workflows');
+      expect(validDomains.has(entry.domain)).toBe(true);
     }
   });
 

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Mock: Library &amp; Server Settings — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>API Mock: Library &amp; Server Settings</h1>
+  <p><span class="badge badge-advanced">Advanced</span> &nbsp; Library Landing · Tab Management · Server Settings · Native Export · Variables</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Navigate the Library Landing to see all saved servers</li>
+    <li>Open, park, and delete servers; understand tab limits</li>
+    <li>Configure all Server Settings options (host, port, match policies, fallback, mTLS)</li>
+    <li>Export a server to a native JSON file and re-import it</li>
+    <li>Manage server-level variables used in template expressions</li>
+  </ul>
+
+  <h2>Part A — Library Landing</h2>
+
+  <div class="step"><div class="step-num">1</div><div class="step-body">In the title bar, click the <strong>≡ Library</strong> icon. The Library Landing modal opens showing a card for every saved server.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Each server card shows:
+    <ul style="margin-top: 6px">
+      <li><strong>Server name</strong> and host:port</li>
+      <li><strong>Route count</strong> and <strong>Example count</strong></li>
+      <li><strong>Status badge</strong>: open (currently in a tab), parked (saved but no open tab), or running</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Click <strong>Open</strong> on any server card to load it into a new tab. API Mock Studio supports up to <strong>8 simultaneous open tabs</strong>. If you are at the limit, close or park a tab first.</div></div>
+
+  <h2>Part B — Tab Management</h2>
+
+  <table>
+    <thead><tr><th>Action</th><th>How</th><th>Effect</th></tr></thead>
+    <tbody>
+      <tr><td>Open server</td><td>Library → Open card</td><td>Loads server into a new tab</td></tr>
+      <tr><td>Park server</td><td>Close a tab (× button)</td><td>Saves and removes the tab; server still exists in the library</td></tr>
+      <tr><td>Delete server</td><td>Library → Delete card (with confirmation)</td><td>Permanently removes server and all its routes</td></tr>
+      <tr><td>Undo delete</td><td>Toast notification → Undo (5 s window)</td><td>Restores the server fully</td></tr>
+    </tbody>
+  </table>
+
+  <div class="step"><div class="step-num">4</div><div class="step-body">To park the current server, click the <strong>×</strong> tab close button. If the server is running, you are prompted to stop it first. After closing, it appears in the Library as <em>parked</em>.</div></div>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ Tab limit</strong>
+    The maximum is 8 open server tabs. When you try to open a 9th, you get an error — park at least one tab first.
+  </div>
+
+  <h2>Part C — Server Settings</h2>
+
+  <div class="step"><div class="step-num">5</div><div class="step-body">Click the ⚙ <strong>Settings</strong> icon in the title bar. The Server Settings modal opens.</div></div>
+
+  <h3>Network Settings</h3>
+  <table>
+    <thead><tr><th>Setting</th><th>Options</th><th>Use when</th></tr></thead>
+    <tbody>
+      <tr><td>Host</td><td><code>127.0.0.1</code> / <code>localhost</code> / <code>0.0.0.0</code></td><td>Use <code>127.0.0.1</code> for local-only; <code>0.0.0.0</code> to accept connections from other devices on your LAN</td></tr>
+      <tr><td>Port</td><td>Any integer 1–65535</td><td>Change if the default port conflicts with another service</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Match Policies</h3>
+  <table>
+    <thead><tr><th>Policy</th><th>Options</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td>Multiple-match policy</td><td><code>highest_priority</code> (default) / <code>reject_multiple</code></td><td>When multiple routes match: highest_priority wins silently; reject_multiple returns an ambiguous error</td></tr>
+      <tr><td>Equal-priority policy</td><td><code>reject</code> / <code>specificity_then_id</code></td><td>Among equal-priority matches: reject = ambiguous error; specificity_then_id = more specific predicate set wins</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Fallback Behaviour</h3>
+  <table>
+    <thead><tr><th>Fallback mode</th><th>Behaviour when no route matches</th></tr></thead>
+    <tbody>
+      <tr><td>Default response</td><td>Returns a generic 404 JSON body</td></tr>
+      <tr><td>Closest-match debug</td><td>Returns a 404 JSON body that includes the near-miss trace — which route almost matched and which predicate failed</td></tr>
+      <tr><td>Proxy to upstream</td><td>Forwards the request to a configured upstream URL; the upstream's response is returned to the client</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Advanced Settings</h3>
+  <table>
+    <thead><tr><th>Setting</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>longRunningMaxMs</td><td>Ceiling for timeout faults — no timeout fault can hold a connection longer than this value</td></tr>
+      <tr><td>mTLS</td><td>Enable mutual TLS; supply CA cert PEM; configure client cert requirements for <code>transport</code> predicates</td></tr>
+      <tr><td>Header redact list</td><td>Headers whose values are masked in the Transactions journal (e.g. <code>Authorization</code>, <code>Cookie</code>)</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Part D — Native Export</h2>
+
+  <div class="step"><div class="step-num">6</div><div class="step-body">In the title bar, click <strong>⬇ Export</strong>. The Export Confirmation dialog opens showing a summary (server name, route count, example count).</div></div>
+  <div class="step"><div class="step-num">7</div><div class="step-body">Click <strong>Download</strong>. A JSON file is downloaded (filename: <code>&lt;server-name&gt;-mock-config.json</code>). The file contains:
+    <ul style="margin-top: 6px">
+      <li>Server settings (name, host, port, policies)</li>
+      <li>All routes with predicates, variants, faults, timing</li>
+      <li>Saved simulation examples (samples)</li>
+      <li>Server variables</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">8</div><div class="step-body">To re-import: click <strong>⬆ Import</strong> → source = <strong>RedfireForge export</strong> → paste or upload the JSON → choose Merge or Replace → click Import.</div></div>
+
+  <h2>Part E — Variables Tab</h2>
+
+  <div class="step"><div class="step-num">9</div><div class="step-body">Open the <strong>Variables</strong> dock tab. Click <strong>+ Add</strong>. Enter key <code>baseUrl</code> and value <code>https://api.internal.corp</code>.</div></div>
+  <div class="step"><div class="step-num">10</div><div class="step-body">In a route response body, use <code>{{variables.baseUrl}}</code>. When the server is running, update the variable value — all subsequent requests get the updated value without a server restart.</div></div>
+  <div class="step"><div class="step-num">11</div><div class="step-body">Server variables are saved with the server definition and round-trip through the native export/import.</div></div>
+
+  <div class="callout callout-tip">
+    <strong>💡 Proxy fallback for golden-path flows</strong>
+    Set fallback to <em>Proxy to upstream</em> pointing at a staging API. Configure explicit routes only for the endpoints you want to override. Unmatched requests pass through transparently — ideal for partial mocking (mock only the broken endpoint; let the rest hit real staging).
+  </div>
+
+  <h2>Self-Practice Exercises</h2>
+  <ol>
+    <li>Create 3 servers. Open all 3 as tabs. Try to open a 4th tab beyond the limit — observe the error. Park one tab and open the 4th.</li>
+    <li>Change the Multiple-match policy to <code>reject_multiple</code>. Create two overlapping routes. Start the server and send a request. Observe the ambiguous outcome in the Transactions log.</li>
+    <li>Export a server with multiple routes. Delete the server. Re-import via the native export source. Verify all routes are restored exactly.</li>
+    <li>Enable the Closest-match debug fallback. Send a request that nearly matches a route but one predicate fails. Inspect the 404 response body — it should contain the near-miss trace.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · API Mock Studio — Library &amp; Server Settings · August 2026</footer>
+</body>
+</html>

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>gRPC: Schema Drift Detection — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  .diff-added { background: #e8f5e9; color: #2e7d32; padding: 2px 6px; border-radius: 3px; font-family: monospace; font-size: 12px; }
+  .diff-removed { background: #fce4ec; color: #b71c1c; padding: 2px 6px; border-radius: 3px; font-family: monospace; font-size: 12px; }
+  .diff-changed { background: #fff8e1; color: #856404; padding: 2px 6px; border-radius: 3px; font-family: monospace; font-size: 12px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>gRPC: Schema Drift Detection</h1>
+  <p><span class="badge badge-advanced">Advanced</span> &nbsp; Compare descriptors · Detect breaking changes · Gate deployments</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>What schema drift is and why it breaks gRPC clients silently</li>
+    <li>Load two schema snapshots (A and B) into the Schema Browser</li>
+    <li>Run the diff tool to identify added, removed, and changed elements</li>
+    <li>Distinguish breaking from non-breaking changes</li>
+    <li>Use drift detection as a CI gate</li>
+  </ul>
+
+  <h2>What is Schema Drift?</h2>
+  <p>Schema drift occurs when a gRPC service's proto definition changes in a way that is incompatible with existing clients. Because protobuf is a binary format without embedded schema negotiation, a client compiled against the old schema may silently misinterpret responses from a server using the new schema — or fail entirely at the field-access layer.</p>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ Silent failures in gRPC</strong>
+    Unlike a REST API where a removed field returns <code>null</code> and is visible in JSON, a removed protobuf field is simply absent from the binary payload. A client expecting field 4 will receive an empty value with no error. This makes schema drift one of the hardest categories of gRPC bugs to detect without tooling.
+  </div>
+
+  <h2>Breaking vs Non-breaking Changes</h2>
+  <table>
+    <tr><th>Change Type</th><th>Breaking?</th><th>Example</th></tr>
+    <tr><td>Add a new optional field</td><td>No</td><td>Add <code>string country = 5;</code> to a message</td></tr>
+    <tr><td>Add a new method</td><td>No</td><td>Add <code>rpc Ping</code> to a service</td></tr>
+    <tr><td>Remove a field</td><td><strong>Yes</strong></td><td>Remove <code>string message = 1;</code></td></tr>
+    <tr><td>Remove a method</td><td><strong>Yes</strong></td><td>Remove <code>rpc Echo</code> from EchoService</td></tr>
+    <tr><td>Change a field type</td><td><strong>Yes</strong></td><td>Change <code>string message</code> to <code>int32 message</code></td></tr>
+    <tr><td>Change a field number</td><td><strong>Yes</strong></td><td>Renumber field 1 to field 2</td></tr>
+    <tr><td>Rename a field (same number)</td><td>No (wire compat)</td><td>Rename <code>msg</code> to <code>message</code> — same field number</td></tr>
+    <tr><td>Change streaming mode</td><td><strong>Yes</strong></td><td>Make a unary method into a server-stream method</td></tr>
+  </table>
+
+  <h2>Loading Snapshot A (Baseline)</h2>
+  <div class="step"><div class="step-num">1</div><div class="step-body">In gRPC Studio, open the <strong>Schema Browser</strong> (Schema tab → Browse). If you loaded a schema via reflection, it is already available as the active descriptor.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Click <strong>Save Snapshot</strong> (the camera icon). Name it <code>Snapshot A — baseline</code>. The snapshot is stored locally and appears in the Snapshots list.</div></div>
+
+  <h2>Simulating a Schema Change (Snapshot B)</h2>
+  <p>To demonstrate drift detection, we will simulate a change by uploading a modified descriptor.</p>
+
+  <div class="step"><div class="step-num">3</div><div class="step-body">In the Schema Ingestion panel, click <strong>Upload Protoset</strong> and upload a modified <code>.bin</code> descriptor (or use a different proto file that has a changed field or missing method).</div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Once loaded, click <strong>Save Snapshot</strong> again and name it <code>Snapshot B — candidate</code>.</div></div>
+
+  <div class="callout callout-tip">
+    <strong>💡 Generating test descriptors</strong>
+    You can generate a second descriptor by editing the <code>.proto</code> file (e.g., removing the <code>Echo</code> method) and recompiling with <code>protoc --descriptor_set_out=modified.bin</code>. Upload the resulting <code>modified.bin</code> as Snapshot B.
+  </div>
+
+  <h2>Running the Schema Diff</h2>
+  <div class="step"><div class="step-num">5</div><div class="step-body">In the Schema Browser, click the <strong>Compare Schemas</strong> button (or the diff icon ⬦ between two snapshot rows).</div></div>
+  <div class="step"><div class="step-num">6</div><div class="step-body">Select <strong>Snapshot A</strong> as the base and <strong>Snapshot B</strong> as the candidate. Click <strong>Compare</strong>.</div></div>
+  <div class="step"><div class="step-num">7</div><div class="step-body">The diff view appears with a three-section breakdown:
+    <ul style="margin-top:8px">
+      <li><span class="diff-added">+ Added</span> — elements present in B but not in A (generally safe)</li>
+      <li><span class="diff-removed">− Removed</span> — elements present in A but not in B (potentially breaking)</li>
+      <li><span class="diff-changed">~ Changed</span> — elements present in both but with different types, numbers, or streaming mode (usually breaking)</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">8</div><div class="step-body">Breaking changes are highlighted in <strong>red</strong> and flagged with a <em>Breaking</em> badge. Non-breaking changes are in green or grey.</div></div>
+
+  <h2>Reading the Diff View</h2>
+  <h4>Example diff output (method removed)</h4>
+<pre>EchoService
+  − rpc Echo (EchoRequest) returns (EchoResponse)   [BREAKING]
+  ✓ rpc ServerStream (EchoRequest) returns (stream EchoResponse)
+  ✓ rpc ClientStream (stream EchoRequest) returns (EchoResponse)
+  ✓ rpc BidiStream (stream EchoRequest) returns (stream EchoResponse)</pre>
+
+  <h4>Example diff output (field type changed)</h4>
+<pre>EchoRequest
+  ~ message: string → int32   [BREAKING — field 1]
+EchoResponse
+  + latency_ms: int64         [non-breaking — new optional field]</pre>
+
+  <h2>Exporting a Drift Report</h2>
+  <div class="step"><div class="step-num">9</div><div class="step-body">After running the diff, click <strong>Export Drift Report</strong>. A JSON file is downloaded listing all changes with their breaking status, element path, and change description.</div></div>
+  <div class="step"><div class="step-num">10</div><div class="step-body">The JSON report can be consumed by CI pipelines. A non-zero <code>breakingChanges</code> count should fail the build.</div></div>
+
+  <h4>Example drift report JSON</h4>
+<pre>{
+  "snapshotA": "Snapshot A — baseline",
+  "snapshotB": "Snapshot B — candidate",
+  "breakingChanges": 1,
+  "nonBreakingChanges": 1,
+  "changes": [
+    {
+      "type": "removed",
+      "path": "EchoService.Echo",
+      "breaking": true,
+      "description": "Method rpc Echo removed from service EchoService"
+    },
+    {
+      "type": "added",
+      "path": "EchoResponse.latency_ms",
+      "breaking": false,
+      "description": "Field latency_ms (int64, field 6) added to message EchoResponse"
+    }
+  ]
+}</pre>
+
+  <h2>CI Integration Pattern</h2>
+  <p>The recommended workflow for schema-safe deployments:</p>
+  <ol>
+    <li>At build time, store the current production descriptor as <em>Snapshot A</em> (committed to the repo or fetched from BSR).</li>
+    <li>After any proto change, compile the new descriptor as <em>Snapshot B</em>.</li>
+    <li>Run the drift check: if <code>breakingChanges &gt; 0</code>, fail the CI step with an actionable error listing the breaking changes.</li>
+    <li>If all changes are non-breaking, allow the deployment to proceed.</li>
+  </ol>
+
+  <div class="callout callout-tip">
+    <strong>💡 Buf CLI for automated drift checking</strong>
+    The <a href="https://buf.build">Buf CLI</a> (<code>buf breaking</code>) performs the same check from the command line and integrates with GitHub Actions, GitLab CI, and Bitbucket Pipelines. gRPC Studio's drift tool is ideal for interactive exploration; Buf CLI is ideal for automation.
+  </div>
+
+  <h2>Practice Exercises</h2>
+  <ol>
+    <li>Load the echo proto, save it as Snapshot A. Edit the proto to add a new optional field to <code>EchoRequest</code>. Recompile, upload, save as Snapshot B. Run the diff — confirm it shows the addition as non-breaking.</li>
+    <li>Edit the proto to remove the <code>Echo</code> method. Recompile and compare. Confirm the diff flags it as breaking.</li>
+    <li>Change a field number in a message (e.g., field 1 → field 2). Compare and verify it is flagged as breaking.</li>
+    <li>Export the drift report from exercise 2 to JSON and verify <code>breakingChanges</code> equals 1.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · gRPC Studio — Schema Drift Detection · August 2026</footer>
+</body>
+</html>

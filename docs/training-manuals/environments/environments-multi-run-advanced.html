@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Environment Manager: Multi-Env Test Runs — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>Environment Manager: Multi-Env Test Runs</h1>
+  <p><span class="badge badge-advanced">Advanced</span> &nbsp; Cascade Env · Feature Group Scoping · Parameterized Rotation · Unresolved Warnings</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>How feature groups bind tests to a microservice and environment</li>
+    <li>Use the cascade environment selector when sending to the test harness</li>
+    <li>Run the same test suite across dev, staging, and prod without editing scenarios</li>
+    <li>Identify and resolve <code>{{baseUrl}}</code> unresolved warnings during test runs</li>
+    <li>Monitor which environment is active during a live run using the header env selector</li>
+  </ul>
+
+  <h2>Prerequisite</h2>
+  <p>Complete <em>Environment Manager: Basics</em> and <em>Variables &amp; Overrides</em>. You should have <em>user-api</em> deployed to <em>dev</em>, <em>staging</em>, and <em>prod</em> with base URLs and at least one global variable set.</p>
+
+  <h2>How Test Environments Work</h2>
+
+  <h3>Feature Group Scoping</h3>
+  <p>In the <strong>Scenarios</strong> tab, each Feature Group has two properties:</p>
+  <ul>
+    <li><strong>Microservice</strong> — which service this group tests (e.g. <em>user-api</em>)</li>
+    <li><strong>Environment</strong> — which environment this group's scenarios target by default</li>
+  </ul>
+  <p>When you run a feature group, RedfireForge resolves <code>{{baseUrl}}</code> and all custom variables from that combination. This is the <em>static</em> assignment — useful when a group is permanently pinned to an environment (e.g. a smoke-test group always running against staging).</p>
+
+  <h3>Cascade Environment Override</h3>
+  <p>When you send tests to the harness via <strong>Send to Harness</strong>, a field labelled <strong>Cascade environment</strong> (<code>send-harness-cascade-environment</code>) lets you override the feature group's static environment for this run. All scenarios in the promoted batch use the cascaded environment — without modifying the feature group itself.</p>
+
+  <table>
+    <thead><tr><th>Method</th><th>When to Use</th><th>Scope</th></tr></thead>
+    <tbody>
+      <tr><td>Feature group env (static)</td><td>Permanent assignment — "this group is staging only"</td><td>Permanent until changed in group settings</td></tr>
+      <tr><td>Cascade env override</td><td>One-off run against a different env — "run this against prod today"</td><td>Single harness batch only</td></tr>
+      <tr><td>Header env selector</td><td>Interactive requests and one-off manual runs</td><td>Current browser session</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Step-by-Step Walkthrough</h2>
+
+  <h3>Part A — Assign an Environment to a Feature Group</h3>
+
+  <div class="step"><div class="step-num">1</div><div class="step-body">Navigate to the <strong>Scenarios</strong> tab. Select or create a Feature Group named <em>user-api smoke tests</em>.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">In the Feature Group settings panel on the right, locate the <strong>Microservice</strong> dropdown and select <em>user-api</em>.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Locate the <strong>Environment</strong> dropdown and select <em>dev</em>. This group's scenarios will now resolve variables from the <em>user-api + dev</em> configuration by default.</div></div>
+
+  <h3>Part B — Send to Harness with Cascade Override</h3>
+
+  <div class="step"><div class="step-num">4</div><div class="step-body">Click <strong>Send to Harness</strong> (or equivalent promote action) from the feature group. The <strong>Send to Harness</strong> modal opens.</div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body">Locate the <strong>Cascade environment</strong> dropdown (<code>send-harness-cascade-environment</code>). It defaults to the feature group's static environment (<em>dev</em>).</div></div>
+  <div class="step"><div class="step-num">6</div><div class="step-body">Change it to <strong>staging</strong>. This means the promoted tests will run against staging — even though the feature group is statically assigned to dev.</div></div>
+  <div class="step"><div class="step-num">7</div><div class="step-body">Click <strong>Promote</strong>. The harness receives the scenarios with the staging environment context injected.</div></div>
+
+  <div class="callout callout-tip">
+    <strong>💡 Promoting to multiple environments</strong>
+    To run the same scenarios against dev, staging, and prod, repeat the Send to Harness flow three times — once per environment — changing the cascade dropdown each time. The feature group itself remains unchanged.
+  </div>
+
+  <h3>Part C — Run via the Parameterized Runner</h3>
+
+  <div class="step"><div class="step-num">8</div><div class="step-body">Navigate to the <strong>Parameterized Runner</strong> tab. This runner executes a test definition multiple times with different data rows — and optionally different environments.</div></div>
+  <div class="step"><div class="step-num">9</div><div class="step-body">In the <strong>Environment</strong> column of the parameter matrix, assign a different environment to each row. For example:
+    <ul style="margin-top:6px">
+      <li>Row 1: <em>dev</em></li>
+      <li>Row 2: <em>staging</em></li>
+      <li>Row 3: <em>prod</em></li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">10</div><div class="step-body">Start the run. Each iteration resolves <code>{{baseUrl}}</code> and all vars from its assigned environment independently. Row 1 hits dev, row 2 hits staging, row 3 hits prod — in a single runner pass.</div></div>
+  <div class="step"><div class="step-num">11</div><div class="step-body">In the Results Dashboard, each iteration shows its environment label alongside the status. Failed assertions on one environment do not affect the others.</div></div>
+
+  <h3>Part D — Diagnose an Unresolved Variable Warning</h3>
+
+  <div class="step"><div class="step-num">12</div><div class="step-body">If a test run uses <code>{{baseUrl}}</code> but the microservice is not deployed for the selected environment, a yellow warning bar (<code>env-unresolved-warning</code>) appears in the run detail view.</div></div>
+  <div class="step"><div class="step-num">13</div><div class="step-body">The warning reads: <em>"Variable 'baseUrl' could not be resolved for environment X"</em>. The request will be sent with an empty base URL, likely causing a connection error.</div></div>
+  <div class="step"><div class="step-num">14</div><div class="step-body">To fix: go to the Environment Manager, open the microservice panel, and tick the deploy checkbox for the missing environment, then set a base URL.</div></div>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ Always verify deploy + base URL before a multi-env run</strong>
+    A common mistake is adding a new environment to the environment list but forgetting to deploy all microservices to it. Check that every service used in your test has a base URL for every environment you plan to target.
+  </div>
+
+  <h3>Part E — Monitor the Active Environment During a Run</h3>
+
+  <div class="step"><div class="step-num">15</div><div class="step-body">While a test is executing, the <strong>header env selector</strong> (<code>header-env-select</code>) still reflects the global active environment. If you are running a parameterized test that rotates environments, the selector does not change — each iteration uses its own context internally.</div></div>
+  <div class="step"><div class="step-num">16</div><div class="step-body">To manually trace a specific iteration's variable resolution, click into the Results panel for that iteration and look at the <strong>Variables</strong> or <strong>Resolved URL</strong> detail.</div></div>
+
+  <h2>Multi-Env Run Checklist</h2>
+  <table>
+    <thead><tr><th>Check</th><th>How to Verify</th></tr></thead>
+    <tbody>
+      <tr><td>All target environments exist</td><td>Environment chips in the EM Environments section</td></tr>
+      <tr><td>Service deployed to all target envs</td><td>Deploy checkboxes ticked + base URL set in HTTP tab</td></tr>
+      <tr><td>Auth profiles assigned per env</td><td>Auth profile column in HTTP tab</td></tr>
+      <tr><td>Cascade env set correctly in harness modal</td><td><code>send-harness-cascade-environment</code> dropdown</td></tr>
+      <tr><td>No unresolved variable warnings</td><td>No <code>env-unresolved-warning</code> in run output</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Self-Practice Exercises</h2>
+  <ol>
+    <li>Create a feature group pinned to <em>staging</em>. Promote it to the harness twice — once with cascade env = staging and once with cascade env = prod. Observe that different base URLs are used.</li>
+    <li>Run a parameterized test with 3 rows, each targeting a different environment. Confirm in the results that each row hit a different server.</li>
+    <li>Intentionally leave <em>prod</em> undeployed for <em>user-api</em> and trigger a run that targets prod. Observe and resolve the <code>env-unresolved-warning</code>.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · Environment Manager — Multi-Env Test Runs · August 2026</footer>
+</body>
+</html>

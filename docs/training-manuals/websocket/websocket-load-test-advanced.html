@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebSocket: Load Testing — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>WebSocket: Load Testing</h1>
+  <p><span class="badge badge-advanced">Advanced</span> &nbsp; Concurrent connections · Message rate · Latency percentiles</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Navigate to the Load Test panel and understand prerequisites</li>
+    <li>Configure concurrent connections, message rate, and test duration</li>
+    <li>Start and stop a load test</li>
+    <li>Interpret throughput and latency results</li>
+    <li>Use the mock server as an isolated load test target</li>
+  </ul>
+
+  <h2>Prerequisites</h2>
+  <p>Before running a load test you must have an <strong>active connection open</strong> in the current tab. The load test inherits the URL, protocol, auth, and TLS settings from the active connection — configure those first using the Connect and Auth tabs.</p>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ Do not load test public servers</strong>
+    Load testing sends high-volume traffic. Never run a load test against a public or third-party server (<code>wss://echo.websocket.org</code>, a production API, etc.) without explicit permission. Always test against a local server or a dedicated test environment.
+  </div>
+
+  <h2>Opening the Load Test Panel</h2>
+  <div class="step"><div class="step-num">1</div><div class="step-body">Connect to your test server (e.g., start the mock server on port 9881 — use a non-default port to avoid conflicts with the test suite).</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">In the right panel, click the <strong>Load Test</strong> tab (<code>right-tab-loadtest</code>). The load test configuration panel appears.</div></div>
+
+  <h2>Load Test Configuration</h2>
+  <table>
+    <tr><th>Setting</th><th>Description</th><th>Recommended range</th></tr>
+    <tr><td><strong>Concurrent Connections</strong></td><td>Number of WebSocket connections opened simultaneously. Each runs on a worker in the background.</td><td>1 – 500</td></tr>
+    <tr><td><strong>Message Rate</strong></td><td>Messages sent per second, per connection. Total throughput = rate × connections.</td><td>1 – 1000 msg/s per connection</td></tr>
+    <tr><td><strong>Duration</strong></td><td>How long the test runs before automatically stopping (seconds).</td><td>10 – 300 s</td></tr>
+    <tr><td><strong>Message Payload</strong></td><td>The payload template sent by each worker. Supports <code>{{$index}}</code> (worker index) and <code>{{$seq}}</code> (sequence number) placeholders.</td><td>Any valid text or JSON</td></tr>
+    <tr><td><strong>Ramp-up</strong></td><td>Seconds over which to gradually open all connections (avoids a thundering herd at start).</td><td>0 – 30 s</td></tr>
+  </table>
+
+  <h2>Running a Load Test</h2>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Set your configuration. A sensible first test: 10 connections, 10 msg/s, 30 s duration, payload <code>{"seq":"{{$seq}}"}</code>.</div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Click <strong>Start Load Test</strong> (<code>lt-start-btn</code>). The <code>lt-running</code> indicator appears, showing the test is active. The configuration fields are disabled while the test runs.</div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body">While running, live metrics update in the results area:
+    <ul style="margin-top:6px">
+      <li><strong>Connections established</strong> — how many workers connected successfully</li>
+      <li><strong>Messages sent</strong> — running total across all workers</li>
+      <li><strong>Messages received</strong> — running total responses received</li>
+      <li><strong>Errors</strong> — connection failures or send errors</li>
+      <li><strong>Throughput (msg/s)</strong> — rolling aggregate message rate</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">6</div><div class="step-body">The test stops automatically when the duration elapses. To stop early, click <strong>Stop</strong>.</div></div>
+
+  <h2>Results Panel</h2>
+  <p>After the test completes, a results summary appears:</p>
+  <table>
+    <tr><th>Metric</th><th>Description</th></tr>
+    <tr><td><strong>Total messages sent</strong></td><td>Sum across all workers for the full duration</td></tr>
+    <tr><td><strong>Total messages received</strong></td><td>Sum of responses/echoes received</td></tr>
+    <tr><td><strong>Error rate</strong></td><td>Percentage of sends that resulted in an error (failed connections or send failures)</td></tr>
+    <tr><td><strong>Throughput (avg)</strong></td><td>Average messages/second over the test duration</td></tr>
+    <tr><td><strong>Latency P50</strong></td><td>Median round-trip time (send → receive echo) in milliseconds</td></tr>
+    <tr><td><strong>Latency P95</strong></td><td>95th percentile round-trip time — the "tail latency"</td></tr>
+    <tr><td><strong>Latency P99</strong></td><td>99th percentile — the worst 1% of round trips</td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Latency measurement</strong>
+    Latency is measured as the time between sending a message and receiving the first response from the server. For accurate latency, use an echo server (the mock server's default echo behaviour is ideal). Non-echo servers may have different response counts or no response at all.
+  </div>
+
+  <h2>Using Mock Server as Load Test Target</h2>
+  <p>The recommended pattern for local load testing:</p>
+  <div class="step"><div class="step-num">1</div><div class="step-body">Open Tab 1. Switch to Mock mode. Set port to <strong>9881</strong> (avoids conflicts with the default 9876 port used by test suites). Start the mock server.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Open Tab 2. Set URL to <code>ws://localhost:9881</code>. Connect. Verify the connection.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Open the Load Test panel in Tab 2. Configure 50 connections, 50 msg/s, 30 s.</div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Start the test. Tab 1 shows the connected client count rising to 50. The mock server echoes all messages. Tab 2's results show latency and throughput for the local echo server.</div></div>
+
+  <h2>Interpreting Results</h2>
+  <ul>
+    <li><strong>Error rate &gt; 0%</strong> — the server is refusing connections or dropping messages under load; investigate server logs</li>
+    <li><strong>P99 latency &gt; 200ms on localhost</strong> — the Node.js proxy or the server event loop is saturated; reduce concurrency</li>
+    <li><strong>Messages received &lt; messages sent</strong> — the server is dropping frames; common at very high rates without flow control</li>
+    <li><strong>Throughput plateau</strong> — the server has hit its concurrency limit; this is the measured capacity ceiling</li>
+  </ul>
+
+  <h2>Practice Exercises</h2>
+  <ol>
+    <li>Start the mock server on port 9881. Run a 10-connection, 10 msg/s, 30 s load test. Record P50 and P99 latency.</li>
+    <li>Double the concurrency to 20 connections. Re-run. Compare latency results. Did P99 change significantly?</li>
+    <li>Increase message rate to 100 msg/s with 10 connections. Observe whether error rate remains 0% or begins to rise.</li>
+    <li>Open the Stats panel alongside the Load Test. Confirm <code>stats-msg-rate</code> reflects the aggregate throughput during the test.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · WebSocket Studio — Load Testing · August 2026</footer>
+</body>
+</html>

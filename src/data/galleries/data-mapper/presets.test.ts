@@ -36,9 +36,9 @@ describe('Data Mapper presets', () => {
     expect(dataMapperSampleCatalog).toHaveLength(8);
   });
 
-  it('all entries have domain data-mapper', () => {
+  it('all entries have domain requests (assertions/data-mapper merged into requests)', () => {
     for (const entry of dataMapperSampleCatalog) {
-      expect(entry.domain).toBe('data-mapper');
+      expect(entry.domain).toBe('requests');
     }
   });
 
