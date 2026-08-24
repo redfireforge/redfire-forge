@@ -8,11 +8,11 @@ import { createPaymentCallbackEasyWorkflow, createApprovalWorkflowMediumWorkflow
 import { createPokemonEvolutionWorkflow, createCountryCurrencyWorkflow, createProductCartWorkflow, createBookSearchWorkflow, createMultiApiDashboardWorkflow } from './diverseApis';
 import { createPerfSimpleWorkflow, createPerfBranchingWorkflow, createPerfParallelWorkflow, createPerfEdgePercentageWorkflow, createPerfBottleneckDemoWorkflow } from './performance';
 import { createParallelShowcaseWorkflow } from './parallelShowcase';
-import { createKafkaProduceWorkflow, createKafkaTriggerWorkflow, createKafkaEventPipelineWorkflow, createKafkaAsyncCorrelationWorkflow } from './kafka';
-import { createGraphqlHealthCheckWorkflow, createGraphqlECommerceFlowWorkflow, createGraphqlSchemaWatchdogWorkflow, createGraphqlUserCrudWorkflow, createGraphqlSubscriptionWsWorkflow, createGraphqlSubscriptionSseWorkflow } from './graphql';
-import { createGrpcHealthCheckWorkflow, createGrpcUserLookupWorkflow, createGrpcServerStreamWorkflow, createGrpcCrudWorkflow, createGrpcSchemaDiffWorkflow, createGrpcLoadTestWorkflow } from './grpc';
-import { createWsEchoPingWorkflow, createWsJsonExchangeWorkflow, createWsChatFlowWorkflow, createWsTriggerWorkflow, createWsHttpHybridWorkflow } from './websocket';
 import type { SampleWorkflowEntry } from './types';
+import { kafkaWorkflowSamples } from './protocolKafka';
+import { graphqlWorkflowSamples } from './protocolGraphQL';
+import { grpcWorkflowSamples } from './protocolGrpc';
+import { websocketWorkflowSamples } from './protocolWebSocket';
 
 // Re-export all factory functions
 export { createOrderWorkflow, createParallelForkWorkflow, createLogDebugWorkflow, createExpressionFunctionsWorkflow, createScriptEasyWorkflow } from './apiPatterns';
@@ -28,8 +28,8 @@ export { createGraphqlHealthCheckWorkflow, createGraphqlECommerceFlowWorkflow, c
 export { createGrpcHealthCheckWorkflow, createGrpcUserLookupWorkflow, createGrpcServerStreamWorkflow, createGrpcCrudWorkflow, createGrpcSchemaDiffWorkflow, createGrpcLoadTestWorkflow } from './grpc';
 export { createWsEchoPingWorkflow, createWsJsonExchangeWorkflow, createWsChatFlowWorkflow, createWsTriggerWorkflow, createWsHttpHybridWorkflow } from './websocket';
 
-/** All available sample workflows. */
-export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
+/** HTTP and core (non-protocol-specific) workflow samples. */
+const httpAndCoreWorkflowSamples: SampleWorkflowEntry[] = [
   {
     id: 'sample-workflow-001',
     name: 'Create → Extract → Verify',
@@ -601,326 +601,31 @@ export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
     factory: createSlaMonitorWorkflow,
   },
 
-  // ── Kafka Workflow Samples ───────────────────────────────────────────────
-  {
-    id: 'sample-kafka-produce',
-    name: 'Kafka: Publish Order Event',
-    description: 'Create an order via HTTP then publish an enriched event to a Kafka topic using KafkaProduce with headers and output bindings',
-    domain: 'kafka',
-    tags: ['kafka', 'produce', 'event-driven', 'messaging', 'output-bindings'],
-    liveApis: ['jsonplaceholder.typicode.com', 'localhost:19092 (Redpanda)'],
-    category: 'event-driven',
-    difficulty: 'easy',
-    icon: '📤',
-    nodeCount: 5,
-    primaryNodes: ['KafkaProduce'],
-    secondaryNodes: ['HTTP', 'Log'],
-    factory: createKafkaProduceWorkflow,
-  },
-  {
-    id: 'sample-kafka-trigger',
-    name: 'Kafka: Event-Triggered Processor',
-    description: 'Subscribe to a Kafka topic — automatically start a workflow per message, extract fields, enrich from HTTP, and route by order value',
-    domain: 'kafka',
-    tags: ['kafka', 'trigger', 'event-driven', 'messaging', 'subscription', 'conditional'],
-    liveApis: ['jsonplaceholder.typicode.com', 'localhost:19092 (Redpanda)'],
-    category: 'event-driven',
-    difficulty: 'easy',
-    icon: '📥',
-    nodeCount: 7,
-    primaryNodes: ['KafkaTrigger'],
-    secondaryNodes: ['HTTP', 'Condition', 'Log'],
-    factory: createKafkaTriggerWorkflow,
-  },
-  {
-    id: 'sample-kafka-event-pipeline',
-    name: 'Kafka: Full Event Pipeline',
-    description: 'End-to-end Kafka pipeline: trigger on incoming order → validate via HTTP → publish result event → consume to confirm delivery',
-    domain: 'kafka',
-    tags: ['kafka', 'trigger', 'produce', 'consume', 'event-driven', 'pipeline', 'messaging'],
-    liveApis: ['jsonplaceholder.typicode.com', 'localhost:19092 (Redpanda)'],
-    category: 'event-driven',
-    difficulty: 'medium',
-    icon: '🔄',
-    nodeCount: 9,
-    primaryNodes: ['KafkaTrigger', 'KafkaProduce', 'KafkaConsume'],
-    secondaryNodes: ['HTTP', 'Condition', 'SetVariable'],
-    factory: createKafkaEventPipelineWorkflow,
-  },
-  {
-    id: 'sample-kafka-async-correlation',
-    name: 'Kafka: Async Request–Reply',
-    description: 'Advanced async correlation pattern: receive payment request, produce to processing topic, wait for correlated response by orderId',
-    domain: 'kafka',
-    tags: ['kafka', 'trigger', 'produce', 'wait', 'async', 'correlation', 'request-reply', 'messaging'],
-    liveApis: ['jsonplaceholder.typicode.com', 'localhost:19092 (Redpanda)'],
-    category: 'event-driven',
-    difficulty: 'advanced',
-    icon: '⚡',
-    nodeCount: 9,
-    primaryNodes: ['KafkaTrigger', 'KafkaProduce', 'KafkaWait'],
-    secondaryNodes: ['HTTP', 'Condition', 'Log'],
-    factory: createKafkaAsyncCorrelationWorkflow,
-  },
-
-  // ── GraphQL Workflow Samples ─────────────────────────────────────────────
-  {
-    id: 'sample-graphql-health-check',
-    name: 'GraphQL: Health Check',
-    description: 'Verifies a GraphQL API is reachable via introspection, runs a sentinel query, and asserts response latency is under 500ms',
-    domain: 'graphql',
-    tags: ['graphql', 'health-check', 'introspection', 'assert', 'latency', 'api-patterns'],
-    liveApis: ['(configurable GraphQL endpoint)'],
-    category: 'api-patterns',
-    difficulty: 'easy',
-    icon: '🔍',
-    nodeCount: 5,
-    primaryNodes: ['GraphqlIntrospect', 'GraphqlQuery', 'GraphqlAssert'],
-    secondaryNodes: ['Start', 'End'],
-    factory: createGraphqlHealthCheckWorkflow,
-  },
-  {
-    id: 'sample-graphql-e-commerce-flow',
-    name: 'GraphQL: E-Commerce Order Flow',
-    description: 'Creates an order via GraphQL mutation, subscribes to status updates until COMPLETE, then asserts the final status',
-    domain: 'graphql',
-    tags: ['graphql', 'mutation', 'subscription', 'assert', 'event-driven', 'order-flow'],
-    liveApis: ['(configurable GraphQL endpoint)'],
-    category: 'event-driven',
-    difficulty: 'medium',
-    icon: '🛒',
-    nodeCount: 5,
-    primaryNodes: ['GraphqlMutation', 'GraphqlSubscription', 'GraphqlAssert'],
-    secondaryNodes: ['Start', 'End'],
-    factory: createGraphqlECommerceFlowWorkflow,
-  },
-  {
-    id: 'sample-graphql-schema-watchdog',
-    name: 'GraphQL: Schema Watchdog',
-    description: 'Polls a GraphQL schema on a cron schedule; logs a warning whenever the schema hash changes',
-    domain: 'graphql',
-    tags: ['graphql', 'introspection', 'schedule', 'schema', 'watchdog', 'event-driven'],
-    liveApis: ['(configurable GraphQL endpoint)'],
-    category: 'event-driven',
-    difficulty: 'medium',
-    icon: '👁️',
-    nodeCount: 5,
-    primaryNodes: ['GraphqlIntrospect'],
-    secondaryNodes: ['ScheduleTrigger', 'Condition', 'Log'],
-    factory: createGraphqlSchemaWatchdogWorkflow,
-  },
-  {
-    id: 'sample-graphql-user-crud',
-    name: 'GraphQL: User CRUD',
-    description: 'Full user lifecycle via GraphQL: create a user, fetch it back, assert the ID matches, then delete it',
-    domain: 'graphql',
-    tags: ['graphql', 'mutation', 'query', 'assert', 'crud', 'api-patterns'],
-    liveApis: ['(configurable GraphQL endpoint)'],
-    category: 'api-patterns',
-    difficulty: 'medium',
-    icon: '👤',
-    nodeCount: 6,
-    primaryNodes: ['GraphqlMutation', 'GraphqlQuery', 'GraphqlAssert'],
-    secondaryNodes: ['Start', 'End'],
-    factory: createGraphqlUserCrudWorkflow,
-  },
-  {
-    id: 'sample-graphql-subscription-ws',
-    name: 'GraphQL: Subscription over WebSocket',
-    description: 'Subscribes to a live event feed via graphql-ws, collects up to 5 messages or 15 s, then branches on whether any events were received',
-    domain: 'graphql',
-    tags: ['graphql', 'subscription', 'websocket', 'graphql-ws', 'streaming', 'events', 'real-time'],
-    liveApis: ['(configurable GraphQL subscription endpoint)'],
-    category: 'event-driven',
-    difficulty: 'medium',
-    icon: '📡',
-    nodeCount: 6,
-    primaryNodes: ['GraphqlSubscription'],
-    secondaryNodes: ['Start', 'Condition', 'Log', 'End'],
-    factory: createGraphqlSubscriptionWsWorkflow,
-  },
-  {
-    id: 'sample-graphql-subscription-sse',
-    name: 'GraphQL: Subscription over SSE',
-    description: 'Same subscription pattern as the WebSocket variant but uses SSE transport — demonstrates the single-field difference between transport modes',
-    domain: 'graphql',
-    tags: ['graphql', 'subscription', 'sse', 'server-sent-events', 'streaming', 'real-time'],
-    liveApis: ['(configurable GraphQL subscription endpoint)'],
-    category: 'event-driven',
-    difficulty: 'medium',
-    icon: '📶',
-    nodeCount: 6,
-    primaryNodes: ['GraphqlSubscription'],
-    secondaryNodes: ['Start', 'Condition', 'Log', 'End'],
-    factory: createGraphqlSubscriptionSseWorkflow,
-  },
-
-  // ── gRPC Workflow Samples ────────────────────────────────────────────────
-  {
-    id: 'sample-grpc-health-check',
-    name: 'gRPC: Health Check',
-    description: 'Calls grpc.health.v1.Health/Check on a configurable gRPC endpoint and asserts the service status is SERVING',
-    domain: 'grpc',
-    tags: ['grpc', 'health', 'unary', 'assert', 'easy'],
-    liveApis: ['grpcb.in'],
-    category: 'grpc',
-    difficulty: 'easy',
-    icon: '♡',
-    nodeCount: 4,
-    primaryNodes: ['GrpcUnary', 'GrpcAssert'],
-    secondaryNodes: ['Start', 'End'],
-    factory: createGrpcHealthCheckWorkflow,
-  },
-  {
-    id: 'sample-grpc-user-lookup',
-    name: 'gRPC: User Lookup',
-    description: 'Fetches a user by ID via a unary gRPC call and asserts expected field values; teaches saveAs output binding',
-    domain: 'grpc',
-    tags: ['grpc', 'unary', 'extract', 'variable', 'saveAs'],
-    liveApis: ['(configurable gRPC endpoint)'],
-    category: 'grpc',
-    difficulty: 'easy',
-    icon: '👤',
-    nodeCount: 4,
-    primaryNodes: ['GrpcUnary', 'GrpcAssert'],
-    secondaryNodes: ['Start', 'End'],
-    factory: createGrpcUserLookupWorkflow,
-  },
-  {
-    id: 'sample-grpc-server-stream',
-    name: 'gRPC: Server Stream — Order Feed',
-    description: 'Calls a server-streaming ListOrders RPC, collects up to 20 messages with a 5-second cap, then asserts the stream is non-empty',
-    domain: 'grpc',
-    tags: ['grpc', 'streaming', 'server-stream', 'collect', 'assert'],
-    liveApis: ['(configurable gRPC endpoint)'],
-    category: 'grpc',
-    difficulty: 'medium',
-    icon: '📡',
-    nodeCount: 4,
-    primaryNodes: ['GrpcServerStream', 'GrpcAssert'],
-    secondaryNodes: ['Start', 'End'],
-    factory: createGrpcServerStreamWorkflow,
-  },
-  {
-    id: 'sample-grpc-crud',
-    name: 'gRPC: Create → Fetch → Delete',
-    description: 'Three chained unary gRPC calls with saveAs variable binding threading productId between steps; mirrors the HTTP CRUD sample',
-    domain: 'grpc',
-    tags: ['grpc', 'crud', 'chain', 'variable-binding', 'saveAs', 'unary'],
-    liveApis: ['(configurable gRPC endpoint)'],
-    category: 'grpc',
-    difficulty: 'medium',
-    icon: '🔄',
-    nodeCount: 7,
-    primaryNodes: ['GrpcUnary', 'GrpcAssert'],
-    secondaryNodes: ['Start', 'End'],
-    factory: createGrpcCrudWorkflow,
-  },
-  {
-    id: 'sample-grpc-schema-diff',
-    name: 'gRPC: Schema Drift Watchdog',
-    description: 'Hourly schedule-triggered workflow that compares baseline and live proto descriptors; logs an error alert on any breaking change',
-    domain: 'grpc',
-    tags: ['grpc', 'schema-diff', 'watchdog', 'schedule', 'breaking-change', 'proto'],
-    liveApis: ['(configurable gRPC endpoint)'],
-    category: 'grpc',
-    difficulty: 'advanced',
-    icon: '🔍',
-    nodeCount: 6,
-    primaryNodes: ['GrpcSchemaDiff'],
-    secondaryNodes: ['ScheduleTrigger', 'Condition', 'Log'],
-    factory: createGrpcSchemaDiffWorkflow,
-  },
-  {
-    id: 'sample-grpc-load-test',
-    name: 'gRPC: Load Test — Bounded Unary',
-    description: 'Runs a 50-concurrency / 10-second bounded load test then gates on p95 ≤ 200ms via a condition node',
-    domain: 'grpc',
-    tags: ['grpc', 'load-test', 'performance', 'p95', 'sla', 'concurrency'],
-    liveApis: ['(configurable gRPC endpoint)'],
-    category: 'grpc',
-    difficulty: 'advanced',
-    icon: '⚡',
-    nodeCount: 6,
-    primaryNodes: ['GrpcLoadTest'],
-    secondaryNodes: ['Condition', 'Log', 'Start', 'End'],
-    factory: createGrpcLoadTestWorkflow,
-  },
-
-  // ── WebSocket Workflow Samples ───────────────────────────────────────────
-  {
-    id: 'sample-ws-echo',
-    name: 'WebSocket: Echo Ping',
-    description: 'Connect to a public echo WebSocket, send "ping", receive the echo back, and assert the response matches',
-    domain: 'websocket',
-    tags: ['websocket', 'echo', 'send', 'receive', 'easy'],
-    liveApis: ['echo.websocket.org'],
-    category: 'websocket',
-    difficulty: 'easy',
-    icon: '🔌',
-    nodeCount: 7,
-    primaryNodes: ['WsConnect', 'WsSend', 'WsReceive'],
-    secondaryNodes: ['Condition', 'Log', 'Start', 'End'],
-    factory: createWsEchoPingWorkflow,
-  },
-  {
-    id: 'sample-ws-json-exchange',
-    name: 'WebSocket: JSON Message Exchange',
-    description: 'Subscribe to BTC/USDT trade events via Binance WebSocket stream, extract the price, and assert it is greater than zero',
-    domain: 'websocket',
-    tags: ['websocket', 'json', 'subscribe', 'extract', 'easy'],
-    liveApis: ['stream.binance.com'],
-    category: 'websocket',
-    difficulty: 'easy',
-    icon: '🔌',
-    nodeCount: 7,
-    primaryNodes: ['WsConnect', 'WsSend', 'WsReceive'],
-    secondaryNodes: ['Condition', 'Log', 'Start', 'End'],
-    factory: createWsJsonExchangeWorkflow,
-  },
-  {
-    id: 'sample-ws-chat-flow',
-    name: 'WebSocket: Chat Flow',
-    description: 'Auth handshake over WebSocket, send a chat message, receive the broadcast echo, and assert the content matches',
-    domain: 'websocket',
-    tags: ['websocket', 'auth', 'chat', 'send-receive', 'conditional'],
-    liveApis: ['(configurable WebSocket endpoint)'],
-    category: 'websocket',
-    difficulty: 'medium',
-    icon: '🔌',
-    nodeCount: 9,
-    primaryNodes: ['WsConnect', 'WsSend', 'WsReceive'],
-    secondaryNodes: ['Condition', 'Log', 'Start', 'End'],
-    factory: createWsChatFlowWorkflow,
-  },
-  {
-    id: 'sample-ws-trigger',
-    name: 'WebSocket: Inbound Trigger',
-    description: 'Workflow starts when a WebSocket message with event "order.created" arrives; extracts orderId and makes a downstream HTTP GET',
-    domain: 'websocket',
-    tags: ['websocket', 'trigger', 'inbound', 'event-driven', 'http'],
-    liveApis: ['jsonplaceholder.typicode.com'],
-    category: 'websocket',
-    difficulty: 'medium',
-    icon: '🔌',
-    nodeCount: 6,
-    primaryNodes: ['WsTrigger', 'HTTP'],
-    secondaryNodes: ['Condition', 'Log', 'End'],
-    factory: createWsTriggerWorkflow,
-  },
-  {
-    id: 'sample-ws-http-hybrid',
-    name: 'WebSocket: Live Price → HTTP Enrichment',
-    description: 'Connect to a price feed, subscribe to alerts, receive a price_drop event, enrich with an HTTP call, then send an ack over the same WebSocket',
-    domain: 'websocket',
-    tags: ['websocket', 'http', 'hybrid', 'event-driven', 'enrichment', 'advanced'],
-    liveApis: ['fakestoreapi.com'],
-    category: 'websocket',
-    difficulty: 'advanced',
-    icon: '🔌',
-    nodeCount: 8,
-    primaryNodes: ['WsConnect', 'WsSend', 'WsReceive', 'HTTP'],
-    secondaryNodes: ['SetVariable', 'Start', 'End'],
-    factory: createWsHttpHybridWorkflow,
-  },
+  // ── Protocol-specific samples are imported from dedicated modules ──────────────────────────────────────────────
 ];
+
+/**
+ * All available sample workflows.
+ * Combines core non-protocol samples with protocol-specific samples imported from separate modules
+ * to keep individual files under the 750-line monolith threshold.
+ */
+export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
+  ...httpAndCoreWorkflowSamples,
+  ...kafkaWorkflowSamples,
+  ...graphqlWorkflowSamples,
+  ...grpcWorkflowSamples,
+  ...websocketWorkflowSamples,
+];
+
+// Re-export protocol samples for direct access if needed
+export { kafkaWorkflowSamples } from './protocolKafka';
+export { graphqlWorkflowSamples } from './protocolGraphQL';
+export { grpcWorkflowSamples } from './protocolGrpc';
+export { websocketWorkflowSamples } from './protocolWebSocket';
+
+// Reference: combined catalog contains 58 total workflow samples:
+// - HTTP/Core: 38 samples (api-patterns, flow-control, orchestration, performance, async-correlation, diverse-apis)
+// - Kafka: 4 samples
+// - GraphQL: 6 samples
+// - gRPC: 6 samples
+// - WebSocket: 5 samples
