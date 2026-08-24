@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gallery — Overview — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; padding: 14px; border-radius: 6px; font-size: 12px; overflow-x: auto; margin: 10px 0; font-family: 'JetBrains Mono', monospace; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f57f17; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>Gallery — Overview</h1>
+  <p><span class="badge badge-easy">Reference</span> &nbsp; Two modes · 9 domains · Card anatomy · Filters · Learning path</p>
+
+  <h2>What Is the Gallery?</h2>
+  <p>The Gallery is the central <strong>sample browser</strong> in RedfireForge. It gives you instant access to dozens of pre-built, ready-to-run examples across every major feature area. Instead of building from scratch, open the Gallery, pick an entry, click one button, and begin working with a fully configured sample.</p>
+
+  <p>Open the Gallery from the top navigation bar by clicking the <strong>Gallery</strong> icon, or navigate directly to <code>/?tab=gallery</code>.</p>
+
+  <h2>Two Gallery Tabs</h2>
+  <table>
+    <thead><tr><th>Tab</th><th>What You See</th><th>Best For</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Samples</strong> (default)</td>
+        <td>A filterable, searchable, paginated grid of sample cards — one card per gallery entry, across 9 domains</td>
+        <td>Finding and importing a specific sample to start working</td>
+      </tr>
+      <tr>
+        <td><strong>Training Tracks</strong></td>
+        <td>A full learning-progress dashboard: progress stats, Continue Learning card, What's New banner, and all training paths with per-manual status tracking (Not Started / Viewed / Completed)</td>
+        <td>Following a structured curriculum, tracking progress, and resuming where you left off</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Switch between tabs using the <strong>Samples / Training Tracks</strong> sub-nav at the top of the Gallery page.</p>
+
+  <h2>Gallery Domains (9)</h2>
+  <p>Every gallery entry belongs to one of nine <em>domains</em>. A domain identifies what kind of resource the entry creates when imported.</p>
+
+  <table>
+    <thead><tr><th>Domain</th><th>Icon</th><th>Action Button</th><th>What It Creates</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Requests</strong></td><td>📡</td><td>Send Request</td><td>A ready-to-run HTTP request pre-filled in the Request Builder</td></tr>
+      <tr><td><strong>API Catalog</strong></td><td>📚</td><td>Import Spec</td><td>An OpenAPI specification imported into the API Catalog</td></tr>
+      <tr><td><strong>Tests</strong></td><td>🧪</td><td>Load Test</td><td>A complete test scenario with steps, assertions, and data sets</td></tr>
+      <tr><td><strong>Workflows</strong></td><td>⚡</td><td>Load Workflow</td><td>A multi-step workflow loaded into the Workflow Runner canvas in preview mode</td></tr>
+      <tr><td><strong>Assertions</strong></td><td>✅</td><td>Apply Preset</td><td>A pre-built assertion set applied to the active test — no tab navigation</td></tr>
+      <tr><td><strong>Data Mapper</strong></td><td>🔀</td><td>Load Sample</td><td>A Data Mapper sample demonstrating mapping patterns</td></tr>
+      <tr><td><strong>API Mock</strong></td><td>🧪</td><td>Load Mock Server</td><td>A mock server configuration loaded into API Mock Studio</td></tr>
+      <tr><td><strong>gRPC</strong></td><td>🔌</td><td>Load Sample</td><td>A gRPC protocol sample (scaffold domain — entries added as gRPC coverage grows)</td></tr>
+      <tr><td><strong>WebSocket</strong></td><td>⚡</td><td>Load Sample</td><td>A WebSocket protocol sample (scaffold domain)</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Gallery Card Anatomy</h2>
+  <p>Each card in the grid shows:</p>
+  <ul>
+    <li><strong>Icon</strong> — visual identifier for the domain or entry type</li>
+    <li><strong>Name</strong> — the sample's title</li>
+    <li><strong>Description</strong> — one-line summary of what the sample demonstrates</li>
+    <li><strong>Difficulty dots</strong> — filled circles: 1 dot = easy, 2 = medium, 3 = advanced</li>
+    <li><strong>Domain badge</strong> — shows when viewing "All" domains so you can tell which domain the card belongs to</li>
+    <li><strong>Tags</strong> — keyword chips (e.g. <code>rest</code>, <code>pagination</code>, <code>auth</code>)</li>
+    <li><strong>Status badge</strong> — only appears after importing: <code>✓ Loaded</code> or <code>↻ Reload (Updated)</code></li>
+  </ul>
+
+  <h2>Filter Sidebar</h2>
+  <p>The sidebar on the left side of the gallery (resizable by dragging its right edge) provides five filters that combine to narrow the card grid:</p>
+  <table>
+    <thead><tr><th>Filter</th><th>What It Filters By</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Domain buttons</strong></td><td>10 buttons: All + each of the 9 domains. Clicking one shows only entries from that domain.</td></tr>
+      <tr><td><strong>Category</strong></td><td>Sub-grouping within a domain (e.g. "CRUD", "Auth", "Streaming")</td></tr>
+      <tr><td><strong>Difficulty</strong></td><td>All / Easy / Medium / Advanced</td></tr>
+      <tr><td><strong>Live API</strong></td><td>Filter to entries that use a specific external API hostname</td></tr>
+      <tr><td><strong>Tag</strong></td><td>Filter to entries that carry a specific keyword tag</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Detail Panel</h2>
+  <p>Click any gallery card to open a <strong>detail panel</strong> on the right side. The panel provides:</p>
+  <ul>
+    <li>Full name, description, difficulty, and tags</li>
+    <li><strong>Live API badges</strong> — links showing which external APIs the sample calls (e.g. <code>jsonplaceholder.typicode.com</code>)</li>
+    <li><strong>Primary action button</strong> — the domain-specific import action (e.g. "Load Workflow")</li>
+    <li><strong>Secondary action button</strong> — "Try It" for Requests (sends without importing)</li>
+    <li><strong>Preview area</strong> — request structure for Requests; truncated JSON payload for other domains; expand button for full text</li>
+    <li><strong>Related Training Manuals</strong> — links to relevant HTML training manuals with difficulty dots</li>
+  </ul>
+
+  <h2>Learning Path</h2>
+  <table>
+    <thead><tr><th>Manual</th><th>Difficulty</th><th>What You Learn</th></tr></thead>
+    <tbody>
+      <tr><td>Gallery — Overview <em>(this page)</em></td><td><span class="badge badge-easy">Reference</span></td><td>Two modes, 9 domains, card anatomy, filter sidebar, detail panel</td></tr>
+      <tr><td>Browsing the Gallery</td><td><span class="badge badge-easy">Easy</span></td><td>Navigate domains, search, apply filters, read detail panels, preview entries, find related manuals</td></tr>
+      <tr><td>Importing Gallery Samples</td><td><span class="badge badge-easy">Easy</span></td><td>Per-domain import actions, badge lifecycle (✓ Loaded / ↻ Updated), confirm-update modal, navigation after import</td></tr>
+      <tr><td>Training Tracks</td><td><span class="badge badge-medium">Medium</span></td><td>Open the Training Tracks tab, track progress, mark manuals complete, use Continue Learning and What's New</td></tr>
+    </tbody>
+  </table>
+
+  <footer>RedfireForge v0.8.0 · Gallery — Overview · August 2026</footer>
+</body>
+</html>

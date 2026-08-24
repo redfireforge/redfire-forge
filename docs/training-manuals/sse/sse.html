@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SSE Studio — Overview — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f57f17; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>SSE Studio — Overview</h1>
+  <p><span class="badge badge-easy">Reference</span> &nbsp; Studio Layout · Connection Flow · Event Log · Auth · Console · Wire Format · Learning Path</p>
+
+  <h2>What is SSE Studio?</h2>
+  <p>SSE Studio lets you open, monitor, and debug <strong>Server-Sent Events</strong> streams — the lightweight, one-directional HTTP streaming protocol defined in the W3C HTML spec. Unlike WebSockets, SSE connections use a plain HTTP GET; the server pushes newline-delimited text frames in real time. SSE Studio handles connection management, event parsing, filtering, auth injection, and auto-reconnect — all from one split-pane interface.</p>
+
+  <div class="callout">
+    <strong>When to use SSE Studio</strong>
+    Use SSE when your API or backend pushes live notifications, feed updates, log tails, or real-time metrics over a persistent HTTP connection — especially when you only need server → client data flow.
+  </div>
+
+  <h2>Studio Layout</h2>
+  <table>
+    <thead><tr><th>Region</th><th>Component</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>Top bar</td><td>URL input + Connect/Disconnect</td><td>Enter the SSE endpoint URL (supports <code>{{variable}}</code> interpolation); toggle the connection; shows a coloured state dot</td></tr>
+      <tr><td>Status strip</td><td>Connection stats</td><td>Real-time event count, connection uptime, and Last-Event-ID tracker</td></tr>
+      <tr><td>Left pane — Connect tab</td><td>Connection config</td><td>URL, custom request headers (key-value editor), auto-reconnect toggle, max retries</td></tr>
+      <tr><td>Left pane — Auth tab</td><td>SseAuthPanel</td><td>Auth mode (None / Bearer / API Key / Global profile), "will send" resolved preview</td></tr>
+      <tr><td>Right pane — Events tab</td><td>SseMessageLog</td><td>Virtualised event list; search; type filter; bookmark filter; event detail; clear; export JSON</td></tr>
+      <tr><td>Right pane — Console tab</td><td>ConsolePanel</td><td>Lifecycle log (connecting, handshake, error, reconnect, closed); command input; structured + raw views</td></tr>
+      <tr><td>Tab bar</td><td>SseConnectionTabBar</td><td>Up to 8 independent SSE connections; add, close, and switch tabs</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Connection States</h2>
+  <table>
+    <thead><tr><th>State</th><th>Dot Colour</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>idle</code></td><td>Grey</td><td>No connection attempted yet</td></tr>
+      <tr><td><code>connecting</code></td><td>Yellow (pulsing)</td><td>Fetch request in progress; waiting for 200 OK + streaming body</td></tr>
+      <tr><td><code>connected</code></td><td>Green</td><td>Stream open; events arriving</td></tr>
+      <tr><td><code>disconnected</code></td><td>Grey</td><td>User disconnected cleanly</td></tr>
+      <tr><td><code>error</code></td><td>Red</td><td>Connection failed; check URL, network, CORS</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Event Log — Key Concepts</h2>
+  <table>
+    <thead><tr><th>Feature</th><th>How to Access</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Event row</td><td>Right pane → Events tab</td><td>Shows timestamp, event-type badge (colour-coded), first 120 chars of data, byte size</td></tr>
+      <tr><td>Event detail</td><td>Click any event row</td><td>Full data, type, Last-Event-ID, size, timestamp; JSON auto-detected and pretty-printed</td></tr>
+      <tr><td>Text search</td><td>Search box at top of event log</td><td>Filters data <em>and</em> event type simultaneously</td></tr>
+      <tr><td>Type filter</td><td>Dropdown — populated from received types</td><td>Dynamically lists every distinct <code>event:</code> field seen in the stream</td></tr>
+      <tr><td>Bookmark</td><td>Star (☆) icon on each row</td><td>Toggle; use the bookmark-filter button to show starred events only</td></tr>
+      <tr><td>Clear</td><td>Clear button in event log toolbar</td><td>Empties the in-memory buffer; does not disconnect</td></tr>
+      <tr><td>Export</td><td>Export button in event log toolbar</td><td>Downloads all current events as <code>sse-events-&lt;timestamp&gt;.json</code></td></tr>
+      <tr><td>Buffer limit</td><td>Automatic</td><td>Oldest events are dropped when buffer exceeds 10,000 events</td></tr>
+    </tbody>
+  </table>
+
+  <h2>SSE Wire Format (W3C Spec)</h2>
+  <p>SSE events are plain UTF-8 text. Each event is a block of colon-separated field lines terminated by a blank line:</p>
+  <pre style="background:#1a1a2e;color:#a8dadc;padding:14px;border-radius:6px;font-size:12px;overflow-x:auto;margin:10px 0;">id: 42
+event: price-update
+data: {"symbol":"BTC","price":67300}
+
+: this is a comment line — ignored by the parser
+
+retry: 5000
+data: simple message with no event type → defaults to "message"
+</pre>
+
+  <table>
+    <thead><tr><th>Field</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>event:</code></td><td>Event type name (default: <code>message</code> if omitted)</td></tr>
+      <tr><td><code>data:</code></td><td>Payload line — multiple <code>data:</code> lines are joined with <code>\n</code></td></tr>
+      <tr><td><code>id:</code></td><td>Sets the <em>Last-Event-ID</em>; replayed in reconnect requests via <code>Last-Event-ID</code> header</td></tr>
+      <tr><td><code>retry:</code></td><td>Tells the client to wait N milliseconds before reconnecting</td></tr>
+      <tr><td><code>:</code> (colon prefix)</td><td>Comment — ignored; used by servers as keep-alive pings</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Auto-Reconnect Behaviour</h2>
+  <p>When auto-reconnect is enabled (default on), SSE Studio automatically retries after a connection drop, sending the <code>Last-Event-ID</code> header so the server can resume from where it left off. You can configure the maximum number of retries (default: 10) in the Connect tab.</p>
+
+  <div class="callout-warn callout">
+    <strong>CORS and streaming</strong>
+    SSE connections require the server to return appropriate CORS headers (<code>Access-Control-Allow-Origin</code>) when connecting from a browser. If you see a network error immediately, check the browser console for a CORS rejection.
+  </div>
+
+  <h2>Console Tab</h2>
+  <p>The Console tab (right pane) records every connection lifecycle event — useful for debugging auth issues, reconnect loops, and stream health:</p>
+  <ul>
+    <li><strong>Connecting</strong> — resolved URL and auth method logged</li>
+    <li><strong>Handshake</strong> — headers sent (Accept, Cache-Control, Last-Event-ID, auth)</li>
+    <li><strong>Connected</strong> — stream open confirmation</li>
+    <li><strong>Error</strong> — error message with HTTP status if available</li>
+    <li><strong>Reconnecting</strong> — attempt number and delay</li>
+    <li><strong>Closed</strong> — whether clean or unexpected</li>
+  </ul>
+  <p>Type commands in the command input at the bottom of the console: <code>/help</code>, <code>/clear</code>, <code>/status</code>, <code>/reconnect</code>.</p>
+
+  <h2>Learning Path</h2>
+  <table>
+    <thead><tr><th>Manual</th><th>Difficulty</th><th>What You Learn</th></tr></thead>
+    <tbody>
+      <tr><td>SSE Studio — Overview <em>(this page)</em></td><td><span class="badge badge-easy">Reference</span></td><td>Full layout map, connection states, wire format reference</td></tr>
+      <tr><td>Your First SSE Connection</td><td><span class="badge badge-easy">Easy</span></td><td>Connect to an endpoint, read the status strip, configure auto-reconnect and headers</td></tr>
+      <tr><td>Event Log, Filtering &amp; Bookmarks</td><td><span class="badge badge-medium">Medium</span></td><td>Search, type filter, bookmark, export, and inspect event details</td></tr>
+      <tr><td>Authentication for Protected Streams</td><td><span class="badge badge-medium">Medium</span></td><td>Bearer tokens, API Key headers, global auth profiles, resolved-auth preview</td></tr>
+      <tr><td>Console Tab &amp; Lifecycle Logging</td><td><span class="badge badge-medium">Medium</span></td><td>Read handshake logs, run console commands, debug reconnect loops</td></tr>
+      <tr><td>Multi-Tab Streams &amp; Wire Format Deep Dive</td><td><span class="badge badge-advanced">Advanced</span></td><td>Independent streams across 8 tabs, SSE wire format, multi-line data, retry field</td></tr>
+    </tbody>
+  </table>
+
+  <footer>RedfireForge v0.6.0 · SSE Studio — Overview · August 2026</footer>
+</body>
+</html>

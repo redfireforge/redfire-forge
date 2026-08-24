@@ -5,6 +5,7 @@
  * - corePaths: Versioning, Workflow Patterns, Auth Strategies, Assertion Mastery
  * - contentPaths: Requests, Tests, API Catalog
  * - workflowPaths: 8 workflow category paths (Flow Control, API Patterns, etc.)
+ * - protocolPaths: GraphQL Studio, gRPC Studio, WebSocket Studio
  * - manualMetadata: Timestamps for "What's New" detection
  */
 
@@ -22,6 +23,9 @@ import type { TrainingPath } from './types';
 import { corePaths } from './corePaths';
 import { contentPaths } from './contentPaths';
 import { workflowPaths } from './workflowPaths';
+import { protocolPaths } from './protocolPaths';
+
+export { protocolPaths } from './protocolPaths';
 
 // Re-export metadata utilities
 export { manualMetadata, metadataByPath, getManualMetadata } from './manualMetadata';
@@ -31,4 +35,5 @@ export const trainingPaths: TrainingPath[] = [
   ...corePaths,
   ...contentPaths,
   ...workflowPaths,
+  ...protocolPaths,
 ];

@@ -341,6 +341,106 @@ export const manualMetadata: ManualMetadata[] = [
   { manualPath: 'kafka/kafka-getting-started-easy.html', addedAt: date('2026-06-06') },
   { manualPath: 'kafka/kafka-topic-explorer-medium.html', addedAt: date('2026-06-06') },
   { manualPath: 'kafka/kafka-schema-registry-medium.html', addedAt: date('2026-06-06') },
+
+  // ============================================================================
+  // GraphQL Studio Path (protocolPaths)
+  // ============================================================================
+  { manualPath: 'graphql/graphql.html', addedAt: date('2026-08-23') },
+  { manualPath: 'graphql/graphql-first-query-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'graphql/graphql-schema-explorer-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'graphql/graphql-query-builder-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'graphql/graphql-mutations-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'graphql/graphql-subscriptions-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'graphql/graphql-collections-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'graphql/graphql-auth-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'graphql/graphql-multi-tab-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'graphql/graphql-mock-server-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'graphql/graphql-code-gen-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'graphql/graphql-schema-diff-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'graphql/graphql-workflow-nodes-advanced.html', addedAt: date('2026-08-23') },
+  // gRPC Studio — added 2026-08-23
+  { manualPath: 'grpc/grpc.html', addedAt: date('2026-08-23') },
+  { manualPath: 'grpc/grpc-first-call-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'grpc/grpc-schema-management-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'grpc/grpc-server-streaming-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'grpc/grpc-client-streaming-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'grpc/grpc-bidi-streaming-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'grpc/grpc-collections-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'grpc/grpc-tls-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'grpc/grpc-mock-server-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'grpc/grpc-schema-drift-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'grpc/grpc-interpolation-advanced.html', addedAt: date('2026-08-23') },
+  // WebSocket Studio — added 2026-08-23
+  { manualPath: 'websocket/websocket.html', addedAt: date('2026-08-23') },
+  { manualPath: 'websocket/websocket-first-connection-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'websocket/websocket-multi-tab-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'websocket/websocket-protocols-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'websocket/websocket-auth-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'websocket/websocket-recording-replay-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'websocket/websocket-stats-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'websocket/websocket-tls-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'websocket/websocket-mock-server-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'websocket/websocket-schema-validation-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'websocket/websocket-diff-console-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'websocket/websocket-load-test-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'websocket/websocket-workflow-runner-advanced.html', addedAt: date('2026-08-23') },
+
+  // Environment Manager — added 2026-08-23
+  { manualPath: 'environments/environments.html', addedAt: date('2026-08-23') },
+  { manualPath: 'environments/environments-basics-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'environments/environments-variables-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'environments/environments-protocols-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'environments/environments-multi-run-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'environments/environments-additional-env-medium.html', addedAt: date('2026-08-23') },
+
+  // Results Dashboard — added 2026-08-23
+  { manualPath: 'results/results.html', addedAt: date('2026-08-23') },
+  { manualPath: 'results/results-overview-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'results/results-request-details-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'results/results-sla-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'results/results-comparison-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'results/results-explorer-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'results/results-console-timeline-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'results/results-explorer-advanced.html', addedAt: date('2026-08-23') },
+  // API Mock (HTTP) — added 2026-08-23
+  { manualPath: 'api-mock/api-mock.html', addedAt: date('2026-08-23') },
+  { manualPath: 'api-mock/api-mock-first-server-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'api-mock/api-mock-response-variants-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'api-mock/api-mock-simulate-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'api-mock/api-mock-journal-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'api-mock/api-mock-import-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'api-mock/api-mock-folder-organization-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'api-mock/api-mock-auth-gated-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'api-mock/api-mock-graphql-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'api-mock/api-mock-stateful-sequence-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'api-mock/api-mock-webhook-receiver-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'api-mock/api-mock-faults-timing-advanced.html', addedAt: date('2026-08-23') },
+  { manualPath: 'api-mock/api-mock-export-library-advanced.html', addedAt: date('2026-08-23') },
+
+  // ============================================================================
+  // SSE Studio Path
+  // ============================================================================
+  { manualPath: 'sse/sse.html', addedAt: date('2026-08-23') },
+  { manualPath: 'sse/sse-first-connection-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'sse/sse-event-filtering-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'sse/sse-auth-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'sse/sse-console-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'sse/sse-multi-tab-advanced.html', addedAt: date('2026-08-23') },
+
+  // ============================================================================
+  // Webhook Delivery Logs Path (protocolPaths)
+  // ============================================================================
+  { manualPath: 'webhooks/webhooks.html', addedAt: date('2026-08-23') },
+  { manualPath: 'webhooks/webhooks-delivery-logs-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'webhooks/webhooks-date-sort-medium.html', addedAt: date('2026-08-23') },
+  { manualPath: 'webhooks/webhooks-trigger-setup-medium.html', addedAt: date('2026-08-23') },
+  // ============================================================================
+  // Gallery Path (contentPaths)
+  // ============================================================================
+  { manualPath: 'gallery/gallery.html', addedAt: date('2026-08-23') },
+  { manualPath: 'gallery/gallery-samples-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'gallery/gallery-import-easy.html', addedAt: date('2026-08-23') },
+  { manualPath: 'gallery/gallery-training-paths-medium.html', addedAt: date('2026-08-23') },
 ];
 
 /** Map of manualPath -> ManualMetadata for fast lookup */

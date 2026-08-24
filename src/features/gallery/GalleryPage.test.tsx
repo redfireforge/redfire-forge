@@ -42,11 +42,11 @@ describe('GalleryPage', () => {
   it('renders domain filter buttons', () => {
     const { container } = render(<GalleryPage />);
     const domainBtns = container.querySelectorAll('.gallery-domain-btn');
-    expect(domainBtns.length).toBe(8); // All + 7 domains (incl. API Mock)
+    expect(domainBtns.length).toBe(11); // All + 10 domains
     const labels = Array.from(domainBtns).map(b => b.textContent);
     expect(labels.some(l => l?.includes('Requests'))).toBe(true);
-    expect(labels.some(l => l?.includes('Tests'))).toBe(true);
-    expect(labels.some(l => l?.includes('Workflows'))).toBe(true);
+    expect(labels.some(l => l?.includes('Harness'))).toBe(true);
+    expect(labels.some(l => l?.includes('Workflow'))).toBe(true);
   });
 
   it('renders gallery cards', () => {
@@ -76,9 +76,10 @@ describe('GalleryPage', () => {
     const onImportWorkflow = vi.fn();
     const { container } = render(<GalleryPage onImportWorkflow={onImportWorkflow} />);
     const domainBtns = container.querySelectorAll('.gallery-domain-btn');
-    const wfDomainBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Workflows'));
-    expect(wfDomainBtn).toBeTruthy();
-    fireEvent.click(wfDomainBtn!);
+    // Find the "Workflow" domain button (label changed from "Workflows")
+    const wfBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Workflow'));
+    expect(wfBtn).toBeTruthy();
+    fireEvent.click(wfBtn!);
     const card = container.querySelector('.gallery-card') as HTMLElement;
     fireEvent.click(card);
     fireEvent.click(screen.getByText('Load Workflow'));
@@ -126,7 +127,7 @@ describe('GalleryPage', () => {
     const onImportTest = vi.fn();
     const { container } = render(<GalleryPage onImportTest={onImportTest} />);
     const domainBtns = container.querySelectorAll('.gallery-domain-btn');
-    const testBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Tests'));
+    const testBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Harness'));
     fireEvent.click(testBtn!);
     const card = container.querySelector('.gallery-card') as HTMLElement;
     fireEvent.click(card);
@@ -144,7 +145,7 @@ describe('GalleryPage', () => {
       <GalleryPage onImportTest={onImportTest} onNavigateTo={onNavigateTo} importedSamples={importedSamples} />,
     );
     const domainBtns = container.querySelectorAll('.gallery-domain-btn');
-    const testBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Tests'));
+    const testBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Harness'));
     fireEvent.click(testBtn!);
     const card = container.querySelector('.gallery-card') as HTMLElement;
     fireEvent.click(card);
@@ -164,7 +165,7 @@ describe('GalleryPage', () => {
       <GalleryPage onImportTest={onImportTest} importedSamples={importedSamples} />,
     );
     const domainBtns = container.querySelectorAll('.gallery-domain-btn');
-    const testBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Tests'));
+    const testBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Harness'));
     fireEvent.click(testBtn!);
     const card = container.querySelector('.gallery-card') as HTMLElement;
     fireEvent.click(card);
@@ -185,7 +186,7 @@ describe('GalleryPage', () => {
       <GalleryPage onImportTest={onImportTest} importedSamples={importedSamples} />,
     );
     const domainBtns = container.querySelectorAll('.gallery-domain-btn');
-    const testBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Tests'));
+    const testBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Harness'));
     fireEvent.click(testBtn!);
     const card = container.querySelector('.gallery-card') as HTMLElement;
     fireEvent.click(card);
@@ -205,7 +206,7 @@ describe('GalleryPage', () => {
       <GalleryPage onImportTest={onImportTest} onNavigateTo={onNavigateTo} importedSamples={importedSamples} />,
     );
     const domainBtns = container.querySelectorAll('.gallery-domain-btn');
-    const testBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Tests'));
+    const testBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Harness'));
     fireEvent.click(testBtn!);
     const card = container.querySelector('.gallery-card') as HTMLElement;
     fireEvent.click(card);
@@ -229,7 +230,7 @@ describe('GalleryPage', () => {
   it('renders non-request preview as text', () => {
     const { container } = render(<GalleryPage />);
     const domainBtns = container.querySelectorAll('.gallery-domain-btn');
-    const wfBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Workflows'));
+    const wfBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Workflow'));
     fireEvent.click(wfBtn!);
     const card = container.querySelector('.gallery-card') as HTMLElement;
     fireEvent.click(card);
@@ -244,7 +245,7 @@ describe('GalleryPage', () => {
       <GalleryPage onImportTest={vi.fn()} onNavigateTo={onNavigateTo} importedSamples={importedSamples} />,
     );
     const domainBtns = container.querySelectorAll('.gallery-domain-btn');
-    const testBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Tests'));
+    const testBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Harness'));
     fireEvent.click(testBtn!);
     fireEvent.click(screen.getByText(firstTest.name));
     expect(
@@ -261,7 +262,7 @@ describe('GalleryPage', () => {
       <GalleryPage onImportTest={vi.fn()} importedSamples={importedSamples} />,
     );
     const domainBtns = container.querySelectorAll('.gallery-domain-btn');
-    const testBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Tests'));
+    const testBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Harness'));
     fireEvent.click(testBtn!);
     fireEvent.click(screen.getByText(firstTest.name));
     expect(
@@ -272,18 +273,18 @@ describe('GalleryPage', () => {
   it('does not compute sample status when importedSamples is empty', () => {
     const { container } = render(<GalleryPage onImportTest={vi.fn()} importedSamples={{}} />);
     const domainBtns = container.querySelectorAll('.gallery-domain-btn');
-    const testBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Tests'));
+    const testBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Harness'));
     fireEvent.click(testBtn!);
     fireEvent.click(container.querySelector('.gallery-card') as HTMLElement);
     expect(container.querySelector('.gallery-detail-btn-primary')?.textContent).toBe('Load Test');
   });
 
-  it('omits primary import action for assertion preset entries', () => {
+  it('omits primary import action for SSE entries (no harness handler)', () => {
     const { container } = render(<GalleryPage />);
     const domainBtns = container.querySelectorAll('.gallery-domain-btn');
-    const assertionsBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Assertions'));
-    expect(assertionsBtn).toBeTruthy();
-    fireEvent.click(assertionsBtn!);
+    const sseBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('SSE'));
+    expect(sseBtn).toBeTruthy();
+    fireEvent.click(sseBtn!);
     fireEvent.click(container.querySelector('.gallery-card') as HTMLElement);
     expect(container.querySelector('.gallery-detail-btn-primary')).toBeNull();
   });
@@ -333,16 +334,22 @@ describe('GalleryPage', () => {
     });
   });
 
-  it('calls onImportTest when a data-mapper sample is loaded', () => {
-    const onImportTest = vi.fn();
-    const { container } = render(<GalleryPage onImportTest={onImportTest} />);
+  it('calls onImportRequest when a data-mapper sample is loaded (merged into Requests)', () => {
+    const onImportRequest = vi.fn();
+    const { container } = render(<GalleryPage onImportRequest={onImportRequest} />);
     const domainBtns = container.querySelectorAll('.gallery-domain-btn');
-    const dmBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Data Mapper'));
-    expect(dmBtn).toBeTruthy();
-    fireEvent.click(dmBtn!);
-    fireEvent.click(container.querySelector('.gallery-card') as HTMLElement);
-    fireEvent.click(screen.getByText('Load Sample'));
-    expect(onImportTest).toHaveBeenCalledTimes(1);
+    const reqBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Requests'));
+    expect(reqBtn).toBeTruthy();
+    fireEvent.click(reqBtn!);
+    // Data-mapper entries are now in Requests domain; find one by searching
+    const input = screen.getByLabelText('Search gallery');
+    fireEvent.change(input, { target: { value: 'extraction' } });
+    const card = container.querySelector('.gallery-card') as HTMLElement;
+    if (card) {
+      fireEvent.click(card);
+      fireEvent.click(screen.getByText('Send Request'));
+      expect(onImportRequest).toHaveBeenCalledTimes(1);
+    }
   });
 
   afterEach(() => {

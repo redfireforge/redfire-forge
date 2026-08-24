@@ -8,6 +8,8 @@ export {
   createBodyMatchingMock,
   createPayloadFormatsMock,
   createSelectionPolicyMock,
+  createAuthGatedMock,
+  createGraphQLMock,
 } from './presets-matching';
 export { createOverlapsMock, createAmbiguousRoutesMock } from './presets-conflicts';
 export {
@@ -17,3 +19,6 @@ export {
   createPaymentMock,
 } from './presets-responses';
 export { createSimulationSuiteMock } from './presets-simulation';
+export { createOrderFlowMock } from './presets-state';
+export { createWebhookReceiverMock } from './presets-webhook';
+export { createOutboundCallbacksMock } from './presets-callbacks';

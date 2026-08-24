@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GraphQL: Multi-Tab Workflow — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } h1 { font-size: 20pt; } h2 { font-size: 16pt; } h3 { font-size: 13pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 85vh; text-align: center; }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🗂️</div>
+    <h1>Multi-Tab Workflow</h1>
+    <div class="subtitle">Medium — Training Guide</div>
+    <p>Work across multiple GraphQL endpoints simultaneously using independent tabs. Each tab maintains its own endpoint, schema cache, credentials, query, and response — so you can compare APIs or test different environments without losing context.</p>
+    <div class="meta">
+      RedfireForge v0.6.0<br />
+      Difficulty: ★★☆<br />
+      GraphQL Studio · Tab bar
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>Multi-tab support is most useful when you need to:</p>
+  <ul>
+    <li>Compare responses between <strong>staging</strong> and <strong>production</strong> endpoints</li>
+    <li>Query two different APIs simultaneously (e.g. a user service and an order service)</li>
+    <li>Test the same query with different auth credentials side-by-side</li>
+    <li>Keep a subscription open in one tab while running queries in another</li>
+    <li>Progressively build a complex workflow by designing each step in its own tab</li>
+  </ul>
+
+  <h2>2. Tab Isolation Model</h2>
+  <p>Each tab is fully independent:</p>
+  <table>
+    <tr><th>Setting</th><th>Per-tab (isolated)?</th></tr>
+    <tr><td>Endpoint URL</td><td>✅ Yes</td></tr>
+    <tr><td>Introspected schema</td><td>✅ Yes — schema is cached per endpoint per tab</td></tr>
+    <tr><td>Auth / Headers</td><td>✅ Yes</td></tr>
+    <tr><td>Query text</td><td>✅ Yes</td></tr>
+    <tr><td>Variables JSON</td><td>✅ Yes</td></tr>
+    <tr><td>Response / history</td><td>✅ Yes</td></tr>
+    <tr><td>Polling toggle</td><td>✅ Yes — each tab polls independently</td></tr>
+    <tr><td>Active subscription</td><td>✅ Yes — tabs stream independently</td></tr>
+    <tr><td>Collections</td><td>Shared — collections are global to the workspace</td></tr>
+  </table>
+
+  <h2>3. Step-by-Step Walkthrough</h2>
+
+  <h3>Step 1 — Open the First Tab</h3>
+  <p>Open GraphQL Studio. The initial tab is Tab 1. Enter the first endpoint:</p>
+  <pre>https://countries.trevorblades.com/graphql</pre>
+  <p>Click <strong>Introspect</strong>. Write and execute a query:</p>
+  <pre>query Tab1Query {
+  country(code: "US") {
+    name
+    capital
+  }
+}</pre>
+  <p>The response appears in the right pane.</p>
+
+  <h3>Step 2 — Add a Second Tab</h3>
+  <p>Click the <strong>+</strong> button at the right end of the tab bar (or press <code>Ctrl+T</code> / <code>Cmd+T</code>). A new empty tab opens, labelled <strong>Tab 2</strong>. Note that tab 1 is still intact — its endpoint, query, and response are all preserved.</p>
+
+  <h3>Step 3 — Configure a Different Endpoint in Tab 2</h3>
+  <p>In Tab 2, enter a different endpoint:</p>
+  <pre>https://api.spacex.land/graphql</pre>
+  <p>(This is the SpaceX public GraphQL API. If it's unavailable, use the same countries endpoint with a different query — the point is that tab 2 has its own endpoint.)</p>
+  <p>Click <strong>Introspect</strong>. Tab 2 loads the SpaceX schema independently — the countries schema in Tab 1 is not replaced.</p>
+
+  <h3>Step 4 — Execute in Tab 2</h3>
+  <p>In Tab 2, write and execute:</p>
+  <pre>query SpaceXLatestLaunch {
+  launchLatest {
+    id
+    mission_name
+    launch_date_utc
+    rocket {
+      rocket_name
+    }
+  }
+}</pre>
+  <p>The response appears in Tab 2's response pane.</p>
+
+  <h3>Step 5 — Switch Back to Tab 1</h3>
+  <p>Click <strong>Tab 1</strong> in the tab bar. Your countries query, variables, and the response from Step 1 are exactly as you left them — nothing was lost when you switched to Tab 2.</p>
+
+  <h3>Step 6 — Execute in Tab 1 Again</h3>
+  <p>Press <strong>Ctrl+Enter</strong> / <strong>Cmd+Enter</strong> to re-execute the query in Tab 1. The new response replaces the old one in Tab 1's pane only. Tab 2's response is unaffected.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Tabs survive page refreshes</strong>
+    GraphQL Studio persists each tab's endpoint, query, variables, and auth to local storage. If you close and reopen the app, your tabs are restored.
+  </div>
+
+  <div class="page-break"></div>
+
+  <h3>Step 7 — Per-Tab Auth Isolation</h3>
+  <p>Switch to Tab 2. Open the <strong>Auth</strong> panel and configure a Bearer Token. Switch back to Tab 1 — its auth is unaffected. This allows you to run the same query as both an authenticated user (Tab 2) and an anonymous user (Tab 1) without interfering.</p>
+
+  <h3>Step 8 — Per-Tab Polling Isolation</h3>
+  <p>If your endpoint supports polling (repeated query execution on a timer), you can enable the polling toggle independently per tab:</p>
+  <ol>
+    <li>In Tab 1, enable polling at 5-second intervals</li>
+    <li>Switch to Tab 2 — polling is off here</li>
+    <li>Tab 1 continues executing in the background; Tab 2 stays idle</li>
+  </ol>
+  <p>This is useful for dashboards where one tab refreshes automatically while you work in another.</p>
+
+  <h3>Step 9 — Close a Tab</h3>
+  <p>Click the <strong>×</strong> on Tab 2's label to close it. The tab and its contents (endpoint, query, response, auth) are removed. Tab 1 remains open and active.</p>
+
+  <h2>4. Endpoint Override vs Global Endpoint</h2>
+  <p>In some configurations there is a <em>global endpoint</em> setting (used by workflow nodes as the default). Each tab can optionally <strong>override</strong> the global endpoint with a tab-local URL. The override only affects that tab — it doesn't change what workflow nodes use.</p>
+  <p>This means your exploration tab can point at a staging server while workflow tests continue running against the global production endpoint.</p>
+
+  <h2>5. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Staging vs Production Comparison</h3>
+  <p>Open two tabs. Point Tab 1 at your staging environment and Tab 2 at production. Execute the same query in both. Compare the responses side-by-side by switching tabs.</p>
+
+  <h3>Exercise 2 — Subscription in One Tab, Queries in Another</h3>
+  <p>Start a subscription in Tab 1 (it stays connected). Open Tab 2 and run regular queries against the same or different endpoint. Confirm both tabs work concurrently — the subscription stream in Tab 1 continues while you execute queries in Tab 2.</p>
+
+  <h3>Exercise 3 — Role-Based Testing</h3>
+  <p>Assign admin credentials to Tab 1 and limited-user credentials to Tab 2 (see the Authentication tutorial). Execute a mutation in Tab 1 that Tab 2 is not authorised to perform. Confirm Tab 1 succeeds and Tab 2 returns a permission error.</p>
+
+  <footer>
+    RedfireForge Training Manual — GraphQL: Multi-Tab Workflow · August 2026
+  </footer>
+
+</body>
+</html>

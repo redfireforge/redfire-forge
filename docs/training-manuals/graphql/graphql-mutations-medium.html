@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GraphQL: Mutations — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } h1 { font-size: 20pt; } h2 { font-size: 16pt; } h3 { font-size: 13pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 85vh; text-align: center; }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">✏️</div>
+    <h1>GraphQL Mutations</h1>
+    <div class="subtitle">Medium — Training Guide</div>
+    <p>Create, update, and delete data using GraphQL mutations with typed input variables. Understand the difference between queries (reads) and mutations (writes), and learn how to inspect mutation return payloads.</p>
+    <div class="meta">
+      RedfireForge v0.6.0<br />
+      Difficulty: ★★☆<br />
+      GraphQL Studio · mutation keyword
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>While queries fetch data, mutations change it. GraphQL mutations are used for:</p>
+  <ul>
+    <li>Creating new records (<code>createUser</code>, <code>createOrder</code>)</li>
+    <li>Updating existing records (<code>updateProfile</code>, <code>setStatus</code>)</li>
+    <li>Deleting records (<code>deletePost</code>)</li>
+    <li>Side-effect operations (<code>sendEmail</code>, <code>publishDraft</code>)</li>
+  </ul>
+  <p>Unlike REST where you distinguish operations by HTTP method (POST/PUT/PATCH/DELETE), in GraphQL you <em>always</em> use HTTP POST — the operation keyword (<code>query</code> vs <code>mutation</code>) tells the server which type of operation it is.</p>
+
+  <h2>2. Mutation Syntax</h2>
+  <p>A mutation looks like a query but starts with the <code>mutation</code> keyword. The selection set is the fields you want returned from the mutated object — like a built-in refetch:</p>
+  <pre>mutation CreateUser($input: CreateUserInput!) {
+  createUser(input: $input) {
+    id
+    name
+    email
+    createdAt
+  }
+}</pre>
+  <p>Variables are passed as a separate JSON object (not inline), just like query variables:</p>
+  <pre>{
+  "input": {
+    "name": "Alice Smith",
+    "email": "alice@example.com",
+    "role": "USER"
+  }
+}</pre>
+
+  <h2>3. Step-by-Step Walkthrough</h2>
+
+  <div class="callout">
+    <strong>📋 Live API for this tutorial</strong>
+    This walkthrough uses the RedfireForge local test server. Start it with: <code>cd docker/graphql &amp;&amp; docker compose up -d</code>, then connect to <code>http://localhost:4010/graphql</code>. Alternatively, any writable GraphQL API (your own service, a sandbox environment) works.
+  </div>
+
+  <h3>Step 1 — Connect and Introspect</h3>
+  <p>Connect to your writable GraphQL endpoint and click <strong>Introspect</strong>. The mutation root type will appear in the Schema Explorer.</p>
+
+  <h3>Step 2 — Write a Create Mutation</h3>
+  <p>In the editor, write:</p>
+  <pre>mutation CreateUser($input: CreateUserInput!) {
+  createUser(input: $input) {
+    id
+    name
+    email
+  }
+}</pre>
+
+  <h3>Step 3 — Add Variables</h3>
+  <p>Open the <strong>Variables</strong> panel and enter:</p>
+  <pre>{
+  "input": {
+    "name": "Training User",
+    "email": "training@example.com"
+  }
+}</pre>
+
+  <h3>Step 4 — Execute and Inspect</h3>
+  <p>Click <strong>▶ Execute</strong>. The response will contain the newly created user with a server-assigned <code>id</code>:</p>
+  <pre>{
+  "data": {
+    "createUser": {
+      "id": "usr-8f2a1c",
+      "name": "Training User",
+      "email": "training@example.com"
+    }
+  }
+}</pre>
+  <p>Copy the <code>id</code> value — you'll use it in the next step.</p>
+
+  <h3>Step 5 — Write an Update Mutation</h3>
+  <p>Add a new tab (click <strong>+</strong> in the tab bar). Write:</p>
+  <pre>mutation UpdateUser($id: ID!, $input: UpdateUserInput!) {
+  updateUser(id: $id, input: $input) {
+    id
+    name
+    email
+    updatedAt
+  }
+}</pre>
+  <p>Variables:</p>
+  <pre>{
+  "id": "usr-8f2a1c",
+  "input": {
+    "name": "Updated Training User"
+  }
+}</pre>
+  <p>Execute. The response will show the updated <code>name</code> and a new <code>updatedAt</code> timestamp.</p>
+
+  <h3>Step 6 — Write a Delete Mutation</h3>
+  <p>In another tab or replacing the current query:</p>
+  <pre>mutation DeleteUser($id: ID!) {
+  deleteUser(id: $id) {
+    success
+    message
+  }
+}</pre>
+  <p>Variables: <code>{ "id": "usr-8f2a1c" }</code>. Execute. The response confirms deletion.</p>
+
+  <div class="page-break"></div>
+
+  <h2>4. Mutation Return Payloads</h2>
+  <p>Good GraphQL APIs return a payload object from mutations — not just a boolean. The payload typically contains:</p>
+  <ul>
+    <li>The created/updated object (so you don't need a separate fetch)</li>
+    <li>Error details if the mutation partially failed</li>
+    <li>Metadata like <code>affectedCount</code> for bulk operations</li>
+  </ul>
+  <p>Always select at least the <code>id</code> and a human-readable field from the mutation return type so you can confirm what was changed.</p>
+
+  <h2>5. Inline vs Variable Arguments</h2>
+  <table>
+    <tr><th>Style</th><th>Example</th><th>When to use</th></tr>
+    <tr><td>Inline (literal)</td><td><code>createUser(name: "Alice")</code></td><td>One-off manual testing; quick exploration</td></tr>
+    <tr><td>Variables</td><td><code>createUser(input: $input)</code> + Variables panel</td><td>Always preferred for reuse; required in Collections and Workflow nodes</td></tr>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Use variables for workflow automation</strong>
+    When you embed a mutation in a workflow node (<code>graphqlMutation</code>), the variables are injected at runtime using <code>{{variableName}}</code> syntax. This is only possible when the mutation uses variable syntax, not inline literals.
+  </div>
+
+  <h2>6. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Chain Create → Fetch</h3>
+  <p>After creating a user with a mutation, write a separate query that fetches that user by the ID returned. Verify all fields match.</p>
+
+  <h3>Exercise 2 — Batch Mutation</h3>
+  <p>If your API supports bulk operations, try a mutation that creates multiple records in one call. Observe how the return payload handles the array of results.</p>
+
+  <h3>Exercise 3 — Handle a Validation Error</h3>
+  <p>Submit a <code>createUser</code> mutation with an invalid email format (e.g. <code>"not-an-email"</code>). Inspect the <code>errors</code> array in the response. Note that the HTTP status is still <code>200</code> — GraphQL validation errors are returned inside the response body, not as HTTP error codes.</p>
+
+  <footer>
+    RedfireForge Training Manual — GraphQL: Mutations · August 2026
+  </footer>
+
+</body>
+</html>

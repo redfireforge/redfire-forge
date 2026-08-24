@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>gRPC: TLS &amp; Transport — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>gRPC: TLS &amp; Transport</h1>
+  <p><span class="badge badge-advanced">Advanced</span> &nbsp; Plaintext · TLS · mTLS · Proxy vs Native</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>The three TLS modes: Plaintext, TLS, and Mutual TLS (mTLS)</li>
+    <li>Configure the TLS modal — CA cert, client cert, client key</li>
+    <li>Use <code>rejectUnauthorized</code> to accept self-signed certificates</li>
+    <li>Understand proxy transport vs native (direct H2) transport</li>
+    <li>Switch transport mode and when to use each</li>
+  </ul>
+
+  <h2>TLS Modes Overview</h2>
+  <table>
+    <tr><th>Mode</th><th>Description</th><th>Use When</th></tr>
+    <tr><td><strong>Plaintext</strong></td><td>No encryption — raw HTTP/2 over TCP</td><td>Local dev servers without TLS (e.g., <code>localhost:50051</code>)</td></tr>
+    <tr><td><strong>TLS</strong></td><td>Server identity verified via CA cert</td><td>Public or staging servers with valid TLS certificates</td></tr>
+    <tr><td><strong>Mutual TLS (mTLS)</strong></td><td>Both sides present certificates</td><td>Zero-trust environments where the server also verifies the client</td></tr>
+  </table>
+
+  <h2>Opening the TLS Modal</h2>
+  <div class="step"><div class="step-num">1</div><div class="step-body">In gRPC Studio, enter a target host in the connection bar. The <strong>TLS badge</strong> appears next to the host field, initially showing <em>Plaintext</em>.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Click the <strong>TLS badge</strong>. The TLS configuration modal opens with three radio buttons: <em>Plaintext</em>, <em>TLS</em>, and <em>mTLS</em>, plus a set of certificate upload fields.</div></div>
+
+  <h2>Configuring TLS Mode</h2>
+
+  <h3>Plaintext (default for localhost)</h3>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Select <strong>Plaintext</strong>. All certificate fields are hidden. Click <strong>Save</strong>. Use this for local development servers that do not use TLS.</div></div>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ Plaintext and browsers</strong>
+    In browser mode, the studio proxies requests through the Express backend. The backend connects to the gRPC server directly, so TLS mode must match the <em>backend-to-server</em> connection, not the browser-to-backend connection.
+  </div>
+
+  <h3>TLS (server certificate verification)</h3>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Select <strong>TLS</strong>. Three optional fields appear: <em>CA Certificate</em>, <em>Server Name Override</em>, and <em>Reject Unauthorized</em> toggle.</div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body"><strong>CA Certificate</strong> (optional): upload a custom CA <code>.pem</code> file if the server uses a certificate signed by an internal or private CA that is not in the system trust store. Leave empty for public CAs (Let's Encrypt, DigiCert, etc.).</div></div>
+  <div class="step"><div class="step-num">6</div><div class="step-body"><strong>Reject Unauthorized</strong>: when toggled <em>on</em> (default), the connection is rejected if the server certificate is invalid or self-signed. Toggle <em>off</em> only for internal test servers with self-signed certs.</div></div>
+  <div class="step"><div class="step-num">7</div><div class="step-body"><strong>Server Name Override</strong>: override the hostname used for SNI and certificate verification. Useful when the server's certificate CN does not match the IP address or hostname you are connecting to.</div></div>
+  <div class="step"><div class="step-num">8</div><div class="step-body">Click <strong>Save</strong>. The TLS badge updates to show <em>TLS</em>.</div></div>
+
+  <h4>Connecting to grpcb.in (public TLS server)</h4>
+<pre>Target: grpcb.in:443
+Mode:   TLS
+CA:     (leave empty — uses public CA)
+Reject Unauthorized: on</pre>
+
+  <h3>Mutual TLS (mTLS)</h3>
+  <p>mTLS requires the client to present its own certificate to the server. This is used in zero-trust architectures where every service must prove its identity bidirectionally.</p>
+
+  <div class="step"><div class="step-num">9</div><div class="step-body">Select <strong>mTLS</strong>. Two additional fields appear: <em>Client Certificate</em> (<code>.pem</code>) and <em>Client Key</em> (<code>.pem</code>).</div></div>
+  <div class="step"><div class="step-num">10</div><div class="step-body">Upload the <strong>Client Certificate</strong> — this is the <code>.pem</code> file containing the client's public certificate, signed by a CA the server trusts.</div></div>
+  <div class="step"><div class="step-num">11</div><div class="step-body">Upload the <strong>Client Key</strong> — this is the corresponding private key <code>.pem</code> file. It is used to sign the TLS handshake and prove ownership of the certificate.</div></div>
+  <div class="step"><div class="step-num">12</div><div class="step-body">Optionally upload a <strong>CA Certificate</strong> if the server's certificate is not from a public CA. Click <strong>Save</strong>. The badge shows <em>mTLS</em>.</div></div>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ Private key security</strong>
+    Client key files are stored locally and never sent to any remote service other than the target gRPC server during TLS handshake. Do not use production private keys in shared or untrusted environments.
+  </div>
+
+  <h4>Generating a self-signed mTLS pair (for local testing)</h4>
+<pre># Generate a CA key and cert
+openssl req -new -x509 -keyout ca.key -out ca.pem -days 365 -nodes \
+  -subj "/CN=test-ca"
+
+# Generate client key and CSR
+openssl req -new -keyout client.key -out client.csr -nodes \
+  -subj "/CN=test-client"
+
+# Sign the client cert with the CA
+openssl x509 -req -in client.csr -CA ca.pem -CAkey ca.key \
+  -CAcreateserial -out client.pem -days 365</pre>
+
+  <h2>Transport Modes: Proxy vs Native</h2>
+  <p>gRPC Studio supports two transport modes that determine how the HTTP/2 connection is established between the studio and the gRPC server.</p>
+
+  <table>
+    <tr><th>Mode</th><th>How it works</th><th>Available in</th></tr>
+    <tr><td><strong>Proxy (default)</strong></td><td>Browser → Express backend → gRPC server. The Express server acts as a gRPC-Web proxy, translating between the browser's HTTP/1.1 and the server's H2.</td><td>Browser and desktop</td></tr>
+    <tr><td><strong>Native (direct H2)</strong></td><td>Desktop app → gRPC server directly via HTTP/2. No proxy involved. Higher performance, lower overhead.</td><td>Desktop (Tauri) only</td></tr>
+  </table>
+
+  <h3>Switching to Native Transport</h3>
+  <div class="step"><div class="step-num">13</div><div class="step-body">In the gRPC Studio connection bar, click <strong>Advanced Settings</strong> (the gear icon or <em>Advanced</em> sub-nav tab).</div></div>
+  <div class="step"><div class="step-num">14</div><div class="step-body">Under <em>Transport Mode</em>, switch from <strong>Proxy</strong> to <strong>Native</strong>. A warning banner appears if you are running in browser mode (native is not available there).</div></div>
+  <div class="step"><div class="step-num">15</div><div class="step-body">When native mode is active, the connection status badge shows a direct-connection indicator. TLS settings still apply — the desktop app handles the TLS handshake directly.</div></div>
+
+  <div class="callout callout-tip">
+    <strong>💡 When to use native transport</strong>
+    Use native transport for performance-sensitive testing, for servers that use HTTP/2 trailers in ways that gRPC-Web does not support, or for servers where you cannot add an Envoy sidecar. Use proxy transport (default) for any browser-based usage.
+  </div>
+
+  <h2>TLS Troubleshooting</h2>
+  <table>
+    <tr><th>Error</th><th>Likely Cause</th><th>Fix</th></tr>
+    <tr><td><code>UNAVAILABLE: TLS handshake failed</code></td><td>Wrong mode (Plaintext to TLS server or vice versa)</td><td>Match the TLS badge to the server's requirement</td></tr>
+    <tr><td><code>CERTIFICATE_VERIFY_FAILED</code></td><td>Self-signed cert with Reject Unauthorized on</td><td>Upload the CA cert, or toggle Reject Unauthorized off</td></tr>
+    <tr><td><code>SSL_ERROR_HANDSHAKE_FAILURE_ALERT</code></td><td>Server requires mTLS but no client cert provided</td><td>Switch to mTLS mode and upload client cert + key</td></tr>
+    <tr><td><code>ERR_SSL_VERSION_OR_CIPHER_MISMATCH</code></td><td>Incompatible TLS version (e.g., server requires TLS 1.3)</td><td>Upgrade Node.js / OpenSSL on the backend server</td></tr>
+  </table>
+
+  <h2>Practice Exercises</h2>
+  <ol>
+    <li>Connect to <code>grpcb.in:443</code> in TLS mode. Load the schema via reflection and confirm the connection succeeds.</li>
+    <li>Temporarily disable <em>Reject Unauthorized</em>, connect to a server with a self-signed cert, and confirm it connects. Then re-enable and confirm it fails.</li>
+    <li>Generate a self-signed mTLS pair using the OpenSSL commands above. Configure a local test server for mTLS and connect from gRPC Studio using the client cert and key.</li>
+    <li>(Desktop only) Switch to native transport, connect to a local gRPC server, and compare connection latency to proxy mode.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · gRPC Studio — TLS &amp; Transport · August 2026</footer>
+</body>
+</html>
