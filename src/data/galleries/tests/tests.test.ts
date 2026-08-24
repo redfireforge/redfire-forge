@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { testSampleCatalog } from './index';
 
 describe('testSampleCatalog', () => {
-  it('has 23 entries', () => {
-    expect(testSampleCatalog).toHaveLength(23);
+  it('has 29 entries', () => {
+    expect(testSampleCatalog).toHaveLength(30);
   });
 
   it('every entry has a unique id', () => {
@@ -11,9 +11,10 @@ describe('testSampleCatalog', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('every entry has domain "tests"', () => {
+  it('every entry has a valid domain (harness, graphql, grpc, or websocket)', () => {
+    const validDomains = new Set(['harness', 'graphql', 'grpc', 'websocket']);
     for (const entry of testSampleCatalog) {
-      expect(entry.domain).toBe('tests');
+      expect(validDomains.has(entry.domain)).toBe(true);
     }
   });
 
@@ -45,7 +46,8 @@ describe('testSampleCatalog', () => {
       for (const ts of fg.scenarios) {
         expect(ts.tests.length).toBeGreaterThanOrEqual(1);
         for (const test of ts.tests) {
-          expect(test.url).toMatch(/^https:\/\//);
+          // Allow wss:// for WebSocket scenarios in addition to https://
+          expect(test.url).toMatch(/^(https|wss):\/\//);
           expect(test.method).toBeTruthy();
         }
       }

@@ -1,7 +1,7 @@
 import type { Workflow } from '@workflow/types/workflow';
 import type { GalleryEntry } from '../types';
 
-export type SampleCategory = 'api-patterns' | 'flow-control' | 'event-driven' | 'orchestration' | 'performance';
+export type SampleCategory = 'api-patterns' | 'flow-control' | 'event-driven' | 'orchestration' | 'performance' | 'grpc' | 'websocket';
 
 /** @deprecated Use GalleryDifficulty from galleries/types instead. */
 export type SampleDifficulty = 'easy' | 'medium' | 'advanced';

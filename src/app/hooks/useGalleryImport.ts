@@ -227,11 +227,14 @@ export function useGalleryImport(deps: UseGalleryImportDeps) {
    */
   const onNavigateTo = useCallback((entry: GalleryEntry<unknown>) => {
     const domainTabMap: Partial<Record<typeof entry.domain, Tab>> = {
-      tests: 'scenarios',
+      harness: 'scenarios',
+      graphql: 'scenarios',
+      grpc: 'scenarios',
+      websocket: 'scenarios',
+      kafka: 'workflow',
       workflows: 'workflow',
       requests: 'requests',
       catalog: 'catalog',
-      'data-mapper': 'scenarios',
       'api-mock': 'api-mock-studio',
     };
     const tab = domainTabMap[entry.domain];

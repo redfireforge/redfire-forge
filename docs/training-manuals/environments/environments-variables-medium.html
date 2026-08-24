@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Environment Manager: Variables &amp; Overrides — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>Environment Manager: Variables &amp; Overrides</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; Global Vars · Env Overrides · <code>{{varName}}</code> Interpolation · Derived Vars</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Open the Protocol Vars modal and define a global variable for a microservice</li>
+    <li>Use <code>{{varName}}</code> in a request URL, header, and body</li>
+    <li>Open the Env Vars modal and override a global variable for a specific environment</li>
+    <li>Understand the "overridden" tag and resolution order</li>
+    <li>Identify derived variables like <code>{{host}}</code> in the Derived Vars panel</li>
+  </ul>
+
+  <h2>Prerequisite</h2>
+  <p>Complete <em>Environment Manager: Basics</em> first. You should have at least one microservice (<code>user-api</code>) deployed in <code>dev</code> and <code>staging</code> with base URLs set.</p>
+
+  <h2>Variable Resolution Order</h2>
+  <table>
+    <thead><tr><th>Priority</th><th>Type</th><th>Scope</th><th>Where Configured</th></tr></thead>
+    <tbody>
+      <tr><td>1 (highest)</td><td>Env-var override</td><td>One microservice × one environment</td><td>Env vars badge → <code>env-vars-modal</code></td></tr>
+      <tr><td>2</td><td>Global var</td><td>One microservice × all environments</td><td>Protocol vars badge → <code>protocol-vars-modal</code></td></tr>
+      <tr><td>3 (auto)</td><td>Derived var (<code>{{host}}</code>)</td><td>Computed from base URL</td><td>Read-only in Derived Vars panel</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Step-by-Step Walkthrough</h2>
+
+  <h3>Part A — Define a Global Variable</h3>
+
+  <div class="step"><div class="step-num">1</div><div class="step-body">Open the Environment Manager and expand the <em>user-api</em> card (click <strong>Configure</strong>).</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Locate the <strong>Protocol vars</strong> badge in the panel header (test ID <code>protocol-vars-badge</code>). It shows a count badge — click it to open the <strong>Protocol Vars</strong> modal (<code>protocol-vars-modal</code>).</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">The modal has two inputs: <strong>Key</strong> (<code>protocol-vars-key-input</code>) and <strong>Value</strong> (<code>protocol-vars-val-input</code>). Enter:</div></div>
+<pre>Key:   apiVersion
+Value: v2</pre>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Click <strong>Add</strong> (<code>protocol-vars-add-btn</code>). A row appears showing <code>{{apiVersion}}</code> = <code>v2</code>.</div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body">Add a second variable:</div></div>
+<pre>Key:   timeout
+Value: 30</pre>
+  <div class="step"><div class="step-num">6</div><div class="step-body">Click <strong>Save changes</strong> (<code>protocol-vars-save-btn</code>). The modal closes. The Protocol vars badge count updates to <code>2</code>.</div></div>
+
+  <div class="callout callout-tip">
+    <strong>💡 Global means "all environments"</strong>
+    <code>{{apiVersion}}</code> now resolves to <code>v2</code> in dev, staging, and prod — unless overridden per environment (shown in Part B).
+  </div>
+
+  <h3>Part B — Use {{varName}} in a Request</h3>
+
+  <div class="step"><div class="step-num">7</div><div class="step-body">Navigate to the <strong>Requests</strong> tab and open a request targeting <em>user-api</em>.</div></div>
+  <div class="step"><div class="step-num">8</div><div class="step-body">In the URL field, use both built-in and custom variables:</div></div>
+<pre>{{baseUrl}}/api/{{apiVersion}}/users</pre>
+  <div class="step"><div class="step-num">9</div><div class="step-body">With the header env selector set to <em>dev</em>, the resolved URL preview shows <code>http://localhost:3000/api/v2/users</code>.</div></div>
+  <div class="step"><div class="step-num">10</div><div class="step-body">In a request header, add:</div></div>
+<pre>X-Request-Timeout: {{timeout}}</pre>
+  <div class="step"><div class="step-num">11</div><div class="step-body">The header value resolves to <code>30</code> at runtime.</div></div>
+
+  <h3>Part C — Add an Env-Var Override</h3>
+
+  <div class="step"><div class="step-num">12</div><div class="step-body">Return to the Environment Manager and open the <em>user-api</em> configuration panel.</div></div>
+  <div class="step"><div class="step-num">13</div><div class="step-body">In the <em>staging</em> row (which must be deployed), click the <strong>Env vars</strong> badge (test ID <code>env-vars-badge-{stagingEnvId}</code>). The <strong>Environment Variables</strong> modal opens (<code>env-vars-modal</code>).</div></div>
+  <div class="step"><div class="step-num">14</div><div class="step-body">The top section shows <strong>Global variables (read-only)</strong> — you can see <code>{{apiVersion}}</code> = <code>v2</code> and <code>{{timeout}}</code> = <code>30</code> listed as references.</div></div>
+  <div class="step"><div class="step-num">15</div><div class="step-body">In the <strong>staging overrides</strong> section, type in the add row:</div></div>
+<pre>Key:   apiVersion
+Value: v3</pre>
+  <div class="step"><div class="step-num">16</div><div class="step-body">Click <strong>Add</strong> (<code>env-vars-add-btn</code>). The row appears in the override list. Notice the global <code>apiVersion</code> row now shows an <em>overridden</em> tag — confirming the staging value will shadow the global one.</div></div>
+  <div class="step"><div class="step-num">17</div><div class="step-body">Click <strong>Save changes</strong> (<code>env-vars-save-btn</code>). The modal closes. The Env vars badge for staging now shows count <code>1</code> (highlighted).</div></div>
+
+  <h3>Part D — Verify Override Resolution</h3>
+
+  <div class="step"><div class="step-num">18</div><div class="step-body">In the app header, switch to <strong>staging</strong>.</div></div>
+  <div class="step"><div class="step-num">19</div><div class="step-body">Return to the request from Part B. The resolved URL preview is now <code>http://staging.internal:3000/api/v3/users</code> — the env override for <code>apiVersion</code> took effect.</div></div>
+  <div class="step"><div class="step-num">20</div><div class="step-body">Switch back to <strong>dev</strong>. The resolved URL reverts to <code>http://localhost:3000/api/v2/users</code>.</div></div>
+
+  <h3>Part E — Explore Derived Variables</h3>
+
+  <div class="step"><div class="step-num">21</div><div class="step-body">In the protocol panel, locate the <strong>Derived Vars</strong> panel at the bottom (test ID <code>derived-vars-http</code>). It is read-only.</div></div>
+  <div class="step"><div class="step-num">22</div><div class="step-body">The panel shows <code>{{host}}</code> computed as <code>localhost</code> (for dev) — derived by stripping the protocol and port from <code>baseUrl</code>. You can use <code>{{host}}</code> in gRPC or WebSocket URLs where only the hostname is needed.</div></div>
+
+  <div class="callout">
+    <strong>Derived vars are protocol-specific</strong>
+    There is a separate derived vars panel for each protocol tab (HTTP, gRPC, GraphQL, etc.). Each derives contextual variables from that protocol's endpoint configuration.
+  </div>
+
+  <h2>Variable Reference Quick Table</h2>
+  <table>
+    <thead><tr><th>Variable</th><th>Source</th><th>Override Possible</th></tr></thead>
+    <tbody>
+      <tr><td><code>{{baseUrl}}</code></td><td>Base URL field per env</td><td>No — set directly in the URL cell</td></tr>
+      <tr><td><code>{{host}}</code></td><td>Derived from <code>baseUrl</code></td><td>No — auto-computed</td></tr>
+      <tr><td><code>{{apiVersion}}</code></td><td>Global var (Protocol Vars modal)</td><td>Yes — via Env Vars modal</td></tr>
+      <tr><td>Any custom key</td><td>Protocol Vars modal</td><td>Yes — per-env override in Env Vars modal</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Self-Practice Exercises</h2>
+  <ol>
+    <li>Add a global variable <code>clientId = webapp</code> to <em>user-api</em> and use it in a request header <code>X-Client-ID: {{clientId}}</code>.</li>
+    <li>Override <code>clientId</code> to <code>webapp-staging</code> for the <em>staging</em> environment only.</li>
+    <li>Create a second microservice <code>order-api</code> with its own <code>apiVersion</code> variable set to <code>v1</code>. Confirm that changing <em>user-api</em>'s version does not affect <em>order-api</em>.</li>
+    <li>Delete an env-var override from staging and verify the global value is restored.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · Environment Manager — Variables &amp; Overrides · August 2026</footer>
+</body>
+</html>

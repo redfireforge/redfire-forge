@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Mock: Response Variants &amp; Template Expressions — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>API Mock: Response Variants &amp; Template Expressions</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; Variants Sidebar · Selection Modes · Template Helper · Response Headers</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Add multiple response variants to a single route</li>
+    <li>Understand the four selection modes: default, condition, sequence, state</li>
+    <li>Use template expressions (<code>{{…}}</code>) in response bodies</li>
+    <li>Open the Template Helper to browse available functions</li>
+    <li>Add custom response headers and Set-Cookie values</li>
+  </ul>
+
+  <h2>Response Variants — Core Concept</h2>
+  <p>Every route has a <strong>variants sidebar</strong> (left side of the Response tab). Each variant is a named, self-contained response (status + body + headers). When a request matches the route, the server picks one variant to send based on the active <strong>selection mode</strong>.</p>
+
+  <h2>Part A — Add a Second Variant</h2>
+
+  <div class="step"><div class="step-num">1</div><div class="step-body">Select the route you want to edit. Click the <strong>Response</strong> tab in the Route Editor.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">In the variants sidebar, click <strong>+ Add Variant</strong>. A new variant appears, named <em>Variant 2</em>. Click the name to rename it to <em>500 Error</em>.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">With <em>500 Error</em> selected, set:
+    <ul style="margin-top: 6px">
+      <li>Status: <code>500</code></li>
+      <li>Content-Type: <code>application/problem+json</code></li>
+      <li>Body: <pre>{ "type": "about:blank", "title": "Internal Server Error", "status": 500 }</pre></li>
+    </ul>
+  </div></div>
+
+  <h2>Part B — Selection Modes</h2>
+
+  <div class="step"><div class="step-num">4</div><div class="step-body">Click the <strong>Behavior</strong> tab → find the <strong>Selection</strong> panel (or click the Response tab then look for the Selection sub-tab depending on your layout). You see the four mode options.</div></div>
+
+  <table>
+    <thead><tr><th>Mode</th><th>How a variant is chosen</th><th>Use case</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Default</strong></td><td>Always returns the variant marked <em>isDefault</em> (star icon in sidebar)</td><td>Single fixed response</td></tr>
+      <tr><td><strong>Condition</strong></td><td>Evaluates each variant's <em>condition</em> (body JSONPath expression); first match wins</td><td>Dispatch by request content (e.g. <code>$.operationName</code>)</td></tr>
+      <tr><td><strong>Sequence</strong></td><td>Returns variants in order, round-robins; position tracked per-server</td><td>Return different responses on successive calls</td></tr>
+      <tr><td><strong>State</strong></td><td>State machine: each variant maps to a state name; transitions driven by incoming requests</td><td>Multi-step lifecycle mocking</td></tr>
+    </tbody>
+  </table>
+
+  <div class="step"><div class="step-num">5</div><div class="step-body">For this exercise, set mode to <strong>Sequence</strong>. Now every 2nd request to this route will get the 500 error variant. Verify by starting the server, sending two requests, and watching the Transactions log alternate outcomes.</div></div>
+
+  <h2>Part C — Template Expressions in the Body</h2>
+
+  <div class="step"><div class="step-num">6</div><div class="step-body">Switch back to selection mode <strong>Default</strong>. Select the default variant and edit the body to include template expressions:
+    <pre>{
+  "id":        "{{random.uuid}}",
+  "name":      "{{faker.name.fullName}}",
+  "createdAt": "{{datetime.now}}",
+  "userId":    "{{request.headers.X-User-Id}}"
+}</pre>
+    Each <code>{{…}}</code> expression is evaluated fresh on every request.
+  </div></div>
+  <div class="step"><div class="step-num">7</div><div class="step-body">The body editor shows a live <strong>preview pane</strong> on the right — it evaluates all template expressions with sample values so you can see the rendered output before any request is made.</div></div>
+  <div class="step"><div class="step-num">8</div><div class="step-body">Click the <strong>Template Helpers</strong> button (wand or <code>{…}</code> icon above the body editor). The <strong>Template Helper Modal</strong> opens, showing all available functions grouped by category:
+    <ul style="margin-top: 6px">
+      <li><code>random.*</code> — uuid, int, float, bool</li>
+      <li><code>faker.*</code> — name, email, address, company, lorem etc.</li>
+      <li><code>request.*</code> — headers, query, path parameters, body JSONPath</li>
+      <li><code>datetime.*</code> — now, utc, epoch, format</li>
+      <li><code>variables.*</code> — values from the server Variables tab</li>
+    </ul>
+    Click any function to insert its snippet into the cursor position in the body editor.
+  </div></div>
+
+  <h2>Part D — Response Headers</h2>
+
+  <div class="step"><div class="step-num">9</div><div class="step-body">With a variant selected, find the <strong>Headers</strong> section (content sub-tab or below the body editor). Click <strong>+ Add Header</strong>.</div></div>
+  <div class="step"><div class="step-num">10</div><div class="step-body">Add the following custom response headers:
+    <ul style="margin-top: 6px">
+      <li><code>X-Request-Id</code> → <code>{{random.uuid}}</code></li>
+      <li><code>Cache-Control</code> → <code>no-cache, no-store</code></li>
+      <li><code>Access-Control-Allow-Origin</code> → <code>*</code></li>
+    </ul>
+    Headers also support template expressions.
+  </div></div>
+
+  <div class="callout callout-tip">
+    <strong>💡 Using server variables in templates</strong>
+    Go to the dock's <strong>Variables</strong> tab → add a variable named <code>apiVersion</code> with value <code>v2</code>. In your body, use <code>{{variables.apiVersion}}</code>. Update the variable at runtime without restarting the server — the next request gets the new value.
+  </div>
+
+  <h2>Template Expression Reference</h2>
+  <table>
+    <thead><tr><th>Expression</th><th>Evaluates to</th></tr></thead>
+    <tbody>
+      <tr><td><code>{{random.uuid}}</code></td><td>A new UUID on each request</td></tr>
+      <tr><td><code>{{faker.name.fullName}}</code></td><td>Random full name string</td></tr>
+      <tr><td><code>{{datetime.now}}</code></td><td>ISO 8601 timestamp at request time</td></tr>
+      <tr><td><code>{{request.headers.Authorization}}</code></td><td>Value of Authorization header from the incoming request</td></tr>
+      <tr><td><code>{{request.query.page}}</code></td><td>Query string parameter <code>page</code></td></tr>
+      <tr><td><code>{{request.pathParam.id}}</code></td><td>Path parameter <code>id</code> (for routes with <code>/pets/:id</code>)</td></tr>
+      <tr><td><code>{{request.body.$.name}}</code></td><td>JSONPath into the request body</td></tr>
+      <tr><td><code>{{variables.apiVersion}}</code></td><td>Server variable <code>apiVersion</code> from the Variables tab</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Self-Practice Exercises</h2>
+  <ol>
+    <li>Create a route <code>GET /users/:id</code>. Add two variants: a 200 OK with <code>{"id": "{{request.pathParam.id}}", "name": "{{faker.name.fullName}}"}</code>, and a 404 with <code>{"error": "user not found"}</code>. Set mode to Sequence and observe alternating responses.</li>
+    <li>Use the Template Helper Modal to find a <code>faker.internet.email</code> function. Insert it into a response body.</li>
+    <li>Set a server variable <code>featureFlag</code> to <code>enabled</code> in the Variables tab. Echo it back in a response: <code>{"feature": "{{variables.featureFlag}}"}</code>. Change the variable while the server is running and observe the next request gets the new value.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · API Mock Studio — Response Variants &amp; Templates · August 2026</footer>
+</body>
+</html>

@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SSE Studio — Multi-Tab Streams &amp; Wire Format — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; padding: 14px; border-radius: 6px; font-size: 12px; overflow-x: auto; margin: 10px 0; font-family: 'JetBrains Mono', monospace; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f57f17; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 14px; margin: 14px 0; align-items: flex-start; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>Multi-Tab Streams &amp; SSE Wire Format</h1>
+  <p><span class="badge badge-advanced">Advanced</span> &nbsp; Tab management · Independent streams · Per-tab state · SSE wire format · Multi-line data · Retry field</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Open multiple SSE connection tabs (up to 8) with independent state</li>
+    <li>Configure different URLs, auth, and headers per tab</li>
+    <li>Compare event streams across tabs side by side</li>
+    <li>Understand per-tab persistence (state survives page refresh)</li>
+    <li>Read the W3C SSE wire format in depth: event fields, multi-line data, comment keep-alives, retry</li>
+    <li>Write raw SSE output compatible with the studio's parser</li>
+  </ul>
+
+  <h2>Multi-Tab Connection Management</h2>
+
+  <h3>Tab Bar</h3>
+  <p>The SSE Studio tab bar runs across the top of the studio. Each tab represents an independent SSE connection with its own URL, headers, auth, event buffer, and console log. Tabs are completely isolated — disconnecting one tab has no effect on others.</p>
+
+  <table>
+    <thead><tr><th>Operation</th><th>How</th></tr></thead>
+    <tbody>
+      <tr><td>Add a tab</td><td>Click the <strong>+</strong> button in the tab bar (disabled when 8 tabs are open)</td></tr>
+      <tr><td>Switch tabs</td><td>Click any tab label</td></tr>
+      <tr><td>Close a tab</td><td>Click the <strong>×</strong> on the tab label; a confirmation prompt appears if the tab is connected</td></tr>
+      <tr><td>Rename a tab</td><td>The tab label is auto-derived from the connected URL (host + path); it updates when you connect</td></tr>
+      <tr><td>Max open tabs</td><td>8 — beyond this the + button is disabled</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Step-by-Step Walkthrough</h2>
+
+  <h3>Part 1 — Running Two Simultaneous Streams</h3>
+  <div class="step"><div class="step-num">1</div><div class="step-body">In Tab 1 (the existing tab), enter <code>https://sse.dev/test</code> and click Connect.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Click the <strong>+</strong> button to open Tab 2. The left pane resets to an empty connection config — Tab 2 is completely independent of Tab 1.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">In Tab 2, enter a different SSE URL, for example <code>https://sse.dev/test</code> with a different path or a local endpoint you have running. Click Connect.</div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Switch between Tab 1 and Tab 2 by clicking the tab labels. Each tab retains its own event log and console — events from Tab 1 do not appear in Tab 2 and vice versa.</div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body">Check the state dots on each tab label — both should show green (connected) simultaneously. This confirms that both streams are running in parallel.</div></div>
+  <div class="step"><div class="step-num">6</div><div class="step-body">Disconnect Tab 2 by switching to it and clicking Disconnect. Tab 1 remains connected and unaffected.</div></div>
+
+  <h3>Part 2 — Different Auth Per Tab</h3>
+  <div class="step"><div class="step-num">7</div><div class="step-body">A common real-world pattern: Tab 1 connects to the production SSE stream (with production credentials), Tab 2 connects to the staging stream (with staging credentials). Each tab's Auth tab configuration is stored independently.</div></div>
+  <div class="step"><div class="step-num">8</div><div class="step-body">In Tab 2, go to the Auth tab and set a different Bearer token than Tab 1. Connect both tabs. Use the Console tab on each to verify that the handshake entries show the correct per-tab auth headers.</div></div>
+
+  <h3>Part 3 — Tab Persistence</h3>
+  <div class="step"><div class="step-num">9</div><div class="step-body">With multiple tabs open and connected, perform a full browser page refresh (<kbd>F5</kbd> / <kbd>Cmd+R</kbd>).</div></div>
+  <div class="step"><div class="step-num">10</div><div class="step-body">After the page reloads, SSE Studio restores all tabs with their URLs, headers, and auth configuration intact. Event buffers are <em>not</em> persisted (they are cleared on reload), but the connection configuration is fully restored.</div></div>
+  <div class="step"><div class="step-num">11</div><div class="step-body">You need to manually reconnect each tab after a page reload — connections are not automatically re-established.</div></div>
+
+  <div class="callout-tip callout">
+    <strong>Tab naming tip</strong>
+    Tab labels are automatically set to the host + path of the connected URL. If you connect Tab 1 to <code>https://sse.dev/test</code> and Tab 2 to <code>https://api.example.com/events</code>, the labels make it easy to identify which stream is which at a glance.
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>SSE Wire Format — Deep Dive</h2>
+
+  <h3>How SSE Works at the Transport Level</h3>
+  <p>When SSE Studio connects, it sends a standard HTTP GET request with two mandatory headers:</p>
+  <pre>GET /api/events HTTP/1.1
+Accept: text/event-stream
+Cache-Control: no-cache</pre>
+  <p>The server responds with <code>Content-Type: text/event-stream</code> and keeps the body open, writing event blocks as they become available. Each event block is terminated by a <strong>blank line</strong>.</p>
+
+  <h3>Event Fields</h3>
+  <table>
+    <thead><tr><th>Field</th><th>Syntax</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>event:</code></td><td><code>event: price-update</code></td><td>Names the event type. If omitted, defaults to <code>message</code>. Shown as the type badge in the event log.</td></tr>
+      <tr><td><code>data:</code></td><td><code>data: {"price":67300}</code></td><td>The payload. Multiple <code>data:</code> lines in a single event block are joined with <code>\n</code>.</td></tr>
+      <tr><td><code>id:</code></td><td><code>id: evt-1042</code></td><td>Sets the <em>Last-Event-ID</em>. Sent in the <code>Last-Event-ID</code> header on reconnect so the server can resume from this point.</td></tr>
+      <tr><td><code>retry:</code></td><td><code>retry: 5000</code></td><td>Tells the studio to wait 5000 ms before reconnecting if the stream drops. Overrides the default 3000 ms.</td></tr>
+      <tr><td><code>:</code></td><td><code>: keep-alive ping</code></td><td>Comment — ignored by the parser. Servers send these to prevent proxy timeouts on long-lived connections.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>A Complete SSE Stream Example</h3>
+  <pre>: Welcome to the price feed
+
+retry: 5000
+
+id: 1
+event: price-update
+data: {"symbol":"BTC","price":67300}
+
+id: 2
+event: price-update
+data: {"symbol":"ETH","price":3450}
+
+id: 3
+event: heartbeat
+data: ping
+
+: keep-alive comment — ignored
+
+id: 4
+event: announcement
+data: Part 1 of a multi-line message
+data: Part 2 — joined with a newline character
+data: Part 3 — also joined
+
+</pre>
+
+  <h3>Multi-Line Data</h3>
+  <p>Multiple <code>data:</code> lines within a single event block are concatenated with <code>\n</code>. This is commonly used to embed pre-formatted text or JSON split across lines:</p>
+  <pre>event: status-report
+data: {
+data:   "service": "payments",
+data:   "status": "degraded",
+data:   "latency_p99_ms": 2400
+data: }</pre>
+  <p>In the event detail panel, this appears as a single data string with embedded newlines. If the concatenated result is valid JSON, the studio auto-detects it and pretty-prints it.</p>
+
+  <div class="callout-warn callout">
+    <strong>Null character in id: field</strong>
+    If an <code>id:</code> field value contains a null character (<code>\0</code>), the W3C spec requires that the id is silently ignored. The studio implements this rule — the Last-Event-ID is not updated for invalid id values.
+  </div>
+
+  <h3>Reconnect Resume Flow</h3>
+  <p>When the studio reconnects after a drop, it includes the Last-Event-ID from the last successfully processed event:</p>
+  <pre>GET /api/events HTTP/1.1
+Accept: text/event-stream
+Cache-Control: no-cache
+Last-Event-ID: evt-1042</pre>
+  <p>The server uses this to skip already-delivered events and resume the stream from the correct position. This is why persistent event IDs are critical for resumable feeds. If the server sends no <code>id:</code> fields, reconnects always start from the current tail of the stream — potentially missing events that arrived during the disconnection window.</p>
+
+  <h3>Keep-Alive Comments</h3>
+  <p>Many reverse proxies and CDNs will close idle HTTP connections after 60–120 seconds. SSE servers work around this by sending a comment-only line every 15–30 seconds:</p>
+  <pre>: ping</pre>
+  <p>This resets the idle timer without creating an event in the log. You may notice these in the raw HTTP stream but you will not see them in the SSE Studio event log — the parser correctly skips all comment lines.</p>
+
+  <h2>Writing an SSE-Compatible Server Endpoint</h2>
+  <p>A minimal Node.js/Express SSE endpoint:</p>
+  <pre>app.get('/events', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.flushHeaders();
+
+  let id = 0;
+  const timer = setInterval(() => {
+    id++;
+    res.write(`id: ${id}\n`);
+    res.write(`event: update\n`);
+    res.write(`data: ${JSON.stringify({ tick: id, ts: Date.now() })}\n\n`);
+  }, 1000);
+
+  // Keep-alive comment every 30s
+  const ping = setInterval(() => res.write(': ping\n\n'), 30000);
+
+  req.on('close', () => {
+    clearInterval(timer);
+    clearInterval(ping);
+  });
+});</pre>
+
+  <h2>Practice Exercises</h2>
+  <ol>
+    <li>Open 3 tabs, each connected to a different SSE URL. Verify that closing one tab does not affect the others.</li>
+    <li>Find a stream that sends <code>id:</code> fields. Disconnect and reconnect — confirm the <code>Last-Event-ID</code> header appears in the Console handshake entry with the last id value you received.</li>
+    <li>Write a local SSE endpoint that sends events with and without <code>id:</code> fields. Connect SSE Studio and observe the Last-Event-ID value in the status strip — does it stop updating when you stop sending ids?</li>
+    <li>Send a multi-line data event from your local endpoint. Click the event in the log and verify the detail panel joins the lines correctly with newlines.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · SSE Studio — Multi-Tab Streams &amp; Wire Format · August 2026</footer>
+</body>
+</html>

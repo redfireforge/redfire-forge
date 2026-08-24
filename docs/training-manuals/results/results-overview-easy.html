@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Results Dashboard: Reading the Overview Tab — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>Results Dashboard: Reading the Overview Tab</h1>
+  <p><span class="badge badge-easy">Easy</span> &nbsp; Metrics Cards · SLA Bar · Histogram · Export · Delete</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Navigate to the Results Dashboard and locate the run selector</li>
+    <li>Use run type filter tabs to switch between all / test / workflow runs</li>
+    <li>Read every metric on the Overview tab and understand what each tells you</li>
+    <li>Interpret the SLA compact bar status at a glance</li>
+    <li>Read the response-time histogram distribution</li>
+    <li>Export a run as JSON or CSV and generate an HTML report</li>
+    <li>Delete an unwanted run</li>
+  </ul>
+
+  <h2>Step-by-Step Walkthrough</h2>
+
+  <h3>Part A — Open Results and Select a Run</h3>
+
+  <div class="step"><div class="step-num">1</div><div class="step-body">Click <strong>Results</strong> in the left sidebar. The Results Dashboard opens showing the most recent run already selected.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">At the top of the page, look at the <strong>run type filter tabs</strong>:<br>
+    <code>All Runs (N)</code> &nbsp;|&nbsp; <code>🧪 Test Runs (N)</code> &nbsp;|&nbsp; <code>⚡ Workflow Runs (N)</code><br>
+    Click <strong>🧪 Test Runs</strong> to filter to only test execution runs.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Click the <strong>run selector dropdown</strong> (the large button showing timestamp and TPS). It opens a listbox. Each entry shows:<br>
+    <code>★</code> (if baseline-marked) &nbsp; <code>🧪</code>/<code>⚡</code> (run type) &nbsp; SLA dot (🟢🔴🟡) &nbsp; R:dot (regression) &nbsp; timestamp · project · service · env · total requests · TPS
+  </div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Select any run. The content area updates to show that run's data.</div></div>
+
+  <h3>Part B — Read the Overview Tab Metrics</h3>
+
+  <div class="step"><div class="step-num">5</div><div class="step-body">Confirm the <strong>Overview</strong> tab is active (it is the default). You will see two rows of metric cards.</div></div>
+  <div class="step"><div class="step-num">6</div><div class="step-body">The first row — <strong>Throughput card</strong> (blue accent): shows TPS (transactions per second), TPM (per minute), TPH (per hour), TPD (per day). All four are computed from the same TPS figure.</div></div>
+  <div class="step"><div class="step-num">7</div><div class="step-body">Still first row: <strong>Avg Response</strong> (mean HTTP request duration), <strong>Min</strong>, <strong>Max</strong>. If this is a workflow run, an additional <strong>Avg Iteration</strong> card appears — this measures total time across all nodes in a single workflow pass, not just HTTP.</div></div>
+  <div class="step"><div class="step-num">8</div><div class="step-body">The second row (test ID <code>results-metrics-latency-row</code>): <strong>P50 · P95 · P99 · P99.9</strong> percentile response times. These are your latency distribution headline numbers. Then: <strong>Error Rate %</strong> (red if &gt; 0).</div></div>
+
+  <div class="callout">
+    <strong>ⓘ Hover the ⓘ icon</strong>
+    The Avg Response and Error Rate cards have an ⓘ tooltip. Avg Response tooltip clarifies this is HTTP-only timing. Error Rate tooltip explains it includes HTTP 4xx/5xx, timeouts, and transport errors — including intentional negative tests.
+  </div>
+
+  <h3>Part C — Read the SLA Compact Bar</h3>
+
+  <div class="step"><div class="step-num">9</div><div class="step-body">Below the metric cards, a one-line <strong>SLA bar</strong> shows the overall status: <code>🟢 PASS</code>, <code>🔴 FAIL</code>, <code>🟡 WARN</code>, or <em>No SLA targets defined</em>.</div></div>
+  <div class="step"><div class="step-num">10</div><div class="step-body">The bar also shows a count: <em>N checks: N passed, N warned, N failed</em> and the scope (e.g. 🔒 This Run or 📋 Workflow).</div></div>
+  <div class="step"><div class="step-num">11</div><div class="step-body">If targets exist, an <strong>Edit Targets</strong> button appears on the bar. Click it to open the SLA Target Editor inline (see the SLA manual for full details).</div></div>
+
+  <h3>Part D — Read the Response Time Histogram</h3>
+
+  <div class="step"><div class="step-num">12</div><div class="step-body">Below the SLA bar, a <strong>Response Time Histogram</strong> shows the distribution of all request durations in buckets (ms). X-axis = response time buckets, Y-axis = request count.</div></div>
+  <div class="step"><div class="step-num">13</div><div class="step-body">Use the histogram to spot bi-modal distributions (two humps = two populations of requests with different speeds, e.g. cached vs uncached) or long tails (a few very slow requests dragging P99 high).</div></div>
+
+  <h3>Part E — Export a Run</h3>
+
+  <div class="step"><div class="step-num">14</div><div class="step-body">In the header action bar, click <strong>Export JSON</strong> (test ID <code>results-export-json-btn</code>). A JSON file downloads containing the full run record including all request results, summary, config, and metadata.</div></div>
+  <div class="step"><div class="step-num">15</div><div class="step-body">Click <strong>Export CSV</strong>. A CSV file downloads listing each request result row with columns: id, scenario, status, passed, response time, assertions.</div></div>
+  <div class="step"><div class="step-num">16</div><div class="step-body">Click <strong>Generate Report ▾</strong> to open the report menu. Select <strong>HTML Report</strong>. A self-contained HTML report file downloads. Open it in any browser — no RedfireForge required.</div></div>
+
+  <h3>Part F — Delete a Run</h3>
+
+  <div class="step"><div class="step-num">17</div><div class="step-body">Click the red <strong>Delete</strong> button. The run is removed from storage immediately. The next available run is auto-selected.</div></div>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ Deletion is permanent</strong>
+    There is no undo for run deletion. If a run is marked as a baseline (★), deleting it also removes the baseline mark.
+  </div>
+
+  <h2>Metric Reference Card</h2>
+  <table>
+    <thead><tr><th>Metric</th><th>Meaning</th><th>Good when…</th></tr></thead>
+    <tbody>
+      <tr><td>TPS</td><td>Successful transactions per second</td><td>High, stable</td></tr>
+      <tr><td>Avg Response</td><td>Mean HTTP request round-trip ms</td><td>Low, consistent</td></tr>
+      <tr><td>P95 / P99</td><td>95th / 99th percentile latency</td><td>Close to Avg (no long tail)</td></tr>
+      <tr><td>Error Rate</td><td>% of requests that failed (4xx/5xx/timeout/transport)</td><td>0% (unless negative tests are expected)</td></tr>
+      <tr><td>Avg Iteration</td><td>Workflow-only: total ms for one full workflow pass</td><td>Low; compare across runs</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Self-Practice Exercises</h2>
+  <ol>
+    <li>Switch to <strong>⚡ Workflow Runs</strong> — if any exist, note the extra <em>Avg Iteration</em> card and <em>Workflow Summary</em> section. Compare Avg Response vs Avg Iteration.</li>
+    <li>Select an older run from the dropdown. Note how the SLA dot and regression dot (R:) in the run label changed.</li>
+    <li>Generate a <strong>Markdown Report</strong> and open it in a Markdown viewer. Identify which sections match the metric cards you read on screen.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · Results Dashboard — Reading the Overview Tab · August 2026</footer>
+</body>
+</html>

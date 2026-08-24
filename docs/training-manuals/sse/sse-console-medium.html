@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SSE Studio — Console Tab &amp; Lifecycle Logging — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; padding: 14px; border-radius: 6px; font-size: 12px; overflow-x: auto; margin: 10px 0; font-family: 'JetBrains Mono', monospace; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f57f17; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 14px; margin: 14px 0; align-items: flex-start; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>Console Tab &amp; Lifecycle Logging</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; Console tab · Lifecycle entries · Structured vs raw view · /help /clear /status /reconnect commands</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Switch to the Console tab (right pane) and understand what it records</li>
+    <li>Read lifecycle log entries: connecting, handshake, connected, error, reconnecting, closed</li>
+    <li>Toggle between Structured view and Raw view</li>
+    <li>Use console commands: <code>/help</code>, <code>/clear</code>, <code>/status</code>, <code>/reconnect</code></li>
+    <li>Use the console to debug a failing connection</li>
+  </ul>
+
+  <h2>Opening the Console Tab</h2>
+  <div class="step"><div class="step-num">1</div><div class="step-body">In the right pane, click the <strong>Console</strong> tab (second tab, after <strong>Events</strong>). The console panel loads — if no connection has been made yet, you see an empty state message.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">The console has two sections:
+    <ul>
+      <li><strong>Entry list</strong> — scrollable log of lifecycle events, above</li>
+      <li><strong>Command input</strong> — text field at the very bottom for typing console commands</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Two view mode buttons appear in the console toolbar: <strong>Structured</strong> and <strong>Raw</strong>. Start in Structured view.</div></div>
+
+  <h2>Lifecycle Entry Types</h2>
+  <table>
+    <thead><tr><th>Entry</th><th>When It Appears</th><th>What It Contains</th></tr></thead>
+    <tbody>
+      <tr><td>Connecting</td><td>Immediately on connect</td><td>Resolved URL (after env var substitution), auth method being used</td></tr>
+      <tr><td>Handshake</td><td>After the HTTP response headers arrive</td><td>All request headers sent: <code>Accept: text/event-stream</code>, <code>Cache-Control: no-cache</code>, any auth headers, any custom headers, and <code>Last-Event-ID</code> if resuming</td></tr>
+      <tr><td>Connected</td><td>Stream body starts (200 OK + stream open)</td><td>Confirmation message</td></tr>
+      <tr><td>Error</td><td>Connection failure or non-200 response</td><td>HTTP status code (if available), error message</td></tr>
+      <tr><td>Reconnecting</td><td>Before each auto-reconnect attempt</td><td>Attempt number, retry delay in milliseconds</td></tr>
+      <tr><td>Closed</td><td>Stream ends (clean or unexpected)</td><td>Whether the close was user-initiated or server-initiated</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Step-by-Step Walkthrough</h2>
+
+  <h3>Part 1 — Observing a Full Lifecycle</h3>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Make sure the Console tab is visible in the right pane. Enter <code>https://sse.dev/test</code> in the URL field and click <strong>Connect</strong>.</div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body">Watch the console entries appear in sequence:
+    <ol>
+      <li><strong>Connecting</strong> — shows the resolved URL</li>
+      <li><strong>Handshake</strong> — shows request headers (<code>Accept: text/event-stream</code>, <code>Cache-Control: no-cache</code>)</li>
+      <li><strong>Connected</strong> — confirms the stream is open</li>
+    </ol>
+  </div></div>
+  <div class="step"><div class="step-num">6</div><div class="step-body">Click <strong>Disconnect</strong>. A <strong>Closed</strong> entry appears in the console, marked as user-initiated.</div></div>
+  <div class="step"><div class="step-num">7</div><div class="step-body">Reconnect, then switch back to the <strong>Events</strong> tab to verify events are still arriving — then switch back to Console. The console continues logging in the background regardless of which tab is visible.</div></div>
+
+  <h3>Part 2 — Structured vs Raw View</h3>
+  <div class="step"><div class="step-num">8</div><div class="step-body">In the Console toolbar, click <strong>Structured</strong>. Each entry is displayed with a type icon, colour, and formatted content — easy to scan visually.</div></div>
+  <div class="step"><div class="step-num">9</div><div class="step-body">Click <strong>Raw</strong>. The same entries are rendered as plain text lines — useful for copy-pasting into bug reports or external log tools.</div></div>
+  <div class="step"><div class="step-num">10</div><div class="step-body">Switch back to Structured for the rest of this walkthrough.</div></div>
+
+  <h3>Part 3 — Console Commands</h3>
+  <div class="step"><div class="step-num">11</div><div class="step-body">Click the command input at the bottom of the console. Type <code>/help</code> and press <strong>Enter</strong>. A help entry appears in the log listing all available commands.</div></div>
+
+  <table>
+    <thead><tr><th>Command</th><th>What It Does</th></tr></thead>
+    <tbody>
+      <tr><td><code>/help</code></td><td>Lists all available console commands with descriptions</td></tr>
+      <tr><td><code>/clear</code></td><td>Clears all console entries; does not affect the event log or the connection</td></tr>
+      <tr><td><code>/status</code></td><td>Prints the current connection state, uptime, event count, and Last-Event-ID to the console</td></tr>
+      <tr><td><code>/reconnect</code></td><td>Disconnects and immediately reconnects (useful to force a fresh handshake after changing auth or headers)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="step"><div class="step-num">12</div><div class="step-body">While connected, type <code>/status</code> and press Enter. A status entry appears showing the current connection state, elapsed time, event count, and Last-Event-ID value.</div></div>
+  <div class="step"><div class="step-num">13</div><div class="step-body">Go to the Auth tab and change the auth type (e.g. add a Bearer token). Return to the Console tab and type <code>/reconnect</code>. The studio disconnects and immediately reconnects with the new auth — the new handshake entry in the console should include the updated Authorization header.</div></div>
+  <div class="step"><div class="step-num">14</div><div class="step-body">Type <code>/clear</code>. All console entries are removed. The connection stays open. New lifecycle entries will appear for any subsequent state changes.</div></div>
+
+  <h3>Part 4 — Debugging a Failed Connection</h3>
+  <div class="step"><div class="step-num">15</div><div class="step-body">Switch to the URL field and deliberately enter an invalid URL, e.g. <code>https://does-not-exist.example.com/sse</code>. Click Connect.</div></div>
+  <div class="step"><div class="step-num">16</div><div class="step-body">The Console shows:
+    <ol>
+      <li>Connecting — with the invalid URL</li>
+      <li>Error — with a network error message (e.g. "Failed to fetch")</li>
+      <li>If auto-reconnect is on: Reconnecting (attempt 1, 2, …) entries appear at the configured retry interval</li>
+    </ol>
+  </div></div>
+  <div class="step"><div class="step-num">17</div><div class="step-body">Click Disconnect to stop the retry loop. Fix the URL and reconnect. Verify the Console shows a successful handshake.</div></div>
+  <div class="step"><div class="step-num">18</div><div class="step-body">A 401 Unauthorized response appears in the console as an Error entry with HTTP status. This tells you the endpoint is reachable but your auth is wrong — check the Handshake entry to see which headers were sent.</div></div>
+
+  <h2>Console Debugging Cheatsheet</h2>
+  <table>
+    <thead><tr><th>Symptom</th><th>Console tells you</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr><td>Stuck at "Connecting"</td><td>Connecting entry present, no Handshake</td><td>Network/firewall issue or server not reachable; check URL</td></tr>
+      <tr><td>Immediate error</td><td>Error entry with "Failed to fetch"</td><td>CORS not configured, network unreachable, or DNS failure</td></tr>
+      <tr><td>401 error</td><td>Error with HTTP 401; Handshake shows headers sent</td><td>Auth token wrong or expired; update in Auth tab and /reconnect</td></tr>
+      <tr><td>Infinite reconnect loop</td><td>Repeated Reconnecting entries</td><td>Server is down or rejecting; check URL and server logs</td></tr>
+      <tr><td>Unexpected close</td><td>Closed (server-initiated)</td><td>Server closed the stream; check server logs for errors</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout-tip callout">
+    <strong>Tip: Use /status during live sessions</strong>
+    Run <code>/status</code> periodically during long-running streams to verify the connection is still healthy and the Last-Event-ID is advancing — a stalled Last-Event-ID while the server claims to be sending events can indicate a parsing issue.
+  </div>
+
+  <h2>Practice Exercises</h2>
+  <ol>
+    <li>Connect to a valid SSE endpoint, run <code>/status</code>, and screenshot the output. Note the uptime and event count.</li>
+    <li>Change the auth to Bearer with a fake token, run <code>/reconnect</code>, and find the Authorization header in the new Handshake entry.</li>
+    <li>Trigger an error by using an invalid URL. Count how many reconnect attempts the studio makes before you stop it.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · SSE Studio — Console Tab &amp; Lifecycle Logging · August 2026</footer>
+</body>
+</html>

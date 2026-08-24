@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GraphQL: Workflow Nodes — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } h1 { font-size: 20pt; } h2 { font-size: 16pt; } h3 { font-size: 13pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 85vh; text-align: center; }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🔗</div>
+    <h1>GraphQL Workflow Nodes</h1>
+    <div class="subtitle">Advanced — Training Guide</div>
+    <p>Build automated multi-step workflows that query, mutate, subscribe to, and validate GraphQL APIs. Learn all five GraphQL workflow node types and chain them into powerful end-to-end test and integration scenarios.</p>
+    <div class="meta">
+      RedfireForge v0.6.0<br />
+      Difficulty: ★★★<br />
+      Workflow Designer · GraphQL nodes
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>GraphQL Studio is great for interactive exploration, but when you need to run a sequence of operations automatically — create a user, fetch it back, assert the fields match, then delete it — you need the Workflow Designer. GraphQL workflow nodes bring the full power of the studio into automated, repeatable workflows.</p>
+  <p>Common patterns:</p>
+  <ul>
+    <li><strong>CRUD flows</strong>: create → read → update → assert → delete</li>
+    <li><strong>Auth flows</strong>: login mutation → extract token → use token in subsequent queries</li>
+    <li><strong>Schema watchdog</strong>: scheduled introspect → assert schema fingerprint unchanged</li>
+    <li><strong>Subscription drain</strong>: subscribe → collect N events → assert all events match shape</li>
+  </ul>
+
+  <h2>2. GraphQL Node Types</h2>
+  <table>
+    <tr><th>Node type</th><th>Operation</th><th>Primary use</th></tr>
+    <tr><td><code>graphqlQuery</code></td><td>Query</td><td>Fetch data; extract values for downstream nodes</td></tr>
+    <tr><td><code>graphqlMutation</code></td><td>Mutation</td><td>Write data; extract created/updated object IDs</td></tr>
+    <tr><td><code>graphqlSubscription</code></td><td>Subscription</td><td>Collect streaming events; bounded by <code>stopAfterMessages</code></td></tr>
+    <tr><td><code>graphqlIntrospect</code></td><td>Introspection</td><td>Fetch schema; compute fingerprint; compare versions</td></tr>
+    <tr><td><code>graphqlAssert</code></td><td>Assertion</td><td>Validate response values; fail workflow if assertion fails</td></tr>
+  </table>
+
+  <h2>3. Step-by-Step Walkthrough</h2>
+
+  <h3>Step 1 — Import the Health Check Sample</h3>
+  <p>Open the <strong>Gallery</strong> (gallery icon in the left sidebar). In the search box, type <code>health</code>. Find <strong>"GraphQL Health Check"</strong> and click <strong>Import</strong>. The workflow canvas opens with 5 nodes pre-configured.</p>
+  <p>The sample workflow:</p>
+  <ol>
+    <li><strong>Start</strong> — entry point, initialises variables</li>
+    <li><strong>graphqlIntrospect</strong> — fetches the schema and extracts the type count</li>
+    <li><strong>graphqlQuery</strong> — executes a health-check query</li>
+    <li><strong>graphqlAssert</strong> — asserts the response matches expectations</li>
+    <li><strong>End</strong> — marks completion; emits workflow result</li>
+  </ol>
+
+  <h3>Step 2 — Inspect the graphqlIntrospect Node</h3>
+  <p>Click on the <strong>graphqlIntrospect</strong> node to open its configuration panel. The fields you will see:</p>
+  <table>
+    <tr><th>Field</th><th>Value in sample</th><th>Purpose</th></tr>
+    <tr><td><code>endpoint</code></td><td><code>{{gqlEndpoint}}</code></td><td>Variable reference — inherited from workflow config</td></tr>
+    <tr><td><code>outputBindings</code></td><td><code>{ "typeCount": "$.data.__schema.types.length" }</code></td><td>Extracts the type count to a named variable</td></tr>
+  </table>
+  <p>The <code>outputBindings</code> field uses JSONPath expressions to extract values from the introspection result and bind them to variables available to downstream nodes.</p>
+
+  <h3>Step 3 — Inspect the graphqlQuery Node</h3>
+  <p>Click on the <strong>graphqlQuery</strong> node. Its configuration:</p>
+  <pre>{
+  "endpoint": "{{gqlEndpoint}}",
+  "query": "query HealthCheck { __typename }",
+  "headers": {
+    "Authorization": "Bearer {{authToken}}"
+  },
+  "extractionRules": [
+    {
+      "path": "$.data.__typename",
+      "variableName": "typeName"
+    }
+  ]
+}</pre>
+  <p>Key fields:</p>
+  <ul>
+    <li><code>endpoint</code> — can be a variable reference or a literal URL</li>
+    <li><code>query</code> — the GraphQL operation string (use Builder or Editor to generate this)</li>
+    <li><code>headers</code> — optional HTTP headers; supports <code>{{variable}}</code> interpolation</li>
+    <li><code>extractionRules</code> — JSONPath rules to extract values from the response into named variables</li>
+  </ul>
+
+  <div class="page-break"></div>
+
+  <h3>Step 4 — Inspect the graphqlAssert Node</h3>
+  <p>Click on the <strong>graphqlAssert</strong> node. It validates that the response data meets your expectations. Configuration:</p>
+  <pre>{
+  "assertions": [
+    {
+      "path": "$.data.__typename",
+      "operator": "equals",
+      "expected": "Query"
+    },
+    {
+      "path": "$.errors",
+      "operator": "isUndefined"
+    }
+  ]
+}</pre>
+  <p>If any assertion fails, the workflow node turns red and the workflow is marked as failed. The failure message includes the expected vs actual value.</p>
+
+  <h3>Step 5 — Configure the Endpoint Variable</h3>
+  <p>Click <strong>Workflow Settings</strong> (gear icon at the top of the canvas). Find the <code>gqlEndpoint</code> variable and set its default value to your endpoint, e.g. <code>https://countries.trevorblades.com/graphql</code>. Click <strong>Save</strong>.</p>
+
+  <h3>Step 6 — Execute the Workflow</h3>
+  <p>Click <strong>▶ Run Workflow</strong>. The nodes execute in sequence. Each node shows its status:</p>
+  <ul>
+    <li>🟡 In progress (spinning)</li>
+    <li>🟢 Passed (green glow)</li>
+    <li>🔴 Failed (red glow + error badge)</li>
+  </ul>
+  <p>All 5 nodes should complete green. The <strong>Run Summary</strong> panel shows total duration and the extracted variable values.</p>
+
+  <h3>Step 7 — Build a CRUD Workflow from Scratch</h3>
+  <p>Now build your own. Open a new workflow (File → New Workflow). Add nodes in sequence:</p>
+  <ol>
+    <li>Drag <strong>graphqlMutation</strong> from the node palette onto the canvas. Configure it to create a user.</li>
+    <li>Add a second <strong>graphqlQuery</strong> node to fetch the user by the ID extracted from the mutation. Use <code>{{createdUserId}}</code> as the variable (set it in the mutation's <code>outputBindings</code>).</li>
+    <li>Add a <strong>graphqlAssert</strong> node to verify the fetched user's name equals the name sent in the mutation.</li>
+    <li>Add a final <strong>graphqlMutation</strong> node to delete the user by ID.</li>
+    <li>Connect the nodes: Start → mutation → query → assert → delete → End.</li>
+  </ol>
+
+  <h2>4. graphqlSubscription Node</h2>
+  <p>The subscription node differs from query/mutation because it collects multiple events before completing:</p>
+  <pre>{
+  "endpoint": "ws://localhost:4010/graphql",
+  "transport": "graphql-ws",
+  "subscription": "subscription { orderUpdated { id status } }",
+  "stopAfterMessages": 5,
+  "outputBindings": {
+    "events": "$.messages"
+  }
+}</pre>
+  <p>The node stays open until <code>stopAfterMessages</code> events have been received, then completes and passes <code>events</code> as an array to downstream nodes. Set <code>stopAfterMessages: 0</code> to collect indefinitely (use a Condition node or timeout to stop the workflow).</p>
+
+  <h2>5. Gallery Reference Workflows</h2>
+  <table>
+    <tr><th>Sample name</th><th>Key nodes</th><th>What it demonstrates</th></tr>
+    <tr><td>GraphQL Health Check</td><td>introspect → query → assert</td><td>Schema validation + HTTP health</td></tr>
+    <tr><td>E-Commerce Flow</td><td>mutation (create) → query → assert → mutation (delete)</td><td>Full CRUD sequence with variable chaining</td></tr>
+    <tr><td>Schema Watchdog</td><td>introspect → condition → alert</td><td>Schema change detection on schedule</td></tr>
+    <tr><td>User CRUD Suite</td><td>mutation → query → assert × 4</td><td>create, read, update, delete with assertions</td></tr>
+    <tr><td>GQL Subscription WS</td><td>subscription (graphql-ws) → condition → log</td><td>WebSocket subscription collection</td></tr>
+    <tr><td>GQL Subscription SSE</td><td>subscription (sse) → condition → log</td><td>SSE subscription collection</td></tr>
+  </table>
+
+  <h2>6. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Import All Gallery Samples</h3>
+  <p>Open the Gallery and import all six GraphQL workflow samples. Execute each one. Observe how the variable chaining works — how the output of one node becomes the input of the next.</p>
+
+  <h3>Exercise 2 — Add an Assertion to the Health Check</h3>
+  <p>In the imported Health Check workflow, add a second <code>graphqlAssert</code> node after the query node. Assert that <code>typeCount</code> (extracted by the introspect node) is greater than 5. Run the workflow — it should pass.</p>
+
+  <h3>Exercise 3 — Parallel GraphQL Branches</h3>
+  <p>Add a <strong>Parallel</strong> fork node after the Start node. In branch 1, place a <code>graphqlQuery</code> for users. In branch 2, place a <code>graphqlQuery</code> for orders. After the fork merges, add a <code>graphqlAssert</code> that checks both results. Run and observe that both branches execute concurrently.</p>
+
+  <footer>
+    RedfireForge Training Manual — GraphQL: Workflow Nodes · August 2026
+  </footer>
+
+</body>
+</html>

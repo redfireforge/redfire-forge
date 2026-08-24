@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebSocket: Multi-Tab Connections — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>WebSocket: Multi-Tab Connections</h1>
+  <p><span class="badge badge-easy">Easy</span> &nbsp; Up to 8 independent connections in one studio</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Open multiple WebSocket connections simultaneously in separate tabs</li>
+    <li>Understand tab isolation — each tab has its own state, auth, and message log</li>
+    <li>Rename, reorder, and close tabs</li>
+    <li>Navigate tabs with keyboard shortcuts</li>
+  </ul>
+
+  <h2>Why Multiple Tabs?</h2>
+  <p>Many real scenarios require monitoring more than one endpoint at a time:</p>
+  <ul>
+    <li>Compare live data from a production server vs a staging server</li>
+    <li>Run your mock server in one tab while connecting to it as a client in another</li>
+    <li>Test a pub/sub system — one tab is the publisher, another is the subscriber</li>
+    <li>Monitor multiple microservice event streams simultaneously</li>
+  </ul>
+
+  <h2>The Tab Bar</h2>
+  <p>The <strong>connection tab bar</strong> (<code>conn-tab-bar</code>) runs horizontally below the mode switcher. Each tab represents one independent connection slot. The <strong>+</strong> button at the right end adds a new tab.</p>
+
+  <h2>Step-by-Step Walkthrough</h2>
+
+  <h3>1 — Open a Second Tab</h3>
+  <div class="step"><div class="step-num">1</div><div class="step-body">Start with the default Tab 1 connected to <code>wss://echo.websocket.org</code> (see the First Connection tutorial).</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Click the <strong>+</strong> button at the right end of the tab bar. A new blank tab (Tab 2) is created and immediately focused. It has its own empty URL field, empty message log, and its own Connect/Disconnect lifecycle.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Tab 1 remains connected in the background. Switching back to Tab 1 at any time shows its live message log unaffected by Tab 2.</div></div>
+
+  <h3>2 — Connect Tab 2 to a Different URL</h3>
+  <div class="step"><div class="step-num">4</div><div class="step-body">In Tab 2, enter a second URL, for example <code>ws://localhost:9876</code> (local echo server). Click <strong>Connect</strong>.</div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body">Both tabs are now showing green "Connected" dots. The two connections are completely independent — messages sent in Tab 1 do not appear in Tab 2's log.</div></div>
+
+  <h3>3 — Rename a Tab</h3>
+  <div class="step"><div class="step-num">6</div><div class="step-body">Double-click the tab label in the tab bar. The label becomes an editable input field.</div></div>
+  <div class="step"><div class="step-num">7</div><div class="step-body">Type a new name (e.g., <code>Echo Public</code>) and press <kbd>Enter</kbd>. The tab label updates immediately.</div></div>
+
+  <h3>4 — Reorder Tabs by Drag</h3>
+  <div class="step"><div class="step-num">8</div><div class="step-body">Open a third tab. You now have three tabs. Click and drag any tab left or right to reorder them. The connections are unaffected by reordering — it is purely cosmetic.</div></div>
+
+  <h3>5 — Keyboard Navigation</h3>
+  <table>
+    <tr><th>Shortcut</th><th>Action</th></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Tab</kbd></td><td>Focus next tab to the right</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd></td><td>Focus next tab to the left</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>W</kbd></td><td>Close the currently focused tab (disconnects first)</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>T</kbd></td><td>Open a new tab</td></tr>
+  </table>
+
+  <h3>6 — Close a Tab</h3>
+  <div class="step"><div class="step-num">9</div><div class="step-body">Hover over a tab to reveal the <strong>×</strong> close button on the right side of the tab label. Click it (or press <kbd>Ctrl</kbd>+<kbd>W</kbd>).</div></div>
+  <div class="step"><div class="step-num">10</div><div class="step-body">If the tab has an open connection, a confirmation prompt asks whether to disconnect first. Confirm and the tab closes cleanly, sending a WebSocket close frame to the server.</div></div>
+
+  <h2>Tab State Isolation</h2>
+  <table>
+    <tr><th>State</th><th>Isolated per tab?</th></tr>
+    <tr><td>WebSocket URL</td><td>✅ Yes</td></tr>
+    <tr><td>Protocol (plain/Socket.IO/STOMP/GraphQL-WS)</td><td>✅ Yes</td></tr>
+    <tr><td>Auth settings</td><td>✅ Yes</td></tr>
+    <tr><td>Custom headers</td><td>✅ Yes</td></tr>
+    <tr><td>TLS settings</td><td>✅ Yes</td></tr>
+    <tr><td>Message log (Events)</td><td>✅ Yes</td></tr>
+    <tr><td>Stats (msg/sec, bytes)</td><td>✅ Yes</td></tr>
+    <tr><td>Schema definitions</td><td>✅ Yes</td></tr>
+    <tr><td>Active environment (variable resolution)</td><td>Shared (set globally)</td></tr>
+  </table>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ Maximum 8 tabs</strong>
+    WebSocket Studio supports up to 8 simultaneous connection tabs. The + button is disabled when 8 tabs are open. Close one tab before opening another.
+  </div>
+
+  <h2>Using Two Tabs with Mock Server</h2>
+  <p>A common pattern is to run the mock server in one tab and connect to it as a client in another:</p>
+  <div class="step"><div class="step-num">1</div><div class="step-body">In Tab 1, switch to <strong>Mock</strong> mode. Start the mock server. Note the listen address, e.g., <code>ws://localhost:9876</code>.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Open Tab 2. Leave it in <strong>Client</strong> mode. Enter <code>ws://localhost:9876</code> as the URL. Connect.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">Send messages from Tab 2 — they are received by the mock server in Tab 1. The mock server panel in Tab 1 shows the connected client count increment to 1.</div></div>
+
+  <h2>Practice Exercises</h2>
+  <ol>
+    <li>Open 3 tabs and connect each to a different URL (or the same URL). Confirm each has an isolated message log.</li>
+    <li>Rename all 3 tabs with descriptive names. Reorder them with drag and drop.</li>
+    <li>Set up the mock server in one tab and connect from a second tab. Verify the client count in the mock panel.</li>
+    <li>Close a connected tab using <kbd>Ctrl</kbd>+<kbd>W</kbd>. Confirm the connection closes gracefully.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · WebSocket Studio — Multi-Tab Connections · August 2026</footer>
+</body>
+</html>
