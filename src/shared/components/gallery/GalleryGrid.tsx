@@ -87,12 +87,14 @@ export function GalleryGrid<T = unknown>({
     maxWidth: 400,
   });
 
-  // Derive unique categories and live-API hostnames for filter dropdowns
+  // Derive unique categories and live-API hostnames for filter dropdowns.
+  // Scoped to the currently selected domain (if any) so only relevant options appear.
   const { categories, liveApiHosts, allTags } = useMemo(() => {
     const cats = new Set<string>();
     const apis = new Set<string>();
     const tgs = new Set<string>();
-    for (const e of entries) {
+    const domainEntries = filters.domain === 'all' ? entries : entries.filter(e => e.domain === filters.domain);
+    for (const e of domainEntries) {
       cats.add(e.category);
       for (const a of e.liveApis) apis.add(apiHostname(a));
       for (const t of e.tags) tgs.add(t);
@@ -102,7 +104,7 @@ export function GalleryGrid<T = unknown>({
       liveApiHosts: [...apis].sort(),
       allTags: [...tgs].sort(),
     };
-  }, [entries]);
+  }, [entries, filters.domain]);
 
   // Determine if entries span multiple domains
   const multiDomain = useMemo(() => {

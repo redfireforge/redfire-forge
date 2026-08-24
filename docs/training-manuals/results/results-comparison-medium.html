@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Results Dashboard: Comparison &amp; Regression — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>Results Dashboard: Comparison &amp; Regression</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; Baseline Management · Run Comparison · Regression Detection · Trend Chart</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Open the Comparison &amp; Trends tab and understand Baseline Mode vs Ad-hoc Mode</li>
+    <li>Mark a run as a baseline (★) and give it a name</li>
+    <li>Compare the current run against a baseline — read metric deltas and regression alerts</li>
+    <li>Configure regression warning/critical thresholds</li>
+    <li>Enable the Trend Chart to visualise metrics across multiple runs</li>
+    <li>Export a comparison report as Markdown or JSON</li>
+  </ul>
+
+  <h2>Key Concepts</h2>
+
+  <h3>Baselines</h3>
+  <p>A <strong>baseline</strong> is any run you mark with ★. Baselines represent known-good performance snapshots. When a later run is compared against a baseline, the dashboard computes metric deltas and flags regressions automatically.</p>
+
+  <h3>Baseline Mode vs Ad-hoc Mode</h3>
+  <p>The <strong>Baseline Mode</strong> badge in the toolbar shows which mode is active:</p>
+  <ul>
+    <li><strong>Baseline Mode</strong> — the compare target is a ★-marked run. Auto-selected when you have a baseline.</li>
+    <li><strong>Ad-hoc Mode</strong> — you manually selected a compare target, or no target is selected.</li>
+  </ul>
+
+  <h2>Step-by-Step Walkthrough</h2>
+
+  <h3>Part A — Open the Comparison &amp; Trends Tab</h3>
+
+  <div class="step"><div class="step-num">1</div><div class="step-body">Click the <strong>Comparison &amp; Trends</strong> tab. If no baselines exist yet, you see only the <strong>Baseline Mode</strong> badge (showing "Ad-hoc Mode") and the compare-run selector.</div></div>
+
+  <h3>Part B — Mark a Baseline</h3>
+
+  <div class="step"><div class="step-num">2</div><div class="step-body">Using the run selector dropdown at the top of the page, switch to an older run you consider a good reference (e.g. a run from yesterday before your latest code change).</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">In the Comparison &amp; Trends tab, find the <strong>Baseline List Panel</strong>. If no baselines exist, a message reads "No baselines marked." Look for the <strong>Mark as Baseline</strong> button (it may be in the toolbar or as part of the panel).</div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Click <strong>Mark as Baseline (★)</strong>. The run is now starred. It appears in the Baseline List Panel with its timestamp and key metrics (TPS · P95).</div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body">In the Baseline List Panel, click on the label text to rename the baseline inline. Type a meaningful name like <code>pre-refactor-2026-08-20</code> and press <kbd>Enter</kbd> or click away to save.</div></div>
+
+  <h3>Part C — Compare the Current Run Against the Baseline</h3>
+
+  <div class="step"><div class="step-num">6</div><div class="step-body">Switch the run selector back to your <em>latest</em> run. The system automatically enters <strong>Baseline Mode</strong> and shows the <strong>RunComparisonPanel</strong> with the marked baseline as compare target.</div></div>
+  <div class="step"><div class="step-num">7</div><div class="step-body">The comparison panel has sub-tabs: <strong>Overview</strong>, <strong>Scenarios</strong>, <strong>Regressions</strong>, <strong>Distribution</strong>. Start with <strong>Overview</strong>.</div></div>
+  <div class="step"><div class="step-num">8</div><div class="step-body">The Overview tab shows a <strong>Metric Deltas</strong> table. Each row has:
+    <ul style="margin-top: 6px">
+      <li>Metric name (Avg, P95, TPS, Error Rate, …)</li>
+      <li>Baseline value (left column)</li>
+      <li>Current run value (right column)</li>
+      <li>Delta: improvement (🟢), regression (🔴), or unchanged</li>
+      <li>Improved count / Regressed count summary at top</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">9</div><div class="step-body">Click the <strong>Regressions</strong> sub-tab. It lists all metrics that exceed the regression thresholds (warn and critical separately).</div></div>
+  <div class="step"><div class="step-num">10</div><div class="step-body">Click the <strong>Scenarios</strong> sub-tab to see per-scenario metric deltas — useful when a single slow scenario is dragging down overall P95.</div></div>
+  <div class="step"><div class="step-num">11</div><div class="step-body">Click the <strong>Distribution</strong> sub-tab to see two overlapping response-time histograms: baseline in one colour, current run in another. If the current run shifted right, latency increased.</div></div>
+
+  <h3>Part D — Configure Regression Thresholds</h3>
+
+  <div class="step"><div class="step-num">12</div><div class="step-body">In the tab toolbar, find the <strong>Regression Thresholds</strong> section (may be collapsed). Click to expand the <strong>RegressionThresholdsPanel</strong>.</div></div>
+  <div class="step"><div class="step-num">13</div><div class="step-body">The panel shows one row per metric with:
+    <ul style="margin-top: 6px">
+      <li><strong>Warning threshold</strong> — regression fires a 🟡 warn dot when exceeded</li>
+      <li><strong>Critical threshold</strong> — fires 🔴 critical at 2× the warning value (auto-computed)</li>
+      <li><strong>Default</strong> column shows the factory default</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">14</div><div class="step-body">Adjust P95 warning threshold from 20% to 10% (tighter SLA). Click <strong>Save</strong>. The regression dots in the run selector dropdown update immediately.</div></div>
+  <div class="step"><div class="step-num">15</div><div class="step-body">Click <strong>Reset Defaults</strong> to restore factory thresholds if needed.</div></div>
+
+  <h3>Part E — Enable the Trend Chart</h3>
+
+  <div class="step"><div class="step-num">16</div><div class="step-body">In the comparison toolbar, click <strong>Show Trend</strong>. The <strong>Trend Chart</strong> appears — a multi-line chart showing selected metrics across all runs (oldest to newest on the X-axis).</div></div>
+  <div class="step"><div class="step-num">17</div><div class="step-body">Use the metric selector to switch between TPS, Avg, P95, P99, Error Rate trend lines. Look for upward trends in latency or downward trends in TPS as regressions introduced over time.</div></div>
+  <div class="step"><div class="step-num">18</div><div class="step-body">Click <strong>Hide Trend</strong> to collapse the chart.</div></div>
+
+  <h3>Part F — Export the Comparison Report</h3>
+
+  <div class="step"><div class="step-num">19</div><div class="step-body">In the comparison panel, find the <strong>Export ▾</strong> button. Click to open the export menu:
+    <ul style="margin-top: 6px">
+      <li><strong>Export Markdown</strong> — downloads <code>comparison-report.md</code> with a table of metric deltas and regression alerts</li>
+      <li><strong>Export JSON</strong> — downloads <code>comparison-report.json</code> for programmatic use</li>
+    </ul>
+  </div></div>
+
+  <h2>Regression Threshold Defaults</h2>
+  <table>
+    <thead><tr><th>Metric</th><th>Warning (default)</th><th>Critical (2×)</th><th>Unit</th></tr></thead>
+    <tbody>
+      <tr><td>Avg Response Time</td><td>20%</td><td>40%</td><td>% increase</td></tr>
+      <tr><td>P50</td><td>20%</td><td>40%</td><td>% increase</td></tr>
+      <tr><td>P95</td><td>20%</td><td>40%</td><td>% increase</td></tr>
+      <tr><td>P99</td><td>20%</td><td>40%</td><td>% increase</td></tr>
+      <tr><td>P99.9</td><td>25%</td><td>50%</td><td>% increase</td></tr>
+      <tr><td>TPS</td><td>15%</td><td>30%</td><td>% drop</td></tr>
+      <tr><td>Error Rate</td><td>1 pp</td><td>2 pp</td><td>percentage points increase</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-tip">
+    <strong>💡 Baseline workflow</strong>
+    After each release: 1) run your test suite, 2) if metrics look healthy, mark that run as a baseline with the release tag (e.g. <code>v2.4.0</code>), 3) compare all future runs against it. The regression dot in the run selector gives you an instant signal without opening the tab.
+  </div>
+
+  <h2>Self-Practice Exercises</h2>
+  <ol>
+    <li>Mark two different runs as baselines. In the Comparison &amp; Trends tab, switch the compare target between them using the compare-run selector. Note how the metric deltas change.</li>
+    <li>Set the Error Rate warning threshold to 0.5 pp. Run a test that has any failures. Observe whether a 🟡 regression dot now appears in the run selector.</li>
+    <li>Enable the Trend Chart and identify a metric that has been consistently improving or degrading across your runs.</li>
+    <li>Export a comparison as Markdown. Open the file and verify all metric deltas match what the panel showed.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · Results Dashboard — Comparison &amp; Regression · August 2026</footer>
+</body>
+</html>

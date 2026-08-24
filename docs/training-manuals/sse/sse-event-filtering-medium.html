@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SSE Studio — Event Log, Filtering &amp; Bookmarks — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-easy { background: #d4edda; color: #155724; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f57f17; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 14px; margin: 14px 0; align-items: flex-start; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>Event Log, Filtering &amp; Bookmarks</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; Event rows · Event detail panel · Text search · Type filter · Bookmarks · Clear · Export JSON</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Read event rows: timestamp, type badge, data preview, byte size</li>
+    <li>Click a row to open the event detail panel (full data, JSON auto-detect, Last-Event-ID)</li>
+    <li>Search events by text across data and event type</li>
+    <li>Filter events by event type using the dynamic dropdown</li>
+    <li>Bookmark individual events and filter to bookmarked-only view</li>
+    <li>Clear the event buffer and export all events as JSON</li>
+  </ul>
+
+  <div class="callout">
+    <strong>Prerequisite</strong>
+    Complete <em>Your First SSE Connection</em> first, or be connected to a live SSE endpoint that sends multiple event types. Use <code>https://sse.dev/test</code> if you need a quick stream.
+  </div>
+
+  <h2>The Event Log Toolbar</h2>
+  <table>
+    <thead><tr><th>Control</th><th>What it Does</th></tr></thead>
+    <tbody>
+      <tr><td>Search box</td><td>Live text filter — matches event data <em>and</em> event type in a single input</td></tr>
+      <tr><td>Type filter dropdown</td><td>Select a specific event type; populated dynamically from types seen in the stream; blank = show all</td></tr>
+      <tr><td>Bookmark filter toggle</td><td>When active, hides all non-bookmarked events</td></tr>
+      <tr><td>Clear button</td><td>Empties the in-memory event buffer; the connection stays open</td></tr>
+      <tr><td>Export button</td><td>Downloads <code>sse-events-&lt;timestamp&gt;.json</code> containing all buffered events</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Step-by-Step Walkthrough</h2>
+
+  <h3>Part 1 — Understanding Event Rows</h3>
+  <div class="step"><div class="step-num">1</div><div class="step-body">Connect to <code>https://sse.dev/test</code> and wait 5 seconds for events to accumulate. Make sure the right pane shows the <strong>Events</strong> tab.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Look at the event rows. Each row contains:
+    <ul>
+      <li><strong>★ / ☆</strong> — bookmark toggle (leftmost)</li>
+      <li><strong>Timestamp</strong> — local time the event was received</li>
+      <li><strong>Event-type badge</strong> — colour-coded label (e.g. <code>message</code>, <code>price-update</code>, <code>heartbeat</code>)</li>
+      <li><strong>Data preview</strong> — first 120 characters of the event data</li>
+      <li><strong>Size</strong> — byte size of the data field</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">The list is virtualised — scrolling is smooth even with thousands of events. Only visible rows are rendered in the DOM.</div></div>
+
+  <h3>Part 2 — Event Detail Panel</h3>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Click any event row. A detail panel slides in below the row (or replaces the right portion of the pane depending on layout). The panel shows:
+    <ul>
+      <li><strong>Type</strong> — event type badge</li>
+      <li><strong>Last-Event-ID</strong> — only shown if the server sent an <code>id:</code> field for this event</li>
+      <li><strong>Size</strong> — byte count</li>
+      <li><strong>Timestamp</strong> — full local time</li>
+      <li><strong>Data</strong> — full data payload; if the data is valid JSON it is automatically pretty-printed and a <strong>JSON</strong> badge appears in the header</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body">Find an event whose data looks like JSON (curly braces in the preview). Click it. Confirm the Data section shows indented, readable JSON. The <strong>JSON</strong> badge confirms auto-detection.</div></div>
+  <div class="step"><div class="step-num">6</div><div class="step-body">Click the same row again — the detail panel closes (toggle behaviour).</div></div>
+
+  <h3>Part 3 — Text Search</h3>
+  <div class="step"><div class="step-num">7</div><div class="step-body">In the event log toolbar, click the search box and type a word that appears in one of the event data payloads (e.g. <code>greeting</code> or <code>price</code>).</div></div>
+  <div class="step"><div class="step-num">8</div><div class="step-body">The list instantly filters to show only rows whose data or event type contains the text. The count in the status strip reflects the unfiltered total — the search is client-side only.</div></div>
+  <div class="step"><div class="step-num">9</div><div class="step-body">Try typing an event type name (e.g. <code>heartbeat</code>). The filter matches event type fields as well — useful when event types are descriptive but payloads are small.</div></div>
+  <div class="step"><div class="step-num">10</div><div class="step-body">Clear the search box to restore all events.</div></div>
+
+  <h3>Part 4 — Event Type Filter</h3>
+  <div class="step"><div class="step-num">11</div><div class="step-body">Click the <strong>Type filter</strong> dropdown. It lists every distinct event type received so far (e.g. <code>message</code>, <code>heartbeat</code>). The list updates as new types arrive.</div></div>
+  <div class="step"><div class="step-num">12</div><div class="step-body">Select one event type. Only events of that type are shown. This is faster than text search when event types are the main dimension of interest.</div></div>
+  <div class="step"><div class="step-num">13</div><div class="step-body">You can combine the type filter with the text search — both apply simultaneously. Clear the type filter by selecting the blank option at the top of the dropdown.</div></div>
+
+  <h3>Part 5 — Bookmarks</h3>
+  <div class="step"><div class="step-num">14</div><div class="step-body">Find an interesting event. Click the <strong>☆</strong> (star) icon at the left of the row. It turns to <strong>★</strong> and the row highlights — this event is now bookmarked.</div></div>
+  <div class="step"><div class="step-num">15</div><div class="step-body">Bookmark 2–3 more events across different event types.</div></div>
+  <div class="step"><div class="step-num">16</div><div class="step-body">Click the <strong>Bookmark filter</strong> toggle button in the toolbar. The list collapses to show only your bookmarked events, regardless of search or type filter.</div></div>
+  <div class="step"><div class="step-num">17</div><div class="step-body">Toggle the bookmark filter off to return to the full list. Bookmarks persist in the session until you clear events or close the tab.</div></div>
+
+  <h3>Part 6 — Clear and Export</h3>
+  <div class="step"><div class="step-num">18</div><div class="step-body">Click <strong>Export</strong>. Your browser downloads a file named <code>sse-events-YYYY-MM-DDTHH-MM-SS.json</code>. Open the file — it is a JSON array of event objects including id, timestamp, eventType, data, size, and lastEventId fields.</div></div>
+  <div class="step"><div class="step-num">19</div><div class="step-body">Click <strong>Clear</strong>. All events are removed from the in-memory buffer. The connection stays open — new events immediately start appearing again.</div></div>
+  <div class="step"><div class="step-num">20</div><div class="step-body">Note: clearing also resets all bookmarks and the selected-event detail panel.</div></div>
+
+  <h2>Filter Interaction Rules</h2>
+  <table>
+    <thead><tr><th>Active Filters</th><th>Result</th></tr></thead>
+    <tbody>
+      <tr><td>Text search only</td><td>All events matching text in data or type</td></tr>
+      <tr><td>Type filter only</td><td>All events of selected type</td></tr>
+      <tr><td>Bookmark filter only</td><td>All bookmarked events regardless of type or data</td></tr>
+      <tr><td>Text + type</td><td>Events matching BOTH filters simultaneously</td></tr>
+      <tr><td>Text + type + bookmark</td><td>Bookmarked events matching both text and type</td></tr>
+      <tr><td>None</td><td>All events in arrival order (newest at bottom)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout-warn callout">
+    <strong>Buffer limit</strong>
+    The event buffer holds up to 10,000 events. When the limit is reached, the oldest events are automatically dropped. Export before clearing if you need to preserve the full history.
+  </div>
+
+  <h2>Practice Exercises</h2>
+  <ol>
+    <li>Connect to a stream that sends mixed event types. Find the rarest type using the type filter and export only those events.</li>
+    <li>Bookmark all JSON events. Switch to bookmark-only view and verify the count.</li>
+    <li>Run a search for a specific field name (e.g. <code>"id"</code>). How many events contain it?</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · SSE Studio — Event Log, Filtering &amp; Bookmarks · August 2026</footer>
+</body>
+</html>

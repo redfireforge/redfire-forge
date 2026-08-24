@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GraphQL: Mock Server — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } h1 { font-size: 20pt; } h2 { font-size: 16pt; } h3 { font-size: 13pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 85vh; text-align: center; }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">🎭</div>
+    <h1>GraphQL Mock Server</h1>
+    <div class="subtitle">Advanced — Training Guide</div>
+    <p>Run a fully-controllable GraphQL mock server from within the desktop app. Upload your SDL, configure resolver overrides with fixed values or custom functions, set global latency, and validate client behaviour before your real API is ready.</p>
+    <div class="meta">
+      RedfireForge v0.6.0<br />
+      Difficulty: ★★★<br />
+      GraphQL Studio · Mock Server tab (Desktop only)
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <div class="callout-warn callout">
+    <strong>🖥️ Desktop-only feature</strong>
+    The GraphQL Mock Server panel is only available in the <strong>RedfireForge desktop app</strong> (Tauri). When running RedfireForge in a web browser, the Mock Server activity tab is disabled. All steps in this tutorial require the desktop app.
+  </div>
+
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>The Mock Server lets you develop and test GraphQL client code without a real backend. It is particularly useful when:</p>
+  <ul>
+    <li>The API is still under development by another team</li>
+    <li>You need to test error handling (return specific error payloads on demand)</li>
+    <li>You want to simulate slow responses to test loading states and timeouts</li>
+    <li>You need deterministic, repeatable data for automated test runs</li>
+  </ul>
+  <p>The mock server runs inside the desktop app at <code>http://localhost:3001/api/graphql/mock</code> and is configured through both the UI panel and a REST config endpoint.</p>
+
+  <h2>2. Mock Server Architecture</h2>
+  <table>
+    <tr><th>Component</th><th>URL / Location</th></tr>
+    <tr><td>Mock GraphQL endpoint</td><td><code>http://localhost:3001/api/graphql/mock</code></td></tr>
+    <tr><td>Config REST endpoint</td><td><code>http://localhost:3001/api/graphql/mock/config</code></td></tr>
+    <tr><td>Panel location</td><td>Left activity bar → Mock Server icon</td></tr>
+    <tr><td>SDL upload</td><td>Drag-and-drop or paste into SDL editor in the panel</td></tr>
+  </table>
+
+  <h2>3. Step-by-Step Walkthrough</h2>
+
+  <h3>Step 1 — Open the Mock Server Panel</h3>
+  <p>In the desktop app, click the <strong>Mock Server</strong> icon in the left activity sidebar (looks like a server or theatre mask). The panel opens showing the SDL editor, enable toggle, and resolver configuration section.</p>
+
+  <h3>Step 2 — Upload or Paste an SDL</h3>
+  <p>Paste the following minimal SDL into the SDL editor:</p>
+  <pre>type Query {
+  user(id: ID!): User
+  users: [User!]!
+}
+
+type Mutation {
+  createUser(name: String!, email: String!): User!
+  deleteUser(id: ID!): Boolean!
+}
+
+type User {
+  id: ID!
+  name: String!
+  email: String!
+  role: UserRole!
+  createdAt: String!
+}
+
+enum UserRole {
+  ADMIN
+  USER
+  GUEST
+}</pre>
+  <p>Alternatively, drag a <code>.graphql</code> or <code>.gql</code> file from your filesystem onto the SDL editor area.</p>
+
+  <h3>Step 3 — Enable the Mock Server</h3>
+  <p>Click the <strong>Enable</strong> toggle at the top of the Mock Server panel. The status indicator turns green and shows <strong>Running</strong>. The mock server is now accepting requests at <code>http://localhost:3001/api/graphql/mock</code>.</p>
+
+  <h3>Step 4 — Connect GraphQL Studio to the Mock</h3>
+  <p>Open a new GraphQL Studio tab (or update the endpoint in the current tab) to:</p>
+  <pre>http://localhost:3001/api/graphql/mock</pre>
+  <p>Click <strong>Introspect</strong>. The studio loads your SDL as the schema. You can now run queries against the mock.</p>
+
+  <h3>Step 5 — Execute a Query (Default Mock Data)</h3>
+  <p>Write and execute:</p>
+  <pre>query GetUser {
+  user(id: "1") {
+    id
+    name
+    email
+    role
+  }
+}</pre>
+  <p>The mock server returns auto-generated data based on your SDL types. All string fields get plausible random values; ID fields get UUID-style strings; enums return a random valid value.</p>
+
+  <div class="page-break"></div>
+
+  <h3>Step 6 — Configure a Resolver Override (Fixed Value)</h3>
+  <p>In the Mock Server panel, scroll to the <strong>Resolver Overrides</strong> section. Click <strong>+ Add Override</strong>. Configure:</p>
+  <ul>
+    <li><strong>Operation</strong>: <code>Query.user</code></li>
+    <li><strong>Response type</strong>: Fixed JSON</li>
+    <li><strong>Fixed value</strong>:</li>
+  </ul>
+  <pre>{
+  "id": "usr-fixed-001",
+  "name": "Mock Alice",
+  "email": "mock@example.com",
+  "role": "ADMIN",
+  "createdAt": "2026-01-15T08:00:00Z"
+}</pre>
+  <p>Click <strong>Save Override</strong>. Now re-execute the <code>GetUser</code> query — you will always get the exact fixed response regardless of the <code>id</code> argument.</p>
+
+  <h3>Step 7 — Set Global Latency</h3>
+  <p>In the Mock Server panel, find the <strong>Global Latency</strong> slider or input field. Set it to <code>800</code> ms. Execute the query again. The response should take approximately 800 ms. This simulates a slow API to test loading spinners and timeout handling in your client.</p>
+
+  <h3>Step 8 — Configure an Error Override</h3>
+  <p>Add another resolver override for <code>Query.users</code>:</p>
+  <ul>
+    <li><strong>Response type</strong>: GraphQL Error</li>
+    <li><strong>Error message</strong>: <code>Unauthorized: token expired</code></li>
+  </ul>
+  <p>Execute a <code>users { id name }</code> query. The response pane will show the GraphQL error in the <code>errors</code> array, simulating an auth failure from the real API.</p>
+
+  <h3>Step 9 — Disable the Mock</h3>
+  <p>Click the <strong>Enable</strong> toggle to turn it off. The mock server stops. Any queries to the mock endpoint will now time out. Switching back to a real endpoint (e.g. the countries API) works normally.</p>
+
+  <h2>4. Mock vs Real Server Toggle Workflow</h2>
+  <p>A common development pattern is:</p>
+  <ol>
+    <li>Enable mock → develop client UI against predictable data</li>
+    <li>Disable mock → test against the staging server</li>
+    <li>Re-enable mock → reproduce edge cases (error states, slow responses) that are hard to trigger in staging</li>
+  </ol>
+  <p>Because the mock uses the same endpoint URL and same GraphQL schema, no client code changes are needed when switching.</p>
+
+  <h2>5. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Simulate a Mutation</h3>
+  <p>Add a resolver override for <code>Mutation.createUser</code> that returns a fixed user object. Execute a <code>createUser</code> mutation and confirm the fixed response is returned.</p>
+
+  <h3>Exercise 2 — Combine Latency + Error</h3>
+  <p>Set global latency to 2000 ms and add a GraphQL error override for a query. Execute and observe: the response takes 2 seconds, then returns the error. This mimics a slow, failing upstream service.</p>
+
+  <h3>Exercise 3 — Use Mock in a Workflow</h3>
+  <p>Configure a <code>graphqlQuery</code> workflow node to use <code>http://localhost:3001/api/graphql/mock</code> as its endpoint. Execute the workflow with mock enabled, then disable the mock and re-run. Observe how the workflow handles the timeout when the mock is off.</p>
+
+  <footer>
+    RedfireForge Training Manual — GraphQL: Mock Server · August 2026
+  </footer>
+
+</body>
+</html>

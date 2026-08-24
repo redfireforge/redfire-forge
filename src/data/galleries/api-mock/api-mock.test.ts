@@ -15,6 +15,8 @@ import {
   createPayloadFormatsMock,
   createPredicateStarterMock,
   createSelectionPolicyMock,
+  createAuthGatedMock,
+  createGraphQLMock,
 } from './presets-matching';
 import {
   createAmbiguousRoutesMock,
@@ -27,9 +29,12 @@ import {
   createTemplatingMock,
 } from './presets-responses';
 import { createSimulationSuiteMock } from './presets-simulation';
+import { createOrderFlowMock } from './presets-state';
+import { createWebhookReceiverMock } from './presets-webhook';
+import { createOutboundCallbacksMock } from './presets-callbacks';
 
 describe('api-mock gallery catalog', () => {
-  it('ships the Phase 12E samples in curriculum order', () => {
+  it('ships the Phase 12E + Phase D samples in curriculum order', () => {
     expect(apiMockSampleCatalog.map(e => e.id)).toEqual([
       'am-gallery-health',
       'am-gallery-users',
@@ -47,6 +52,11 @@ describe('api-mock gallery catalog', () => {
       'am-gallery-payment',
       'am-gallery-conflicts',
       'am-gallery-suite',
+      'am-gallery-auth-gated',
+      'am-gallery-graphql',
+      'am-gallery-order-flow',
+      'am-gallery-webhook',
+      'am-gallery-callbacks',
     ]);
     for (const entry of apiMockSampleCatalog) {
       expect(entry.domain).toBe('api-mock');
@@ -425,5 +435,139 @@ describe('api-mock gallery catalog', () => {
     expect(server.routes.find(r => r.id === 'route-dice')?.responseMode).toBe('weighted');
     expect(server.routes.find(r => r.id === 'route-cart')?.responseMode).toBe('state');
     expect(server.routes.find(r => r.id === 'route-fault')?.responses[0]?.behavior.fault).toBe('reset');
+  });
+
+  describe('auth-gated sample', () => {
+    const server = createAuthGatedMock();
+
+    it('ships three routes', () => {
+      expect(server.routes).toHaveLength(3);
+    });
+
+    it('profile route has two response variants — 200 bearer + 401 absent', () => {
+      const route = server.routes.find(r => r.path.value === '/api/profile')!;
+      expect(route.method).toBe('GET');
+      expect(route.responseMode).toBe('rules');
+      expect(route.responses).toHaveLength(2);
+      const [ok, unauth] = route.responses;
+      expect(ok!.status).toBe(200);
+      expect(ok!.conditions?.children[0]).toMatchObject({ source: 'security', selector: 'scheme', operator: 'exact', expected: 'Bearer' });
+      expect(unauth!.status).toBe(401);
+      expect(unauth!.conditions?.children[0]).toMatchObject({ source: 'security', selector: 'scheme', operator: 'absent' });
+    });
+
+    it('data route gates on apiKeyName present/absent', () => {
+      const route = server.routes.find(r => r.path.value === '/api/data')!;
+      expect(route.responses).toHaveLength(2);
+      expect(route.responses[0]!.conditions?.children[0]).toMatchObject({ source: 'security', selector: 'apiKeyName', operator: 'present' });
+      expect(route.responses[1]!.conditions?.children[0]).toMatchObject({ source: 'security', selector: 'apiKeyName', operator: 'absent' });
+    });
+
+    it('public route has a single unconditional 200 response', () => {
+      const route = server.routes.find(r => r.path.value === '/api/public')!;
+      expect(route.responses).toHaveLength(1);
+      expect(route.responses[0]!.status).toBe(200);
+      expect(route.responses[0]!.conditions).toBeUndefined();
+    });
+  });
+
+  describe('graphql sample', () => {
+    const server = createGraphQLMock();
+
+    it('ships one POST /graphql route', () => {
+      expect(server.routes).toHaveLength(1);
+      expect(server.routes[0]!.method).toBe('POST');
+      expect(server.routes[0]!.path).toMatchObject({ kind: 'exact', value: '/graphql' });
+    });
+
+    it('has three variants gated on $.operationName or query body', () => {
+      const responses = server.routes[0]!.responses;
+      expect(responses).toHaveLength(3);
+      expect(responses[0]!.conditions?.children[0]).toMatchObject({ source: 'body', selector: '$.operationName', operator: 'exact', expected: 'GetUser' });
+      expect(responses[1]!.conditions?.children[0]).toMatchObject({ source: 'body', selector: '$.operationName', operator: 'exact', expected: 'CreateUser' });
+      expect(responses[2]!.conditions?.children[0]).toMatchObject({ source: 'body', selector: '$.query', operator: 'contains', expected: '__typename' });
+    });
+  });
+
+  describe('order-flow sample', () => {
+    const server = createOrderFlowMock();
+
+    it('ships four routes in state mode', () => {
+      expect(server.routes).toHaveLength(4);
+      for (const r of server.routes) {
+        expect(r.responseMode).toBe('state');
+      }
+    });
+
+    it('POST /orders transitions from idle to pending', () => {
+      const route = server.routes.find(r => r.path.value === '/orders' && r.method === 'POST')!;
+      expect(route.responses[0]!.status).toBe(201);
+      expect(route.responses[0]!.transition).toMatchObject({ targetState: 'pending' });
+    });
+
+    it('POST /orders/:id/pay guard on pending state and advances to paid', () => {
+      const route = server.routes.find(r => r.path.value === '/orders/:id/pay')!;
+      expect(route.responses[0]!.transition).toMatchObject({ currentState: 'pending', targetState: 'paid' });
+      expect(route.responses[1]!.status).toBe(409);
+    });
+
+    it('POST /orders/:id/confirm guard on paid state and advances to complete', () => {
+      const route = server.routes.find(r => r.path.value === '/orders/:id/confirm')!;
+      expect(route.responses[0]!.transition).toMatchObject({ currentState: 'paid', targetState: 'complete' });
+    });
+
+    it('GET /orders/:id returns state-conditional variants', () => {
+      const route = server.routes.find(r => r.path.value === '/orders/:id' && r.method === 'GET')!;
+      expect(route.responses.length).toBeGreaterThanOrEqual(3);
+      const statuses = route.responses.map(r => r.status);
+      expect(statuses).toContain(200);
+      expect(statuses).toContain(404);
+    });
+  });
+
+  describe('webhook receiver sample', () => {
+    const server = createWebhookReceiverMock();
+
+    it('ships one POST /webhook route', () => {
+      expect(server.routes).toHaveLength(1);
+      expect(server.routes[0]!.method).toBe('POST');
+      expect(server.routes[0]!.path).toMatchObject({ kind: 'exact', value: '/webhook' });
+    });
+
+    it('has three variants: order.created → 200, order.cancelled → 200, unknown → 400', () => {
+      const responses = server.routes[0]!.responses;
+      expect(responses).toHaveLength(3);
+      expect(responses[0]!.status).toBe(200);
+      expect(responses[0]!.conditions?.children[0]).toMatchObject({ source: 'body', operator: 'json_subset', expected: '{"event":"order.created"}' });
+      expect(responses[1]!.status).toBe(200);
+      expect(responses[1]!.conditions?.children[0]).toMatchObject({ source: 'body', operator: 'json_subset', expected: '{"event":"order.cancelled"}' });
+      expect(responses[2]!.status).toBe(400);
+      expect(responses[2]!.conditions).toBeUndefined();
+    });
+  });
+
+  describe('outbound callbacks sample', () => {
+    const server = createOutboundCallbacksMock();
+
+    it('ships two POST /checkout routes', () => {
+      expect(server.routes).toHaveLength(2);
+      expect(server.routes.every(r => r.method === 'POST')).toBe(true);
+    });
+
+    it('checkout route has a callback pointing to the notify URL', () => {
+      const route = server.routes.find(r => r.path.value === '/checkout')!;
+      expect(route.responses[0]!.callbacks).toHaveLength(1);
+      expect(route.responses[0]!.callbacks![0]!.url).toBe('https://example.com/notify');
+      expect(route.responses[0]!.callbacks![0]!.maxRetries).toBe(0);
+    });
+
+    it('retry route has a callback with maxRetries 3', () => {
+      const route = server.routes.find(r => r.path.value === '/checkout/retry')!;
+      expect(route.responses[0]!.callbacks![0]!.maxRetries).toBe(3);
+    });
+
+    it('settings.callbacks.allowlist includes the notify URL', () => {
+      expect(server.settings.callbacks?.allowlist).toContain('https://example.com/notify');
+    });
   });
 });

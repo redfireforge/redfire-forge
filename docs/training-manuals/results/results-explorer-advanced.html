@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Results Explorer: Advanced Features — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-advanced { background: #f8d7da; color: #721c24; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>Results Explorer: Advanced Features</h1>
+  <p><span class="badge badge-advanced">Advanced</span> &nbsp; Sub-Workflow Drilldown · Parallel Branch Analysis · Data Mapper Overlay · Export Trace</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>Drill into a Sub-Workflow node to inspect its inner execution trace</li>
+    <li>Navigate the trace stack breadcrumb and return to the parent workflow</li>
+    <li>Understand parallel branch visualization in the Explorer (fork/join topology)</li>
+    <li>Open the Data Mapper overlay for a mapper node and read its field traces</li>
+    <li>Export the execution trace as JSON for offline analysis or sharing</li>
+    <li>Import a trace JSON file into the Explorer without re-running</li>
+  </ul>
+
+  <h2>Part A — Sub-Workflow Drilldown</h2>
+
+  <h3>What is a Sub-Workflow Node?</h3>
+  <p>A <strong>Sub-Workflow node</strong> calls another workflow as a nested execution. In the canvas, it appears with a purple border (vs green for regular nodes). The top-level trace covers only the entry/exit of the sub-workflow as a unit; to see what happened inside, you must drill down.</p>
+
+  <div class="step"><div class="step-num">1</div><div class="step-body">In the Explorer canvas, identify a purple-bordered node. These are sub-workflow nodes. Click to select it — the detail panel opens.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">In the detail panel (Overview or Request tab), look for a <strong>Open inner trace</strong> or <strong>Drill down</strong> button. Click it.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body">The canvas replaces its content with the <strong>inner workflow's execution trace</strong>. A breadcrumb bar appears at the top of the modal:
+<pre>Parent Workflow  ›  Sub-Workflow Name</pre>
+    You are now viewing the sub-workflow's nodes, iterations, and timing independently.
+  </div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body">Navigate the inner trace exactly like the parent: select nodes, read detail tabs, check iterations.</div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body">Click <strong>Parent Workflow</strong> in the breadcrumb (or the ← back button) to return up one level. The canvas restores the parent trace and the breadcrumb shrinks.</div></div>
+  <div class="step"><div class="step-num">6</div><div class="step-body">If the sub-workflow itself calls another sub-workflow, you can drilldown again — the trace stack grows:
+<pre>Parent  ›  Sub-1  ›  Sub-2</pre>
+    Each level is independently navigable.
+  </div></div>
+
+  <div class="callout callout-tip">
+    <strong>💡 Sub-workflow failure diagnosis</strong>
+    A sub-workflow node shows 🔴 if any of its internal nodes failed. Drill down to find exactly which inner node failed and on which iteration.
+  </div>
+
+  <h2>Part B — Parallel Branch Analysis</h2>
+
+  <h3>What Fork/Join Looks Like</h3>
+  <p>When a workflow splits into parallel branches (fork node → multiple branches → join node), the Explorer renders each branch as a separate column. After selecting the fork node, the detail panel shows <strong>Branch Stats</strong>: per-branch pass/fail counts and duration.</p>
+
+  <div class="step"><div class="step-num">7</div><div class="step-body">Find a <strong>fork node</strong> in the canvas (a node with multiple outgoing edges going to parallel nodes). Click it.</div></div>
+  <div class="step"><div class="step-num">8</div><div class="step-body">The detail panel <strong>Overview tab</strong> shows a branch breakdown table:
+    <ul style="margin-top: 6px">
+      <li>Branch A: N pass, N fail, avg duration</li>
+      <li>Branch B: N pass, N fail, avg duration</li>
+      <li>…</li>
+    </ul>
+    Colour-coded by branch (uses the branch colour palette from the diagram — each branch has a distinct border colour on its nodes).
+  </div></div>
+  <div class="step"><div class="step-num">9</div><div class="step-body">Click a node inside one of the parallel branches. The detail panel switches to that node. Check the Assertions tab to see if a specific branch's node is failing while other branches pass.</div></div>
+  <div class="step"><div class="step-num">10</div><div class="step-body">In Timeline view, parallel branches appear as overlapping bars at the same X positions (they ran concurrently). The width of the longest bar is the actual wall-clock time spent in the parallel section.</div></div>
+
+  <h2>Part C — Data Mapper Overlay</h2>
+
+  <h3>What is the Mapper Overlay?</h3>
+  <p>Data Mapper nodes transform JSON payloads by mapping fields from input to output. The <strong>Mapping Trace Overlay</strong> shows the exact field-by-field trace: which input value was picked, any transformation applied, and the resulting output value.</p>
+
+  <div class="step"><div class="step-num">11</div><div class="step-body">Click a node of type <strong>Data Mapper</strong> in the canvas (label usually includes "Mapper" or "Transform"). Its detail panel opens.</div></div>
+  <div class="step"><div class="step-num">12</div><div class="step-body">In the detail panel, find the <strong>Open in Mapper</strong> button (or <strong>Mapping Trace</strong> link). Click it.</div></div>
+  <div class="step"><div class="step-num">13</div><div class="step-body">The <strong>Mapping Trace Overlay</strong> opens over the explorer canvas. It shows a list of mapping rules evaluated during execution:
+    <ul style="margin-top: 6px">
+      <li><strong>Input path</strong> — the JSONPath or expression that was read from the source</li>
+      <li><strong>Input value</strong> — the actual value at runtime</li>
+      <li><strong>Transformation</strong> — any function applied (e.g. <code>toString</code>, <code>concat</code>)</li>
+      <li><strong>Output path</strong> — where the result was written in the output object</li>
+      <li><strong>Output value</strong> — the final mapped value</li>
+      <li>Error indicator if a mapping rule failed (e.g. input path not found)</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">14</div><div class="step-body">Close the overlay with the × button to return to the Explorer.</div></div>
+
+  <div class="callout callout-warn">
+    <strong>⚠️ Mapper overlay requires full capture level</strong>
+    The mapping trace is only available when the run was captured at <em>full</em> or <em>debug</em> capture level. At <em>minimal</em> or <em>standard</em>, no mapping trace is stored and the button will not appear.
+  </div>
+
+  <h2>Part D — Export and Import Trace JSON</h2>
+
+  <h3>Export the Trace</h3>
+
+  <div class="step"><div class="step-num">15</div><div class="step-body">In the Explorer modal toolbar, find the <strong>Export Trace</strong> button. Click it. A <code>.json</code> file downloads containing the full execution trace (workflow snapshot + all iterations + events).</div></div>
+  <div class="step"><div class="step-num">16</div><div class="step-body">This file can be:
+    <ul style="margin-top: 6px">
+      <li>Shared with a colleague who can import it without re-running the test</li>
+      <li>Archived alongside CI artifacts</li>
+      <li>Compared with traces from other runs using external tooling</li>
+    </ul>
+  </div></div>
+
+  <h3>Import a Trace</h3>
+
+  <div class="step"><div class="step-num">17</div><div class="step-body">Close the Explorer modal (if open). In the Results Dashboard header, click <strong>📂 Import Trace</strong>. A file picker opens.</div></div>
+  <div class="step"><div class="step-num">18</div><div class="step-body">Select the exported <code>.json</code> trace file. The Explorer opens immediately showing the imported trace. An <em>Imported: filename.json</em> banner shows at the top, and the Export button is hidden (it is already from an export).</div></div>
+  <div class="step"><div class="step-num">19</div><div class="step-body">You can drill down, switch iterations, and open the console exactly as with a live run trace.</div></div>
+
+  <h2>Advanced Feature Summary</h2>
+  <table>
+    <thead><tr><th>Feature</th><th>Entry Point</th><th>Requires</th></tr></thead>
+    <tbody>
+      <tr><td>Sub-workflow drilldown</td><td>Click purple node → "Drill down" in detail panel</td><td>Run has sub-workflow nodes</td></tr>
+      <tr><td>Parallel branch stats</td><td>Click fork node → Overview tab branch table</td><td>Workflow has fork/join structure</td></tr>
+      <tr><td>Data mapper overlay</td><td>Click mapper node → "Open in Mapper" button</td><td>Capture level: full or debug</td></tr>
+      <tr><td>Export trace</td><td>Explorer toolbar → Export Trace button</td><td>Run has an execution trace</td></tr>
+      <tr><td>Import trace</td><td>Dashboard header → 📂 Import Trace</td><td>A previously exported .json file</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Self-Practice Exercises</h2>
+  <ol>
+    <li>If your workflow contains a sub-workflow, drilldown and count how many inner nodes ran. Navigate back to the parent. Confirm the sub-workflow node's pass/fail state matches the inner trace's overall result.</li>
+    <li>In Timeline view, identify a parallel section. Measure the wall-clock duration of the parallel section by looking at the rightmost end of the overlapping bars. Compare it to the longest individual branch bar.</li>
+    <li>Export a trace from a run with a known failure. Close the Explorer and import the file using the Import Trace button. Verify you can still see the failure details.</li>
+    <li>Export the trace, then share the JSON file path with a colleague. Ask them to import it and describe the first failing node — verify it matches what you saw.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · Results Explorer — Advanced Features · August 2026</footer>
+</body>
+</html>

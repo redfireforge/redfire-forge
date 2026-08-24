@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>gRPC: Server Streaming — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; margin: 14px 0; }
+  .step-num { background: #e63946; color: #fff; border-radius: 50%; min-width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <h1>gRPC: Server Streaming</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; One request → many responses</p>
+
+  <h2>What You Will Learn</h2>
+  <ul>
+    <li>How server streaming differs from unary calls</li>
+    <li>Select and invoke a server-streaming method</li>
+    <li>Read the live stream message log</li>
+    <li>Use inbound message counters and stream status</li>
+    <li>Cancel an active stream</li>
+    <li>Common real-world use cases for server streaming</li>
+  </ul>
+
+  <h2>What is Server Streaming?</h2>
+  <p>In a <strong>server-streaming</strong> RPC the client sends a single request message and the server responds with a sequence of messages over an open HTTP/2 stream. The stream ends when the server sends a trailing metadata frame with a status code. From the client's perspective: send once, receive many.</p>
+
+  <div class="callout">
+    <strong>Real-world examples of server streaming</strong>
+    <ul style="margin-top:6px">
+      <li>Log tailing: subscribe once, receive log lines as they are written</li>
+      <li>Progress reporting: one "start job" request, receive percentage-complete updates</li>
+      <li>Large result sets: paginate-free — stream all 10 000 results without client polling</li>
+      <li>Live stock price feeds: single subscribe request, price events pushed as they occur</li>
+    </ul>
+  </div>
+
+  <h2>Prerequisites</h2>
+  <ul>
+    <li>Completed the <a href="grpc-first-call-easy.html">Your First Call</a> tutorial</li>
+    <li>gRPC Studio connected to <code>grpcb.in:443</code> (TLS mode) with the echo schema loaded via reflection</li>
+  </ul>
+
+  <h2>Step-by-Step Walkthrough</h2>
+
+  <h3>1 — Select the ServerStream Method</h3>
+  <div class="step"><div class="step-num">1</div><div class="step-body">In the schema panel, expand <strong>EchoService</strong> (or equivalent). Click <strong>ServerStream</strong>. The method type badge shows <strong>SERVER STREAM</strong>.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body">Notice the request composer changes — the <strong>Send</strong> button is now labelled <strong>Start Stream</strong>. The response area is replaced by a <strong>Stream Panel</strong> with a message log and counters.</div></div>
+
+  <h3>2 — Configure the Request</h3>
+  <div class="step"><div class="step-num">3</div><div class="step-body">In the request JSON editor, fill in the stream parameters:</div></div>
+<pre>{
+  "message": "stream-event",
+  "repeat_count": 5,
+  "interval_ms": 200
+}</pre>
+  <div class="step"><div class="step-num">4</div><div class="step-body">This tells the echo service to send back the message 5 times with 200 ms between each message. Adjust <code>repeat_count</code> and <code>interval_ms</code> as needed.</div></div>
+
+  <h3>3 — Start the Stream</h3>
+  <div class="step"><div class="step-num">5</div><div class="step-body">Click <strong>Start Stream</strong>. The stream panel activates. The status badge changes from idle to <strong>Streaming</strong>.</div></div>
+  <div class="step"><div class="step-num">6</div><div class="step-body">As the server sends messages, each one appears as a new row in the message log, timestamped with the time of receipt. Each row shows:
+    <ul>
+      <li>A <strong>↓</strong> arrow (inbound) indicating a server-sent message</li>
+      <li>The decoded JSON payload of that message</li>
+      <li>The elapsed time since stream start</li>
+    </ul>
+  </div></div>
+  <div class="step"><div class="step-num">7</div><div class="step-body">Watch the <strong>↓ N</strong> counter in the stream panel header increment with each received message. After all messages are received, the counter reads <code>↓ 5</code>.</div></div>
+
+  <h3>4 — Stream Ends</h3>
+  <div class="step"><div class="step-num">8</div><div class="step-body">When the server closes the stream, the status badge changes to <strong>Ended</strong> and the trailing status code (<code>OK</code>) appears. The <strong>Start Stream</strong> button re-enables.</div></div>
+  <div class="step"><div class="step-num">9</div><div class="step-body">Scroll through the message log to review all received messages. Click any message row to expand its full JSON payload.</div></div>
+
+  <h3>5 — Cancel Mid-Stream</h3>
+  <div class="step"><div class="step-num">10</div><div class="step-body">Set <code>interval_ms</code> to <code>2000</code> (2 seconds between messages) to give yourself time to cancel. Click <strong>Start Stream</strong>.</div></div>
+  <div class="step"><div class="step-num">11</div><div class="step-body">After receiving 2 messages, click <strong>Cancel Stream</strong>. The stream stops immediately. The status badge shows <strong>Cancelled</strong> and no further messages arrive.</div></div>
+  <div class="step"><div class="step-num">12</div><div class="step-body">Note that the messages received before cancellation remain visible in the log. Cancellation does not clear the log.</div></div>
+
+  <h2>Stream Log Controls</h2>
+  <table>
+    <tr><th>Control</th><th>Description</th></tr>
+    <tr><td><strong>Clear log</strong></td><td>Remove all messages from the log (does not affect the live stream)</td></tr>
+    <tr><td><strong>Auto-scroll</strong> toggle</td><td>When enabled, the log scrolls to the latest message automatically</td></tr>
+    <tr><td><strong>↓ N counter</strong></td><td>Total inbound messages received since the stream started</td></tr>
+    <tr><td><strong>Elapsed timer</strong></td><td>Wall-clock time since the stream started</td></tr>
+    <tr><td><strong>Export log</strong></td><td>Download the full message log as JSON or NDJSON</td></tr>
+  </table>
+
+  <h2>Stream Status Lifecycle</h2>
+  <table>
+    <tr><th>Status</th><th>Meaning</th></tr>
+    <tr><td><code>Starting</code></td><td>HTTP/2 HEADERS frame sent, waiting for first message</td></tr>
+    <tr><td><code>Streaming</code></td><td>Messages are being received</td></tr>
+    <tr><td><code>Ended (OK)</code></td><td>Server closed the stream with status OK</td></tr>
+    <tr><td><code>Ended (ERROR)</code></td><td>Server closed the stream with a non-OK status</td></tr>
+    <tr><td><code>Cancelled</code></td><td>Client cancelled before the server closed the stream</td></tr>
+  </table>
+
+  <h2>Diagnosing Stream Errors</h2>
+  <p>If the stream ends with a non-OK status, the status badge shows the gRPC error code. Common streaming errors:</p>
+  <ul>
+    <li><code>DEADLINE_EXCEEDED</code> — the stream exceeded its configured deadline. Increase the timeout or investigate server-side latency.</li>
+    <li><code>UNAVAILABLE</code> — the server dropped the connection mid-stream. Usually a transient infrastructure issue; retry.</li>
+    <li><code>RESOURCE_EXHAUSTED</code> — the server hit a rate limit. Reduce <code>repeat_count</code> or add a delay.</li>
+  </ul>
+
+  <h2>Practice Exercises</h2>
+  <ol>
+    <li>Start a server stream with <code>repeat_count: 10</code> and <code>interval_ms: 500</code>. Watch all 10 messages arrive, then confirm the final status is <code>OK</code>.</li>
+    <li>Start the same stream but cancel after exactly 3 messages. Confirm the log shows 3 entries and the status is <code>Cancelled</code>.</li>
+    <li>Export the message log from a completed stream and inspect the JSON file format.</li>
+    <li>Open a second tab and start a simultaneous server stream on a different method. Confirm both logs are independent.</li>
+  </ol>
+
+  <footer>RedfireForge v0.6.0 · gRPC Studio — Server Streaming · August 2026</footer>
+</body>
+</html>

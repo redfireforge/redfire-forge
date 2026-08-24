@@ -1,5 +1,5 @@
 /**
- * Request Gallery — 13 ready-to-run API request samples.
+ * Request Gallery — 16 ready-to-run API request samples.
  */
 
 import type { RequestSampleEntry } from './types';
@@ -17,6 +17,9 @@ import {
   createAuthLoginScenario,
   createEchoHeadersScenario,
   createMultiEnvProductLookupScenario,
+  createGraphQLIntrospectScenario,
+  createGraphQLCountryQueryScenario,
+  createGraphQLMutationScenario,
 } from './presets';
 
 export type { RequestSampleEntry } from './types';
@@ -209,5 +212,47 @@ export const requestSampleCatalog: RequestSampleEntry[] = [
     method: 'GET',
     previewPath: '/products/search?q=laptop&limit=3',
     factory: createMultiEnvProductLookupScenario,
+  },
+  {
+    id: 'req-graphql-introspect',
+    domain: 'requests',
+    name: 'GraphQL Introspection',
+    description: 'POST { __typename } to a public GraphQL endpoint — the simplest way to verify a GraphQL server is alive',
+    icon: '⬡',
+    category: 'graphql',
+    difficulty: 'easy',
+    tags: ['graphql', 'introspection', 'post', 'json'],
+    liveApis: ['countries.trevorblades.com'],
+    method: 'POST',
+    previewPath: '/graphql',
+    factory: createGraphQLIntrospectScenario,
+  },
+  {
+    id: 'req-graphql-country',
+    domain: 'requests',
+    name: 'GraphQL: Country Info',
+    description: 'Query country name, capital, and currency by code — demonstrates named fields and nested response',
+    icon: '🌐',
+    category: 'graphql',
+    difficulty: 'easy',
+    tags: ['graphql', 'query', 'country', 'nested'],
+    liveApis: ['countries.trevorblades.com'],
+    method: 'POST',
+    previewPath: '/graphql',
+    factory: createGraphQLCountryQueryScenario,
+  },
+  {
+    id: 'req-graphql-mutation',
+    domain: 'requests',
+    name: 'GraphQL: Add Post Mutation',
+    description: 'Create a post via a GraphQL mutation — shows mutation syntax and response shape validation',
+    icon: '✏️',
+    category: 'graphql',
+    difficulty: 'medium',
+    tags: ['graphql', 'mutation', 'create', 'post'],
+    liveApis: ['graphqlzero.almansi.me'],
+    method: 'POST',
+    previewPath: '/api',
+    factory: createGraphQLMutationScenario,
   },
 ];

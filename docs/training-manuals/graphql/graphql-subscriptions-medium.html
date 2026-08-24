@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GraphQL: Subscriptions — Training Manual</title>
+  <style>
+  @page { size: A4; margin: 20mm 18mm; }
+  @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } h1 { font-size: 20pt; } h2 { font-size: 16pt; } h3 { font-size: 13pt; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #1a1a2e; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 30px 24px; background: #fff; }
+  h1 { font-size: 28px; color: #e63946; margin-bottom: 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; color: #1d3557; margin: 32px 0 12px; border-bottom: 2px solid #e63946; padding-bottom: 6px; }
+  h3 { font-size: 17px; color: #457b9d; margin: 22px 0 8px; }
+  h4 { font-size: 14px; color: #1d3557; margin: 16px 0 6px; }
+  p, li { font-size: 13px; margin-bottom: 8px; }
+  ul, ol { padding-left: 22px; }
+  code { background: #f1f3f5; color: #c7254e; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 1px 5px; border-radius: 3px; }
+  pre { background: #1a1a2e; color: #a8dadc; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 10px 0 16px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 12.5px; }
+  th { background: #1d3557; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; vertical-align: middle; }
+  .badge-medium { background: #fff3cd; color: #856404; }
+  .callout { background: #e8f4fd; border-left: 4px solid #457b9d; padding: 12px 16px; margin: 14px 0; border-radius: 0 6px 6px 0; font-size: 12.5px; }
+  .callout-tip { background: #e8f5e9; border-left-color: #2e7d32; }
+  .callout-warn { background: #fff8e1; border-left-color: #f59e0b; }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .cover-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 85vh; text-align: center; }
+  .cover-page h1 { font-size: 36px; margin-bottom: 8px; }
+  .cover-page .subtitle { font-size: 18px; color: #457b9d; margin-bottom: 24px; }
+  .cover-page .meta { font-size: 13px; color: #6c757d; margin-top: 32px; }
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #dee2e6; font-size: 11px; color: #6c757d; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="cover-page">
+    <div style="font-size: 72px; margin-bottom: 16px;">📡</div>
+    <h1>GraphQL Subscriptions</h1>
+    <div class="subtitle">Medium — Training Guide</div>
+    <p>Connect to a live GraphQL subscription and receive a stream of real-time events. Choose between WebSocket (graphql-ws) and Server-Sent Events (SSE) transports, observe streaming data in the response pane, and stop the subscription when done.</p>
+    <div class="meta">
+      RedfireForge v0.6.0<br />
+      Difficulty: ★★☆<br />
+      GraphQL Studio · subscription keyword
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>1. Purpose &amp; Use Case</h2>
+  <p>GraphQL subscriptions maintain a persistent connection to the server so the server can push updates to the client. Common use cases:</p>
+  <ul>
+    <li>Real-time notifications (<code>onOrderStatusChanged</code>)</li>
+    <li>Live dashboard metrics (<code>onMetricUpdate</code>)</li>
+    <li>Streaming AI completions (<code>onTokenGenerated</code>)</li>
+    <li>Collaborative document editing (<code>onDocumentChanged</code>)</li>
+  </ul>
+  <p>Unlike polling (repeated queries), subscriptions push only when something changes, which is far more efficient for high-frequency or event-driven data.</p>
+
+  <h2>2. Subscription Transports</h2>
+  <table>
+    <tr><th>Transport</th><th>Protocol</th><th>Best for</th></tr>
+    <tr><td><strong>graphql-ws</strong></td><td>WebSocket over <code>ws://</code> or <code>wss://</code></td><td>Full-duplex, bidirectional — most common for modern APIs</td></tr>
+    <tr><td><strong>SSE</strong> (Server-Sent Events)</td><td>HTTP long-poll over <code>http://</code> or <code>https://</code></td><td>Unidirectional server push; simpler infrastructure, works through HTTP proxies</td></tr>
+    <tr><td><strong>Auto</strong></td><td>RedfireForge chooses based on endpoint URL scheme</td><td>When you're unsure which transport the server supports</td></tr>
+  </table>
+  <p>The transport selector appears in the connection bar next to the endpoint URL. The default is <strong>Auto</strong>.</p>
+
+  <h2>3. Step-by-Step Walkthrough</h2>
+
+  <div class="callout">
+    <strong>📋 Live Subscription Server Required</strong>
+    Subscriptions require a server that keeps a persistent connection open. Start the test server with: <code>cd docker/graphql &amp;&amp; docker compose up -d</code>. The subscription endpoint is <code>ws://localhost:4010/graphql</code>.
+  </div>
+
+  <h3>Step 1 — Enter the Subscription Endpoint</h3>
+  <p>In the connection bar, enter:</p>
+  <pre>ws://localhost:4010/graphql</pre>
+  <p>Click <strong>Introspect</strong>. The schema loads and you can now see the <code>Subscription</code> root type in the Schema Explorer.</p>
+
+  <h3>Step 2 — Select a Transport</h3>
+  <p>Next to the endpoint input, click the transport selector dropdown (shows <strong>Auto</strong> by default). The options are:</p>
+  <ul>
+    <li><code>auto</code> — detects from URL scheme</li>
+    <li><code>graphql-ws</code> — forces the graphql-ws WebSocket sub-protocol</li>
+    <li><code>sse</code> — forces Server-Sent Events over HTTP</li>
+  </ul>
+  <p>Select <strong>graphql-ws</strong> for this walkthrough since the test server uses WebSockets.</p>
+
+  <h3>Step 3 — Write a Subscription</h3>
+  <p>In the editor, write:</p>
+  <pre>subscription OnOrderUpdated {
+  orderUpdated {
+    id
+    status
+    updatedAt
+    customer {
+      name
+    }
+  }
+}</pre>
+
+  <h3>Step 4 — Connect and Stream</h3>
+  <p>Click <strong>▶ Execute</strong> (the button may change label to <strong>Subscribe</strong> or show a connection icon). The studio establishes a WebSocket connection and enters listening mode.</p>
+  <p>In the response pane you will see:</p>
+  <ul>
+    <li>A <strong>Connected</strong> status badge</li>
+    <li>An event counter incrementing as messages arrive</li>
+    <li>Each event appended as a timestamped JSON block</li>
+  </ul>
+  <p>If the test server emits mock events on a timer, you will see new events arriving automatically.</p>
+
+  <h3>Step 5 — Inspect Streaming Events</h3>
+  <p>Each event in the response pane is a full GraphQL response object:</p>
+  <pre>{
+  "data": {
+    "orderUpdated": {
+      "id": "ord-42",
+      "status": "SHIPPED",
+      "updatedAt": "2026-08-14T10:32:11Z",
+      "customer": { "name": "Alice Smith" }
+    }
+  }
+}</pre>
+  <p>Click on any event to expand it. The pane shows the raw JSON for that specific event.</p>
+
+  <h3>Step 6 — Stop the Subscription</h3>
+  <p>Click <strong>■ Stop</strong> (or the same button that was labelled Execute/Subscribe). The WebSocket connection closes gracefully. The event list in the response pane remains visible for inspection.</p>
+
+  <div class="callout callout-tip">
+    <strong>💡 Bounded subscriptions in Workflow nodes</strong>
+    When using a <code>graphqlSubscription</code> workflow node, set <code>stopAfterMessages</code> to a positive integer to automatically stop after N events — preventing runaway connections in automated workflows.
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>4. SSE Transport Walkthrough</h2>
+  <p>Some APIs expose subscriptions over SSE instead of WebSockets. To test SSE:</p>
+  <ol>
+    <li>Change the endpoint to an HTTP URL: <code>http://localhost:4010/graphql</code></li>
+    <li>Set the transport selector to <strong>SSE</strong></li>
+    <li>Write and execute the same subscription query</li>
+  </ol>
+  <p>The experience is identical from the user's perspective — events stream in as they arrive. Internally, the studio uses <code>EventSource</code> (HTTP long-poll) rather than WebSocket.</p>
+
+  <h2>5. Subscription vs Polling</h2>
+  <table>
+    <tr><th>Approach</th><th>Connection</th><th>Latency</th><th>Server load</th></tr>
+    <tr><td>Polling (repeated queries)</td><td>New HTTP request every N seconds</td><td>Up to N seconds</td><td>High — requests run even when nothing changed</td></tr>
+    <tr><td>Subscriptions (graphql-ws)</td><td>One persistent WebSocket</td><td>Near-instant</td><td>Low — server pushes only on change</td></tr>
+    <tr><td>Subscriptions (SSE)</td><td>One long-lived HTTP connection</td><td>Near-instant</td><td>Low — simpler than WebSocket, no upgrade needed</td></tr>
+  </table>
+
+  <h2>6. Try It Yourself</h2>
+
+  <h3>Exercise 1 — Switch Transports</h3>
+  <p>Connect to the subscription endpoint with <strong>graphql-ws</strong>, confirm events arrive, then disconnect. Change transport to <strong>SSE</strong> and reconnect using an <code>http://</code> URL. Compare the behaviour.</p>
+
+  <h3>Exercise 2 — Multiple Subscription Tabs</h3>
+  <p>Open a second tab (click <strong>+</strong> in the tab bar). Connect to the same subscription endpoint in tab 2 and start a different subscription (e.g. <code>onMetricUpdate</code>). Observe that both subscriptions stream independently without interfering with each other.</p>
+
+  <h3>Exercise 3 — Subscription with Variables</h3>
+  <p>If the subscription accepts a variable (e.g. filter by customer ID), add <code>($customerId: ID!)</code> to the operation and supply the variable in the Variables panel. This lets you subscribe to a filtered event stream.</p>
+
+  <footer>
+    RedfireForge Training Manual — GraphQL: Subscriptions · August 2026
+  </footer>
+
+</body>
+</html>
