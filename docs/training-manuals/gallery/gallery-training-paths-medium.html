@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gallery Training Paths Mode — Training Manual</title>
+  <title>Gallery — Training Tracks — Training Manual</title>
   <style>
   @page { size: A4; margin: 20mm 18mm; }
   @media print { .page-break { page-break-before: always; } body { font-size: 10pt; } }
@@ -37,157 +37,141 @@
 </head>
 <body>
 
-  <h1>Gallery — Training Paths Mode</h1>
-  <p><span class="badge badge-medium">Medium</span> &nbsp; Switching modes · Path/phase/manual hierarchy · Search · Active path · Sample links</p>
+  <h1>Gallery — Training Tracks</h1>
+  <p><span class="badge badge-medium">Medium</span> &nbsp; Progress dashboard · Continue Learning · What's New · Search & filter · Mark complete</p>
 
   <h2>Overview</h2>
-  <p>In addition to the sample grid, the Gallery has a <strong>Training Paths mode</strong> — a structured curriculum view that organises all training manuals into logical learning journeys. Instead of browsing individual samples, you follow a sequence of phases and manuals from beginner to advanced.</p>
+  <p>The <strong>Training Tracks</strong> tab (Gallery → Training Tracks) is a full learning-progress system. Unlike the Samples tab, Training Tracks is not about importing data — it is about following a structured curriculum, tracking which manuals you have read, and resuming where you left off.</p>
 
   <div class="callout">
-    <strong>Samples mode vs. Training Paths mode</strong>
+    <strong>Training Tracks vs. Gallery Samples</strong>
     <ul>
-      <li><strong>Samples mode</strong> — "I want to load a specific sample and get to work immediately"</li>
-      <li><strong>Training Paths mode</strong> — "I want to learn a feature from scratch, following a guided curriculum"</li>
+      <li><strong>Samples tab</strong> — browse and import pre-built entries across 9 domains</li>
+      <li><strong>Training Tracks tab</strong> — follow a guided curriculum, track progress, mark manuals as completed</li>
     </ul>
-    Both modes are in the same gallery page — use the mode toggle to switch instantly.
+    Both live under the Gallery navigation item. Switch between them using the sub-nav tabs at the top of the Gallery page.
   </div>
 
-  <h2>Switching to Training Paths Mode</h2>
+  <h2>Opening Training Tracks</h2>
 
   <div class="step">
     <div class="step-num">1</div>
     <div class="step-body">
-      <strong>Open the Gallery</strong>
-      Click the Gallery icon in the top navigation. The page opens in Samples mode (card grid).
+      <strong>Click Gallery in the sidebar</strong>
+      Click the <strong>Gallery</strong> icon in the left navigation. The Gallery page opens.
     </div>
   </div>
 
   <div class="step">
     <div class="step-num">2</div>
     <div class="step-body">
-      <strong>Click "Training Paths" in the mode toggle</strong>
-      At the top of the gallery, find the <strong>Samples / Training Paths</strong> toggle strip. Click <strong>Training Paths</strong>. The card grid is replaced by a vertical list of training path cards.
+      <strong>Click "Training Tracks" in the sub-nav</strong>
+      At the top of the Gallery page, two tabs appear: <strong>Samples</strong> and <strong>Training Tracks</strong>. Click <strong>Training Tracks</strong>. The full training dashboard replaces the sample grid.
     </div>
   </div>
+
+  <h2>Page Layout</h2>
+  <table>
+    <thead><tr><th>Section</th><th>What It Shows</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Header</strong></td><td>"Training Manual Tracks" title with subtitle: "Master RedfireForge through structured learning paths. Track your progress and level up your API testing skills."</td></tr>
+      <tr><td><strong>Progress Dashboard</strong></td><td>Stats bar — total manuals available, how many you have viewed, how many marked complete</td></tr>
+      <tr><td><strong>Continue Learning card</strong></td><td>Shows the last manual you opened that is still In Progress — one-click to resume</td></tr>
+      <tr><td><strong>What's New banner</strong></td><td>Recently added manuals, newest first — expandable list with "Show more" toggle</td></tr>
+      <tr><td><strong>Search &amp; filter bar</strong></td><td>Full-text search + difficulty dropdown + status dropdown (Not Started / Viewed / Completed)</td></tr>
+      <tr><td><strong>Learning Paths list</strong></td><td>All training paths as expandable cards — path → phases → manuals</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Walkthrough</h2>
 
   <div class="step">
     <div class="step-num">3</div>
     <div class="step-body">
-      <strong>Read the header</strong>
-      The view now shows a <strong>📖 Training Paths</strong> heading with the subtitle: "Structured learning journeys. Click a path to see its phases, manuals, and linked samples."
+      <strong>Read the Progress Dashboard</strong>
+      The stats bar at the top shows three numbers: how many manuals exist in total, how many you have opened (Viewed), and how many you have marked as Completed. These update automatically as you use the system.
     </div>
   </div>
-
-  <h2>The Path / Phase / Manual Hierarchy</h2>
-  <p>Every item of training content is organised in three levels:</p>
-
-  <table>
-    <thead><tr><th>Level</th><th>What It Is</th><th>Example</th></tr></thead>
-    <tbody>
-      <tr><td><strong>Path</strong></td><td>A complete learning journey covering one feature area</td><td>"GraphQL Studio", "Webhook Delivery Logs", "Request Basics"</td></tr>
-      <tr><td><strong>Phase</strong></td><td>A group of related manuals within a path, representing a stage of learning</td><td>"Getting Started", "Core Operations", "Advanced Topics"</td></tr>
-      <tr><td><strong>Manual</strong></td><td>An individual training HTML document covering a specific topic</td><td>"Your First Query", "Schema Explorer", "Mutations"</td></tr>
-    </tbody>
-  </table>
-
-  <p>In the Training Paths view, each path is displayed as a collapsible card. Clicking a path card expands it to reveal its phases and the manuals within each phase.</p>
-
-  <h2>Step-by-Step Walkthrough</h2>
 
   <div class="step">
     <div class="step-num">4</div>
     <div class="step-body">
-      <strong>Browse the path list</strong>
-      You will see all ~27 training paths listed. Each card shows: path name, icon, and a brief description. Scroll to see paths across all feature areas (Requests, Workflow, GraphQL, gRPC, WebSocket, SSE, Webhooks, etc.).
+      <strong>Use "Continue Learning"</strong>
+      If you have previously opened any manual, the <strong>Continue Learning</strong> card shows the last in-progress manual with its path name, phase name, difficulty dots, and an <strong>Open Manual</strong> button. Click it to reopen the manual in a new tab.
     </div>
   </div>
 
   <div class="step">
     <div class="step-num">5</div>
     <div class="step-body">
-      <strong>Click a path card to expand it</strong>
-      Click any path card. It expands to show its phases (e.g. "Getting Started", "Core Operations"). Each phase header lists the phase name, and below it are the manuals in that phase.
+      <strong>Check What's New</strong>
+      The <strong>What's New</strong> banner lists manuals added in recent releases. Click any item to open it. Click <strong>Show more</strong> to expand the full list. The banner is hidden when the search filter is active.
     </div>
   </div>
 
   <div class="step">
     <div class="step-num">6</div>
     <div class="step-body">
-      <strong>Read a manual row</strong>
-      Each manual row shows:
-      <ul>
-        <li><strong>Manual title</strong> — e.g. "Your First Query"</li>
-        <li><strong>Difficulty dots</strong> — how complex this manual is</li>
-        <li><strong>Sample chip</strong> (if linked) — a clickable chip that navigates to the corresponding gallery sample in Samples mode</li>
-        <li><strong>Manual link</strong> — opens the HTML training document in a new tab</li>
-      </ul>
+      <strong>Browse the Learning Paths list</strong>
+      Below the banner you see all active training paths under the heading "Learning Paths — N paths available · N manuals total". Each path is a collapsible card. Click a card header to expand it and see its phases and manuals.
     </div>
   </div>
 
   <div class="step">
     <div class="step-num">7</div>
     <div class="step-body">
-      <strong>Search within Training Paths</strong>
-      The search bar above the path list filters across path names, descriptions, phase names, and manual titles simultaneously. Type "webhook" to find any path, phase, or manual mentioning webhooks. Clear the search to see all paths again.
+      <strong>Read a manual</strong>
+      Inside an expanded path card, find a manual row. Each row shows:
+      <ul>
+        <li>Manual title and difficulty dots</li>
+        <li>Status badge (Not Started / Viewed / Completed) — shown as a colored chip</li>
+        <li><strong>Open Manual</strong> button — opens the HTML training document in a new browser tab, and automatically marks the manual as Viewed</li>
+        <li><strong>→ Sample</strong> chip — if the manual is linked to a gallery sample, this navigates to that sample in the Samples tab</li>
+      </ul>
     </div>
   </div>
 
   <div class="step">
     <div class="step-num">8</div>
     <div class="step-body">
-      <strong>Focus on a single path</strong>
-      If you navigate to the gallery from a feature-specific link (e.g. from a "View Learning Path" button on a feature page), the gallery may open with a specific path already active. When a path is active:
-      <ul>
-        <li>Only that path's card is shown (all others hidden)</li>
-        <li>A <strong>← All Training Paths</strong> back button appears at the top</li>
-        <li>Click it to return to the full list of all paths</li>
-      </ul>
+      <strong>Mark a manual as Completed</strong>
+      After reading a manual, click its status chip and select <strong>Completed</strong>. The badge updates, and the Progress Dashboard's Completed count increments. You can also set status to <strong>Not Started</strong> to reset it.
     </div>
   </div>
 
   <div class="step">
     <div class="step-num">9</div>
     <div class="step-body">
-      <strong>Click a sample chip to jump to the sample</strong>
-      If a manual row has a linked sample chip, clicking it switches the gallery back to <strong>Samples mode</strong> and scrolls to / highlights that specific sample card. This lets you move from "read the manual" to "load the sample" with one click.
+      <strong>Search and filter manuals</strong>
+      Use the <strong>search bar</strong> to filter manuals by keyword (matches title, description, path name, phase name). Use the <strong>Difficulty</strong> dropdown (All / Easy / Medium / Advanced) and <strong>Status</strong> dropdown (All / Not Started / Viewed / Completed) to narrow down. When filters are active, the path list shows only matching manuals — and each matching path card is auto-expanded. Clear filters to return to the full list.
     </div>
   </div>
 
-  <div class="step">
-    <div class="step-num">10</div>
-    <div class="step-body">
-      <strong>Open a training manual</strong>
-      Click the manual title link in any manual row. The HTML training document opens in a new browser tab, ready to follow along.
-    </div>
-  </div>
-
-  <h2>Training Path Coverage</h2>
-  <p>As of August 2026, RedfireForge ships with ~27 training paths grouped into four categories:</p>
+  <h2>Manual Status Reference</h2>
   <table>
-    <thead><tr><th>Category</th><th>Paths</th></tr></thead>
+    <thead><tr><th>Status</th><th>Meaning</th><th>How It Changes</th></tr></thead>
     <tbody>
-      <tr><td><strong>Core</strong></td><td>Versioning, Workflow Patterns, Auth Strategies, Assertion Mastery</td></tr>
-      <tr><td><strong>Content</strong></td><td>Request Basics, Tests, API Catalog, Data Mapper, Environment Manager, Results Dashboard, API Mock, Kafka Protocols, Gallery</td></tr>
-      <tr><td><strong>Workflow</strong></td><td>Flow Control, API Patterns, Diverse APIs, Script Node, Event-Driven, Async Correlation, Orchestration, Node Reference, Workflow Runner, Kafka Event-Driven</td></tr>
-      <tr><td><strong>Protocol</strong></td><td>GraphQL Studio, gRPC Studio, WebSocket Studio, SSE Studio, Webhook Delivery Logs</td></tr>
+      <tr><td><strong>Not Started</strong></td><td>Manual has never been opened</td><td>Default for all new manuals; you can reset to this manually</td></tr>
+      <tr><td><strong>Viewed</strong></td><td>Manual was opened at least once</td><td>Set automatically when you click "Open Manual"</td></tr>
+      <tr><td><strong>Completed</strong></td><td>You have finished and marked the manual done</td><td>Set manually via the status chip after reading</td></tr>
     </tbody>
   </table>
 
-  <h2>Switching Back to Samples Mode</h2>
-  <p>Click <strong>Samples</strong> in the mode toggle at any time to return to the card grid. Any domain filter or search you had active before switching to Training Paths mode is preserved.</p>
+  <h2>Progress Persistence</h2>
+  <p>Training progress is saved locally in the browser (local storage). It persists across page reloads and browser restarts on the same machine. Progress is <em>not</em> synced across devices or browsers.</p>
 
   <h2>Smoke-Test Checklist</h2>
   <ol>
-    <li>Open Gallery → click <strong>Training Paths</strong> in the mode toggle → verify card grid disappears and path list appears</li>
-    <li>Verify "📖 Training Paths" heading and subtitle are visible</li>
-    <li>Click any path card → verify it expands to show phases and manuals</li>
-    <li>Verify each manual row shows title + difficulty dots</li>
-    <li>Type "graphql" in the search bar → verify only GraphQL-related paths/phases/manuals appear</li>
-    <li>Clear search → verify all paths reappear</li>
-    <li>If a manual has a sample chip, click it → verify gallery switches to Samples mode for that sample</li>
-    <li>Click <strong>Samples</strong> in mode toggle → verify card grid returns</li>
+    <li>Click Gallery → click <strong>Training Tracks</strong> sub-nav tab → verify progress dashboard appears</li>
+    <li>Verify "Learning Paths" section shows multiple path cards</li>
+    <li>Click a path card → verify it expands to show phases and manuals</li>
+    <li>Click <strong>Open Manual</strong> on any manual → verify it opens in a new tab and the status badge changes to "Viewed"</li>
+    <li>Click the status chip on a Viewed manual → select <strong>Completed</strong> → verify badge updates and Progress Dashboard completed count increments</li>
+    <li>Type a keyword in the search bar → verify only matching manuals appear (in auto-expanded path cards)</li>
+    <li>Click <strong>→ Sample</strong> chip on a manual that has a linked sample → verify gallery switches to Samples tab for that entry</li>
+    <li>Click <strong>Samples</strong> sub-nav tab → verify you return to the sample grid</li>
   </ol>
 
-  <footer>RedfireForge v0.6.0 · Gallery — Training Paths Mode · August 2026</footer>
+  <footer>RedfireForge v0.8.0 · Gallery — Training Tracks · August 2026</footer>
 </body>
 </html>
