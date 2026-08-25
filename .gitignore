@@ -58,3 +58,19 @@ test-script-paste.cjs
 
 # Tauri sidecar binaries (built by scripts/build-sidecar.mjs, ~115MB)
 src-tauri/binaries/
+
+# Private planning and internal artifacts maintained in redfireforge-private
+docs/plan/
+.cursor/
+REFACTORING_PLAN.md
+RESTRUCTURING_PLAN.md
+ROADMAP.md
+SCENARIOS_TAB_ENHANCEMENTS.md
+RELEASE.md
+RELEASE.archive.md
+CHANGELOG.archive.md
+harness-fg-snapshot.yml
+results-dropdown.yml
+runner-results.yml
+training-ppt/
+coverage-analysis/
