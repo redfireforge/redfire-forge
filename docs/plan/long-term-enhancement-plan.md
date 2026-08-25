@@ -31,15 +31,15 @@
 
 | ID | Feature | Status | Notes |
 |----|---------|--------|-------|
-| R-0.7.0-1 | **npm Package** — Publish CLI as `npm install -g redfireforge-cli` | `BACKLOG` | Package structure ready (`cli/package.json`, build script, GitHub Actions workflow). Needs actual npm publish with `NPM_TOKEN`. |
+| R-0.7.0-1 | **npm Package** — Publish CLI as `npm install -g redfireforge-cli` | `IN PROGRESS` | `publish-cli.yml` workflow exists and is ready (triggers on `v*` tags or manual dispatch). Package never actually published — needs maintainer to push a version tag or run manually with `NPM_TOKEN` set. As of 2026-08-18 the registry returns 404. |
 
-### 1.2 Phase 0.7.5 — CI/CD Pipeline (8 items, 0 done)
+### 1.2 Phase 0.7.5 — CI/CD Pipeline (8 items, 2 done)
 
 | ID | Feature | Status | Notes |
 |----|---------|--------|-------|
-| R-0.7.5-1 | **CI Test Pipeline** — GitHub Actions: `npm test` on every push/PR | `IN PROGRESS` | `ci.yml` exists: runs `tsc`, ESLint, and unit tests on push/PR. Remaining: E2E in CI, PR status checks configured as required. |
-| R-0.7.5-2 | **CI E2E Pipeline** — GitHub Actions: Playwright E2E on every PR | `BACKLOG` | Needs headless browser in CI |
-| R-0.7.5-3 | **Lint & Type-Check Gate** — `eslint` + `tsc --noEmit` as required PR checks | `IN PROGRESS` | Pre-commit hook (husky: `tsc -b --noEmit` + `lint-staged`) + CI parallel jobs exist. Remaining: configure as required GitHub branch-protection PR checks. |
+| R-0.7.5-1 | **CI Test Pipeline** — GitHub Actions: `npm test` on every push/PR | `DONE` | `ci.yml` runs `tsc`, ESLint, and unit tests on push to develop/release/feature/hotfix and PRs to develop/release/master. Path-filter jobs for demo hub included. Remaining: E2E headless job and required PR status check configuration (R-0.7.5-2 and R-0.7.5-4). |
+| R-0.7.5-2 | **CI E2E Pipeline** — GitHub Actions: Playwright E2E on every PR | `BACKLOG` | Needs headless Playwright job added to `ci.yml` |
+| R-0.7.5-3 | **Lint & Type-Check Gate** — `eslint` + `tsc --noEmit` as required PR checks | `DONE` | Pre-commit hook (husky: `tsc -b --noEmit` + `lint-staged`) + CI parallel jobs exist. Remaining: configure as required GitHub branch-protection PR checks (R-0.7.5-4). |
 | R-0.7.5-4 | **PR Status Checks** — Require all CI jobs to pass before merge | `BACKLOG` | GitHub branch protection rules |
 | R-0.7.5-5 | **GitHub Actions Example for Users** — Ready-to-use CI YAML for RedfireForge CLI | `BACKLOG` | |
 | R-0.7.5-6 | **Harness.io Pipeline Example** — Sample Harness pipeline with JUnit + Test Intelligence | `BACKLOG` | |
@@ -115,11 +115,12 @@
 
 | ID | Feature | Description | Complexity | Priority | Status |
 |----|---------|-------------|------------|----------|--------|
-| P-1 | **GraphQL Support** | Query/mutation builder with schema introspection, variable editor, assertions. | High | High | `BACKLOG` |
-| P-2 | **gRPC Support** | Protobuf import, unary and streaming calls, proto-based assertions. | High | Medium | `BACKLOG` |
-| P-3 | **WebSocket Support** | Connect, send/receive, assert on payloads, measure message latency. | High | Medium | `BACKLOG` |
-| P-4 | **JSON Schema Validation** | Validate responses against JSON Schema (draft 2020-12). Auto-generate from samples. | Medium | Medium | `BACKLOG` |
-| P-5 | **Server-Sent Events (SSE)** | Subscribe, assert on event types/payloads, measure delivery latency. | Medium | Low | `BACKLOG` |
+| P-1 | **GraphQL Support** | Query/mutation builder with schema introspection, variable editor, assertions. | High | High | `DONE` | `src/features/graphql/GraphqlStudioPage.tsx` — full GraphQL Studio with query/mutation builder, schema introspection, variable editor, auth panel, subscriptions, demo bridges, and E2E tests. See `docs/plan/future/graphql/`. |
+| P-2 | **gRPC Support** | Protobuf import, unary and streaming calls, proto-based assertions. | High | Medium | `DONE` | `src/features/grpc/GrpcStudioPage.tsx` — full gRPC Studio with proto import, unary/server-streaming/client-streaming/bidi, reflection, assertions, schema diff, load testing. See `docs/plan/future/grpc/`. |
+| P-3 | **WebSocket Support** | Connect, send/receive, assert on payloads, measure message latency. | High | Medium | `DONE` | `src/features/websocket/` — WebSocket Studio with connection, send/receive, console, schema validation, filtering, load test, mock server, tabs persistence. |
+| P-4 | **JSON Schema Validation** | Validate responses against JSON Schema (draft 2020-12). Auto-generate from samples. | Medium | Medium | `DONE` | `src/features/websocket/wsSchemaValidator.ts` + `WebSocketSchemaPanel.tsx` — JSON Schema validation against WS messages with auto-detect and manual schema editor. |
+| P-5 | **Server-Sent Events (SSE)** | Subscribe, assert on event types/payloads, measure delivery latency. | Medium | Low | `DONE` | `src/features/sse/` — SSE Studio with auth panel, connection tab bar, event stream viewer. |
+| P-6 | **Kafka Support** | Produce/consume messages, topic management, TLS, SASL auth, workflow nodes. | High | Medium | `DONE` | `src/features/kafka/` — Kafka Studio with cluster editor, body editor, consumer/producer, workflow trigger/produce/consume nodes, TLS/SASL. |
 
 ---
 
@@ -128,11 +129,11 @@
 | ID | Feature | Description | Complexity | Priority | Status |
 |----|---------|-------------|------------|----------|--------|
 | W-1 | **HAR-to-Workflow Conversion** | Import HAR recordings from browser DevTools → workflow graphs (like `har2locust`). | High | Medium | `BACKLOG` |
-| W-2 | **Workflow Templates Gallery** | Pre-built templates for CRUD, OAuth flow, pagination, retry-polling, saga patterns. | Medium | Medium | `BACKLOG` |
+| W-2 | **Workflow Templates Gallery** | Pre-built templates for CRUD, OAuth flow, pagination, retry-polling, saga patterns. | Medium | Medium | `DONE` | `src/data/galleries/workflows/` — extensive gallery with HTTP, WebSocket, gRPC, GraphQL, Kafka, SSE, and orchestration samples across all protocols. |
 | W-3 | **Sub-Workflow Parameters** | Input/output contracts for sub-workflows. Enables reusable workflow modules. | Medium | Medium | `BACKLOG` |
 | W-4 | **Workflow Diff & Merge** | Visual diff of node/edge/variable changes. Three-way merge for collaboration. | High | Low | `BACKLOG` |
 | W-5 | **Conditional Retry Node** | Retry failed HTTP nodes N times with configurable delay/backoff (linear, exponential, jitter). | Medium | Medium | `BACKLOG` |
-| W-6 | **Data-Driven Workflows** | CSV/JSON data rows → workflow iteration variables. Each row = one workflow execution. | Medium | High | `BACKLOG` |
+| W-6 | **Data-Driven Workflows** | CSV/JSON data rows → workflow iteration variables. Each row = one workflow execution. | Medium | High | `DONE` | Parameterized test runner (`src/features/scenarios/`) supports CSV/JSON/XLSX data sources feeding scenario variables. See `docs/plan/finished/parameterized-test-plan.md`. |
 
 ---
 
@@ -154,9 +155,9 @@
 | ID | Feature | Description | Complexity | Priority | Status |
 |----|---------|-------------|------------|----------|--------|
 | U-1 | **Real Screenshot Guides** | Replace ASCII diagrams with actual UI screenshots. Auto-capture via Playwright. | Medium | Low | `BACKLOG` |
-| U-2 | **Dark Mode** | Full dark theme with toggle and system preference detection. | Medium | Medium | `IN PROGRESS` — 12-theme picker (dark + light variants, accent colours) with toggle in `AppHeader`; `useTheme` hook with localStorage persistence. Remaining: `prefers-color-scheme` system preference auto-detection. |
+| U-2 | **Dark Mode** | Full dark theme with toggle and system preference detection. | Medium | Medium | `IN PROGRESS` | 12-theme picker (dark + light variants, accent colours) with toggle in `AppHeader`; `useTheme` hook with localStorage persistence. **Remaining:** `prefers-color-scheme` system preference auto-detection — no implementation found in `src/` yet. |
 | U-3 | **Keyboard Shortcuts (Extended)** | Comprehensive shortcuts for common actions (run, save, navigate, search). | Low | Medium | `BACKLOG` |
-| U-4 | **Undo/Redo** | Global undo/redo for workflow editor (node add/remove/move, edge changes, properties). | High | Medium | `BACKLOG` |
+| U-4 | **Undo/Redo** | Global undo/redo for workflow editor (node add/remove/move, edge changes, properties). | High | Medium | `PARTIAL` | `WorkflowDesignerFlowCanvas.tsx` and `WorkflowCanvasControls.tsx` reference undo/redo UI, but no `useUndo`/`canUndo` hook found — may be ReactFlow built-in history only. Needs audit to confirm scope and completeness. |
 | U-5 | **Collaborative Editing** | Multi-user real-time editing via CRDT (Yjs) for workflows and test definitions. | Very High | Low | `BACKLOG` |
 | U-6 | **Responsive Mobile View** | Read-only results dashboard for mobile/tablet monitoring. | Medium | Low | `BACKLOG` |
 | U-7 | **Multi-Language Support (i18n)** | Internationalization framework for UI strings. Start with English + 1 other language. | Medium | Low | `BACKLOG` |
@@ -168,14 +169,14 @@
 
 | ID | Feature | Description | Complexity | Priority | Status |
 |----|---------|-------------|------------|----------|--------|
-| O-1 | **CI Test Pipeline** | GitHub Actions: unit + E2E + lint + type-check on push/PR. | Medium | Critical | `BACKLOG` |
+| O-1 | **CI Test Pipeline** | GitHub Actions: unit + E2E + lint + type-check on push/PR. | Medium | Critical | `PARTIAL` | `ci.yml` exists and runs tsc + ESLint + unit tests. E2E job and required branch-protection checks still missing. |
 | O-2 | **Live Demo** | Auto-deploy web build to Vercel/Netlify. "Try in 10 seconds" link. | Low | Critical | `BACKLOG` |
 | O-3 | **Documentation Site** | Docusaurus or GitHub Pages with guides, screenshots, API reference, search. | Medium | High | `BACKLOG` |
 | O-4 | **Branding & Logo** | Professional logo, icon, rebrand tagline. | Low | High | `BACKLOG` |
 | O-5 | **README Rewrite** | GIF-heavy, feature screenshots, quick-start, comparison table. | Low | High | `BACKLOG` |
 | O-6 | **CONTRIBUTING.md** | Setup, coding standards, PR process, issue templates, Code of Conduct. | Low | High | `BACKLOG` |
 | O-7 | **Launch Marketing** | HN, Reddit, Dev.to, YouTube. | Low | Medium | `BACKLOG` |
-| O-8 | **npm Package Publish** | Publish `redfireforge-cli` to npm registry. | Low | High | `BACKLOG` |
+| O-8 | **npm Package Publish** | Publish `redfireforge-cli` to npm registry. | Low | High | `IN PROGRESS` | `publish-cli.yml` workflow ready; triggered on `v*` tags or manual dispatch. Needs `NPM_TOKEN` secret and a maintainer to initiate first publish. |
 
 ---
 
@@ -234,41 +235,53 @@
 
 ```
 ━━━ Critical Path to Launch ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ① O-1   CI Test Pipeline (complete CI + E2E + PR gates) — gate for open-source
-  ② O-2   Live Demo                     — gate for adoption
-  ③ O-8   npm Package Publish           — unblocks CLI distribution
-  ④ O-5   README Rewrite                — first impression
-  ⑤ O-6   CONTRIBUTING.md               — contributor onboarding
+  ① O-2   Live Demo                     — deploy to Vercel/Netlify
+  ② O-8   npm Package Publish           — trigger first CLI release (workflow ready)
+  ③ R-0.7.5-2  CI E2E Pipeline          — add Playwright headless job to ci.yml
+  ④ R-0.7.5-4  PR Status Checks         — configure branch protection rules
+  ⑤ O-5   README Rewrite               — first impression
+  ⑥ O-6   CONTRIBUTING.md              — contributor onboarding
+  ⑦ R-1.0.0-1  LICENSE File             — required for open-source
 
 ━━━ High Value, Moderate Effort ━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ⑥ T-5   SLA Dashboard                 — persistent targets, traffic-light view
-  ⑦ W-6   Data-Driven Workflows         — unlock parameterized workflows
   ⑧ U-2   System Preference Detection   — complete dark mode (auto-theme)
-  ⑨ P-1   GraphQL Support               — expand protocol coverage
-  ⑩ O-3   Documentation Site            — community growth
+  ⑨ U-4   Undo/Redo                    — audit ReactFlow history scope
+  ⑩ W-3   Sub-Workflow Parameters      — reusable sub-workflow I/O contracts
+  ⑪ O-3   Documentation Site           — community growth
 
 ━━━ Already DONE (remove on next cleanup) ━━━━━━━━━━━━━━━━━
+  ✅ P-1   GraphQL Support (full studio)
+  ✅ P-2   gRPC Support (full studio)
+  ✅ P-3   WebSocket Support (full studio)
+  ✅ P-4   JSON Schema Validation (WebSocket)
+  ✅ P-5   SSE Support (full studio)
+  ✅ P-6   Kafka Support (full studio + workflow nodes)
+  ✅ W-2   Workflow Templates Gallery
+  ✅ W-6   Data-Driven Workflows (parameterized runner)
   ✅ X-6   Test Tagging & Filtering
   ✅ T-1   Run Comparison
   ✅ T-2   Baseline Runs
   ✅ T-3   Regression Detection
   ✅ T-4   Trend Analysis
+  ✅ T-5   SLA Dashboard
   ✅ E-1   Native Rust Executor
   ✅ E-2   Constant Arrival Rate
   ✅ E-3   Streaming Percentiles
+  ✅ R-0.7.5-1  CI Test Pipeline (unit + lint + tsc)
+  ✅ R-0.7.5-3  Lint & Type-Check Gate
   ✅ R-0.9.1-1  Tauri Sidecar Executor
   ✅ R-0.9.1-2  Constant Request Rate Mode
   ✅ R-0.11.0-1–5  All Run Comparison & Trend items
 
 ━━━ Architecture Leaps ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ⑪ E-4   Distributed Execution         — enterprise scale
-  ⑫ X-1   Plugin API                    — ecosystem growth
-  ⑬ P-2   gRPC Support                  — microservice testing
+  ⑫ E-4   Distributed Execution         — enterprise scale
+  ⑬ X-1   Plugin API                    — ecosystem growth
+  ⑭ W-1   HAR-to-Workflow Conversion    — DevTools import
 
 ━━━ Long Term ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ⑭ U-4   Undo/Redo                     — workflow UX
   ⑮ U-5   Collaborative Editing         — team features
   ⑯ E-5   Response Streaming            — large body handling
+  ⑰ U-7   i18n                          — multi-language support
 ```
 
 ---
