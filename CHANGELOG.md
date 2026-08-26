@@ -50,6 +50,9 @@ Format follows Keep a Changelog and Semantic Versioning.
 - **API Mock export inline Preview** — the JSON preview in the export confirmation card now uses the interactive JSON tree (collapsible nodes, syntax colors, search) instead of a flat text dump. YAML and unparseable content keep the plain text preview.
 
 ### Fixed
+- **API Mock Studio — no flash on load** — `ApiMockLibraryLanding` is now suppressed until workspace hydration completes, eliminating the brief empty-landing flicker when navigating to the API Mock tab with saved servers.
+- **AM-25 lesson — step 3 spotlight** — the Replay step now highlights the **Start** button instead of the (already-running) Stop button.
+- **AM-25 lesson — step 5 Show breakdown** — the modal step now spotlights and clicks **Show breakdown** so viewers see the field-by-field body diff expand from the collapsed "all fields match" state. Added `HAR_COMPARE_SHOW_BREAKDOWN` selector to the shared API Mock selector map.
 - **API Mock `{id}` / `:id` paths now match real requests** — OpenAPI import was storing parameterized paths as exact literals. Import now infers the parameterized kind, and the matcher promotes templates at evaluation time.
 - **API Mock near-misses** — unmatched journal rows now require a path match or a same-arity path typo (≤2 edits) to qualify as a near-miss. Disabled routes are included. The failed dimension is named in the result.
 - **API Mock Start/Apply — stale workspace** — Start, Apply, and Restart now read the latest server snapshot so enabling a draft then starting the server applies the current state.
