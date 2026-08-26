@@ -8,11 +8,13 @@ import {
   parseOpenApiOperations,
   parseWireMockMappings,
   requestItemsToSources,
+  type ParsedImportBatch,
 } from '@shared/api-mock/importParsers';
-import { parseHarEntries, fixHarSampleExpected } from '@shared/api-mock/harImport';
+import { previewHarEntries, fixHarSampleExpected, type HarPreviewResult } from '@shared/api-mock/harImport';
 import { loadCatalogEntries, loadRequests } from '@shared/utils/storage';
 import type { CatalogEndpoint } from '../../catalog/types/catalog';
 import type { RequestItem } from '@shared/types/requests';
+import { HarEntryPreviewList } from './HarEntryPreviewList';
 export type ApiMockImportSourceId = 'curl' | 'catalog' | 'requests' | 'openapi' | 'wiremock' | 'native' | 'har';
 
 interface ImportOptions {
@@ -43,10 +45,6 @@ interface PreviewState {
   routes: ApiMockRouteV1[];
   diagnostics: ApiMockDiagnosticV1[];
   lossReport: string[];
-  /** Raw samples from batchToRoutes (HAR only). Needs fixHarSampleExpected before use. */
-  rawSamples?: ApiMockSimulationSampleV1[];
-  /** Original HAR SourceRequests parallel to rawSamples — used for status/outcome override. */
-  harSources?: SourceRequest[];
 }
 interface CatalogPick {
   key: string;
@@ -75,6 +73,9 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', last
   const folderRef = useRef<HTMLDivElement>(null);
   const [priority, setPriority] = useState('10');
   const [preview, setPreview] = useState<PreviewState | null>(null);
+  // B-2: HAR two-stage flow — previewHarEntries result and per-entry selection
+  const [harPreview, setHarPreview] = useState<HarPreviewResult | null>(null);
+  const [selectedPositions, setSelectedPositions] = useState<Set<number>>(new Set());
   const [createSamples, setCreateSamples] = useState(true);
   const [catalogPicks, setCatalogPicks] = useState<CatalogPick[]>([]);
   const [selectedCatalog, setSelectedCatalog] = useState<Set<string>>(new Set());
@@ -131,6 +132,8 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', last
 
   useEffect(() => {
     setPreview(null);
+    setHarPreview(null);
+    setSelectedPositions(new Set());
     setLoadMessage('');
     setCatalogFilter('');
     setRequestFilter('');
@@ -222,33 +225,30 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', last
 
   const handleParsePaste = () => {
     if (!pasteInput.trim()) return;
+
+    // B-2: HAR uses the new two-stage flow — run previewHarEntries and show per-entry list.
+    if (source === 'har') {
+      const result = previewHarEntries(pasteInput);
+      setHarPreview(result);
+      // Pre-select all accepted entries.
+      setSelectedPositions(new Set(result.accepted.map((_, pos) => pos)));
+      setPreview(null);
+      return;
+    }
+
     const batch = source === 'openapi'
       ? parseOpenApiOperations(pasteInput)
       : source === 'wiremock'
         ? parseWireMockMappings(pasteInput)
-        : source === 'har'
-          ? parseHarEntries(pasteInput)
-          : parseNativeExport(pasteInput);
+        : parseNativeExport(pasteInput);
     const kind = source === 'openapi' ? 'openapi' as const
       : source === 'wiremock' ? 'wiremock' as const
-        : source === 'har' ? 'har' as const
-          : 'redfireforge' as const;
+        : 'redfireforge' as const;
     const converted = batchToRoutes(batch, { defaultPriority, folderId, sourceKind: kind });
-    // HAR / WireMock drafts stay disabled until the user enables them after review.
     const routes = applyFolderPriority(converted.routes).map(r => (
-      (source === 'har' || source === 'wiremock') ? { ...r, enabled: false } : r
+      source === 'wiremock' ? { ...r, enabled: false } : r
     ));
-    setPreview({
-      routes,
-      diagnostics: converted.diagnostics,
-      lossReport: converted.lossReport,
-      // Store raw samples + original sources for HAR so handleConfirm can apply
-      // fixHarSampleExpected (corrects the default outcome='matched'/status=200).
-      ...(source === 'har' ? {
-        rawSamples: converted.samples,
-        harSources: batch.sources,
-      } : {}),
-    });
+    setPreview({ routes, diagnostics: converted.diagnostics, lossReport: converted.lossReport });
   };
 
   const handleParseCatalog = () => {
@@ -287,20 +287,35 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', last
   };
 
   const handleConfirm = () => {
-    if (!preview || preview.routes.length === 0) return;
     const opts: ImportOptions = { mode };
     if (isCreatingFolder && newFolderName.trim()) {
       opts.newFolderName = newFolderName.trim();
     }
-    let harSamples: ApiMockSimulationSampleV1[] | undefined;
-    if (source === 'har' && createSamples && preview.rawSamples && preview.harSources) {
-      // Apply status/outcome override: convertSourceToRule always defaults to
-      // outcome='matched'/status=200 — fixHarSampleExpected corrects this from the real HAR status.
-      harSamples = preview.rawSamples.map((s, i) =>
-        fixHarSampleExpected(s, preview.harSources![i]),
-      );
+
+    // B-2: HAR confirm path — convert only user-selected entries.
+    if (source === 'har' && harPreview) {
+      const chosenSources = harPreview.accepted
+        .filter((_, pos) => selectedPositions.has(pos))
+        .map(a => a.source);
+      if (chosenSources.length === 0) return;
+      const filteredBatch: ParsedImportBatch = {
+        sources: chosenSources,
+        diagnostics: [],
+        lossReport: harPreview.truncated ? ['HAR was truncated to the entry cap.'] : [],
+        label: 'HAR',
+      };
+      const converted = batchToRoutes(filteredBatch, { defaultPriority, folderId, sourceKind: 'har' });
+      const routes = applyFolderPriority(converted.routes);
+      const harSamples = createSamples && converted.samples.length > 0
+        ? converted.samples.map((s, i) => fixHarSampleExpected(s, chosenSources[i]))
+        : undefined;
+      onImport(routes, opts, harSamples);
+      return;
     }
-    onImport(preview.routes, opts, harSamples);
+
+    // Non-HAR path (curl, openapi, wiremock, native, catalog, requests)
+    if (!preview || preview.routes.length === 0) return;
+    onImport(preview.routes, opts);
   };
 
   const generalizePath = () => {
@@ -313,7 +328,24 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', last
     });
   };
 
+  const handleHarSelectAll = useCallback(() => {
+    if (!harPreview) return;
+    setSelectedPositions(new Set(harPreview.accepted.map((_, pos) => pos)));
+  }, [harPreview]);
+
+  const handleHarDeselectAll = useCallback(() => setSelectedPositions(new Set()), []);
+
+  const handleHarToggle = useCallback((pos: number) => {
+    setSelectedPositions(prev => {
+      const next = new Set(prev);
+      if (next.has(pos)) next.delete(pos); else next.add(pos);
+      return next;
+    });
+  }, []);
+
   const primaryRoute = preview?.routes[0] ?? null;
+  const harIsParsed = source === 'har' && harPreview !== null;
+  const harHasEntries = harIsParsed && !harPreview!.error && harPreview!.accepted.length > 0;
 
   const destinationFields = (
     <div className="am-form-grid" style={{ marginTop: 10 }}>
@@ -437,7 +469,7 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', last
           )}
 
           {(source === 'openapi' || source === 'wiremock' || source === 'native' || source === 'har') && (
-            <div className={`am-import-paste-panel${preview ? ' am-import-paste-panel--reviewed' : ''}`}>
+            <div className={`am-import-paste-panel${(preview || harIsParsed) ? ' am-import-paste-panel--reviewed' : ''}`}>
               <div className="am-section-heading">
                 {source === 'openapi' ? 'OpenAPI / Swagger'
                   : source === 'wiremock' ? 'WireMock mappings'
@@ -595,6 +627,71 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', last
             </>
           )}
 
+          {/* B-2: HAR per-entry preview */}
+          {harIsParsed && (
+            <div className="am-import-result am-har-import-result" data-testid="api-mock-import-har-preview">
+              {harPreview!.error ? (
+                <div className="am-notice danger" data-testid="api-mock-import-har-error">
+                  <span>{harPreview!.error}</span>
+                </div>
+              ) : (
+                <>
+                  <HarEntryPreviewList
+                    preview={harPreview!}
+                    selectedIndices={selectedPositions}
+                    onToggle={handleHarToggle}
+                    onSelectAll={handleHarSelectAll}
+                    onDeselectAll={handleHarDeselectAll}
+                  />
+                  {harHasEntries && (
+                    <label
+                      className="am-har-samples-toggle"
+                      data-testid="api-mock-import-har-samples-toggle"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={createSamples}
+                        onChange={e => setCreateSamples(e.target.checked)}
+                        data-testid="api-mock-import-har-samples-checkbox"
+                      />
+                      <span>
+                        Also create Simulate samples
+                        <span className="am-muted" style={{ fontSize: 11, marginLeft: 6 }}>
+                          (with expected status from HAR response)
+                        </span>
+                      </span>
+                    </label>
+                  )}
+                  <div style={{ display: 'flex', marginTop: 12, gap: 8 }}>
+                    <button
+                      className="am-btn primary"
+                      onClick={handleConfirm}
+                      data-testid="api-mock-import-confirm"
+                      disabled={selectedPositions.size === 0}
+                    >
+                      Import as draft
+                    </button>
+                    <button className="am-btn" onClick={onCancel} data-testid="api-mock-import-cancel">Cancel</button>
+                  </div>
+                  {selectedPositions.size > 0 && (
+                    <div className="am-notice" style={{ marginTop: 8 }}>
+                      <span>
+                        {selectedPositions.size} route{selectedPositions.size !== 1 ? 's' : ''} will be imported as <strong>inactive</strong>.
+                        {isCreatingFolder && newFolderName.trim()
+                          ? <> New folder: <strong>{newFolderName.trim()}</strong>.</>
+                          : folderId
+                            ? <> Folder: <strong>{folders.find(f => f.id === folderId)?.name ?? 'New folder'}</strong>.</>
+                            : null
+                        }
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Non-HAR route preview */}
           {preview && (
             <div className="am-import-result" data-testid="api-mock-import-preview-block">
               {preview.diagnostics.filter(d => d.severity === 'info').map((d, i) => (
@@ -658,26 +755,6 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', last
               <div className="am-notice" style={{ marginTop: 10 }}>
                 <span>No conflicts with existing routes were analyzed yet — run <strong>Analyze all</strong> after import.</span>
               </div>
-              {source === 'har' && preview.rawSamples && preview.rawSamples.length > 0 && (
-                <label
-                  className="am-har-samples-toggle"
-                  data-testid="api-mock-import-har-samples-toggle"
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, cursor: 'pointer' }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={createSamples}
-                    onChange={e => setCreateSamples(e.target.checked)}
-                    data-testid="api-mock-import-har-samples-checkbox"
-                  />
-                  <span>
-                    Also create Simulate samples
-                    <span className="am-muted" style={{ fontSize: 11, marginLeft: 6 }}>
-                      ({preview.rawSamples.length} request{preview.rawSamples.length !== 1 ? 's' : ''}, with expected status from HAR response)
-                    </span>
-                  </span>
-                </label>
-              )}
               <div style={{ display: 'flex', marginTop: 12, gap: 8 }}>
                 <button className="am-btn primary" onClick={handleConfirm} data-testid="api-mock-import-confirm" disabled={preview.routes.length === 0}>
                   Import as draft
@@ -699,7 +776,13 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', last
         </div>
         <aside className="am-import-preview">
           <div className="am-section-heading">Preview</div>
-          {!preview || preview.routes.length === 0 ? (
+          {harIsParsed ? (
+            <div className="am-muted" style={{ fontSize: 11 }}>
+              {harPreview!.error
+                ? 'Fix the HAR JSON error to preview routes.'
+                : 'Select entries and click Import as draft to create rules.'}
+            </div>
+          ) : !preview || preview.routes.length === 0 ? (
             <div className="am-muted" style={{ fontSize: 11 }}>Parse a source to preview the generated sample request and default response template.</div>
           ) : (
             preview.routes.map((r, idx) => {

@@ -10,6 +10,26 @@ const SECRET_HEADERS = new Set([
   'authorization', 'proxy-authorization', 'cookie', 'set-cookie', 'x-api-key', 'api-key', 'x-auth-token',
 ]);
 
+/** Well-known analytics / telemetry hosts that should be auto-filtered on HAR import. */
+export const TRACKING_DOMAINS: ReadonlySet<string> = new Set([
+  'google-analytics.com', 'googletagmanager.com', 'googletagservices.com',
+  'doubleclick.net', 'googlesyndication.com', 'analytics.google.com',
+  'connect.facebook.net', 'hotjar.com', 'mixpanel.com',
+  'cdn.segment.com', 'api.segment.io', 'api.amplitude.com', 'cdn.amplitude.com',
+  'heapanalytics.com', 'fullstory.com', 'logrocket.com',
+  'cdn.logrocket.io', 'cdn.lr-ingest.io',
+  'browser-intake-datadoghq.com', 'bam.nr-data.net', 'nr-data.net',
+  'clarity.ms',
+]);
+
+function isTrackingDomain(host: string): boolean {
+  const lower = host.toLowerCase();
+  for (const d of TRACKING_DOMAINS) {
+    if (lower === d || lower.endsWith(`.${d}`)) return true;
+  }
+  return false;
+}
+
 function diag(code: string, message: string, severity: ApiMockDiagnosticV1['severity'] = 'info'): ApiMockDiagnosticV1 {
   return { code, severity, path: '/import/har', message };
 }
@@ -157,4 +177,136 @@ export function fixHarSampleExpected(
       status,
     },
   };
+}
+
+// ─────────────────────── B-2: per-entry preview ──────────────────────────────
+
+export interface HarPreviewEntry {
+  /** Raw position in the HAR entries array — display-only, not used as checkbox key. */
+  index: number;
+  method: string;
+  path: string;
+  host: string;
+  status: number;
+  /** Why this entry was auto-filtered (undefined = accepted). */
+  filteredReason?: 'options-preflight' | 'tracking-domain' | 'non-http' | 'duplicate';
+  hasRedactedHeaders: boolean;
+}
+
+/** Accepted entry that also carries the pre-built SourceRequest for the confirm step. */
+export interface HarPreviewAcceptedEntry extends HarPreviewEntry {
+  source: SourceRequest;
+}
+
+export interface HarPreviewResult {
+  /** Use accepted-array position (0..N-1) for checkbox state — NOT entry.index. */
+  accepted: HarPreviewAcceptedEntry[];
+  autoFiltered: HarPreviewEntry[];
+  secretHits: number;
+  truncated: boolean;
+  error?: string;
+}
+
+/**
+ * Pre-parse a HAR document into a reviewable per-entry list.
+ * Classifies entries as accepted or auto-filtered (OPTIONS, tracking, duplicate, non-http).
+ * Each accepted entry carries a paired SourceRequest so the confirm step can build routes
+ * without re-running any parsing — checkboxes use accepted-array positions.
+ */
+export function previewHarEntries(text: string): HarPreviewResult {
+  const accepted: HarPreviewAcceptedEntry[] = [];
+  const autoFiltered: HarPreviewEntry[] = [];
+  let secretHits = 0;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return { accepted, autoFiltered, secretHits, truncated: false, error: 'Invalid JSON for HAR document.' };
+  }
+
+  const entries = (parsed as { log?: { entries?: HarEntry[] } })?.log?.entries;
+  if (!Array.isArray(entries) || entries.length === 0) {
+    return { accepted, autoFiltered, secretHits, truncated: false };
+  }
+
+  const truncated = entries.length > HAR_IMPORT_LIMITS.maxEntries;
+  const slice = entries.slice(0, HAR_IMPORT_LIMITS.maxEntries);
+  // Dedup key: "method:path" — second occurrence of the same method+path is a duplicate.
+  const seenKeys = new Set<string>();
+
+  for (let i = 0; i < slice.length; i++) {
+    const entry = slice[i];
+    const req = entry.request;
+    if (!req?.url || !req.method) continue;  // malformed — skip silently
+
+    let url: URL;
+    try { url = new URL(req.url); } catch { continue; }
+
+    const method = req.method.toUpperCase();
+    const path = url.pathname || '/';
+    const host = url.hostname;
+    const status = typeof entry.response?.status === 'number' ? entry.response.status : 200;
+
+    // Build headers with redaction (shared logic with parseHarEntries).
+    let hasRedactedHeaders = false;
+    const headers: Record<string, string> = {};
+    for (const h of req.headers ?? []) {
+      const name = h.name?.toLowerCase?.() ?? '';
+      if (!name) continue;
+      if (SECRET_HEADERS.has(name)) {
+        hasRedactedHeaders = true;
+        secretHits++;
+        headers[h.name] = '[REDACTED]';
+      } else {
+        headers[h.name] = h.value;
+      }
+    }
+
+    const base: HarPreviewEntry = { index: i, method, path, host, status, hasRedactedHeaders };
+
+    // Classify entry — order matters: non-http first, then OPTIONS, then tracking, then dedup.
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      autoFiltered.push({ ...base, filteredReason: 'non-http' });
+      continue;
+    }
+    if (method === 'OPTIONS') {
+      autoFiltered.push({ ...base, filteredReason: 'options-preflight' });
+      continue;
+    }
+    if (isTrackingDomain(host)) {
+      autoFiltered.push({ ...base, filteredReason: 'tracking-domain' });
+      continue;
+    }
+    const dedupKey = `${method}:${path}`;
+    if (seenKeys.has(dedupKey)) {
+      autoFiltered.push({ ...base, filteredReason: 'duplicate' });
+      continue;
+    }
+    seenKeys.add(dedupKey);
+
+    // Build the paired SourceRequest (same logic as parseHarEntries).
+    const query: Record<string, string> = {};
+    url.searchParams.forEach((v, k) => { query[k] = v; });
+    const res = entry.response;
+    const resHeaders = res?.headers ?? [];
+    const contentType = resHeaders.find(h => h.name.toLowerCase() === 'content-type')?.value
+      ?? res?.content?.mimeType
+      ?? req.postData?.mimeType;
+
+    const source: SourceRequest = {
+      method,
+      path,
+      headers,
+      query: Object.keys(query).length ? query : undefined,
+      body: req.postData?.text,
+      responseBody: res?.content?.text,
+      responseContentType: contentType,
+      status,
+    };
+
+    accepted.push({ ...base, source });
+  }
+
+  return { accepted, autoFiltered, secretHits, truncated };
 }
