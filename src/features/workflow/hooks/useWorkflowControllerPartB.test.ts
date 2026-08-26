@@ -11,6 +11,16 @@ import { enrichNodeData, type WorkflowRFNode } from '../utils/workflowNodeFactor
 import { WorkflowDesignerControllerPartA } from './useWorkflowDesignerControllerPartA';
 import * as workflowRunErrors from '../utils/workflowRunErrors';
 
+// Mock harToWorkflow so controller tests don't trigger real chain detection
+vi.mock('../utils/harToWorkflow', () => ({
+  harToWorkflow: vi.fn(() => ({
+    nodes: [{ id: 'start-1', type: 'start', position: { x: 250, y: 50 }, data: { label: 'Start', inputVariables: {} } }],
+    edges: [],
+    variables: {},
+    extractionSummary: [],
+  })),
+}));
+
 type ServiceRegistryMode = 'closed' | 'panel' | 'fullscreen';
 
 const {
@@ -544,5 +554,65 @@ describe('useWorkflowDesignerControllerPartB', () => {
       runEntry.error,
     );
     reportSpy.mockRestore();
+  });
+
+  // ── HAR import handlers ───────────────────────────────────────────────────
+
+  it('handleHarFileParsed stores parse result and file name, opening the modal', () => {
+    const props = makeDesignerProps();
+    const a = makePartA();
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
+
+    const fakeResult = { entries: [], globalWarnings: [], filteredCount: 0, trackingFilteredCount: 0, dedupedCount: 0 };
+
+    act(() => result.current.handleHarFileParsed(fakeResult as never, 'test.har'));
+
+    expect(result.current.harParseResult).toEqual(fakeResult);
+    expect(result.current.harFileName).toBe('test.har');
+  });
+
+  it('handleHarImportClose clears parse result and file name', () => {
+    const props = makeDesignerProps();
+    const a = makePartA();
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
+
+    const fakeResult = { entries: [], globalWarnings: [], filteredCount: 0, trackingFilteredCount: 0, dedupedCount: 0 };
+
+    act(() => result.current.handleHarFileParsed(fakeResult as never, 'test.har'));
+    expect(result.current.harParseResult).not.toBeNull();
+
+    act(() => result.current.handleHarImportClose());
+
+    expect(result.current.harParseResult).toBeNull();
+    expect(result.current.harFileName).toBe('');
+  });
+
+  it('handleHarImport creates and updates a new workflow with HAR nodes', () => {
+    const props = makeDesignerProps();
+    const a = makePartA();
+    const mockCreate = vi.fn(() => ({ id: 'new-wf', name: 'test', nodes: [], edges: [], variables: {}, schemaVersion: 6, services: [], hostProfiles: [], authProfiles: [], createdAt: 0, updatedAt: 0 }));
+    a.create = mockCreate;
+
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
+
+    act(() => result.current.handleHarImport([], 'My HAR Workflow'));
+
+    expect(mockCreate).toHaveBeenCalledWith('My HAR Workflow');
+    expect(a.update).toHaveBeenCalledWith('new-wf', expect.objectContaining({ nodes: expect.any(Array), edges: expect.any(Array), variables: expect.any(Object) }));
+    expect(a.select).toHaveBeenCalledWith('new-wf');
+    expect(result.current.harParseResult).toBeNull();
+  });
+
+  it('handleHarImport falls back to "HAR import" when workflowName is whitespace', () => {
+    const props = makeDesignerProps();
+    const a = makePartA();
+    const mockCreate = vi.fn(() => ({ id: 'new-wf', name: 'HAR import', nodes: [], edges: [], variables: {}, schemaVersion: 6, services: [], hostProfiles: [], authProfiles: [], createdAt: 0, updatedAt: 0 }));
+    a.create = mockCreate;
+
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
+
+    act(() => result.current.handleHarImport([], '   '));
+
+    expect(mockCreate).toHaveBeenCalledWith('HAR import');
   });
 });
