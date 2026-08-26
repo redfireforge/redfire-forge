@@ -2,7 +2,7 @@
  * HAR parser for Workflow import (Track A — L-10).
  *
  * Parses a HAR 1.2 JSON string into normalized, workflow-ready entries.
- * - Filters OPTIONS preflight, non-HTTP URLs, and known tracking domains
+ * - Filters OPTIONS preflight, unsupported HTTP methods (HEAD, CONNECT, etc.), non-HTTP URLs, and known tracking domains
  * - Deduplicates exact (method + path + body) matches
  * - Redacts sensitive headers, replacing values with {{variableName}} placeholders
  * - Emits per-entry warnings for localhost / private-IP URLs
@@ -118,12 +118,25 @@ const BROWSER_INTERNAL_HEADERS: ReadonlySet<string> = new Set([
   'upgrade',
 ]);
 
-/** Regex matching localhost and RFC-1918 private IPv4 addresses */
+/** Regex matching localhost and RFC-1918 private IPv4 addresses, plus IPv6 loopback */
 const PRIVATE_HOST_RE =
-  /^(localhost|127\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})$/;
+  /^(localhost|\[?::1\]?|127\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})$/;
 
 /** Maximum number of HAR entries to process (safety cap for very large HAR files) */
 const MAX_ENTRIES = 500;
+
+/**
+ * HTTP methods supported by the RedfireForge workflow HTTP node.
+ * Entries with other methods (HEAD, CONNECT, TRACE, PROPFIND, etc.) are filtered out
+ * since they cannot be represented in a workflow scenario.
+ */
+const SUPPORTED_METHODS: ReadonlySet<string> = new Set([
+  'GET',
+  'POST',
+  'PUT',
+  'PATCH',
+  'DELETE',
+]);
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
@@ -198,8 +211,8 @@ export function parseHarEntries(text: string): HarParseResult {
 
     const method = req.method.toUpperCase();
 
-    // Filter: OPTIONS (CORS preflight)
-    if (method === 'OPTIONS') {
+    // Filter: OPTIONS (CORS preflight) and unsupported methods
+    if (method === 'OPTIONS' || !SUPPORTED_METHODS.has(method)) {
       filteredCount++;
       continue;
     }
