@@ -192,4 +192,123 @@ describe('HarEntryPreviewList', () => {
     );
     expect(screen.getByText(/1 filtered/i)).toBeTruthy();
   });
+
+  it('shows singular "request" (no s) when accepted.length === 1', () => {
+    const preview = makePreview({
+      accepted: [
+        { index: 0, method: 'GET', path: '/ping', host: 'h', status: 200, hasRedactedHeaders: false, source: { method: 'GET', path: '/ping' } },
+      ],
+    });
+    render(
+      <HarEntryPreviewList
+        preview={preview}
+        selectedIndices={new Set([0])}
+        onToggle={vi.fn()}
+        onSelectAll={vi.fn()}
+        onDeselectAll={vi.fn()}
+      />,
+    );
+    // "Found 1 request" not "requests"
+    expect(screen.getByText(/Found/)).toBeTruthy();
+    expect(screen.queryByText(/requests/i)).toBeNull();
+  });
+
+  it('shows secretHits count in summary (singular "header")', () => {
+    const preview = makePreview({ secretHits: 1 });
+    render(
+      <HarEntryPreviewList
+        preview={preview}
+        selectedIndices={new Set()}
+        onToggle={vi.fn()}
+        onSelectAll={vi.fn()}
+        onDeselectAll={vi.fn()}
+      />,
+    );
+    // singular: "1 header redacted"
+    expect(screen.getByText(/1 header redacted/i)).toBeTruthy();
+  });
+
+  it('shows secretHits count in summary (plural "headers")', () => {
+    const preview = makePreview({ secretHits: 3 });
+    render(
+      <HarEntryPreviewList
+        preview={preview}
+        selectedIndices={new Set()}
+        onToggle={vi.fn()}
+        onSelectAll={vi.fn()}
+        onDeselectAll={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/3 headers redacted/i)).toBeTruthy();
+  });
+
+  it('shows truncated indicator when truncated=true', () => {
+    const preview = makePreview({ truncated: true });
+    render(
+      <HarEntryPreviewList
+        preview={preview}
+        selectedIndices={new Set()}
+        onToggle={vi.fn()}
+        onSelectAll={vi.fn()}
+        onDeselectAll={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/truncated to cap/i)).toBeTruthy();
+  });
+
+  it('falls back to raw filteredReason when not in FILTER_REASON_LABELS', () => {
+    const preview = makePreview({
+      autoFiltered: [
+        {
+          index: 0,
+          method: 'GET',
+          path: '/x',
+          host: 'h',
+          status: 200,
+          hasRedactedHeaders: false,
+          filteredReason: 'unknown-future-reason' as never,
+        },
+      ],
+    });
+    render(
+      <HarEntryPreviewList
+        preview={preview}
+        selectedIndices={new Set()}
+        onToggle={vi.fn()}
+        onSelectAll={vi.fn()}
+        onDeselectAll={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/unknown-future-reason/i)).toBeTruthy();
+  });
+
+  it('renders empty string for filtered entry with no filteredReason', () => {
+    // Covers the ternary false branch: filteredReason is undefined → ''
+    const preview = makePreview({
+      autoFiltered: [
+        {
+          index: 0,
+          method: 'GET',
+          path: '/x',
+          host: 'h',
+          status: 200,
+          hasRedactedHeaders: false,
+          filteredReason: undefined,
+        },
+      ],
+    });
+    render(
+      <HarEntryPreviewList
+        preview={preview}
+        selectedIndices={new Set()}
+        onToggle={vi.fn()}
+        onSelectAll={vi.fn()}
+        onDeselectAll={vi.fn()}
+      />,
+    );
+    // Filtered section renders even when filteredReason is undefined
+    expect(screen.getByTestId('am-har-filtered-section')).toBeTruthy();
+    // The reason cell renders as "[]"
+    expect(screen.getByText(/\[\]/)).toBeTruthy();
+  });
 });
