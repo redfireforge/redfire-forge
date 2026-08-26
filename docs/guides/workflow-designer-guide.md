@@ -375,6 +375,22 @@ Browse and import pre-built workflows:
 2. Preview workflow structure
 3. Click **Use as Template**
 
+### Import from Browser Traffic (HAR)
+
+Bootstrap a workflow from a recorded browser session — no manual URL typing:
+
+1. Toolbar → **Import HAR** (↓ arrow button, right side)
+2. Select a `.har` file exported from Chrome, Firefox, or Safari DevTools
+3. Review detected requests in the preview modal — uncheck entries you don't need
+4. Click **Confirm** — a new workflow is created with one node per checked request
+
+**What you get:**
+- `{{baseUrl}}` variable extracted from the common host
+- Sensitive headers (`Authorization`, `Cookie`, `X-Api-Key`) replaced with `{{variable}}` placeholders
+- Auto-detected chain variables (e.g. `{{orderId}}` from a POST response reused in downstream GET paths)
+
+See the [HAR Import Guide](./workflow-har-import-guide.md) for step-by-step instructions, browser export tips, and example files.
+
 ## Tips & Best Practices
 
 ### 1. Start Simple
@@ -441,3 +457,4 @@ Don't hardcode URLs — use services to switch environments easily.
 - [Workflow Nodes Reference](./workflow-nodes-reference.md) — Detailed node documentation
 - [Workflow Runner Guide](./workflow-runner-guide.md) — Performance testing workflows
 - [Runners Comparison](./runners-comparison.md) — When to use workflows vs tests
+- [HAR Import Guide](./workflow-har-import-guide.md) — Import browser-recorded traffic as a workflow

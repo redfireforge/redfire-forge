@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { computeDefinitionFingerprint, computeRouteFingerprint, canonicalExportOrder, canonicalVariableOrder } from './fingerprint';
 import { DEFAULT_SETTINGS, createDefaultResponse } from './defaults';
 import type { ApiMockServerDefinitionV1, ApiMockRouteV1 } from './contracts';
@@ -41,6 +41,19 @@ describe('computeDefinitionFingerprint', () => {
     expect(await computeDefinitionFingerprint(s1)).toBe(await computeDefinitionFingerprint(s2));
   });
 
+  it('ignores harSourceEntry on routes within the definition (B-3a)', async () => {
+    const s1 = makeServer();
+    const s2 = makeServer();
+    s2.routes[0] = {
+      ...s2.routes[0],
+      harSourceEntry: {
+        originalStatus: 200,
+        requestFingerprint: 'fp-abc',
+      },
+    };
+    expect(await computeDefinitionFingerprint(s1)).toBe(await computeDefinitionFingerprint(s2));
+  });
+
   it('changes when a route changes', async () => {
     const s1 = makeServer();
     const s2 = makeServer();
@@ -73,6 +86,20 @@ describe('computeRouteFingerprint', () => {
     const b = { ...makeRoute('route-health-b'), name: 'Health B' };
     expect(await computeRouteFingerprint(a)).not.toBe(await computeRouteFingerprint(b));
   });
+
+  it('ignores harSourceEntry — fingerprint unchanged with and without it (B-3a)', async () => {
+    const r1 = makeRoute();
+    const r2: typeof r1 = {
+      ...makeRoute(),
+      harSourceEntry: {
+        originalStatus: 200,
+        originalBody: '{"id":"order-1"}',
+        originalContentType: 'application/json',
+        requestFingerprint: 'abc123',
+      },
+    };
+    expect(await computeRouteFingerprint(r1)).toBe(await computeRouteFingerprint(r2));
+  });
 });
 
 describe('canonicalExportOrder', () => {
@@ -92,5 +119,24 @@ describe('canonicalVariableOrder', () => {
   it('sorts by key', () => {
     const vars = [{ key: 'z', value: '1' }, { key: 'a', value: '2' }];
     expect(canonicalVariableOrder(vars).map(v => v.key)).toEqual(['a', 'z']);
+  });
+});
+
+describe('sha256Hex fallback (line 23)', () => {
+  it('falls back to sha256HexSync when crypto.subtle.digest is not a function', async () => {
+    // Temporarily make crypto.subtle.digest unavailable to exercise the fallback path
+    const originalCrypto = globalThis.crypto;
+    vi.stubGlobal('crypto', { subtle: {} }); // no digest function
+
+    try {
+      const fp = await computeDefinitionFingerprint(makeServer());
+      expect(fp).toMatch(/^[0-9a-f]{64}$/);
+    } finally {
+      vi.unstubAllGlobals();
+      // Restore just in case vi.unstubAllGlobals doesn't restore crypto
+      if (globalThis.crypto === undefined) {
+        Object.defineProperty(globalThis, 'crypto', { value: originalCrypto, configurable: true });
+      }
+    }
   });
 });

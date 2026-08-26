@@ -44,6 +44,46 @@ const harPaste = JSON.stringify({
   },
 });
 
+// HAR with a 4xx entry — used for B-1 outcome=unmatched test
+const harPaste404 = JSON.stringify({
+  log: {
+    version: '1.2',
+    entries: [{
+      request: { method: 'GET', url: 'https://api.example.com/missing', headers: [] },
+      response: {
+        status: 404,
+        headers: [{ name: 'Content-Type', value: 'application/json' }],
+        content: { text: '{"error":"not found"}', mimeType: 'application/json' },
+      },
+    }],
+  },
+});
+
+// HAR with two distinct entries — used for partial deselection test
+const harPasteTwo = JSON.stringify({
+  log: {
+    version: '1.2',
+    entries: [
+      {
+        request: { method: 'GET', url: 'https://api.example.com/items', headers: [] },
+        response: {
+          status: 200,
+          headers: [{ name: 'Content-Type', value: 'application/json' }],
+          content: { text: '[]', mimeType: 'application/json' },
+        },
+      },
+      {
+        request: { method: 'POST', url: 'https://api.example.com/orders', headers: [] },
+        response: {
+          status: 404,
+          headers: [{ name: 'Content-Type', value: 'application/json' }],
+          content: { text: '{"error":"not found"}', mimeType: 'application/json' },
+        },
+      },
+    ],
+  },
+});
+
 const nativePaste = JSON.stringify({
   schemaVersion: 1,
   data: {
@@ -85,6 +125,7 @@ describe('ApiMockImportReview coverage gaps', () => {
   beforeEach(() => {
     mockLoadCatalog.mockResolvedValue([]);
     mockLoadRequests.mockResolvedValue({ collections: [] });
+    Element.prototype.scrollIntoView = vi.fn();
   });
 
   it('renders error diagnostics from conversion results', async () => {
@@ -613,6 +654,253 @@ describe('ApiMockImportReview coverage gaps', () => {
     expect(screen.getAllByText('{id}').length).toBeGreaterThan(0);
     expect(screen.getByTestId('api-mock-import-preview-request-1')).toBeTruthy();
     expect(screen.getByTestId('api-mock-import-preview-response-2')).toBeTruthy();
+  });
+
+  // ─── B-1: HAR import → Simulate saved samples ────────────────────────────
+
+  it('scrolls HAR review into view after Parse & review', async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    const { ApiMockImportReview } = await import('./ApiMockImportReview');
+    render(<ApiMockImportReview onImport={vi.fn()} onCancel={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId('api-mock-import-source-har'));
+    fireEvent.change(screen.getByTestId('api-mock-import-paste'), { target: { value: harPasteTwo } });
+    fireEvent.click(screen.getByTestId('api-mock-import-parse'));
+
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' }));
+    expect(screen.getByTestId('api-mock-import-har-status')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-import-preview-request-0')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-import-preview-response-1')).toBeTruthy();
+  });
+
+  it('HAR confirm passes samples with fixed status and routeId to onImport (B-1)', async () => {
+    const { ApiMockImportReview } = await import('./ApiMockImportReview');
+    const onImport = vi.fn();
+    render(<ApiMockImportReview onImport={onImport} onCancel={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId('api-mock-import-source-har'));
+    fireEvent.change(screen.getByTestId('api-mock-import-paste'), { target: { value: harPaste } });
+    fireEvent.click(screen.getByTestId('api-mock-import-parse'));
+    // "Also create Simulate samples" option card is visible and checked by default
+    expect(screen.getByTestId('api-mock-import-har-samples-toggle')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-import-har-samples-checkbox')).toBeChecked();
+    expect(screen.getByText(/Seed one sample per selected route/i)).toBeTruthy();
+    fireEvent.click(screen.getByTestId('api-mock-import-confirm'));
+
+    expect(onImport).toHaveBeenCalledTimes(1);
+    const [routes, opts, samples] = onImport.mock.calls[0];
+    // Route created and is inactive
+    expect(routes).toHaveLength(1);
+    expect(routes[0].enabled).toBe(false);
+    expect(opts).toMatchObject({ mode: 'merge' });
+    // B-1: samples are the 3rd argument with fixed status from HAR response
+    expect(samples).toHaveLength(1);
+    expect(samples[0].expected?.status).toBe(200);
+    expect(samples[0].expected?.outcome).toBe('matched');
+    // routeId links the sample to the newly created route
+    expect(samples[0].routeId).toBe(routes[0].id);
+  });
+
+  it('HAR confirm for 4xx entry produces outcome=unmatched (B-1)', async () => {
+    const { ApiMockImportReview } = await import('./ApiMockImportReview');
+    const onImport = vi.fn();
+    render(<ApiMockImportReview onImport={onImport} onCancel={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId('api-mock-import-source-har'));
+    fireEvent.change(screen.getByTestId('api-mock-import-paste'), { target: { value: harPaste404 } });
+    fireEvent.click(screen.getByTestId('api-mock-import-parse'));
+    fireEvent.click(screen.getByTestId('api-mock-import-confirm'));
+
+    const [, , samples] = onImport.mock.calls[0];
+    expect(samples).toHaveLength(1);
+    expect(samples[0].expected?.status).toBe(404);
+    expect(samples[0].expected?.outcome).toBe('unmatched');
+  });
+
+  it('HAR confirm passes undefined samples when createSamples toggle is unchecked (B-1)', async () => {
+    const { ApiMockImportReview } = await import('./ApiMockImportReview');
+    const onImport = vi.fn();
+    render(<ApiMockImportReview onImport={onImport} onCancel={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId('api-mock-import-source-har'));
+    fireEvent.change(screen.getByTestId('api-mock-import-paste'), { target: { value: harPaste } });
+    fireEvent.click(screen.getByTestId('api-mock-import-parse'));
+    // Uncheck the toggle
+    fireEvent.click(screen.getByTestId('api-mock-import-har-samples-checkbox'));
+    expect(screen.getByTestId('api-mock-import-har-samples-checkbox')).not.toBeChecked();
+    fireEvent.click(screen.getByTestId('api-mock-import-confirm'));
+
+    expect(onImport).toHaveBeenCalledTimes(1);
+    const [routes, , samples] = onImport.mock.calls[0];
+    expect(routes).toHaveLength(1);
+    // No samples passed when toggle is off
+    expect(samples).toBeUndefined();
+  });
+
+  it('HAR partial deselection imports only selected entries and their samples (B-1)', async () => {
+    const { ApiMockImportReview } = await import('./ApiMockImportReview');
+    const onImport = vi.fn();
+    render(<ApiMockImportReview onImport={onImport} onCancel={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId('api-mock-import-source-har'));
+    fireEvent.change(screen.getByTestId('api-mock-import-paste'), { target: { value: harPasteTwo } });
+    fireEvent.click(screen.getByTestId('api-mock-import-parse'));
+    // Both entries accepted (GET /items + POST /orders), both pre-selected
+    expect(screen.getByTestId('am-har-entry-cb-0')).toBeChecked();
+    expect(screen.getByTestId('am-har-entry-cb-1')).toBeChecked();
+    // Deselect second entry (POST /orders, 404)
+    fireEvent.click(screen.getByTestId('am-har-entry-cb-1'));
+    expect(screen.getByTestId('am-har-entry-cb-1')).not.toBeChecked();
+    fireEvent.click(screen.getByTestId('api-mock-import-confirm'));
+
+    expect(onImport).toHaveBeenCalledTimes(1);
+    const [routes, , samples] = onImport.mock.calls[0];
+    // Only the first entry should be imported
+    expect(routes).toHaveLength(1);
+    expect(routes[0].method).toBe('GET');
+    expect(routes[0].path.value).toBe('/items');
+    // Only one sample (for the selected entry)
+    expect(samples).toHaveLength(1);
+    expect(samples[0].expected?.status).toBe(200);
+    expect(samples[0].expected?.outcome).toBe('matched');
+  });
+
+  it('HAR select-all re-selects deselected entries (covers handleHarSelectAll lines 332-333)', async () => {
+    const { ApiMockImportReview } = await import('./ApiMockImportReview');
+    const onImport = vi.fn();
+    render(<ApiMockImportReview onImport={onImport} onCancel={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId('api-mock-import-source-har'));
+    fireEvent.change(screen.getByTestId('api-mock-import-paste'), { target: { value: harPasteTwo } });
+    fireEvent.click(screen.getByTestId('api-mock-import-parse'));
+    // Deselect one entry
+    fireEvent.click(screen.getByTestId('am-har-entry-cb-0'));
+    expect(screen.getByTestId('am-har-entry-cb-0')).not.toBeChecked();
+    // Click Select All to re-select all (exercises handleHarSelectAll)
+    fireEvent.click(screen.getByTestId('am-har-select-all'));
+    expect(screen.getByTestId('am-har-entry-cb-0')).toBeChecked();
+    expect(screen.getByTestId('am-har-entry-cb-1')).toBeChecked();
+    fireEvent.click(screen.getByTestId('api-mock-import-confirm'));
+
+    const [routes] = onImport.mock.calls[0];
+    expect(routes).toHaveLength(2);
+  });
+
+  it('HAR toggle re-adds a deselected entry (covers handleHarToggle add case line 341)', async () => {
+    const { ApiMockImportReview } = await import('./ApiMockImportReview');
+    const onImport = vi.fn();
+    render(<ApiMockImportReview onImport={onImport} onCancel={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId('api-mock-import-source-har'));
+    fireEvent.change(screen.getByTestId('api-mock-import-paste'), { target: { value: harPasteTwo } });
+    fireEvent.click(screen.getByTestId('api-mock-import-parse'));
+    // Deselect entry 0, then click None to clear all
+    fireEvent.click(screen.getByTestId('am-har-select-none'));
+    expect(screen.getByTestId('am-har-entry-cb-0')).not.toBeChecked();
+    expect(screen.getByTestId('am-har-entry-cb-1')).not.toBeChecked();
+    // Re-add entry 0 (exercises the add/else branch of handleHarToggle)
+    fireEvent.click(screen.getByTestId('am-har-entry-cb-0'));
+    expect(screen.getByTestId('am-har-entry-cb-0')).toBeChecked();
+    expect(screen.getByTestId('am-har-entry-cb-1')).not.toBeChecked();
+    fireEvent.click(screen.getByTestId('api-mock-import-confirm'));
+
+    const [routes] = onImport.mock.calls[0];
+    expect(routes).toHaveLength(1);
+    expect(routes[0].method).toBe('GET');
+  });
+
+  // ─── B-2: HAR preview/filtering modal ────────────────────────────────────
+
+  it('HAR parse error displays error notice and aside fix-message (B-2)', async () => {
+    const { ApiMockImportReview } = await import('./ApiMockImportReview');
+    render(<ApiMockImportReview onImport={vi.fn()} onCancel={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId('api-mock-import-source-har'));
+    fireEvent.change(screen.getByTestId('api-mock-import-paste'), { target: { value: 'not valid json' } });
+    fireEvent.click(screen.getByTestId('api-mock-import-parse'));
+
+    // The error notice should be visible
+    expect(screen.getByTestId('api-mock-import-har-error')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-import-har-error')).toHaveTextContent('Invalid JSON');
+
+    // The aside panel shows the "Fix the HAR JSON error" message (not "Select entries")
+    expect(screen.getByText(/Fix the HAR JSON error/i)).toBeTruthy();
+    expect(screen.queryByText(/Select entries/i)).toBeNull();
+
+    // The confirm button should NOT be rendered (it's inside the else branch)
+    expect(screen.queryByTestId('api-mock-import-confirm')).toBeNull();
+  });
+
+  it('HAR with all entries filtered hides samples toggle (harHasEntries=false, B-2)', async () => {
+    // A HAR where all entries are OPTIONS (auto-filtered) — accepted.length === 0
+    const allOptionsHar = JSON.stringify({
+      log: {
+        version: '1.2',
+        entries: [
+          {
+            request: {
+              method: 'OPTIONS',
+              url: 'https://api.example.com/items',
+              headers: [],
+            },
+            response: { status: 204, headers: [], content: { text: '', mimeType: '' } },
+          },
+        ],
+      },
+    });
+
+    const { ApiMockImportReview } = await import('./ApiMockImportReview');
+    render(<ApiMockImportReview onImport={vi.fn()} onCancel={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId('api-mock-import-source-har'));
+    fireEvent.change(screen.getByTestId('api-mock-import-paste'), { target: { value: allOptionsHar } });
+    fireEvent.click(screen.getByTestId('api-mock-import-parse'));
+
+    // Preview is shown (no error)
+    expect(screen.getByTestId('api-mock-import-har-preview')).toBeTruthy();
+    // HarEntryPreviewList shows empty accepted message
+    expect(screen.getByTestId('am-har-empty')).toBeTruthy();
+    // Samples toggle is NOT shown because harHasEntries is false
+    expect(screen.queryByTestId('api-mock-import-har-samples-toggle')).toBeNull();
+    // The aside shows the empty-accepted guidance (no error)
+    expect(screen.getByText(/No accepted HAR entries/i)).toBeTruthy();
+  });
+
+  it('HAR import with existing folder shows folder name in notice and applies folderId to routes (B-2 line 683)', async () => {
+    // Covers the `folderId ? <> Folder: ... </> : null` branch in the HAR confirmation notice.
+    const { ApiMockImportReview } = await import('./ApiMockImportReview');
+    const onImport = vi.fn();
+    render(
+      <ApiMockImportReview
+        folders={sampleFolders}
+        onImport={onImport}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    // Select an existing folder (Alpha = folder-a)
+    fireEvent.click(screen.getByTestId('api-mock-import-folder'));
+    fireEvent.click(screen.getByTestId('api-mock-import-folder-menu').querySelectorAll('.am-folder-option')[0]);
+    expect(screen.getByTestId('api-mock-import-folder')).toHaveTextContent('Alpha');
+
+    // Parse a HAR
+    fireEvent.click(screen.getByTestId('api-mock-import-source-har'));
+    fireEvent.change(screen.getByTestId('api-mock-import-paste'), { target: { value: harPaste } });
+    fireEvent.click(screen.getByTestId('api-mock-import-parse'));
+
+    // HAR preview shows — and the notice now shows "Folder: Alpha" (covers line 683)
+    expect(screen.getByTestId('api-mock-import-har-preview')).toBeTruthy();
+    // The status line within the HAR preview contains the folder label
+    const previewBlock = screen.getByTestId('api-mock-import-har-preview');
+    expect(previewBlock).toHaveTextContent(/into folder/i);
+    expect(previewBlock).toHaveTextContent(/Alpha/i);
+
+    // Confirm — route should have folderId
+    fireEvent.click(screen.getByTestId('api-mock-import-confirm'));
+    expect(onImport).toHaveBeenCalledTimes(1);
+    const [routes] = onImport.mock.calls[0];
+    expect(routes[0].folderId).toBe('folder-a');
   });
 
   it('maps request imports with empty headers and missing body values', async () => {

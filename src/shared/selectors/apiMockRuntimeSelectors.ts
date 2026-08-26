@@ -248,6 +248,40 @@ export const API_MOCK_RUNTIME = {
   IMPORT_FOLDER: '[data-testid="api-mock-import-folder"]',
   IMPORT_FOLDER_MENU: '[data-testid="api-mock-import-folder-menu"]',
   IMPORT_FOLDER_NEW: '[data-testid="api-mock-import-folder-new"]',
+  /** HAR import: "Also create Simulate samples" toggle label */
+  HAR_IMPORT_SAMPLES_TOGGLE: '[data-testid="api-mock-import-har-samples-toggle"]',
+  /** HAR import: the checkbox inside the samples toggle */
+  HAR_IMPORT_SAMPLES_CHECKBOX: '[data-testid="api-mock-import-har-samples-checkbox"]',
+  /** HAR preview: container for the full entry list (accepted + filtered) */
+  HAR_PREVIEW_LIST: '[data-testid="am-har-preview-list"]',
+  /** HAR preview: the accepted-entries table rows */
+  HAR_PREVIEW_ENTRY_TABLE: '[data-testid="am-har-entry-table"]',
+  /** HAR preview: the collapsed "N automatically filtered" details section */
+  HAR_PREVIEW_FILTERED_SECTION: '[data-testid="am-har-filtered-section"]',
+  /** HAR preview: Select All button */
+  HAR_PREVIEW_SELECT_ALL: '[data-testid="am-har-select-all"]',
+  /** HAR preview: Select None button */
+  HAR_PREVIEW_SELECT_NONE: '[data-testid="am-har-select-none"]',
+  /** HAR preview: empty state when all entries were auto-filtered */
+  HAR_PREVIEW_EMPTY: '[data-testid="am-har-empty"]',
+  harPreviewEntry: (pos: number) => `[data-testid="am-har-entry-${pos}"]`,
+  harPreviewEntryCheckbox: (pos: number) => `[data-testid="am-har-entry-cb-${pos}"]`,
+  /** B-3: Journal toolbar "HAR report" button (visible when HAR-sourced routes exist). */
+  JOURNAL_COMPARE_REPORT: '[data-testid="api-mock-journal-compare-report"]',
+  /** B-3: Per-transaction "Compare HAR" button in the Transaction Detail actions bar. */
+  TX_COMPARE_HAR: '[data-testid="api-mock-tx-compare-har"]',
+  /** B-3: HAR round-trip comparison modal overlay. */
+  HAR_COMPARE_MODAL: '[data-testid="api-mock-har-compare-modal"]',
+  /** B-3: Status match/mismatch badge inside the compare modal. */
+  HAR_COMPARE_STATUS_BADGE: '[data-testid="api-mock-har-compare-status-badge"]',
+  /** B-3: Body diff rows container inside the compare modal. */
+  HAR_COMPARE_BODY_ROWS: '[data-testid="api-mock-har-compare-body-rows"]',
+  /** B-3: "Show breakdown" button — visible when all fields match (collapsed by default). */
+  HAR_COMPARE_SHOW_BREAKDOWN: '[data-testid="api-mock-har-compare-show-breakdown"]',
+  /** B-3: Summary line at the bottom of the compare modal. */
+  HAR_COMPARE_SUMMARY: '[data-testid="api-mock-har-compare-summary"]',
+  /** B-3: Close button inside the HAR compare modal. */
+  HAR_COMPARE_CLOSE: '[data-testid="api-mock-har-compare-close"]',
   IMPORT_NEW_FOLDER_NAME: '[data-testid="api-mock-import-new-folder-name"]',
   IMPORT_PRIORITY: '[data-testid="api-mock-import-priority"]',
   IMPORT_GENERALIZE: '[data-testid="api-mock-import-generalize"]',
