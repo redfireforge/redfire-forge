@@ -349,7 +349,7 @@ export function ApiMockDock({
                     data-testid="api-mock-journal-compare-report"
                     title="Export HAR round-trip comparison report"
                   >
-                    Compare report
+                    HAR report
                   </button>
                 )}
                 <button type="button" className="am-btn small danger" onClick={onClearTransactions} data-testid="api-mock-journal-clear">

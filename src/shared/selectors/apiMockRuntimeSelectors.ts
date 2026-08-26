@@ -266,7 +266,7 @@ export const API_MOCK_RUNTIME = {
   HAR_PREVIEW_EMPTY: '[data-testid="am-har-empty"]',
   harPreviewEntry: (pos: number) => `[data-testid="am-har-entry-${pos}"]`,
   harPreviewEntryCheckbox: (pos: number) => `[data-testid="am-har-entry-cb-${pos}"]`,
-  /** B-3: Journal toolbar "Compare report" button (visible when HAR-sourced routes exist). */
+  /** B-3: Journal toolbar "HAR report" button (visible when HAR-sourced routes exist). */
   JOURNAL_COMPARE_REPORT: '[data-testid="api-mock-journal-compare-report"]',
   /** B-3: Per-transaction "Compare HAR" button in the Transaction Detail actions bar. */
   TX_COMPARE_HAR: '[data-testid="api-mock-tx-compare-har"]',
@@ -276,6 +276,8 @@ export const API_MOCK_RUNTIME = {
   HAR_COMPARE_STATUS_BADGE: '[data-testid="api-mock-har-compare-status-badge"]',
   /** B-3: Body diff rows container inside the compare modal. */
   HAR_COMPARE_BODY_ROWS: '[data-testid="api-mock-har-compare-body-rows"]',
+  /** B-3: "Show breakdown" button — visible when all fields match (collapsed by default). */
+  HAR_COMPARE_SHOW_BREAKDOWN: '[data-testid="api-mock-har-compare-show-breakdown"]',
   /** B-3: Summary line at the bottom of the compare modal. */
   HAR_COMPARE_SUMMARY: '[data-testid="api-mock-har-compare-summary"]',
   /** B-3: Close button inside the HAR compare modal. */

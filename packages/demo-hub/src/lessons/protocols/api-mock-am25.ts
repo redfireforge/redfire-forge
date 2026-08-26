@@ -61,7 +61,7 @@ const DIAGRAM = `
   <text x="120" y="240" fill="#a8b8cc" font-family="system-ui" font-size="10">~ template</text>
 
   <rect x="366" y="172" width="228" height="78" rx="8" fill="#1e293b" stroke="#38bdf8" />
-  <text x="386" y="196" fill="#38bdf8" font-family="system-ui" font-size="11" font-weight="600">Bulk compare report</text>
+  <text x="386" y="196" fill="#38bdf8" font-family="system-ui" font-size="11" font-weight="600">Bulk HAR report</text>
   <text x="386" y="212" fill="#64748b" font-family="system-ui" font-size="10">matched · statusMatches</text>
   <text x="386" y="226" fill="#64748b" font-family="system-ui" font-size="10">bodyMatches · JSON export</text>
 
@@ -69,7 +69,7 @@ const DIAGRAM = `
   <path d="M590 128 V152 H480 V172" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#am25arrow)" />
 
   <rect x="60" y="266" width="580" height="50" rx="8" fill="#1e293b" stroke="#3b4a60" />
-  <text x="80" y="292" fill="#f1f5f9" font-family="system-ui" font-size="11" font-weight="600">The Compare report button only appears when HAR-sourced routes exist.</text>
+  <text x="80" y="292" fill="#f1f5f9" font-family="system-ui" font-size="11" font-weight="600">The HAR report button only appears when HAR-sourced routes exist.</text>
   <text x="80" y="308" fill="#64748b" font-family="system-ui" font-size="10">Each matched transaction is tallied: statusMatch · bodyMatch · diffSummary.</text>
 
   <defs>
@@ -95,9 +95,9 @@ export const apiMockAm25Lesson: DemoLesson = {
 
 The mock stores the original HAR response body and status alongside each imported rule (\`harSourceEntry\`). When a Journal transaction matches a HAR-sourced route, the **Compare HAR** button opens a side-by-side diff: status match badge, a per-field body diff with ✓ match, ✗ mismatch, and ~ template annotations, and a summary count.
 
-For bulk analysis, the **Compare report** button in the Journal toolbar exports a JSON summary: totalTransactions, matched, unmatched, statusMatches, statusMismatches, bodyMatches, bodyMismatches, and one entry per matched transaction. The button is only visible when at least one enabled route has a HAR source entry — a purely non-HAR workspace hides it.
+For bulk analysis, the **HAR report** button in the Journal toolbar exports a JSON summary: totalTransactions, matched, unmatched, statusMatches, statusMismatches, bodyMatches, bodyMismatches, and one entry per matched transaction. The button is only visible when at least one enabled route has a HAR source entry — a purely non-HAR workspace hides it.
 
-Round-trip is most useful when switching a client from the real API to the mock: run the same test suite against both, export the comparison report, and resolve any mismatches before the switch.`,
+Round-trip is most useful when switching a client from the real API to the mock: run the same test suite against both, export the HAR report, and resolve any mismatches before the switch.`,
     keyTerms: [
       {
         term: 'harSourceEntry',
@@ -120,7 +120,7 @@ Round-trip is most useful when switching a client from the real API to the mock:
         definition: 'JSON field-by-field (or line-by-line for non-JSON) comparison of the HAR original body vs the mock response body. Template expressions ({{helper}}) are annotated ~ instead of ✗.',
       },
       {
-        term: 'Compare report',
+        term: 'HAR report',
         definition: 'JSON export available via the Journal toolbar when HAR-sourced routes exist. Covers all matched transactions since the last Journal clear.',
       },
     ],
@@ -148,12 +148,12 @@ Round-trip is most useful when switching a client from the real API to the mock:
       id: 'enable',
       title: 'Enable the imported routes so the mock can match traffic',
       description:
-        'HAR-imported routes land **disabled** by default — they appear as dimmed draft rows in the '
-        + 'route explorer. This prevents an untested import from silently hijacking live traffic.\n\n'
-        + 'Select a draft, toggle the **Enable** switch, and click **Apply**. The server picks up '
-        + 'the change immediately. The enabled tally in the routes footer increments to confirm. '
-        + 'You must enable before replaying — an unmatched request produces no Journal row to compare.',
-      highlight: API_MOCK.DRAFT_ROUTE,
+        'Click **Import as draft**. The review closes and both HAR routes land as dimmed draft rows — '
+        + 'disabled by default so an untested import cannot silently hijack live traffic.\n\n'
+        + 'Select each draft, toggle **Enable**, and click **Apply**. The enabled tally in the routes '
+        + 'footer increments to confirm. You must enable before replaying — an unmatched request '
+        + 'produces no Journal row to compare.',
+      highlight: API_MOCK.IMPORT_CONFIRM,
       preAction: ensureAm25ForEnable,
       action: runAm25Enable,
       verify: API_MOCK.ROUTES_ENABLED,
@@ -168,7 +168,7 @@ Round-trip is most useful when switching a client from the real API to the mock:
         + 'Each request hits the now-enabled routes and the server logs the transaction in the **Journal**. '
         + 'Outcome appears as **matched** — meaning the route fired, a response was served, and the '
         + '`harSourceEntry` fingerprint is available for comparison.',
-      highlight: API_MOCK.DOCK_TAB_TRANSACTIONS,
+      highlight: API_MOCK.START,
       preAction: ensureAm25ForReplay,
       action: runAm25Replay,
       verify: API_MOCK.JOURNAL_FIRST_ROW,
@@ -193,7 +193,9 @@ Round-trip is most useful when switching a client from the real API to the mock:
       title: 'Read the status badge, body diff rows, and summary',
       description:
         'The comparison modal has three sections. **Status** shows the original HAR status code '
-        + 'next to what the mock returned and a match badge. **Body diff** compares each JSON field: '
+        + 'next to what the mock returned and a match badge. When all fields match the body diff '
+        + 'is collapsed — click **Show breakdown** to expand the field-by-field table.\n\n'
+        + '**Body diff** compares each JSON field: '
         + '✓ identical, ✗ differ, ~ mock uses a `{{template}}` expression (intentional, not a mismatch), '
         + '← only in original, → only in mock.\n\n'
         + 'The **summary line** at the bottom counts mismatches, template fields, and one-sided fields. '
@@ -208,8 +210,8 @@ Round-trip is most useful when switching a client from the real API to the mock:
       id: 'report',
       title: 'Export the bulk comparison report for all matched transactions',
       description:
-        'When at least one enabled route has a `harSourceEntry`, a **Compare report** button '
-        + 'appears in the Journal toolbar next to the export button. Clicking it downloads a JSON '
+        'When at least one enabled route has a `harSourceEntry`, a **HAR report** button '
+        + 'appears in the Journal toolbar next to the Export button. Clicking it downloads a JSON '
         + 'file covering every HAR-matched transaction since the last Journal clear.\n\n'
         + 'The report includes `totalTransactions`, `matched`, `unmatched`, `statusMatches`, '
         + '`statusMismatches`, `bodyMatches`, `bodyMismatches`, and a per-entry `entries` array with '
