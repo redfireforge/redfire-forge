@@ -1,7 +1,7 @@
 /**
  * Phase 9E — safe HAR import subset → SourceRequest drafts (inactive until Apply).
  */
-import type { ApiMockDiagnosticV1 } from './contracts';
+import type { ApiMockDiagnosticV1, ApiMockSimulationSampleV1 } from './contracts';
 import type { SourceRequest } from './sourceToRule';
 import { HAR_IMPORT_LIMITS } from './proxyContracts';
 import type { ParsedImportBatch } from './importParsers';
@@ -133,4 +133,28 @@ export function parseHarEntries(text: string, fileBytes = text.length): ParsedIm
   lossReport.push('Cookies/auth are redacted; browser timings, pages, and WebSocket frames are omitted.');
 
   return { sources, diagnostics, lossReport, label: 'HAR' };
+}
+
+/**
+ * Post-process a sample produced by convertSourceToRule/batchToRoutes to set the correct
+ * outcome and status based on the original HAR response.
+ *
+ * convertSourceToRule always defaults to `expected: { outcome: 'matched', status: 200 }`.
+ * For HAR entries we need:
+ *  - status:  the real HTTP status from the HAR response
+ *  - outcome: 'matched' for 1xx/2xx/3xx, 'unmatched' for 4xx/5xx
+ */
+export function fixHarSampleExpected(
+  sample: ApiMockSimulationSampleV1,
+  source: SourceRequest,
+): ApiMockSimulationSampleV1 {
+  const status = source.status ?? 200;
+  return {
+    ...sample,
+    expected: {
+      ...sample.expected,
+      outcome: status < 400 ? 'matched' : 'unmatched',
+      status,
+    },
+  };
 }
