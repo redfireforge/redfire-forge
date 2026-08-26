@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { exportFilename, exportWorkspace, serializeExport } from './exportUtils';
+import { exportFilename, exportWorkspace, serializeExport, settingsForRedaction } from './exportUtils';
 import { DEFAULT_SETTINGS, createDefaultResponse } from './defaults';
 import type { ApiMockWorkspaceV1, ApiMockServerDefinitionV1 } from './contracts';
 
@@ -137,6 +137,67 @@ describe('exportWorkspace', () => {
   });
 });
 
+describe('exportWorkspace — harSourceEntry.originalBody redaction', () => {
+  function makeRouteWithHarSource(): ApiMockWorkspaceV1 {
+    const ws = makeWs();
+    ws.servers[0].routes[0] = {
+      ...ws.servers[0].routes[0],
+      harSourceEntry: {
+        originalStatus: 200,
+        originalBody: '{"token":"super-secret","id":42}',
+        originalContentType: 'application/json',
+        requestFingerprint: 'abc123',
+      },
+    };
+    return ws;
+  }
+
+  it('strips originalBody on redacted workspace export', () => {
+    const out = exportWorkspace(makeRouteWithHarSource(), { scope: 'workspace', redact: true });
+    const raw = JSON.stringify(out);
+    expect(raw).not.toContain('super-secret');
+    if (out.data.scope === 'workspace') {
+      const entry = out.data.workspace.servers[0].routes[0].harSourceEntry;
+      expect(entry?.originalBody).toBeUndefined();
+    }
+  });
+
+  it('preserves non-body harSourceEntry fields on redacted export', () => {
+    const out = exportWorkspace(makeRouteWithHarSource(), { scope: 'workspace', redact: true });
+    if (out.data.scope === 'workspace') {
+      const entry = out.data.workspace.servers[0].routes[0].harSourceEntry;
+      expect(entry?.originalStatus).toBe(200);
+      expect(entry?.originalContentType).toBe('application/json');
+      expect(entry?.requestFingerprint).toBe('abc123');
+    }
+  });
+
+  it('strips originalBody on redacted routes-scope export', () => {
+    const out = exportWorkspace(makeRouteWithHarSource(), { scope: 'routes', sourceServerId: 'a', redact: true });
+    const raw = JSON.stringify(out);
+    expect(raw).not.toContain('super-secret');
+    if (out.data.scope === 'routes') {
+      expect(out.data.routes[0].harSourceEntry?.originalBody).toBeUndefined();
+    }
+  });
+
+  it('preserves originalBody on non-redacted export', () => {
+    const out = exportWorkspace(makeRouteWithHarSource(), { scope: 'workspace', redact: false });
+    if (out.data.scope === 'workspace') {
+      expect(out.data.workspace.servers[0].routes[0].harSourceEntry?.originalBody)
+        .toBe('{"token":"super-secret","id":42}');
+    }
+  });
+
+  it('leaves routes without harSourceEntry unchanged on redacted export', () => {
+    const ws = makeWs();
+    const out = exportWorkspace(ws, { scope: 'workspace', redact: true });
+    if (out.data.scope === 'workspace') {
+      expect(out.data.workspace.servers[0].routes[0].harSourceEntry).toBeUndefined();
+    }
+  });
+});
+
 describe('exportWorkspace — TLS redaction', () => {
   function withTls(): ApiMockWorkspaceV1 {
     const ws = makeWs();
@@ -168,5 +229,211 @@ describe('exportWorkspace — TLS redaction', () => {
     // Public material stays so an import can still verify/serve.
     expect(raw).toContain('CA');
     expect(raw).toContain('CLIENT');
+  });
+});
+
+describe('exportWorkspace — response header and cookie redaction', () => {
+  it('redacts sensitive response headers in route responses', () => {
+    const ws = makeWs();
+    ws.servers[0].settings = {
+      ...ws.servers[0].settings,
+      redaction: { ...ws.servers[0].settings.redaction, headerNames: ['x-api-key'] },
+    };
+    ws.servers[0].routes[0] = {
+      ...ws.servers[0].routes[0],
+      responses: [{
+        ...ws.servers[0].routes[0].responses[0],
+        headers: [
+          { id: 'h1', key: 'X-API-Key', value: 'super-secret', enabled: true },
+          { id: 'h2', key: 'Content-Type', value: 'application/json', enabled: true },
+        ],
+      }],
+    };
+    const out = exportWorkspace(ws, { scope: 'workspace', redact: true });
+    const raw = JSON.stringify(out);
+    expect(raw).not.toContain('super-secret');
+    expect(raw).toContain('[REDACTED]');
+    // Non-sensitive header is preserved
+    expect(raw).toContain('application/json');
+  });
+
+  it('redacts all response cookies on redacted export', () => {
+    const ws = makeWs();
+    ws.servers[0].routes[0] = {
+      ...ws.servers[0].routes[0],
+      responses: [{
+        ...ws.servers[0].routes[0].responses[0],
+        cookies: [{ id: 'c1', name: 'session', value: 'abc123', enabled: true }],
+      }],
+    };
+    const out = exportWorkspace(ws, { scope: 'workspace', redact: true });
+    const raw = JSON.stringify(out);
+    expect(raw).not.toContain('abc123');
+    expect(raw).toContain('[REDACTED]');
+  });
+
+  it('redacts sample request headers on redacted export', () => {
+    const ws = makeWs();
+    ws.servers[0].settings = {
+      ...ws.servers[0].settings,
+      redaction: { ...ws.servers[0].settings.redaction, headerNames: ['authorization'] },
+    };
+    ws.servers[0].samples = [{
+      id: 's1',
+      name: 'Test sample',
+      request: {
+        method: 'GET',
+        path: '/api',
+        rawPath: '/api',
+        query: {},
+        headers: { authorization: ['Bearer secret-token'], 'content-type': ['application/json'] },
+        cookies: { session: 'cookie-value' },
+        body: null,
+        bodyTruncated: false,
+        receivedAt: ts,
+      },
+    }];
+    const out = exportWorkspace(ws, { scope: 'workspace', redact: true });
+    const raw = JSON.stringify(out);
+    expect(raw).not.toContain('secret-token');
+    expect(raw).not.toContain('cookie-value');
+    expect(raw).toContain('[REDACTED]');
+  });
+});
+
+describe('settingsForRedaction', () => {
+  it('returns lowercased header names from settings', () => {
+    const names = settingsForRedaction({
+      ...DEFAULT_SETTINGS,
+      redaction: { ...DEFAULT_SETTINGS.redaction, headerNames: ['Authorization', 'X-Api-Key'] },
+    });
+    expect(names).toContain('authorization');
+    expect(names).toContain('x-api-key');
+  });
+
+  it('returns default header names when settings is undefined', () => {
+    const names = settingsForRedaction(undefined);
+    expect(Array.isArray(names)).toBe(true);
+  });
+});
+
+describe('exportWorkspace — routes scope edge cases', () => {
+  it('returns empty arrays when sourceServerId matches no server', () => {
+    // Covers the `srv ? ... : []` false branch (lines 43/46)
+    const result = exportWorkspace(makeWs(), { scope: 'routes', sourceServerId: 'nonexistent' });
+    if (result.data.scope === 'routes') {
+      expect(result.data.routes).toHaveLength(0);
+      expect(result.data.samples).toHaveLength(0);
+      expect(result.data.sourceServerId).toBe('nonexistent');
+    }
+  });
+
+  it('uses empty string sourceServerId when none provided', () => {
+    // Covers the `sourceServerId ?? ''` false branch (line 53)
+    const result = exportWorkspace(makeWs(), { scope: 'routes' });
+    if (result.data.scope === 'routes') {
+      expect(result.data.sourceServerId).toBe('');
+    }
+  });
+
+  it('returns all routes and samples when selectedRouteIds is not provided', () => {
+    // Covers the `selectedRouteIds ? filter : srv.samples` false branch (line 48)
+    const ws = makeWs();
+    ws.servers[0].samples = [{
+      id: 's1', name: 'All routes sample',
+      request: {
+        method: 'GET', path: '/api', rawPath: '/api', query: {},
+        headers: {}, cookies: {}, body: null, bodyTruncated: false, receivedAt: ts,
+      },
+    }];
+    const result = exportWorkspace(ws, { scope: 'routes', sourceServerId: 'a' });
+    if (result.data.scope === 'routes') {
+      expect(result.data.routes).toHaveLength(1);
+      expect(result.data.samples).toHaveLength(1);
+    }
+  });
+
+  it('excludes orphan samples (no routeId) when filtering by selectedRouteIds (covers routeId ?? "")', () => {
+    // Covers the `s.routeId ?? ''` false branch — sample without routeId never matches
+    const ws = makeWs();
+    ws.servers[0].samples = [{
+      id: 's-no-route', name: 'Orphan',
+      // routeId intentionally absent — exercises the `?? ''` fallback
+      request: {
+        method: 'GET', path: '/api', rawPath: '/api', query: {},
+        headers: {}, cookies: {}, body: null, bodyTruncated: false, receivedAt: ts,
+      },
+    }];
+    const result = exportWorkspace(ws, { scope: 'routes', sourceServerId: 'a', selectedRouteIds: ['r1'] });
+    if (result.data.scope === 'routes') {
+      expect(result.data.samples).toHaveLength(0);
+    }
+  });
+});
+
+describe('exportWorkspace — TLS redaction edge cases', () => {
+  it('handles TLS with empty keyPem and no mtls (covers false branches of ternaries on lines 128/130)', () => {
+    const ws = makeWs();
+    ws.servers[0].settings = {
+      ...ws.servers[0].settings,
+      tls: {
+        enabled: true,
+        certPem: 'CERT',
+        keyPem: '',  // empty — covers `tls.keyPem ? ... : ''` false branch
+        // no mtls — covers `tls.mtls ? ... : {}` false branch
+      },
+    };
+    const out = exportWorkspace(ws, { scope: 'workspace', redact: true });
+    if (out.data.scope === 'workspace') {
+      const tls = out.data.workspace.servers[0].settings.tls;
+      expect(tls?.keyPem).toBe('');
+      expect(tls?.mtls).toBeUndefined();
+    }
+  });
+
+  it('handles mtls with empty clientKeyPem (covers false branch of line 131)', () => {
+    const ws = makeWs();
+    ws.servers[0].settings = {
+      ...ws.servers[0].settings,
+      tls: {
+        enabled: true,
+        certPem: 'CERT',
+        keyPem: 'KEY',
+        mtls: {
+          enabled: true,
+          clientCaPem: 'CA',
+          clientCertPem: 'CLIENT_CERT',
+          clientKeyPem: '',  // empty — covers `clientKeyPem ? ... : undefined` false branch
+        },
+      },
+    };
+    const out = exportWorkspace(ws, { scope: 'workspace', redact: true });
+    if (out.data.scope === 'workspace') {
+      const mtls = out.data.workspace.servers[0].settings.tls?.mtls;
+      expect(mtls?.clientKeyPem).toBeUndefined();
+    }
+  });
+});
+
+describe('exportWorkspace — sample cookies edge case', () => {
+  it('skips cookie redaction when sample has no cookies (covers if(cookies) false branch)', () => {
+    const ws = makeWs();
+    ws.servers[0].settings = {
+      ...ws.servers[0].settings,
+      redaction: { ...ws.servers[0].settings.redaction, headerNames: ['authorization'] },
+    };
+    ws.servers[0].samples = [{
+      id: 's1', name: 'No cookies',
+      request: {
+        method: 'GET', path: '/api', rawPath: '/api', query: {},
+        headers: { authorization: ['Bearer secret'] },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        cookies: null as any,  // covers the falsy-cookies branch
+        body: null, bodyTruncated: false, receivedAt: ts,
+      },
+    }];
+    const out = exportWorkspace(ws, { scope: 'workspace', redact: true });
+    const raw = JSON.stringify(out);
+    expect(raw).not.toContain('Bearer secret');
   });
 });

@@ -5,6 +5,7 @@ import type { ApiMockDiagnosticV1, ApiMockSimulationSampleV1 } from './contracts
 import type { SourceRequest } from './sourceToRule';
 import { HAR_IMPORT_LIMITS } from './proxyContracts';
 import type { ParsedImportBatch } from './importParsers';
+import { sha256HexSync } from './sha256Sync';
 
 const SECRET_HEADERS = new Set([
   'authorization', 'proxy-authorization', 'cookie', 'set-cookie', 'x-api-key', 'api-key', 'x-auth-token',
@@ -309,4 +310,12 @@ export function previewHarEntries(text: string): HarPreviewResult {
   }
 
   return { accepted, autoFiltered, secretHits, truncated };
+}
+
+/**
+ * Compute the request fingerprint used to match journal transactions to HAR-sourced routes.
+ * Mirrors the fingerprint stored in `ApiMockHarSourceEntryV1.requestFingerprint`.
+ */
+export function fingerprintRequest(method: string, path: string, body: string | null | undefined): string {
+  return sha256HexSync(`${method}::${path}::${(body ?? '').slice(0, 512)}`);
 }
