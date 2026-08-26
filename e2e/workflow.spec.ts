@@ -250,9 +250,9 @@ test.describe('Workflow Creation', () => {
     await page.locator('button:has-text("+ New")').click();
     await page.locator('.wf-new-dropdown-item:has-text("From Template")').click();
 
-    // Gallery page should appear — filter to Workflows domain
-    await page.locator('.gallery-domain-btn:has-text("Workflows")').waitFor({ state: 'visible', timeout: 5000 });
-    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    // Gallery page should appear — filter to Workflow domain
+    await page.locator('.gallery-domain-btn:has-text("Workflow")').waitFor({ state: 'visible', timeout: 5000 });
+    await page.locator('.gallery-domain-btn:has-text("Workflow")').click();
     await page.waitForTimeout(300);
 
     // Select first workflow card
