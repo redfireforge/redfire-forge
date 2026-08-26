@@ -3,7 +3,7 @@
  * Pure functions: paste text / JSON → SourceRequest[] + diagnostics.
  */
 import { parse as parseYaml } from 'yaml';
-import type { ApiMockDiagnosticV1, ApiMockRouteV1, ApiMockExportV1, ApiMockFaultKind, ApiMockPredicateV1 } from './contracts';
+import type { ApiMockDiagnosticV1, ApiMockRouteV1, ApiMockSimulationSampleV1, ApiMockExportV1, ApiMockFaultKind, ApiMockPredicateV1 } from './contracts';
 import { convertBatch, type SourceRequest, type ConversionResult } from './sourceToRule';
 
 export interface ParsedImportBatch {
@@ -347,11 +347,11 @@ export function parseOpenApiOperations(text: string): ParsedImportBatch {
   return { sources, diagnostics, lossReport, label: 'OpenAPI' };
 }
 
-/** Convert a parsed batch into inactive draft routes. */
+/** Convert a parsed batch into inactive draft routes (and their paired samples). */
 export function batchToRoutes(
   batch: ParsedImportBatch,
   options: { defaultPriority?: number; folderId?: string; sourceKind: 'openapi' | 'wiremock' | 'redfireforge' | 'catalog' | 'requests' | 'har' },
-): { routes: ApiMockRouteV1[]; diagnostics: ApiMockDiagnosticV1[]; lossReport: string[] } {
+): { routes: ApiMockRouteV1[]; samples: ApiMockSimulationSampleV1[]; diagnostics: ApiMockDiagnosticV1[]; lossReport: string[] } {
   const results: ConversionResult[] = convertBatch(batch.sources, {
     sourceKind: options.sourceKind,
     sourceLabel: batch.label,
@@ -364,6 +364,8 @@ export function batchToRoutes(
   ];
   return {
     routes: results.map(r => ({ ...r.route, enabled: false })),
+    // samples[i].routeId === routes[i].id — positional alignment guaranteed by convertBatch order
+    samples: results.map(r => r.sample),
     diagnostics,
     lossReport: batch.lossReport,
   };

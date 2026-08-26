@@ -308,4 +308,48 @@ describe('ApiMockStudioPage coverage gaps', () => {
     fireEvent.click(applyBtn);
     await waitFor(() => expect(commit).toHaveBeenCalled());
   });
+
+  // ─── B-1: handleImportRoutes with samples (line 430) ──────────────────────
+  it('handleImportRoutes merges HAR-imported samples into the active server (B-1 line 430)', async () => {
+    const harJson = JSON.stringify({
+      log: {
+        version: '1.2',
+        entries: [{
+          request: { method: 'GET', url: 'https://api.example.com/orders', headers: [] },
+          response: {
+            status: 201,
+            headers: [{ name: 'Content-Type', value: 'application/json' }],
+            content: { text: '{"id":1}', mimeType: 'application/json' },
+          },
+        }],
+      },
+    });
+
+    const { ApiMockStudioPage } = await import('./ApiMockStudioPage');
+    render(<ApiMockStudioPage />);
+    await waitFor(() => expect(screen.getByTestId('api-mock-studio')).toBeTruthy());
+
+    // Open the import modal
+    fireEvent.click(screen.getByTestId('api-mock-import-menu'));
+    expect(screen.getByTestId('api-mock-import-review')).toBeTruthy();
+
+    // Select HAR source, paste HAR JSON, parse
+    fireEvent.click(screen.getByTestId('api-mock-import-source-har'));
+    fireEvent.change(screen.getByTestId('api-mock-import-paste'), { target: { value: harJson } });
+    fireEvent.click(screen.getByTestId('api-mock-import-parse'));
+
+    // "Also create Simulate samples" toggle is on by default — confirm import
+    expect(screen.getByTestId('api-mock-import-har-samples-checkbox')).toBeChecked();
+    fireEvent.click(screen.getByTestId('api-mock-import-confirm'));
+
+    // Verify saveApiMockWorkspace was called with the server containing the new sample
+    await waitFor(() => expect(saveApiMockWorkspace).toHaveBeenCalled());
+    const savedWorkspace = saveApiMockWorkspace.mock.calls.at(-1)![0];
+    const server = savedWorkspace.servers.find((s: { id: string }) => s.id === 'srv-1');
+    expect(server.samples).toHaveLength(1);
+    expect(server.samples[0].expected?.status).toBe(201);
+    expect(server.samples[0].expected?.outcome).toBe('matched');
+    expect(server.samples[0].request.method).toBe('GET');
+    expect(server.samples[0].request.path).toBe('/orders');
+  });
 });

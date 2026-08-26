@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { ApiMockTransactionV1 } from '@shared/api-mock/contracts';
+import type { ApiMockHarSourceEntryV1, ApiMockTransactionV1 } from '@shared/api-mock/contracts';
 import {
   copyTextToClipboard,
   copyTransactionToClipboard,
@@ -19,6 +19,8 @@ export function ApiMockTransactionDetail({
   onCreateRouteFromTransaction,
   onSaveSampleFromTransaction,
   onCopyTransaction,
+  matchedRouteHarSource,
+  onCompareHar,
 }: {
   selected: ApiMockTransactionV1;
   routeName: (id?: string) => string;
@@ -27,6 +29,8 @@ export function ApiMockTransactionDetail({
   onCreateRouteFromTransaction?: (tx: ApiMockTransactionV1) => string | void;
   onSaveSampleFromTransaction?: (tx: ApiMockTransactionV1) => void;
   onCopyTransaction?: (tx: ApiMockTransactionV1) => void;
+  matchedRouteHarSource?: ApiMockHarSourceEntryV1;
+  onCompareHar?: () => void;
 }) {
   const [flash, setFlash] = useState<TxFlash>(null);
   const [copiedPane, setCopiedPane] = useState<'request' | 'response' | null>(null);
@@ -186,6 +190,16 @@ export function ApiMockTransactionDetail({
       )}
 
       <div className="am-tx-actions" data-testid="api-mock-tx-actions">
+        {matchedRouteHarSource && onCompareHar && (
+          <button
+            type="button"
+            className="am-btn small primary"
+            data-testid="api-mock-tx-compare-har"
+            onClick={onCompareHar}
+          >
+            Compare HAR
+          </button>
+        )}
         {onOpenInRequests && (
           <button type="button" className="am-btn small" data-testid="api-mock-tx-open-requests" onClick={() => onOpenInRequests(selected)}>
             Open in Requests

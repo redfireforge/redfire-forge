@@ -6,6 +6,7 @@ import WorkflowConsolePanel from './panels/WorkflowConsolePanel';
 import WorkflowShortcutsOverlay from './canvas/WorkflowShortcutsOverlay';
 import WorkflowVersionDiff from './modals/WorkflowVersionDiff';
 import WorkflowCommandPalette from './canvas/WorkflowCommandPalette';
+import { HarImportPreviewModal } from './HarImportPreviewModal';
 
 /** Fullscreen / floating overlays outside WorkflowInspectProvider. */
 export function WorkflowDesignerGlobalOverlays({ vm }: { vm: WorkflowDesignerViewModel }) {
@@ -48,6 +49,10 @@ export function WorkflowDesignerGlobalOverlays({ vm }: { vm: WorkflowDesignerVie
     handleAddNode,
     setShowDefaultsModal,
     setSelectedNodeId,
+    harParseResult,
+    harFileName,
+    handleHarImportClose,
+    handleHarImport,
   } = vm;
 
   return (
@@ -129,6 +134,16 @@ export function WorkflowDesignerGlobalOverlays({ vm }: { vm: WorkflowDesignerVie
           onOpenShortcuts: () => setShowShortcuts(true),
         }}
       />
+
+      {harParseResult && (
+        <HarImportPreviewModal
+          open
+          parseResult={harParseResult}
+          fileName={harFileName}
+          onClose={handleHarImportClose}
+          onImport={handleHarImport}
+        />
+      )}
     </>
   );
 }
