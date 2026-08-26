@@ -8,6 +8,7 @@ import type {
   ApiMockTransactionV1,
   ApiMockSimulationSampleV1,
 } from '@shared/api-mock/contracts';
+import { fingerprintRequest } from '@shared/api-mock/harImport';
 import { convertSourceToRule } from '@shared/api-mock/sourceToRule';
 import { joinCapturedHeaderValue, mockClientOrigin, stripCapturedRequestSecrets } from '@shared/api-mock/harExport';
 import type { HttpMethod, KeyValue } from '@shared/types';
@@ -275,4 +276,133 @@ export function transactionToRouteDraft(tx: ApiMockTransactionV1): ApiMockRouteV
     },
   );
   return { ...result.route, enabled: false };
+}
+
+// ── B-3c: HAR Round-trip Comparison Report ────────────────────────────────────
+
+export interface HarRoundTripEntry {
+  method: string;
+  path: string;
+  originalStatus: number;
+  mockStatus: number | undefined;
+  statusMatch: boolean;
+  /** true = bodies identical, false = differ, 'template' = mock body has {{helper}}, null = no body to compare */
+  bodyMatch: boolean | 'template' | null;
+  diffSummary: string | undefined;
+}
+
+export interface HarRoundTripReport {
+  generatedAt: string;
+  serverName: string | undefined;
+  totalTransactions: number;
+  matched: number;
+  unmatched: number;
+  statusMatches: number;
+  statusMismatches: number;
+  bodyMatches: number;
+  bodyMismatches: number;
+  entries: HarRoundTripEntry[];
+}
+
+const TEMPLATE_RE_REPORT = /\{\{[^}]+\}\}/;
+
+function bodiesMatch(
+  original: string | undefined,
+  mock: string | undefined,
+): boolean | 'template' | null {
+  if (!original && !mock) return null;
+  if (!original || !mock) return false;
+  if (TEMPLATE_RE_REPORT.test(mock)) return 'template';
+  return original.trim() === mock.trim();
+}
+
+export function buildRoundTripReport(
+  transactions: ApiMockTransactionV1[],
+  routes: ApiMockRouteV1[],
+  serverName?: string,
+): HarRoundTripReport {
+  // Build fingerprint → harSourceEntry lookup from routes
+  const fpMap = new Map(
+    routes.flatMap(r =>
+      r.harSourceEntry ? [[r.harSourceEntry.requestFingerprint, r.harSourceEntry]] : [],
+    ),
+  );
+  // Also build routeId → harSourceEntry for matched transactions (more reliable)
+  const routeMap = new Map(
+    routes.flatMap(r => r.harSourceEntry ? [[r.id, r.harSourceEntry]] : []),
+  );
+
+  let matchedCount = 0;
+  let unmatchedCount = 0;
+  let statusMatchCount = 0;
+  let statusMismatchCount = 0;
+  let bodyMatchCount = 0;
+  let bodyMismatchCount = 0;
+  const entries: HarRoundTripEntry[] = [];
+
+  for (const tx of transactions) {
+    // Prefer routeId lookup; fall back to fingerprint lookup for unmatched transactions
+    const harSource = (tx.matchedRouteId ? routeMap.get(tx.matchedRouteId) : undefined)
+      ?? fpMap.get(fingerprintRequest(tx.request.method, tx.request.path, tx.request.body));
+
+    if (!harSource) {
+      unmatchedCount++;
+      continue;
+    }
+    matchedCount++;
+
+    const mockStatus = tx.response?.status;
+    const statusMatch = mockStatus === harSource.originalStatus;
+    if (statusMatch) statusMatchCount++;
+    else statusMismatchCount++;
+
+    const mockBodyRaw = tx.response?.body ?? undefined;
+    const bm = bodiesMatch(harSource.originalBody, mockBodyRaw ?? undefined);
+    let diffSummary: string | undefined;
+    if (bm === false) {
+      diffSummary = 'Bodies differ';
+      bodyMismatchCount++;
+    } else if (bm === 'template') {
+      diffSummary = 'Mock body uses template expressions';
+      bodyMatchCount++;
+    } else if (bm === true) {
+      bodyMatchCount++;
+    }
+
+    entries.push({
+      method: tx.request.method,
+      path: tx.request.path,
+      originalStatus: harSource.originalStatus,
+      mockStatus,
+      statusMatch,
+      bodyMatch: bm,
+      diffSummary,
+    });
+  }
+
+  return {
+    generatedAt: new Date().toISOString(),
+    serverName,
+    totalTransactions: transactions.length,
+    matched: matchedCount,
+    unmatched: unmatchedCount,
+    statusMatches: statusMatchCount,
+    statusMismatches: statusMismatchCount,
+    bodyMatches: bodyMatchCount,
+    bodyMismatches: bodyMismatchCount,
+    entries,
+  };
+}
+
+export function exportRoundTripReport(report: HarRoundTripReport, serverName?: string): void {
+  const blob = new Blob(
+    [JSON.stringify(report, null, 2)],
+    { type: 'application/json' },
+  );
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `har-roundtrip-${serverName ? `${serverName.replace(/\s+/g, '-').toLowerCase()}-` : ''}${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
 }

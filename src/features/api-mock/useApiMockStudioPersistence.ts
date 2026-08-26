@@ -1,4 +1,4 @@
-import { useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
+import { useEffect, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import type { ApiMockServerDefinitionV1, ApiMockTransactionV1 } from '@shared/api-mock/contracts';
 import { reconcileRuntimeState } from '@shared/api-mock/recoveryDiagnostics';
 import { isTauri } from '@shared/utils/platform';
@@ -31,7 +31,7 @@ export function useApiMockStudioPersistence(opts: {
   setLiveMessage: Dispatch<SetStateAction<string>>;
   /** Wipe/import replaces the library — drop export/import/simulate chrome that is not on disk. */
   onWorkspaceReplaced?: () => void;
-}): MutableRefObject<ApiMockWorkspaceSnapshot> {
+}): { latestRef: MutableRefObject<ApiMockWorkspaceSnapshot>; isHydrated: boolean } {
   const {
     servers, activeServerId, openTabIds,     setServers, setActiveServerId, setOpenTabIds,
     setRuntime, setTransactions, setScenarioState, setMainView, setLiveMessage,
@@ -40,6 +40,7 @@ export function useApiMockStudioPersistence(opts: {
 
   const hydratedRef = useRef(false);
   const hydrateGenRef = useRef(0);
+  const [isHydrated, setIsHydrated] = useState(false);
   const latestRef = useRef<ApiMockWorkspaceSnapshot>({ servers: [], activeServerId: undefined, openTabIds: [] });
   const autosaveTimerRef = useRef<number | undefined>(undefined);
   latestRef.current = { servers, activeServerId, openTabIds };
@@ -105,6 +106,7 @@ export function useApiMockStudioPersistence(opts: {
         if (notice) setLiveMessage(notice);
       }
       hydratedRef.current = true;
+      setIsHydrated(true);
     });
     const onWorkspaceChanged = (event: Event) => {
       const detail = (event as CustomEvent<{ servers: ApiMockServerDefinitionV1[]; activeServerId?: string; openTabIds?: string[] }>).detail;
@@ -129,6 +131,7 @@ export function useApiMockStudioPersistence(opts: {
       setLiveMessage(detail.servers.length > 0 ? 'Gallery mock server imported.' : '');
       onWorkspaceReplaced?.();
       hydratedRef.current = true;
+      setIsHydrated(true);
     };
     window.addEventListener(API_MOCK_WORKSPACE_CHANGED_EVENT, onWorkspaceChanged);
     return () => {
@@ -163,5 +166,5 @@ export function useApiMockStudioPersistence(opts: {
     }
   }, []);
 
-  return latestRef;
+  return { latestRef, isHydrated };
 }

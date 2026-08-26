@@ -31,6 +31,20 @@ describe('useDemoWorkflowBridge', () => {
     expect(remove).toHaveBeenCalledWith('b');
   });
 
+  it('deletes every workflow with the same name', () => {
+    const remove = vi.fn();
+    renderHook(() => useDemoWorkflowBridge(
+      [{ id: 'a', name: 'Dup' }, { id: 'b', name: 'Keep' }, { id: 'c', name: 'Dup' }],
+      remove,
+    ));
+    const fn = (window as unknown as Record<string, (name: string) => void>).__wfDeleteByName;
+    fn('Dup');
+    expect(remove).toHaveBeenCalledTimes(2);
+    expect(remove).toHaveBeenCalledWith('a');
+    expect(remove).toHaveBeenCalledWith('c');
+    expect(remove).not.toHaveBeenCalledWith('b');
+  });
+
   it('does nothing when workflow name not found', () => {
     const remove = vi.fn();
     renderHook(() => useDemoWorkflowBridge([{ id: 'a', name: 'Alpha' }], remove));

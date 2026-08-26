@@ -8,6 +8,15 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import '@testing-library/jest-dom';
 import { ApiMockDock, type ApiMockDockTab } from './ApiMockDock';
 
+vi.mock('../apiMockJournalActions', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../apiMockJournalActions')>();
+  return {
+    ...actual,
+    exportRoundTripReport: vi.fn(),
+    exportTransactionsJson: vi.fn(),
+  };
+});
+
 function baseRoutes() {
   return [{
     id: 'r1',
@@ -150,5 +159,69 @@ describe('ApiMockDock coverage gaps', () => {
 
     await waitFor(() => expect(screen.getByTestId('api-mock-dock-variables')).toBeTruthy());
     expect(screen.getByTestId('api-mock-dock-tab-variables').getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('shows Compare-report button for HAR-imported routes and cycles the HAR compare modal', () => {
+    const harSourceEntry = {
+      method: 'GET',
+      path: '/users',
+      requestFingerprint: 'fp1',
+      originalStatus: 200,
+      originalBody: '{"users":[]}',
+      originalHeaders: [{ name: 'content-type', value: 'application/json' }],
+      importedAt: '2026-08-12T00:00:00.000Z',
+    };
+    const routeWithHar = { ...baseRoutes()[0], harSourceEntry } as any;
+    const tx = {
+      id: 'tx-1', serverId: 'srv-1', generation: 1,
+      receivedAt: '2026-08-12T00:00:00.000Z', completedAt: '2026-08-12T00:00:00.000Z',
+      request: { method: 'GET', path: '/users', rawPath: '/users', query: {}, cookies: {}, headers: {}, body: null, bodyTruncated: false, receivedAt: '2026-08-12T00:00:00.000Z' },
+      response: { status: 200, headers: { 'content-type': ['application/json'] }, cookies: [], body: '{"users":[]}', bodyTruncated: false, durationMs: 5, generationAtResponse: 1 },
+      outcome: 'matched', matchedRouteId: 'r1', matchedResponseId: 'v1', durationMs: 5,
+      explanation: {
+        normalizedRequest: { method: 'GET', path: '/users', decodedPath: '/users', pathSegments: ['users'], query: {}, headerKeys: [], cookieKeys: [], bodySizeBytes: 0 },
+        candidates: [],
+        policyDecision: { policy: 'highest_priority', equalPriorityPolicy: 'reject', matchedCount: 1, highestPriority: 10, tiedAtHighest: 1, outcome: 'matched', selectedRouteId: 'r1' },
+        nearMisses: [],
+      },
+    } as any;
+
+    render(<ApiMockDock routes={[routeWithHar]} transactions={[tx]} onClearTransactions={vi.fn()} />);
+
+    // "Compare report" button is present because hasHarRoutes is true
+    expect(screen.getByTestId('api-mock-journal-compare-report')).toBeTruthy();
+
+    // clicking "Compare report" triggers exportRoundTripReport (mocked above, no crash)
+    fireEvent.click(screen.getByTestId('api-mock-journal-compare-report'));
+
+    // Select the transaction → selectedTxHarSource becomes defined
+    fireEvent.click(screen.getByTestId('api-mock-tx-tx-1'));
+
+    // "Compare HAR" button appears in the detail panel (the onCompareHar truthy path)
+    expect(screen.getByTestId('api-mock-tx-compare-har')).toBeTruthy();
+
+    // Click "Compare HAR" to open the modal (sets compareHarTx)
+    fireEvent.click(screen.getByTestId('api-mock-tx-compare-har'));
+
+    // Modal is rendered (compareHarTx && routeHarSourceMap.get(…) both truthy)
+    expect(screen.getByTestId('api-mock-har-compare-modal')).toBeTruthy();
+
+    // Close the modal via the close button (onClose → setCompareHarTx(null))
+    fireEvent.click(screen.getByTestId('api-mock-har-compare-close'));
+
+    // Modal is gone
+    expect(screen.queryByTestId('api-mock-har-compare-modal')).toBeNull();
+  });
+
+  it('fires the variable value onChange handler', () => {
+    const onVariablesChange = vi.fn();
+    const variables = [
+      { id: 'v1', key: 'tenant', value: 'acme', sensitive: false },
+    ] as any;
+    render(<ApiMockDock routes={baseRoutes()} variables={variables} onVariablesChange={onVariablesChange} />);
+    const tabs = within(screen.getByTestId('api-mock-dock')).getByRole('tablist', { name: 'Runtime inspector' });
+    fireEvent.click(within(tabs).getAllByRole('tab').find(t => t.textContent?.trim().startsWith('Variables'))!);
+    fireEvent.change(screen.getByTestId('api-mock-var-value-v1'), { target: { value: 'beta' } });
+    expect(onVariablesChange.mock.calls.at(-1)?.[0][0].value).toBe('beta');
   });
 });
