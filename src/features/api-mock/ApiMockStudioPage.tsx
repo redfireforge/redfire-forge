@@ -418,10 +418,18 @@ export function ApiMockStudioPage() {
   const handleImportRoutes = useCallback((
     routes: ApiMockServerDefinitionV1['routes'],
     options: ImportRoutesOptions = { mode: 'merge' },
+    samples?: ApiMockSimulationSampleV1[],
   ) => {
     if (!activeServerId || !activeServer || routes.length === 0) return;
     const prepared = prepareImportedRoutes({ activeServer, routes, options });
-    handleUpdateServer(activeServerId, { routes: prepared.nextRoutes, folders: prepared.nextFolders });
+    const serverPatch: Partial<ApiMockServerDefinitionV1> = {
+      routes: prepared.nextRoutes,
+      folders: prepared.nextFolders,
+    };
+    if (samples && samples.length > 0) {
+      serverPatch.samples = [...(activeServer.samples ?? []), ...samples];
+    }
+    handleUpdateServer(activeServerId, serverPatch);
     setSelectedRouteId(prepared.selectedRouteId);
     setImportOpen(false);
     setLiveMessage(formatImportedRoutesMessage(prepared.importedCount));
