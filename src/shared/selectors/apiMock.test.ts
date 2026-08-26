@@ -427,6 +427,14 @@ describe('API_MOCK selectors', () => {
       ['IMPORT_FOLDER', '[data-testid="api-mock-import-folder"]'],
       ['IMPORT_FOLDER_MENU', '[data-testid="api-mock-import-folder-menu"]'],
       ['IMPORT_FOLDER_NEW', '[data-testid="api-mock-import-folder-new"]'],
+      ['HAR_IMPORT_SAMPLES_TOGGLE', '[data-testid="api-mock-import-har-samples-toggle"]'],
+      ['HAR_IMPORT_SAMPLES_CHECKBOX', '[data-testid="api-mock-import-har-samples-checkbox"]'],
+      ['HAR_PREVIEW_LIST', '[data-testid="am-har-preview-list"]'],
+      ['HAR_PREVIEW_ENTRY_TABLE', '[data-testid="am-har-entry-table"]'],
+      ['HAR_PREVIEW_FILTERED_SECTION', '[data-testid="am-har-filtered-section"]'],
+      ['HAR_PREVIEW_SELECT_ALL', '[data-testid="am-har-select-all"]'],
+      ['HAR_PREVIEW_SELECT_NONE', '[data-testid="am-har-select-none"]'],
+      ['HAR_PREVIEW_EMPTY', '[data-testid="am-har-empty"]'],
       ['IMPORT_NEW_FOLDER_NAME', '[data-testid="api-mock-import-new-folder-name"]'],
       ['IMPORT_PRIORITY', '[data-testid="api-mock-import-priority"]'],
       ['IMPORT_GENERALIZE', '[data-testid="api-mock-import-generalize"]'],
@@ -708,6 +716,8 @@ describe('API_MOCK selectors', () => {
     expect(API_MOCK.templateHelpersGroup('request')).toBe('[data-testid="api-mock-template-helpers-group-request"]');
     expect(API_MOCK.templateHelpersCat('request')).toBe('[data-testid="api-mock-template-helpers-cat-request"]');
     expect(API_MOCK.templateHelpersRow('uuid')).toBe('[data-testid="api-mock-template-helpers-row"][data-helper-id="uuid"]');
+    expect(API_MOCK.harPreviewEntry(0)).toBe('[data-testid="am-har-entry-0"]');
+    expect(API_MOCK.harPreviewEntryCheckbox(2)).toBe('[data-testid="am-har-entry-cb-2"]');
   });
 
   it('aliases AMS to API_MOCK', () => {

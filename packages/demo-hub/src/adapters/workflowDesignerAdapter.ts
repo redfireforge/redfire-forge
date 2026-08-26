@@ -326,3 +326,18 @@ export function resetWorkflowRunState(): boolean {
 
 /** Alias retained for workflow-integration lessons. */
 export const patchDemoWorkflowNodeDataByType = patchWorkflowNodeDataByType;
+
+/**
+ * Inject HAR JSON text into the Workflow Designer HAR import pipeline.
+ * Parses the text and opens the preview modal as if the user had selected
+ * a file via the native OS file picker (which cannot be automated in demos).
+ *
+ * @param harText  Raw HAR 1.2 JSON string
+ * @param fileName Display name for the modal title (default: 'demo-fixture.har')
+ */
+export function triggerHarImportWithFixture(harText: string, fileName = 'demo-fixture.har'): boolean {
+  const bridge = getDemoBridgeWindow().__wfTriggerHarImport;
+  if (!bridge) return false;
+  bridge(harText, fileName);
+  return true;
+}
