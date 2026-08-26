@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ApiMockDiagnosticV1, ApiMockRouteFolderV1, ApiMockRouteV1 } from '@shared/api-mock/contracts';
+import type { ApiMockDiagnosticV1, ApiMockRouteFolderV1, ApiMockRouteV1, ApiMockSimulationSampleV1 } from '@shared/api-mock/contracts';
 import { convertSourceToRule, type SourceRequest, type ConversionOptions } from '@shared/api-mock/sourceToRule';
 import {
   batchToRoutes,
@@ -9,7 +9,7 @@ import {
   parseWireMockMappings,
   requestItemsToSources,
 } from '@shared/api-mock/importParsers';
-import { parseHarEntries } from '@shared/api-mock/harImport';
+import { parseHarEntries, fixHarSampleExpected } from '@shared/api-mock/harImport';
 import { loadCatalogEntries, loadRequests } from '@shared/utils/storage';
 import type { CatalogEndpoint } from '../../catalog/types/catalog';
 import type { RequestItem } from '@shared/types/requests';
@@ -23,7 +23,7 @@ interface Props {
   folders?: ApiMockRouteFolderV1[];
   initialSource?: ApiMockImportSourceId;
   lastNativeExport?: string;
-  onImport: (routes: ApiMockRouteV1[], options: ImportOptions) => void;
+  onImport: (routes: ApiMockRouteV1[], options: ImportOptions, samples?: ApiMockSimulationSampleV1[]) => void;
   onCancel: () => void;
 }
 
@@ -43,6 +43,10 @@ interface PreviewState {
   routes: ApiMockRouteV1[];
   diagnostics: ApiMockDiagnosticV1[];
   lossReport: string[];
+  /** Raw samples from batchToRoutes (HAR only). Needs fixHarSampleExpected before use. */
+  rawSamples?: ApiMockSimulationSampleV1[];
+  /** Original HAR SourceRequests parallel to rawSamples — used for status/outcome override. */
+  harSources?: SourceRequest[];
 }
 interface CatalogPick {
   key: string;
@@ -71,6 +75,7 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', last
   const folderRef = useRef<HTMLDivElement>(null);
   const [priority, setPriority] = useState('10');
   const [preview, setPreview] = useState<PreviewState | null>(null);
+  const [createSamples, setCreateSamples] = useState(true);
   const [catalogPicks, setCatalogPicks] = useState<CatalogPick[]>([]);
   const [selectedCatalog, setSelectedCatalog] = useState<Set<string>>(new Set());
   const [requestPicks, setRequestPicks] = useState<RequestPick[]>([]);
@@ -130,6 +135,7 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', last
     setCatalogFilter('');
     setRequestFilter('');
     setPasteFormatError('');
+    setCreateSamples(true);
     if (source === 'catalog') {
       void loadCatalogEntries().then(entries => {
         const picks: CatalogPick[] = [];
@@ -236,6 +242,12 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', last
       routes,
       diagnostics: converted.diagnostics,
       lossReport: converted.lossReport,
+      // Store raw samples + original sources for HAR so handleConfirm can apply
+      // fixHarSampleExpected (corrects the default outcome='matched'/status=200).
+      ...(source === 'har' ? {
+        rawSamples: converted.samples,
+        harSources: batch.sources,
+      } : {}),
     });
   };
 
@@ -280,7 +292,15 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', last
     if (isCreatingFolder && newFolderName.trim()) {
       opts.newFolderName = newFolderName.trim();
     }
-    onImport(preview.routes, opts);
+    let harSamples: ApiMockSimulationSampleV1[] | undefined;
+    if (source === 'har' && createSamples && preview.rawSamples && preview.harSources) {
+      // Apply status/outcome override: convertSourceToRule always defaults to
+      // outcome='matched'/status=200 — fixHarSampleExpected corrects this from the real HAR status.
+      harSamples = preview.rawSamples.map((s, i) =>
+        fixHarSampleExpected(s, preview.harSources![i]),
+      );
+    }
+    onImport(preview.routes, opts, harSamples);
   };
 
   const generalizePath = () => {
@@ -638,6 +658,26 @@ export function ApiMockImportReview({ folders = [], initialSource = 'curl', last
               <div className="am-notice" style={{ marginTop: 10 }}>
                 <span>No conflicts with existing routes were analyzed yet — run <strong>Analyze all</strong> after import.</span>
               </div>
+              {source === 'har' && preview.rawSamples && preview.rawSamples.length > 0 && (
+                <label
+                  className="am-har-samples-toggle"
+                  data-testid="api-mock-import-har-samples-toggle"
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, cursor: 'pointer' }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={createSamples}
+                    onChange={e => setCreateSamples(e.target.checked)}
+                    data-testid="api-mock-import-har-samples-checkbox"
+                  />
+                  <span>
+                    Also create Simulate samples
+                    <span className="am-muted" style={{ fontSize: 11, marginLeft: 6 }}>
+                      ({preview.rawSamples.length} request{preview.rawSamples.length !== 1 ? 's' : ''}, with expected status from HAR response)
+                    </span>
+                  </span>
+                </label>
+              )}
               <div style={{ display: 'flex', marginTop: 12, gap: 8 }}>
                 <button className="am-btn primary" onClick={handleConfirm} data-testid="api-mock-import-confirm" disabled={preview.routes.length === 0}>
                   Import as draft
