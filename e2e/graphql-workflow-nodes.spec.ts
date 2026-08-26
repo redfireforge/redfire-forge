@@ -13,7 +13,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import { gotoAppTab, seedAppData, seedWorkflowInLocalStorage, clickFitViewIfVisible } from './helpers';
+import { gotoAppTab, seedAppData, seedWorkflowsInLocalStorage, clickFitViewIfVisible } from './helpers';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 
 test.describe.configure({ mode: 'serial' });
@@ -127,7 +127,7 @@ function makeGraphqlWorkflow(): Workflow {
 
 async function seedGraphqlWorkflow(page: Page) {
   await seedAppData(page);
-  await seedWorkflowInLocalStorage(page, [makeGraphqlWorkflow()], 'wf-gql-nodes-1');
+  await seedWorkflowsInLocalStorage(page, [makeGraphqlWorkflow()], 'wf-gql-nodes-1');
 }
 
 // ── 1. Canvas rendering ───────────────────────────────────────────────────────
