@@ -198,4 +198,13 @@ export const WF = {
   DEFAULTS_EXISTING_VALUE: '.wf-defaults-modal .wf-config-kv-row-vars:not(:last-child) .wf-var-value-input',
   DEFAULTS_ADD_BTN:    '.wf-defaults-modal [aria-label="Add variable"]',
   DEFAULTS_SAVE_BTN:   '.wf-defaults-modal .btn-primary',
+  // HAR import (toolbar button + preview modal)
+  HAR_IMPORT_BTN:      '[data-testid="wf-toolbar-har-import-btn"]',
+  HAR_MODAL:           '.har-import-modal',
+  HAR_MODAL_ENTRY_LIST:'[data-testid="har-import-entry-list"]',
+  HAR_MODAL_CONFIRM:   '[data-testid="har-import-confirm"]',
+  HAR_MODAL_CANCEL:    '[data-testid="har-import-cancel"]',
+  HAR_CHAIN_SUMMARY:   '[data-testid="har-import-chain-summary"]',
+  HAR_REDACTED_WARNING:'[data-testid="har-import-redaction-warning"]',
+  HAR_WORKFLOW_NAME:   '[data-testid="har-import-wf-name"]',
 } as const;

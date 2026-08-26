@@ -27,8 +27,8 @@ function canonicalJson(obj: unknown, exclude: Set<string>): string {
   return JSON.stringify(sortObjectKeys(obj), (key, value) => (exclude.has(key) ? undefined : value));
 }
 
-const DEFINITION_EXCLUDE = new Set(['createdAt', 'updatedAt', 'source', 'serverFolder']);
-const ROUTE_EXCLUDE = new Set(['createdAt', 'updatedAt', 'tags', 'operationId']);
+const DEFINITION_EXCLUDE = new Set(['createdAt', 'updatedAt', 'source', 'serverFolder', 'harSourceEntry']);
+const ROUTE_EXCLUDE = new Set(['createdAt', 'updatedAt', 'tags', 'operationId', 'harSourceEntry']);
 
 export async function computeDefinitionFingerprint(def: ApiMockServerDefinitionV1): Promise<string> {
   return sha256Hex(canonicalJson(def, DEFINITION_EXCLUDE));
