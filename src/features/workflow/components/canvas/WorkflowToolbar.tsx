@@ -6,6 +6,8 @@ import { buildFolderTree, getFolderPath, getUnfiledWorkflows, countNodeWorkflows
 import type { FolderTreeNode } from '../../utils/workflowFolderTree';
 import { highlightSearchMatch } from '@shared/utils/consoleLogUtils';
 import { CustomSelect } from '@shared/components/CustomSelect';
+import { HarImportButton } from '../HarImportButton';
+import type { HarParseResult } from '../../utils/harParser';
 
 export interface RunProgress {
   completed: number;
@@ -46,13 +48,15 @@ interface Props {
   onReset?: () => void;
   /** Navigate to Workflow Runner with this workflow pre-selected for load testing. */
   onRunInHarness?: () => void;
+  /** Called when a HAR file is selected — opens the preview modal */
+  onHarFileParsed?: (result: HarParseResult, fileName: string) => void;
 }
 
 export default function WorkflowToolbar({
   workflows, selected, isRunning, saveAcknowledged, serviceCount = 0, variableCount = 0, versionCount = 0,
   folders = [], environments = [], selectedEnvId = '', onEnvSelect, workflowServices = [], isPreview = false,
   onSelect, onSave, onQuickTest, onDebugTest, isDebugMode, onOpenServices, onOpenDefaults, onOpenVersions,
-  runProgress = null, onReset, onRunInHarness,
+  runProgress = null, onReset, onRunInHarness, onHarFileParsed,
 }: Props) {
   const [wfDropdownOpen, setWfDropdownOpen] = useState(false);
   const [wfSearch, setWfSearch] = useState('');
@@ -288,6 +292,13 @@ export default function WorkflowToolbar({
               </>
             )}
           </div>
+        )}
+
+        {onHarFileParsed && (
+          <HarImportButton
+            onFileParsed={onHarFileParsed}
+            disabled={isRunning}
+          />
         )}
 
         {selected && (

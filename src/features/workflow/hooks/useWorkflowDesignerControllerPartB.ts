@@ -1,4 +1,4 @@
-import { useCallback, useMemo, type MouseEvent } from 'react';
+import { useCallback, useMemo, useState, type MouseEvent } from 'react';
 
 import { isHttpWorkflowNode } from '../utils/workflowVariableHints';
 import { resolveHttpNodeBaseUrl } from '../utils/workflowHostResolve';
@@ -26,6 +26,8 @@ import { useDemoWorkflowCanvasBridge } from '@app/hooks/useDemoWorkflowCanvasBri
 import { useDemoWorkflowLivePatchSync } from '@app/hooks/useDemoWorkflowLivePatchSync';
 import { useDemoWorkflowRunBridge } from '@app/hooks/useDemoWorkflowRunBridge';
 import type { WorkflowDesignerControllerPartA } from './useWorkflowDesignerControllerPartA';
+import type { HarParseResult, ParsedHarEntry } from '../utils/harParser';
+import { harToWorkflow } from '../utils/harToWorkflow';
 
 /**
  * Second half of Workflow Designer controller: node actions, execution, canvas sync,
@@ -197,6 +199,31 @@ export function useWorkflowDesignerControllerPartB(
     create(name.trim());
   }, [create, onClearPreview]);
 
+  // ── HAR import state and handlers ─────────────────────────────────────────
+  const [harParseResult, setHarParseResult] = useState<HarParseResult | null>(null);
+  const [harFileName, setHarFileName] = useState('');
+
+  const handleHarFileParsed = useCallback((result: HarParseResult, fileName: string) => {
+    setHarParseResult(result);
+    setHarFileName(fileName);
+  }, []);
+
+  const handleHarImportClose = useCallback(() => {
+    setHarParseResult(null);
+    setHarFileName('');
+  }, []);
+
+  const handleHarImport = useCallback((entries: ParsedHarEntry[], workflowName: string) => {
+    const { nodes: harNodes, edges: harEdges, variables: harVariables } = harToWorkflow(entries);
+    onClearPreview();
+    const wf = create(workflowName.trim() || 'HAR import');
+    // Replace the default start node with the HAR-generated nodes/edges/variables
+    update(wf.id, { nodes: harNodes, edges: harEdges, variables: harVariables });
+    select(wf.id);
+    setHarParseResult(null);
+    setHarFileName('');
+  }, [create, update, select, onClearPreview]);
+
   const handleSelect = useCallback((id: string) => {
     onClearPreview();
     setNavStack([]);
@@ -353,6 +380,11 @@ export function useWorkflowDesignerControllerPartB(
     handleNew,
     handleSelect,
     inspectActions,
+    harParseResult,
+    harFileName,
+    handleHarFileParsed,
+    handleHarImportClose,
+    handleHarImport,
     onConnect,
     onReconnect,
     isDragOver,
