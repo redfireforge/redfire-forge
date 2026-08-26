@@ -1,5 +1,10 @@
 # RedfireForge — Redfire Performance Workbench
 
+[![CI](https://github.com/redfireforge/redfire-forge/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/redfireforge/redfire-forge/actions/workflows/ci.yml)
+[![Latest Release](https://img.shields.io/github/v/release/redfireforge/redfire-forge?label=release)](https://github.com/redfireforge/redfire-forge/releases/latest)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
+[![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)](#)
+
 > *Fire. Measure. Validate.*
 
 A **cross-platform** desktop & web API performance testing tool built with React + TypeScript + Vite + Tauri. Define HTTP tests visually, execute them with configurable concurrency, validate responses, and analyze results — all from a native desktop application or a browser.
