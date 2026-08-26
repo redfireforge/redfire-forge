@@ -44,8 +44,11 @@ export function useDemoWorkflowBridge(
     const win = window as unknown as Record<string, unknown>;
 
     win.__wfDeleteByName = (name: string) => {
-      const wf = workflowsRef.current.find((w) => w.name === name);
-      if (wf) removeRef.current(wf.id);
+      // Delete every copy — HAR import always creates a new workflow, so a
+      // lesson restart can leave two rows with the same display name.
+      for (const wf of workflowsRef.current.filter((w) => w.name === name)) {
+        removeRef.current(wf.id);
+      }
     };
 
     win.__wfGetWorkflowByName = (name: string) =>

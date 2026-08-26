@@ -12,8 +12,9 @@
  * - When entries span multiple hosts, full URLs are preserved as-is.
  * - Query params stay in the URL (not promoted to workflow variables); they are
  *   preserved in the URL string so the user can parameterize them manually.
- * - Redacted header values ({{authToken}} etc.) remain as-is; the corresponding
- *   workflow variables must be set by the user in the Variables panel.
+ * - Redacted header values ({{authToken}} etc.) remain as-is; matching keys are
+ *   seeded as empty workflow variables so the Variables panel lists them. The
+ *   original secrets are never stored — the user pastes real values there.
  * - initialVariables on each HTTP node is not set here — it would duplicate
  *   query params that already appear in the URL.
  */
@@ -32,7 +33,8 @@ export interface HarWorkflowResult {
   edges: WorkflowEdge[];
   /**
    * Workflow-level variables to merge into the created workflow.
-   * Contains `baseUrl` when all entries share the same host.
+   * Contains `baseUrl` when all entries share the same host, plus empty
+   * placeholders for every unique redacted header variable (e.g. `authToken`).
    */
   variables: Record<string, string>;
   /** Human-readable summary of what was extracted, for display in the preview modal */
@@ -87,6 +89,17 @@ export function harToWorkflow(entries: ParsedHarEntry[]): HarWorkflowResult {
   } else if (hosts.size > 1) {
     extractionSummary.push(
       `Multiple hosts detected (${hosts.size}) — full URLs preserved, no {{baseUrl}} extracted.`,
+    );
+  }
+
+  // ── Step 2b: Seed empty Variables rows for redacted header placeholders ──
+  const redactedVarNames = collectRedactedVariableNames(chainedEntries);
+  for (const name of redactedVarNames) {
+    if (!(name in variables)) variables[name] = '';
+  }
+  if (redactedVarNames.length > 0) {
+    extractionSummary.push(
+      `Redacted headers added to Variables (empty): ${redactedVarNames.map((n) => `{{${n}}}`).join(', ')}`,
     );
   }
 
@@ -171,6 +184,24 @@ export function harToWorkflow(entries: ParsedHarEntry[]): HarWorkflowResult {
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
+
+const REDACTED_PLACEHOLDER_RE = /^\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}$/;
+
+/**
+ * Unique variable names from redacted header placeholders (e.g. `{{authToken}}` → `authToken`).
+ * Original secret values are never copied — callers seed empty Variables rows.
+ */
+export function collectRedactedVariableNames(entries: ParsedHarEntry[]): string[] {
+  const names = new Set<string>();
+  for (const entry of entries) {
+    for (const headerName of entry.redactedHeaderNames) {
+      const value = entry.headers[headerName];
+      const match = value?.match(REDACTED_PLACEHOLDER_RE);
+      if (match) names.add(match[1]);
+    }
+  }
+  return [...names];
+}
 
 /**
  * Build a query string from a key→value map.

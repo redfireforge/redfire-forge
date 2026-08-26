@@ -266,6 +266,20 @@ export const API_MOCK_RUNTIME = {
   HAR_PREVIEW_EMPTY: '[data-testid="am-har-empty"]',
   harPreviewEntry: (pos: number) => `[data-testid="am-har-entry-${pos}"]`,
   harPreviewEntryCheckbox: (pos: number) => `[data-testid="am-har-entry-cb-${pos}"]`,
+  /** B-3: Journal toolbar "Compare report" button (visible when HAR-sourced routes exist). */
+  JOURNAL_COMPARE_REPORT: '[data-testid="api-mock-journal-compare-report"]',
+  /** B-3: Per-transaction "Compare HAR" button in the Transaction Detail actions bar. */
+  TX_COMPARE_HAR: '[data-testid="api-mock-tx-compare-har"]',
+  /** B-3: HAR round-trip comparison modal overlay. */
+  HAR_COMPARE_MODAL: '[data-testid="api-mock-har-compare-modal"]',
+  /** B-3: Status match/mismatch badge inside the compare modal. */
+  HAR_COMPARE_STATUS_BADGE: '[data-testid="api-mock-har-compare-status-badge"]',
+  /** B-3: Body diff rows container inside the compare modal. */
+  HAR_COMPARE_BODY_ROWS: '[data-testid="api-mock-har-compare-body-rows"]',
+  /** B-3: Summary line at the bottom of the compare modal. */
+  HAR_COMPARE_SUMMARY: '[data-testid="api-mock-har-compare-summary"]',
+  /** B-3: Close button inside the HAR compare modal. */
+  HAR_COMPARE_CLOSE: '[data-testid="api-mock-har-compare-close"]',
   IMPORT_NEW_FOLDER_NAME: '[data-testid="api-mock-import-new-folder-name"]',
   IMPORT_PRIORITY: '[data-testid="api-mock-import-priority"]',
   IMPORT_GENERALIZE: '[data-testid="api-mock-import-generalize"]',

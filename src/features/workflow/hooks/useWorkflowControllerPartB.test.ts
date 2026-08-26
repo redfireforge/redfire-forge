@@ -588,10 +588,13 @@ describe('useWorkflowDesignerControllerPartB', () => {
   });
 
   it('handleHarImport creates and updates a new workflow with HAR nodes', () => {
+    vi.useFakeTimers();
     const props = makeDesignerProps();
     const a = makePartA();
     const mockCreate = vi.fn(() => ({ id: 'new-wf', name: 'test', nodes: [], edges: [], variables: {}, schemaVersion: 6, services: [], hostProfiles: [], authProfiles: [], createdAt: 0, updatedAt: 0 }));
     a.create = mockCreate;
+    const fitView = vi.fn();
+    a.rfInstance = { fitView } as never;
 
     const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
 
@@ -601,9 +604,48 @@ describe('useWorkflowDesignerControllerPartB', () => {
     expect(a.update).toHaveBeenCalledWith('new-wf', expect.objectContaining({ nodes: expect.any(Array), edges: expect.any(Array), variables: expect.any(Object) }));
     expect(a.select).toHaveBeenCalledWith('new-wf');
     expect(result.current.harParseResult).toBeNull();
+    act(() => { vi.advanceTimersByTime(180); });
+    expect(fitView).toHaveBeenCalledWith({ padding: 0.15, maxZoom: 1, minZoom: 0.4, duration: 300 });
+    vi.useRealTimers();
+  });
+
+  it('handleHarImport updates an existing workflow with the same name instead of duplicating', () => {
+    vi.useFakeTimers();
+    const props = makeDesignerProps();
+    const a = makePartA();
+    a.workflows = [{
+      id: 'existing-har',
+      name: 'My HAR Workflow',
+      nodes: [],
+      edges: [],
+      variables: {},
+      schemaVersion: 6,
+      services: [],
+      hostProfiles: [],
+      authProfiles: [],
+      createdAt: 0,
+      updatedAt: 0,
+    }];
+    const mockCreate = vi.fn();
+    a.create = mockCreate;
+
+    const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
+
+    act(() => result.current.handleHarImport([], 'My HAR Workflow'));
+
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(a.update).toHaveBeenCalledWith('existing-har', expect.objectContaining({
+      nodes: expect.any(Array),
+      edges: expect.any(Array),
+      variables: expect.any(Object),
+    }));
+    expect(a.select).toHaveBeenCalledWith('existing-har');
+    act(() => { vi.runAllTimers(); });
+    vi.useRealTimers();
   });
 
   it('handleHarImport falls back to "HAR import" when workflowName is whitespace', () => {
+    vi.useFakeTimers();
     const props = makeDesignerProps();
     const a = makePartA();
     const mockCreate = vi.fn(() => ({ id: 'new-wf', name: 'HAR import', nodes: [], edges: [], variables: {}, schemaVersion: 6, services: [], hostProfiles: [], authProfiles: [], createdAt: 0, updatedAt: 0 }));
@@ -614,5 +656,7 @@ describe('useWorkflowDesignerControllerPartB', () => {
     act(() => result.current.handleHarImport([], '   '));
 
     expect(mockCreate).toHaveBeenCalledWith('HAR import');
+    act(() => { vi.runAllTimers(); });
+    vi.useRealTimers();
   });
 });
