@@ -12,6 +12,14 @@ interface Props {
   onImport: (entries: ParsedHarEntry[], workflowName: string) => void;
 }
 
+function statusTone(status: number): 'success' | 'warning' | 'danger' | 'info' | '' {
+  if (status >= 500) return 'danger';
+  if (status >= 400) return 'warning';
+  if (status >= 300) return 'info';
+  if (status >= 200) return 'success';
+  return '';
+}
+
 /**
  * Review modal shown after a HAR file is parsed.
  * The user can:
@@ -49,10 +57,20 @@ export function HarImportPreviewModal({
     });
   }, []);
 
+  const selectAll = useCallback(() => {
+    setSelected(new Set(parseResult.entries.map((_, i) => i)));
+  }, [parseResult.entries]);
+
+  const selectNone = useCallback(() => {
+    setSelected(new Set());
+  }, []);
+
   const handleImport = useCallback(() => {
     const selectedEntries = parseResult.entries.filter((_, i) => selected.has(i));
     if (selectedEntries.length === 0) return;
-    onImport(selectedEntries, workflowName.trim() || 'HAR import');
+    const field = document.getElementById('har-import-wf-name');
+    const fromField = field instanceof HTMLInputElement ? field.value : workflowName;
+    onImport(selectedEntries, fromField.trim() || 'HAR import');
   }, [parseResult.entries, selected, workflowName, onImport]);
 
   // Build a map of redacted header name → replacement variable from entry data
@@ -83,6 +101,7 @@ export function HarImportPreviewModal({
 
   const canImport = selected.size > 0 && !parseResult.error;
   const entryCount = parseResult.entries.length;
+  const allSelected = entryCount > 0 && selected.size === entryCount;
 
   const footer = (
     <div className="har-import-footer">
@@ -116,15 +135,16 @@ export function HarImportPreviewModal({
       footer={footer}
       overlayClassName="wf-config-modal-overlay"
       dialogClassName="wf-config-modal har-import-modal"
+      hideExpandButton
     >
-      {/* Error state */}
+      <div className="har-import-body">
       {parseResult.error && (
         <div className="har-import-error" data-testid="har-import-error" role="alert">
-          <strong>Cannot parse HAR file:</strong> {parseResult.error}
+          <strong>Cannot parse HAR file</strong>
+          <span>{parseResult.error}</span>
         </div>
       )}
 
-      {/* Summary line */}
       {!parseResult.error && (
         <p className="har-import-summary" data-testid="har-import-summary">
           Found{' '}
@@ -136,62 +156,96 @@ export function HarImportPreviewModal({
         </p>
       )}
 
-      {/* Workflow name input */}
       <div className="har-import-name-row">
         <label htmlFor="har-import-wf-name" className="har-import-name-label">
           Workflow name
         </label>
-        <input
-          id="har-import-wf-name"
-          type="text"
-          className="har-import-name-input"
-          value={workflowName}
-          onChange={(e) => setWorkflowName(e.target.value)}
-          data-testid="har-import-wf-name"
-          autoComplete="off"
-        />
+        <div className="har-import-name-control">
+          <input
+            id="har-import-wf-name"
+            type="text"
+            className="har-import-name-input"
+            value={workflowName}
+            onChange={(e) => setWorkflowName(e.target.value)}
+            data-testid="har-import-wf-name"
+            autoComplete="off"
+            placeholder="Name the imported workflow"
+          />
+        </div>
       </div>
 
-      {/* Entry list with checkboxes */}
       {!parseResult.error && parseResult.entries.length > 0 && (
-        <div className="har-import-entry-list" data-testid="har-import-entry-list">
-          {parseResult.entries.map((entry, i) => (
-            <label
-              key={i}
-              className={`har-import-entry-row${selected.has(i) ? '' : ' har-import-entry-row--unchecked'}`}
-              data-testid={`har-entry-${i}`}
-            >
-              <input
-                type="checkbox"
-                checked={selected.has(i)}
-                onChange={() => toggleEntry(i)}
-                data-testid={`har-entry-checkbox-${i}`}
-              />
-              <span
-                className={`har-method har-method-${entry.method.toLowerCase()}`}
-                data-testid={`har-entry-method-${i}`}
+        <div className="har-import-list-card">
+          <div className="har-import-list-toolbar">
+            <span className="har-import-list-count">
+              {selected.size} of {entryCount} selected
+            </span>
+            <span className="har-import-select-controls">
+              <button
+                type="button"
+                className="har-import-select-btn"
+                onClick={selectAll}
+                disabled={allSelected}
+                data-testid="har-import-select-all"
               >
-                {entry.method}
-              </span>
-              <span className="har-import-entry-path" data-testid={`har-entry-path-${i}`}>
-                {entry.path}
-              </span>
-              {entry.warnings.length > 0 && (
+                All
+              </button>
+              <button
+                type="button"
+                className="har-import-select-btn"
+                onClick={selectNone}
+                disabled={selected.size === 0}
+                data-testid="har-import-select-none"
+              >
+                None
+              </button>
+            </span>
+          </div>
+          <div className="har-import-entry-list" data-testid="har-import-entry-list">
+            {parseResult.entries.map((entry, i) => (
+              <label
+                key={i}
+                className={`har-import-entry-row${selected.has(i) ? '' : ' har-import-entry-row--unchecked'}`}
+                data-testid={`har-entry-${i}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={selected.has(i)}
+                  onChange={() => toggleEntry(i)}
+                  data-testid={`har-entry-checkbox-${i}`}
+                  aria-label={`${entry.method} ${entry.path}`}
+                />
                 <span
-                  className="har-import-entry-warning"
-                  title={entry.warnings.join(' ')}
-                  data-testid={`har-entry-warning-${i}`}
-                  aria-label="localhost or private IP warning"
+                  className={`har-import-method har-import-method--${entry.method.toLowerCase()}`}
+                  data-testid={`har-entry-method-${i}`}
                 >
-                  ⚠
+                  {entry.method}
                 </span>
-              )}
-            </label>
-          ))}
+                <span className="har-import-entry-path" data-testid={`har-entry-path-${i}`} title={entry.url}>
+                  {entry.path}
+                </span>
+                <span
+                  className={`har-import-status har-import-status--${statusTone(entry.responseStatus)}`}
+                  data-testid={`har-entry-status-${i}`}
+                >
+                  {entry.responseStatus}
+                </span>
+                {entry.warnings.length > 0 && (
+                  <span
+                    className="har-import-entry-warning"
+                    title={entry.warnings.join(' ')}
+                    data-testid={`har-entry-warning-${i}`}
+                    aria-label="localhost or private IP warning"
+                  >
+                    !
+                  </span>
+                )}
+              </label>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Chain detection summary */}
       {chainSummary.length > 0 && (
         <div
           className="har-import-info-box"
@@ -199,7 +253,7 @@ export function HarImportPreviewModal({
           role="note"
         >
           <strong>
-            ⚡ {chainSummary.length} variable chain{chainSummary.length !== 1 ? 's' : ''} detected automatically:
+            {chainSummary.length} variable chain{chainSummary.length !== 1 ? 's' : ''} detected automatically:
           </strong>
           <ul className="har-import-chain-list">
             {chainSummary.map((line, i) => (
@@ -214,7 +268,6 @@ export function HarImportPreviewModal({
         </div>
       )}
 
-      {/* Redaction warning */}
       {redactedMap.size > 0 && (
         <div
           className="har-import-warning-box"
@@ -222,7 +275,7 @@ export function HarImportPreviewModal({
           role="note"
         >
           <strong>
-            ⚠ {redactedMap.size} sensitive header{redactedMap.size !== 1 ? 's' : ''} replaced with
+            {redactedMap.size} sensitive header{redactedMap.size !== 1 ? 's' : ''} replaced with
             variables:
           </strong>
           <ul className="har-import-redacted-list">
@@ -238,7 +291,6 @@ export function HarImportPreviewModal({
         </div>
       )}
 
-      {/* Tracking filter notice */}
       {parseResult.trackingFilteredCount > 0 && (
         <div
           className="har-import-info-box"
@@ -250,7 +302,6 @@ export function HarImportPreviewModal({
         </div>
       )}
 
-      {/* Global warnings (e.g. entry cap) */}
       {parseResult.globalWarnings.map((w, i) => (
         <div
           key={i}
@@ -261,6 +312,7 @@ export function HarImportPreviewModal({
           {w}
         </div>
       ))}
+      </div>
     </WorkflowEditorModalFrame>
   );
 }

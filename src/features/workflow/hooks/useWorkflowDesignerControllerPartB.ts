@@ -58,6 +58,7 @@ export function useWorkflowDesignerControllerPartB(
     nextNodeYRef,
     persistWorkflow, serializeNodes, serializeEdges, insertNodeAndPersist,
     undoRedo, nodesRef, edgesRef, handleQuickTestRef, handleDebugQuickTestRef,
+    rfInstance,
     setLayoutVersion,
     toast,
     versioning,
@@ -218,13 +219,19 @@ export function useWorkflowDesignerControllerPartB(
   const handleHarImport = useCallback((entries: ParsedHarEntry[], workflowName: string) => {
     const { nodes: harNodes, edges: harEdges, variables: harVariables } = harToWorkflow(entries);
     onClearPreview();
-    const wf = create(workflowName.trim() || 'HAR import');
+    const name = workflowName.trim() || 'HAR import';
+    const existing = workflows.find((w) => w.name === name);
+    const wf = existing ?? create(name);
     // Replace the default start node with the HAR-generated nodes/edges/variables
     update(wf.id, { nodes: harNodes, edges: harEdges, variables: harVariables });
     select(wf.id);
     setHarParseResult(null);
     setHarFileName('');
-  }, [create, update, select, onClearPreview]);
+    // Select-change fitView runs before HAR nodes land; refit after layout.
+    window.setTimeout(() => {
+      rfInstance.fitView({ padding: 0.15, maxZoom: 1, minZoom: 0.4, duration: 300 });
+    }, 180);
+  }, [create, update, select, onClearPreview, rfInstance, workflows]);
 
   const handleSelect = useCallback((id: string) => {
     onClearPreview();
