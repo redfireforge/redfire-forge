@@ -118,7 +118,7 @@ Sensitive header values are **never stored** in workflow definitions. The follow
 | `X-Csrf-Token` | `{{csrfToken}}` |
 | `Proxy-Authorization` | `{{proxyAuth}}` |
 
-The warning box lists which headers were redacted. After import, open each node's header config and replace the `{{variable}}` placeholder with the real value.
+The warning box lists which headers were redacted. After import, open the **Variables** panel and paste real values into the empty rows (`authToken`, `apiKey`, …). Do not put secrets in **Initial Variables (this step)** — those are per-node overrides.
 
 ### Chain detection summary
 
@@ -153,8 +153,9 @@ Open the **Variables panel** (toolbar → Variables button) to see auto-created 
 | Variable | Where it appears |
 |----------|-----------------|
 | `{{baseUrl}}` | Variables panel **and** all node URLs (e.g. `{{baseUrl}}/users/{{userId}}`) |
+| `{{authToken}}`, `{{apiKey}}`, `{{cookieSession}}`, … | Variables panel (empty) **and** redacted node headers |
 
-Chain variables (`{{userId}}`, `{{id}}`) and redacted header placeholders (`{{authToken}}`) are embedded **inline** in node URLs and headers — they are not pre-declared in the Variables panel. To set their values, open each node's config and fill in the actual values.
+Chain variables (`{{userId}}`, `{{id}}`) are extracted at runtime from upstream responses — they are **not** pre-declared in the Variables panel.
 
 All node URLs are parameterized: `{{baseUrl}}/users/{{userId}}` (step 2) and `{{baseUrl}}/users/{{id}}/pets` (step 3).
 
@@ -197,7 +198,7 @@ Open each HTTP node (double-click) and inspect the URL — chain variables like 
 
 ### 4. Fill in real values
 - **`{{baseUrl}}`** — open the **Variables panel**, click the `baseUrl` row, set the real base URL (e.g. `https://api.example.com`)
-- **`{{authToken}}` and similar** — open each node's **Headers** config and replace the `{{variable}}` placeholder with the real value, or set it up as a workflow variable manually
+- **`{{authToken}}` and similar** — same Variables panel. Paste the **full original header value** (including `Bearer `). HAR import never stores the captured secret.
 
 ### 5. Add assertions
 Double-click an HTTP node → **Validations** tab → add status code or body assertions.

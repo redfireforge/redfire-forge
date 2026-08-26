@@ -60,7 +60,7 @@ When importing a **HAR capture**, you can simultaneously create **Simulate saved
 1. Open **Studio → Import** and select **HAR capture**
 2. Paste your HAR JSON and click **Parse**
 3. Review the entry list — uncheck any entries you don't want
-4. Check **Also create Simulate samples** (shown below the entry list)
+4. Verify **Also create Simulate samples** is checked (it's enabled by default) — the checkbox appears below the entry list
 5. Click **Import as draft**
 
 After import:
@@ -125,7 +125,7 @@ Found 3 requests · 3 filtered · 4 headers redacted
 | `[duplicate]` | Same method + path already seen earlier in the HAR |
 | `[non-HTTP]` | `chrome-extension://`, `blob:`, `data:`, or other non-http(s) URL |
 
-Redacted header values are replaced with `[REDACTED]` — the matching route will have `[REDACTED]` as the header predicate value, which you should update after import.
+Redacted header values are replaced with `[REDACTED]`. Custom API-key headers (e.g. `X-Api-Key`) become route match predicates with `expected: "[REDACTED]"` — update the value before enabling the rule or the rule will never match real traffic. Standard auth headers (`Authorization`, `Cookie`) are excluded from route predicates entirely, so imported routes match regardless of those headers.
 
 ### Deselecting entries
 
@@ -142,4 +142,4 @@ The **None** button clears all checkboxes. The **Import as draft** button stays 
 Try [`docs/examples/har/mixed-traffic.har`](../../examples/har/mixed-traffic.har) — 6 raw entries that produce:
 - 3 accepted requests with checkboxes
 - 3 auto-filtered (OPTIONS preflight, Google Analytics tracking domain, exact duplicate)
-- 4 redacted headers (`X-Api-Key` and `Authorization` on 3 requests)
+- 4 redacted header values (`X-Api-Key` on 2 entries, `Authorization` on 2 entries — includes the filtered duplicate)

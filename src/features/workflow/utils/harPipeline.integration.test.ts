@@ -148,6 +148,9 @@ describe('HAR pipeline integration: parseHarEntries → harToWorkflow', () => {
     // Cookie should be replaced with {{cookieSession}}
     const cookieHeader = headers.find((h) => h.key === 'Cookie');
     expect(cookieHeader?.value).toBe('{{cookieSession}}');
+
+    expect(result.variables.authToken).toBe('');
+    expect(result.variables.cookieSession).toBe('');
   });
 
   it('all node IDs and edge IDs are unique across the full pipeline', () => {

@@ -20,7 +20,6 @@ import {
   ensureAm15ForDrafts,
   ensureAm15ForHar,
   ensureAm15ForHarPreview,
-  ensureAm15ForHarCheckbox,
   ensureAm15ForHarSamples,
   ensureAm15ForInternal,
   ensureAm15ForOpenApi,
@@ -34,7 +33,6 @@ import {
   runAm15EnableAndProve,
   runAm15Har,
   runAm15HarPreview,
-  runAm15HarCheckbox,
   runAm15HarSamples,
   runAm15ImportPanel,
   runAm15InternalSources,
@@ -225,30 +223,18 @@ export const apiMockAm15Lesson: DemoLesson = {
     },
     {
       id: 'har-preview',
-      title: 'Per-entry preview: see every request before it becomes a rule',
+      title: 'Per-entry preview: review and filter requests before they become rules',
       description:
-        'After parsing, the HAR import shows every request as a **checkbox row** — '
-        + 'method, path, status, and a 🔒 when sensitive headers were redacted.\n\n'
-        + 'Below the accepted entries, expand **Automatically filtered** to see what '
-        + 'the import removed silently: OPTIONS preflights, known tracking domains, '
-        + 'and exact duplicates. Nothing lands as a rule without going through this list.',
+        'After parsing, every request appears as a **checkbox row** — method, path, status, '
+        + 'and a 🔒 when sensitive headers were redacted.\n\n'
+        + 'Uncheck anything you don\'t want as a rule — static assets, 4xx error '
+        + 'responses, or internal health checks. **All / None** bulk-toggle the list. '
+        + 'If any entries were auto-filtered (OPTIONS preflights, tracking domains, '
+        + 'duplicates), an **Automatically filtered** section appears below — expand it '
+        + 'to see what was removed. Nothing lands as a rule without your review.',
       highlight: API_MOCK.HAR_PREVIEW_ENTRY_TABLE,
       preAction: ensureAm15ForHarPreview,
       action: runAm15HarPreview,
-      verify: API_MOCK.HAR_PREVIEW_LIST,
-    },
-    {
-      id: 'har-checkbox',
-      title: 'Uncheck entries you don\'t want as rules',
-      description:
-        'Uncheck any entry before confirming — static assets, 4xx error responses, '
-        + 'or internal health checks that don\'t belong in your contract mock.\n\n'
-        + '**All** and **None** bulk-toggle the list. The **Import as draft** button '
-        + 'stays disabled while nothing is checked. '
-        + 'Only checked entries reach `batchToRoutes()` — nothing else is created.',
-      highlight: API_MOCK.HAR_PREVIEW_SELECT_ALL,
-      preAction: ensureAm15ForHarCheckbox,
-      action: runAm15HarCheckbox,
       verify: API_MOCK.HAR_PREVIEW_LIST,
     },
     {
@@ -256,7 +242,7 @@ export const apiMockAm15Lesson: DemoLesson = {
       title: 'HAR import can also seed Simulate saved samples',
       description:
         'Re-open the HAR import and hold **Also create Simulate samples** — the checkbox '
-        + 'below the entry list. Check it and confirm.\n\n'
+        + 'below the entry list, checked by default. Confirm.\n\n'
         + 'Navigate to **Simulate**. Under **Saved samples** you will find one entry per '
         + 'imported request, pre-filled with its method, path, and the expected HTTP status '
         + 'from the real HAR response. Run them to confirm the mock answers correctly.',

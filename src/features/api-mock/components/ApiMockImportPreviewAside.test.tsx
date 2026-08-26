@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ApiMockImportPreviewAside } from './ApiMockImportPreviewAside';
+import type { HarPreviewResult } from '@shared/api-mock/harImport';
 import type { PreviewState } from './apiMockImportReviewHelpers';
 
 function makePreview(overrides: Partial<PreviewState> = {}): PreviewState {
@@ -32,12 +33,51 @@ function makePreview(overrides: Partial<PreviewState> = {}): PreviewState {
   };
 }
 
+function makeHarPreview(overrides: Partial<HarPreviewResult> = {}): HarPreviewResult {
+  return {
+    accepted: [{
+      index: 0,
+      method: 'GET',
+      path: '/session',
+      host: 'api.example.com',
+      status: 200,
+      hasRedactedHeaders: false,
+      source: {
+        method: 'GET',
+        path: '/session',
+        responseBody: '{"user":"admin"}',
+        responseContentType: 'application/json',
+        status: 200,
+      },
+    }, {
+      index: 1,
+      method: 'GET',
+      path: '/session/me',
+      host: 'api.example.com',
+      status: 200,
+      hasRedactedHeaders: false,
+      source: {
+        method: 'GET',
+        path: '/session/me',
+        responseBody: '{"name":"Admin"}',
+        responseContentType: 'application/json',
+        status: 200,
+      },
+    }],
+    autoFiltered: [],
+    secretHits: 0,
+    truncated: false,
+    ...overrides,
+  };
+}
+
 describe('ApiMockImportPreviewAside', () => {
   it('shows HAR guidance when harIsParsed', () => {
     render(
       <ApiMockImportPreviewAside
         harIsParsed
-        harPreview={{ accepted: [], filtered: [], truncated: false, error: 'bad json' } as never}
+        harPreview={{ accepted: [], autoFiltered: [], secretHits: 0, truncated: false, error: 'bad json' }}
+        selectedHarPositions={new Set()}
         preview={null}
       />,
     );
@@ -45,7 +85,14 @@ describe('ApiMockImportPreviewAside', () => {
   });
 
   it('shows empty guidance when no preview routes', () => {
-    render(<ApiMockImportPreviewAside harIsParsed={false} harPreview={null} preview={null} />);
+    render(
+      <ApiMockImportPreviewAside
+        harIsParsed={false}
+        harPreview={null}
+        selectedHarPositions={new Set()}
+        preview={null}
+      />,
+    );
     expect(screen.getByText(/Parse a source to preview/i)).toBeTruthy();
   });
 
@@ -66,7 +113,14 @@ describe('ApiMockImportPreviewAside', () => {
         } as never,
       ],
     });
-    render(<ApiMockImportPreviewAside harIsParsed={false} harPreview={null} preview={preview} />);
+    render(
+      <ApiMockImportPreviewAside
+        harIsParsed={false}
+        harPreview={null}
+        selectedHarPositions={new Set()}
+        preview={preview}
+      />,
+    );
     expect(screen.getByTestId('api-mock-import-preview-request-0')).toBeTruthy();
     expect(screen.getByTestId('api-mock-import-preview-response-1')).toBeTruthy();
     expect(screen.getByText('404')).toBeTruthy();
@@ -90,20 +144,66 @@ describe('ApiMockImportPreviewAside', () => {
         }],
       } as never],
     });
-    render(<ApiMockImportPreviewAside harIsParsed={false} harPreview={null} preview={preview} />);
+    render(
+      <ApiMockImportPreviewAside
+        harIsParsed={false}
+        harPreview={null}
+        selectedHarPositions={new Set()}
+        preview={preview}
+      />,
+    );
     expect(screen.getByText('Redirect')).toBeTruthy();
     expect(screen.getByText('Server Error')).toBeTruthy();
   });
 
-  it('shows HAR select-entries guidance when parse succeeded', () => {
+  it('shows HAR select-entries guidance when parse succeeded but nothing is checked', () => {
     render(
       <ApiMockImportPreviewAside
         harIsParsed
-        harPreview={{ accepted: [{ index: 0 } as never], filtered: [], truncated: false } as never}
+        harPreview={makeHarPreview()}
+        selectedHarPositions={new Set()}
         preview={null}
       />,
     );
-    expect(screen.getByText(/Select entries and click Import as draft/i)).toBeTruthy();
+    expect(screen.getByText(/Check one or more entries to preview/i)).toBeTruthy();
+  });
+
+  it('renders HAR preview cards for selected accepted entries', () => {
+    render(
+      <ApiMockImportPreviewAside
+        harIsParsed
+        harPreview={makeHarPreview()}
+        selectedHarPositions={new Set([0, 1])}
+        preview={null}
+      />,
+    );
+    expect(screen.getByTestId('api-mock-import-preview-request-0')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-import-preview-response-1')).toBeTruthy();
+    expect(screen.getByText(/"user": "admin"/)).toBeTruthy();
+    expect(screen.getByText(/"name": "Admin"/)).toBeTruthy();
+  });
+
+  it('updates HAR preview when selection changes', () => {
+    const { rerender } = render(
+      <ApiMockImportPreviewAside
+        harIsParsed
+        harPreview={makeHarPreview()}
+        selectedHarPositions={new Set([0, 1])}
+        preview={null}
+      />,
+    );
+    expect(screen.getByTestId('api-mock-import-preview-response-1')).toBeTruthy();
+
+    rerender(
+      <ApiMockImportPreviewAside
+        harIsParsed
+        harPreview={makeHarPreview()}
+        selectedHarPositions={new Set([0])}
+        preview={null}
+      />,
+    );
+    expect(screen.getByTestId('api-mock-import-preview-response')).toBeTruthy();
+    expect(screen.queryByTestId('api-mock-import-preview-response-1')).toBeNull();
   });
 
   it('uses defaults when response/body/contentType are missing', () => {
@@ -113,7 +213,14 @@ describe('ApiMockImportPreviewAside', () => {
         responses: [],
       } as never],
     });
-    render(<ApiMockImportPreviewAside harIsParsed={false} harPreview={null} preview={preview} />);
+    render(
+      <ApiMockImportPreviewAside
+        harIsParsed={false}
+        harPreview={null}
+        selectedHarPositions={new Set()}
+        preview={preview}
+      />,
+    );
     expect(screen.getByText('200')).toBeTruthy();
     expect(screen.getByText('{}')).toBeTruthy();
     expect(screen.getByText('application/json')).toBeTruthy();
