@@ -25,12 +25,12 @@ test.describe('Webhook Sample Auto-Layout', () => {
     await page.locator('.wf-new-dropdown-item:has-text("From Template")').click();
     
     // Wait for gallery to be visible
-    await expect(page.locator('.gallery-domain-btn:has-text("Workflows")')).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('.gallery-domain-btn:has-text("Workflow")')).toBeVisible({ timeout: 5_000 });
     
     console.log('✓ Gallery opened');
     
-    // Gallery page shows — filter to Workflows domain and select webhook sample
-    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    // Gallery page shows — filter to Workflow domain and select webhook sample
+    await page.locator('.gallery-domain-btn:has-text("Workflow")').click();
     const webhookCard = page.locator('.gallery-card', { hasText: 'Webhook Trigger' });
     await webhookCard.waitFor({ state: 'visible', timeout: 5000 });
     await webhookCard.click();

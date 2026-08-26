@@ -38,7 +38,7 @@ test.describe('Gallery Page — Workflow Templates', () => {
 
     // Gallery page should show domain filter buttons
     await expect(page.locator('.gallery-domain-btn:has-text("All")')).toBeVisible();
-    await expect(page.locator('.gallery-domain-btn:has-text("Workflows")')).toBeVisible();
+    await expect(page.locator('.gallery-domain-btn:has-text("Workflow")')).toBeVisible();
   });
 
   test('gallery shows domain filter buttons', async ({ page }) => {
@@ -47,15 +47,15 @@ test.describe('Gallery Page — Workflow Templates', () => {
     // Should show domain filter buttons
     await expect(page.locator('.gallery-domain-btn:has-text("All")')).toBeVisible();
     await expect(page.locator('.gallery-domain-btn:has-text("Requests")')).toBeVisible();
-    await expect(page.locator('.gallery-domain-btn:has-text("Workflows")')).toBeVisible();
-    await expect(page.locator('.gallery-domain-btn:has-text("Assertions")')).toBeVisible();
+    await expect(page.locator('.gallery-domain-btn:has-text("Workflow")')).toBeVisible();
+    await expect(page.locator('.gallery-domain-btn:has-text("Harness")')).toBeVisible();
   });
 
   test('gallery shows workflow cards with names and descriptions', async ({ page }) => {
     await openGalleryFromWorkflow(page);
 
-    // Filter to Workflows domain
-    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    // Filter to Workflow domain
+    await page.locator('.gallery-domain-btn:has-text("Workflow")').click();
     await page.waitForTimeout(300);
 
     // Should show workflow cards
@@ -69,11 +69,11 @@ test.describe('Gallery Page — Workflow Templates', () => {
     await expect(firstCard.locator('.gallery-card-desc')).toBeVisible();
   });
 
-  test('filtering by Workflows domain shows only workflow entries', async ({ page }) => {
+  test('filtering by Workflow domain shows only workflow entries', async ({ page }) => {
     await openGalleryFromWorkflow(page);
 
-    // Click Workflows domain filter
-    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    // Click Workflow domain filter
+    await page.locator('.gallery-domain-btn:has-text("Workflow")').click();
     await page.waitForTimeout(300);
 
     // All shown cards should be workflow entries (domain attribute)
@@ -85,8 +85,8 @@ test.describe('Gallery Page — Workflow Templates', () => {
   test('clicking a workflow card shows detail panel', async ({ page }) => {
     await openGalleryFromWorkflow(page);
 
-    // Filter to Workflows
-    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    // Filter to Workflow
+    await page.locator('.gallery-domain-btn:has-text("Workflow")').click();
     await page.waitForTimeout(300);
 
     const firstWorkflowCard = page.locator('.gallery-card[data-domain="workflows"]').first();
@@ -101,8 +101,8 @@ test.describe('Gallery Page — Workflow Templates', () => {
   test('Load Workflow imports and navigates to workflow tab', async ({ page }) => {
     await openGalleryFromWorkflow(page);
 
-    // Filter to Workflows and select a card
-    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    // Filter to Workflow and select a card
+    await page.locator('.gallery-domain-btn:has-text("Workflow")').click();
     await page.waitForTimeout(300);
     const firstWorkflowCard = page.locator('.gallery-card[data-domain="workflows"]').first();
     await expect(firstWorkflowCard).toBeVisible({ timeout: 5000 });
@@ -126,8 +126,8 @@ test.describe('Gallery Page — Workflow Templates', () => {
   test('Webhook Trigger workflow exists in gallery', async ({ page }) => {
     await openGalleryFromWorkflow(page);
 
-    // Filter to Workflows
-    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    // Filter to Workflow
+    await page.locator('.gallery-domain-btn:has-text("Workflow")').click();
     await page.waitForTimeout(300);
 
     // Should find Webhook Trigger entry
@@ -137,8 +137,8 @@ test.describe('Gallery Page — Workflow Templates', () => {
   test('search filters workflow entries', async ({ page }) => {
     await openGalleryFromWorkflow(page);
 
-    // Filter to Workflows
-    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    // Filter to Workflow
+    await page.locator('.gallery-domain-btn:has-text("Workflow")').click();
     await page.waitForTimeout(300);
 
     const allCount = await page.locator('.gallery-card').count();
@@ -166,8 +166,8 @@ test.describe('Gallery Page — Workflow Templates', () => {
   test('gallery cards have difficulty indicators', async ({ page }) => {
     await openGalleryFromWorkflow(page);
 
-    // Filter to Workflows
-    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    // Filter to Workflow
+    await page.locator('.gallery-domain-btn:has-text("Workflow")').click();
     await page.waitForTimeout(300);
 
     // Cards should have difficulty dots
@@ -283,7 +283,7 @@ test.describe('+New Workflow Dropdown', () => {
 
     // Gallery page should show domain filter buttons
     await expect(page.locator('.gallery-domain-btn:has-text("All")')).toBeVisible({ timeout: 3000 });
-    await expect(page.locator('.gallery-domain-btn:has-text("Workflows")')).toBeVisible();
+    await expect(page.locator('.gallery-domain-btn:has-text("Workflow")')).toBeVisible();
   });
 
   test('+New dropdown closes when clicking outside', async ({ page }) => {

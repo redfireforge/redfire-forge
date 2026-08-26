@@ -232,9 +232,9 @@ test.describe('Assertion Presets', () => {
     const tabs = menu.locator('.apm-tab');
     await expect(tabs).toHaveCount(4); // All, API Validation, Data Quality, Security
 
-    // Verify preset cards are visible (7 presets total: 5 original + Data Type Guard + Required Fields)
+    // Verify preset cards are visible (9 presets — incl. GraphQL guards)
     const cards = menu.locator('.apm-card');
-    await expect(cards).toHaveCount(7);
+    await expect(cards).toHaveCount(9);
 
     // Verify first card has expected structure
     const firstCard = cards.first();

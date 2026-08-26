@@ -3,15 +3,22 @@
  *
  * Covers:
  *  - gRPC and WebSocket domain filter buttons are present
- *  - gRPC/WebSocket scaffold tabs render (0 cards — catalogs are intentionally empty)
- *  - New GraphQL subscription workflow entries appear under Workflows
- *  - New gRPC workflow entries appear under Workflows
- *  - New WebSocket workflow entries appear under Workflows
+ *  - gRPC/WebSocket domain tabs show protocol + workflow samples
+ *  - GraphQL subscription workflow entries appear under GraphQL
+ *  - gRPC and WebSocket workflow entries appear under their protocol tabs
  *  - Search crosses all domains correctly for new entries
- *  - DomainBadge colour is rendered for gRPC and WebSocket cards (badge present)
+ *  - DomainBadge colour is rendered for gRPC workflow cards
  */
 import { test, expect } from '@playwright/test';
 import { seedAppData } from './helpers';
+
+async function selectGalleryDomain(
+  page: import('@playwright/test').Page,
+  label: string,
+) {
+  await page.locator('.gallery-domain-btn', { hasText: label }).click();
+  await page.waitForTimeout(200);
+}
 
 test.describe('Gallery — new domains and entries', () => {
   test.beforeEach(async ({ page }) => {
@@ -30,44 +37,39 @@ test.describe('Gallery — new domains and entries', () => {
     await expect(page.locator('.gallery-domain-btn', { hasText: 'WebSocket' })).toBeVisible();
   });
 
-  // ── Scaffold tabs (empty catalogs) ─────────────────────────────────────
+  // ── Protocol domain tabs ────────────────────────────────────────────────
 
-  test('filtering by gRPC domain shows no cards (scaffold only)', async ({ page }) => {
-    await page.locator('.gallery-domain-btn', { hasText: 'gRPC' }).click();
-    await page.waitForTimeout(200);
-    const cards = page.locator('.gallery-card');
-    await expect(cards).toHaveCount(0);
+  test('filtering by gRPC domain shows harness and workflow samples', async ({ page }) => {
+    await selectGalleryDomain(page, 'gRPC');
+    await expect(page.locator('.gallery-card', { hasText: 'gRPC Unary Smoke Test' })).toBeVisible();
+    await expect(page.locator('.gallery-card', { hasText: 'gRPC: Health Check' })).toBeVisible();
   });
 
-  test('filtering by WebSocket domain shows no cards (scaffold only)', async ({ page }) => {
-    await page.locator('.gallery-domain-btn', { hasText: 'WebSocket' }).click();
-    await page.waitForTimeout(200);
-    const cards = page.locator('.gallery-card');
-    await expect(cards).toHaveCount(0);
+  test('filtering by WebSocket domain shows harness and workflow samples', async ({ page }) => {
+    await selectGalleryDomain(page, 'WebSocket');
+    await expect(page.locator('.gallery-card', { hasText: 'WebSocket Echo Smoke Test' })).toBeVisible();
+    await expect(page.locator('.gallery-card', { hasText: 'WebSocket: Echo Ping' })).toBeVisible();
   });
 
   // ── GraphQL subscription workflow entries ───────────────────────────────
 
-  test('GraphQL subscription WS entry appears in Workflows tab', async ({ page }) => {
-    await page.locator('.gallery-domain-btn', { hasText: 'Workflows' }).click();
-    await page.waitForTimeout(200);
+  test('GraphQL subscription WS entry appears in GraphQL tab', async ({ page }) => {
+    await selectGalleryDomain(page, 'GraphQL');
     await expect(
-      page.locator('.gallery-card', { hasText: 'Subscription over WebSocket' }),
+      page.locator('.gallery-card', { hasText: 'GraphQL: Subscription over WebSocket' }),
     ).toBeVisible();
   });
 
-  test('GraphQL subscription SSE entry appears in Workflows tab', async ({ page }) => {
-    await page.locator('.gallery-domain-btn', { hasText: 'Workflows' }).click();
-    await page.waitForTimeout(200);
+  test('GraphQL subscription SSE entry appears in GraphQL tab', async ({ page }) => {
+    await selectGalleryDomain(page, 'GraphQL');
     await expect(
-      page.locator('.gallery-card', { hasText: 'Subscription over SSE' }),
+      page.locator('.gallery-card', { hasText: 'GraphQL: Subscription over SSE' }),
     ).toBeVisible();
   });
 
   test('detail panel for GQL subscription WS shows correct metadata', async ({ page }) => {
-    await page.locator('.gallery-domain-btn', { hasText: 'Workflows' }).click();
-    await page.waitForTimeout(200);
-    await page.locator('.gallery-card', { hasText: 'Subscription over WebSocket' }).click();
+    await selectGalleryDomain(page, 'GraphQL');
+    await page.locator('.gallery-card', { hasText: 'GraphQL: Subscription over WebSocket' }).click();
     const panel = page.locator('.gallery-detail-panel');
     await expect(panel).toBeVisible({ timeout: 5000 });
     await expect(panel).toContainText('graphql-ws');
@@ -76,29 +78,26 @@ test.describe('Gallery — new domains and entries', () => {
 
   // ── gRPC workflow entries ───────────────────────────────────────────────
 
-  test('gRPC health-check workflow entry appears in Workflows tab', async ({ page }) => {
-    await page.locator('.gallery-domain-btn', { hasText: 'Workflows' }).click();
-    await page.waitForTimeout(200);
+  test('gRPC health-check workflow entry appears in gRPC tab', async ({ page }) => {
+    await selectGalleryDomain(page, 'gRPC');
     await expect(
       page.locator('.gallery-card', { hasText: 'gRPC: Health Check' }),
     ).toBeVisible();
   });
 
-  test('gRPC workflow entries can be loaded', async ({ page }) => {
-    await page.locator('.gallery-domain-btn', { hasText: 'Workflows' }).click();
-    await page.waitForTimeout(200);
-    await page.locator('.gallery-card', { hasText: 'gRPC: Health Check' }).click();
-    await page.locator('.gallery-detail-btn-primary', { hasText: 'Load Workflow' }).click();
-    await page.waitForTimeout(500);
-    const url = page.url();
-    expect(url).toContain('tab=workflow');
+  test('gRPC harness samples can be loaded from the gallery detail panel', async ({ page }) => {
+    await selectGalleryDomain(page, 'gRPC');
+    await page.locator('.gallery-card', { hasText: 'gRPC Unary Smoke Test' }).click();
+    const loadBtn = page.locator('.gallery-detail-btn-primary');
+    await expect(loadBtn).toHaveText('Load Sample');
+    await loadBtn.click();
+    await expect(page).toHaveURL(/tab=scenarios/, { timeout: 5000 });
   });
 
   // ── WebSocket workflow entries ──────────────────────────────────────────
 
-  test('WebSocket Echo workflow entry appears in Workflows tab', async ({ page }) => {
-    await page.locator('.gallery-domain-btn', { hasText: 'Workflows' }).click();
-    await page.waitForTimeout(200);
+  test('WebSocket Echo workflow entry appears in WebSocket tab', async ({ page }) => {
+    await selectGalleryDomain(page, 'WebSocket');
     await expect(
       page.locator('.gallery-card', { hasText: 'WebSocket: Echo Ping' }),
     ).toBeVisible();
@@ -113,7 +112,6 @@ test.describe('Gallery — new domains and entries', () => {
     const cards = page.locator('.gallery-card');
     const count = await cards.count();
     expect(count).toBeGreaterThanOrEqual(2);
-    // Both subscription variants should be present in the results
     await expect(page.locator('.gallery-card', { hasText: 'WebSocket' }).first()).toBeVisible();
     await expect(page.locator('.gallery-card', { hasText: 'SSE' }).first()).toBeVisible();
   });
@@ -130,8 +128,7 @@ test.describe('Gallery — new domains and entries', () => {
   // ── DomainBadge rendered ────────────────────────────────────────────────
 
   test('gRPC workflow cards show a domain badge', async ({ page }) => {
-    await page.locator('.gallery-domain-btn', { hasText: 'Workflows' }).click();
-    await page.waitForTimeout(200);
+    await selectGalleryDomain(page, 'gRPC');
     const card = page.locator('.gallery-card', { hasText: 'gRPC: Health Check' });
     await expect(card.locator('.gallery-domain-badge')).toBeVisible();
   });
