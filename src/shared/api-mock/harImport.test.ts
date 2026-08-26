@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseHarEntries, fixHarSampleExpected, previewHarEntries, TRACKING_DOMAINS } from './harImport';
+import { parseHarEntries, fixHarSampleExpected, previewHarEntries, fingerprintRequest, TRACKING_DOMAINS } from './harImport';
 import { HAR_IMPORT_LIMITS } from './proxyContracts';
 import type { ApiMockSimulationSampleV1 } from './contracts';
 import type { SourceRequest } from './sourceToRule';
@@ -109,6 +109,37 @@ describe('parseHarEntries', () => {
     expect(batch.sources.find(s => s.path === '/b')?.responseContentType).toBe('application/json');
     expect(batch.sources.find(s => s.path === '/c')?.responseContentType).toBe('text/plain');
     expect(batch.diagnostics.some(d => d.message.includes('entries'))).toBe(true);
+  });
+
+  it('defaults response status to 200 when response.status is not a number (covers parseHarEntries line 142)', () => {
+    const raw = JSON.stringify({
+      log: {
+        entries: [{
+          request: { method: 'GET', url: 'https://api.example.com/items', headers: [] },
+          response: { status: 'N/A', headers: [], content: { text: '' } },
+        }],
+      },
+    });
+    const batch = parseHarEntries(raw);
+    expect(batch.sources[0].status).toBe(200);
+  });
+
+  it('handles header with null name without throwing (covers parseHarEntries h.name?.toLowerCase?.() null path)', () => {
+    const raw = JSON.stringify({
+      log: {
+        entries: [{
+          request: {
+            method: 'GET',
+            url: 'https://api.example.com/items',
+            headers: [{ name: null, value: 'x' }, { name: 'X-Keep', value: 'ok' }],
+          },
+          response: { status: 200, headers: [], content: { text: '' } },
+        }],
+      },
+    });
+    const batch = parseHarEntries(raw);
+    expect(batch.sources).toHaveLength(1);
+    expect(batch.sources[0].headers?.['X-Keep']).toBe('ok');
   });
 });
 
@@ -346,5 +377,159 @@ describe('previewHarEntries', () => {
     expect(result.accepted[0].path).toBe('/items');
     expect(result.accepted[0].source.path).toBe('/items');
     expect(result.accepted[0].source.query?.['page']).toBe('2');
+  });
+
+  it('preserves non-secret headers unredacted in source.headers (covers else branch)', () => {
+    // Ensures the non-secret path (headers[h.name] = h.value) is exercised in previewHarEntries.
+    const result = previewHarEntries(harDoc([makeEntry({
+      requestHeaders: [
+        { name: 'Content-Type', value: 'application/json' },
+        { name: 'X-Tenant', value: 'acme' },
+      ],
+    })]));
+    expect(result.accepted[0].source.headers?.['Content-Type']).toBe('application/json');
+    expect(result.accepted[0].source.headers?.['X-Tenant']).toBe('acme');
+    expect(result.accepted[0].hasRedactedHeaders).toBe(false);
+  });
+
+  it('mixed secret and non-secret headers: redacts secret, preserves non-secret', () => {
+    const result = previewHarEntries(harDoc([makeEntry({
+      requestHeaders: [
+        { name: 'Authorization', value: 'Bearer tok' },
+        { name: 'Content-Type', value: 'application/json' },
+      ],
+    })]));
+    expect(result.accepted[0].source.headers?.['Authorization']).toBe('[REDACTED]');
+    expect(result.accepted[0].source.headers?.['Content-Type']).toBe('application/json');
+    expect(result.accepted[0].hasRedactedHeaders).toBe(true);
+    expect(result.secretHits).toBe(1);
+  });
+
+  it('defaults response status to 200 when response.status is not a number', () => {
+    // Covers the `typeof entry.response?.status === 'number' ? ... : 200` false branch.
+    const raw = JSON.stringify({
+      log: {
+        entries: [{
+          request: { method: 'GET', url: 'https://api.example.com/items', headers: [] },
+          response: { status: 'N/A', headers: [], content: { text: '' } },
+        }],
+      },
+    });
+    const result = previewHarEntries(raw);
+    expect(result.accepted[0].status).toBe(200);
+    expect(result.accepted[0].source.status).toBe(200);
+  });
+
+  it('handles missing response.headers gracefully (uses empty array fallback)', () => {
+    // Covers the `res?.headers ?? []` false branch.
+    const raw = JSON.stringify({
+      log: {
+        entries: [{
+          request: { method: 'GET', url: 'https://api.example.com/items', headers: [] },
+          response: { status: 200, content: { text: '{}', mimeType: 'application/json' } },
+          // No `headers` field on response — exercising `res?.headers ?? []`
+        }],
+      },
+    });
+    const result = previewHarEntries(raw);
+    expect(result.accepted).toHaveLength(1);
+    expect(result.accepted[0].source.responseContentType).toBe('application/json');
+  });
+
+  it('skips header with empty string name (covers !name continue — line 257)', () => {
+    // Covers the `if (!name) continue` true branch in the previewHarEntries header loop.
+    const result = previewHarEntries(harDoc([makeEntry({
+      url: 'https://api.example.com/items',
+      requestHeaders: [
+        { name: '', value: 'should-be-skipped' },
+        { name: 'X-Keep', value: 'ok' },
+      ],
+    })]));
+    expect(result.accepted).toHaveLength(1);
+    expect(result.accepted[0].source.headers?.['X-Keep']).toBe('ok');
+    expect(result.accepted[0].source.headers?.[''] ?? undefined).toBeUndefined();
+  });
+
+  it('handles header with null name without throwing (covers h.name?.toLowerCase?.() null path — line 256)', () => {
+    // Covers the `h.name?.toLowerCase?.() ?? ''` false branch (h.name is null → returns '').
+    const raw = JSON.stringify({
+      log: {
+        entries: [{
+          request: {
+            method: 'GET',
+            url: 'https://api.example.com/items',
+            headers: [{ name: null, value: 'x' }, { name: 'Accept', value: 'json' }],
+          },
+          response: { status: 200, headers: [], content: { text: '' } },
+        }],
+      },
+    });
+    const result = previewHarEntries(raw);
+    expect(result.accepted).toHaveLength(1);
+    expect(result.accepted[0].source.headers?.['Accept']).toBe('json');
+  });
+
+  it('handles missing request.headers field (covers req.headers ?? [] path — line 255)', () => {
+    // Covers the `req.headers ?? []` false branch when headers field is entirely absent.
+    const raw = JSON.stringify({
+      log: {
+        entries: [{
+          request: {
+            method: 'GET',
+            url: 'https://api.example.com/items',
+            // No `headers` field
+          },
+          response: { status: 200, headers: [], content: { text: '' } },
+        }],
+      },
+    });
+    const result = previewHarEntries(raw);
+    expect(result.accepted).toHaveLength(1);
+    expect(result.accepted[0].hasRedactedHeaders).toBe(false);
+    expect(result.secretHits).toBe(0);
+  });
+});
+
+describe('fingerprintRequest (B-3a)', () => {
+  it('returns a 64-char hex string', () => {
+    const fp = fingerprintRequest('GET', '/api/users', null);
+    expect(fp).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('is stable for the same inputs', () => {
+    const fp1 = fingerprintRequest('POST', '/api/orders', '{"item":"widget"}');
+    const fp2 = fingerprintRequest('POST', '/api/orders', '{"item":"widget"}');
+    expect(fp1).toBe(fp2);
+  });
+
+  it('differs when method differs', () => {
+    const fp1 = fingerprintRequest('GET', '/api/orders', null);
+    const fp2 = fingerprintRequest('POST', '/api/orders', null);
+    expect(fp1).not.toBe(fp2);
+  });
+
+  it('differs when path differs', () => {
+    const fp1 = fingerprintRequest('GET', '/api/orders', null);
+    const fp2 = fingerprintRequest('GET', '/api/items', null);
+    expect(fp1).not.toBe(fp2);
+  });
+
+  it('differs when body differs', () => {
+    const fp1 = fingerprintRequest('POST', '/api', '{"a":1}');
+    const fp2 = fingerprintRequest('POST', '/api', '{"b":2}');
+    expect(fp1).not.toBe(fp2);
+  });
+
+  it('treats null and empty-string body identically', () => {
+    const fp1 = fingerprintRequest('GET', '/api', null);
+    const fp2 = fingerprintRequest('GET', '/api', '');
+    expect(fp1).toBe(fp2);
+  });
+
+  it('truncates body to 512 chars for fingerprint', () => {
+    const longBody = 'x'.repeat(1000);
+    const fp1 = fingerprintRequest('POST', '/api', longBody);
+    const fp2 = fingerprintRequest('POST', '/api', longBody.slice(0, 512));
+    expect(fp1).toBe(fp2);
   });
 });

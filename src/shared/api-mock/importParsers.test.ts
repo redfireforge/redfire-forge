@@ -156,4 +156,54 @@ describe('batchToRoutes samples', () => {
     expect(samples[0].name).toContain('PATCH');
     expect(samples[0].name).toContain('/v1/item');
   });
+
+  it('sample request.query uses string[] values from source.query (not path splitting)', () => {
+    // SourceRequest.query is Record<string,string>; captured request needs Record<string,string[]>
+    // Verified that batchToRoutes/convertSourceToRule converts correctly.
+    const batch = {
+      sources: [{ method: 'GET', path: '/items', query: { page: '2', limit: '10' } }],
+      diagnostics: [],
+      lossReport: [],
+      label: 'HAR',
+    };
+    const { samples } = batchToRoutes(batch as Parameters<typeof batchToRoutes>[0], { sourceKind: 'har' });
+    expect(samples[0].request.query).toEqual({ page: ['2'], limit: ['10'] });
+    // rawPath includes the reconstructed query string
+    expect(samples[0].request.rawPath).toContain('page=2');
+    expect(samples[0].request.rawPath).toContain('limit=10');
+  });
+
+  it('sample request.headers are lowercased and wrapped in string[] arrays', () => {
+    // SourceRequest.headers is Record<string,string>; captured request needs Record<string,string[]>
+    const batch = {
+      sources: [{ method: 'GET', path: '/users', headers: { 'Content-Type': 'application/json', 'X-Tenant': 'acme' } }],
+      diagnostics: [],
+      lossReport: [],
+      label: 'HAR',
+    };
+    const { samples } = batchToRoutes(batch as Parameters<typeof batchToRoutes>[0], { sourceKind: 'har' });
+    // Keys are lowercased
+    expect(samples[0].request.headers['content-type']).toEqual(['application/json']);
+    expect(samples[0].request.headers['x-tenant']).toEqual(['acme']);
+    // Original mixed-case keys are gone
+    expect(samples[0].request.headers['Content-Type']).toBeUndefined();
+  });
+
+  it('each sample gets a unique id', () => {
+    const batch = harBatch([
+      { method: 'GET', path: '/a', status: 200 },
+      { method: 'GET', path: '/b', status: 200 },
+    ]);
+    const { samples } = batchToRoutes(batch, { sourceKind: 'har' });
+    expect(samples[0].id).not.toBe(samples[1].id);
+    expect(samples[0].id).toBeTruthy();
+    expect(samples[1].id).toBeTruthy();
+  });
+
+  it('sample receivedAt is a valid ISO timestamp', () => {
+    const batch = harBatch([{ method: 'GET', path: '/ping', status: 200 }]);
+    const { samples } = batchToRoutes(batch, { sourceKind: 'har' });
+    expect(() => new Date(samples[0].request.receivedAt).toISOString()).not.toThrow();
+    expect(samples[0].request.receivedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
 });

@@ -25,6 +25,7 @@ import { useDemoWorkflowConfigModalBridge } from '@app/hooks/useDemoWorkflowConf
 import { useDemoWorkflowCanvasBridge } from '@app/hooks/useDemoWorkflowCanvasBridge';
 import { useDemoWorkflowLivePatchSync } from '@app/hooks/useDemoWorkflowLivePatchSync';
 import { useDemoWorkflowRunBridge } from '@app/hooks/useDemoWorkflowRunBridge';
+import { useDemoWorkflowHarBridge } from '@app/hooks/useDemoWorkflowHarBridge';
 import type { WorkflowDesignerControllerPartA } from './useWorkflowDesignerControllerPartA';
 import type { HarParseResult, ParsedHarEntry } from '../utils/harParser';
 import { harToWorkflow } from '../utils/harToWorkflow';
@@ -207,6 +208,7 @@ export function useWorkflowDesignerControllerPartB(
     setHarParseResult(result);
     setHarFileName(fileName);
   }, []);
+  useDemoWorkflowHarBridge(handleHarFileParsed);
 
   const handleHarImportClose = useCallback(() => {
     setHarParseResult(null);

@@ -349,6 +349,21 @@ async function quietParsePaste(ctx: DemoActionContext, source: string, payload: 
   }
 }
 
+/**
+ * HAR-specific variant of quietParsePaste: waits for `HAR_PREVIEW_LIST` (not
+ * `IMPORT_PREVIEW`, which is only rendered for non-HAR sources after B-2).
+ */
+async function quietHarParsePaste(ctx: DemoActionContext): Promise<void> {
+  await selectAm15Source(ctx, 'har', false);
+  if (firstVisibleElement(API_MOCK.IMPORT_PASTE)) {
+    await ctx.fill(API_MOCK.IMPORT_PASTE, AM15_HAR);
+  }
+  if (firstVisibleElement(API_MOCK.IMPORT_PARSE)) {
+    await ctx.click(API_MOCK.IMPORT_PARSE);
+    await ctx.waitFor(API_MOCK.HAR_PREVIEW_LIST, 10_000);
+  }
+}
+
 async function quietConfirm(ctx: DemoActionContext): Promise<void> {
   if (!firstVisibleElement(API_MOCK.IMPORT_CONFIRM)) return;
   await ctx.click(API_MOCK.IMPORT_CONFIRM);
@@ -412,7 +427,7 @@ export async function ensureAm15HarDrafts(ctx: DemoActionContext): Promise<void>
     await closeAm15Import(ctx);
     return;
   }
-  await quietParsePaste(ctx, 'har', AM15_HAR);
+  await quietHarParsePaste(ctx);
   await quietConfirm(ctx);
   await closeAm15Import(ctx);
 }
@@ -888,4 +903,115 @@ export async function ensureAm15ForPushFromClients(ctx: DemoActionContext): Prom
     ctx.navigateToTab('api-mock-studio');
     await ctx.waitFor(API_MOCK.ROUTE_EXPLORER, 6_000).catch(() => undefined);
   }
+}
+
+// ── B-1: HAR → Simulate samples step helpers ─────────────────────────────
+
+/**
+ * Ensure the server is running and the import modal is open at the HAR source,
+ * with a fresh parse already in progress (for the har-samples step).
+ */
+export async function ensureAm15ForHarSamples(ctx: DemoActionContext): Promise<void> {
+  await ensureAm15InternalDrafts(ctx);
+  await openAm15Import(ctx, false);
+  await quietHarParsePaste(ctx);
+}
+
+/**
+ * Demo action for the `har-samples` step:
+ * spotlight the "Also create Simulate samples" toggle → check it →
+ * confirm → navigate to Simulate → spotlight the saved section.
+ */
+export async function runAm15HarSamples(ctx: DemoActionContext): Promise<void> {
+  // Spotlight the samples toggle
+  await am15Reveal(ctx, API_MOCK.HAR_IMPORT_SAMPLES_TOGGLE, T.payoff);
+  await am15Look(ctx, API_MOCK.HAR_IMPORT_SAMPLES_TOGGLE);
+
+  // Ensure the checkbox is checked (it defaults to true but guard idempotency)
+  const checkbox = document.querySelector<HTMLInputElement>(API_MOCK.HAR_IMPORT_SAMPLES_CHECKBOX);
+  if (checkbox && !checkbox.checked) {
+    await am15Click(ctx, API_MOCK.HAR_IMPORT_SAMPLES_CHECKBOX, T.payoff);
+  }
+  await am15Break(ctx);
+
+  // Confirm import (creates both routes AND samples)
+  await am15Click(ctx, API_MOCK.IMPORT_CONFIRM, T.payoff);
+  await ctx.waitFor(API_MOCK.DRAFT_ROUTE, 10_000);
+  await am15Payoff(ctx, API_MOCK.ROUTES_FOOTER);
+  await am15Break(ctx);
+
+  // Select the first draft route so the Simulate button is visible in the route editor
+  await selectAm15ProveDraft(ctx, false);
+  await ctx.delay(200);
+  // Navigate to Simulate → saved samples
+  if (firstVisibleElement(API_MOCK.SIMULATE)) {
+    await am15Aim(ctx, API_MOCK.SIMULATE);
+    await ctx.waitFor(API_MOCK.SIMULATE_WORKSPACE, 5_000).catch(() => undefined);
+  }
+  if (firstVisibleElement(API_MOCK.SIMULATE_SECTION_SAVED)) {
+    await am15Payoff(ctx, API_MOCK.SIMULATE_SECTION_SAVED);
+  }
+}
+
+// ── B-2: HAR preview / filtering step helpers ────────────────────
+
+/**
+ * Ensure the server is running and the import modal is open at the HAR source
+ * with a fresh preview already shown (for the har-preview step).
+ */
+export async function ensureAm15ForHarPreview(ctx: DemoActionContext): Promise<void> {
+  await ensureAm15InternalDrafts(ctx);
+  await openAm15Import(ctx, false);
+  await quietHarParsePaste(ctx);
+}
+
+/**
+ * Demo action for `har-preview` step:
+ * spotlight the accepted-entry table → scroll to and open filtered section.
+ */
+export async function runAm15HarPreview(ctx: DemoActionContext): Promise<void> {
+  // Let the list paint fully
+  await ctx.waitFor(API_MOCK.HAR_PREVIEW_LIST, 5_000).catch(() => undefined);
+  await am15Reveal(ctx, API_MOCK.HAR_PREVIEW_ENTRY_TABLE, T.payoff);
+  await am15Look(ctx, API_MOCK.HAR_PREVIEW_ENTRY_TABLE);
+  await am15Break(ctx);
+
+  // Expand the filtered section if present
+  const filteredEl = firstVisibleElement(API_MOCK.HAR_PREVIEW_FILTERED_SECTION);
+  if (filteredEl && !filteredEl.hasAttribute('open')) {
+    await am15Click(ctx, `${API_MOCK.HAR_PREVIEW_FILTERED_SECTION} summary`, T.look);
+    await am15Look(ctx, API_MOCK.HAR_PREVIEW_FILTERED_SECTION);
+  }
+  await am15Payoff(ctx, API_MOCK.HAR_PREVIEW_FILTERED_SECTION);
+}
+
+/**
+ * Ensure the server is running and the import modal is open at the HAR source
+ * with a fresh preview shown, ready for the checkbox interaction step.
+ */
+export async function ensureAm15ForHarCheckbox(ctx: DemoActionContext): Promise<void> {
+  await ensureAm15HarDrafts(ctx);
+  await openAm15Import(ctx, false);
+  await quietHarParsePaste(ctx);
+}
+
+/**
+ * Demo action for `har-checkbox` step:
+ * deselect first entry → spotlight Select All → restore selection → cancel.
+ */
+export async function runAm15HarCheckbox(ctx: DemoActionContext): Promise<void> {
+  await ctx.waitFor(API_MOCK.HAR_PREVIEW_LIST, 5_000).catch(() => undefined);
+
+  // Uncheck first entry to show checkbox interaction
+  const firstCb = firstVisibleElement(API_MOCK.harPreviewEntryCheckbox(0));
+  if (firstCb) {
+    await am15Look(ctx, API_MOCK.harPreviewEntry(0));
+    await am15Click(ctx, API_MOCK.harPreviewEntryCheckbox(0), T.look);
+    await am15Break(ctx);
+  }
+
+  // Spotlight Select All — restore selection
+  await am15Reveal(ctx, API_MOCK.HAR_PREVIEW_SELECT_ALL, T.payoff);
+  await am15Click(ctx, API_MOCK.HAR_PREVIEW_SELECT_ALL, T.payoff);
+  await am15Payoff(ctx, API_MOCK.HAR_PREVIEW_SELECT_ALL);
 }
