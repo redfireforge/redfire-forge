@@ -17,6 +17,7 @@ vi.mock('../apiMockJournalActions', async (importOriginal) => {
   };
 });
 
+import type { ApiMockHarSourceEntryV1 } from '@shared/api-mock/contracts';
 import { ApiMockTransactionDetail } from './ApiMockTransactionDetail';
 
 function makeTx(overrides: Record<string, unknown> = {}) {
@@ -138,5 +139,81 @@ describe('ApiMockTransactionDetail', () => {
     fireEvent.click(screen.getByTestId('api-mock-tx-copy-request'));
     await act(async () => { await Promise.resolve(); });
     expect(screen.getByTestId('api-mock-tx-copy-request')).toHaveTextContent('Copy');
+  });
+
+  it('renders the Compare HAR button when matchedRouteHarSource and onCompareHar are provided', () => {
+    const onCompareHar = vi.fn();
+    const harSource: ApiMockHarSourceEntryV1 = {
+      method: 'GET', path: '/users', requestFingerprint: 'fp1',
+      originalStatus: 200, originalBody: '{}', originalHeaders: [],
+      importedAt: '2026-08-12T00:00:00.000Z',
+    };
+    render(
+      <ApiMockTransactionDetail
+        selected={makeTx()}
+        routeName={() => '—'}
+        matchedRouteHarSource={harSource}
+        onCompareHar={onCompareHar}
+      />,
+    );
+    const btn = screen.getByTestId('api-mock-tx-compare-har');
+    expect(btn).toHaveTextContent('Compare HAR');
+    fireEvent.click(btn);
+    expect(onCompareHar).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the copied flash on request pane copy', async () => {
+    vi.useFakeTimers();
+    render(<ApiMockTransactionDetail selected={makeTx()} routeName={() => '—'} />);
+    fireEvent.click(screen.getByTestId('api-mock-tx-copy-request'));
+    await act(async () => { await copyTextToClipboard.mock.results.at(-1)?.value; });
+    expect(screen.getByTestId('api-mock-tx-copy-request')).toHaveTextContent('Copied');
+    await act(async () => { vi.advanceTimersByTime(2200); });
+  });
+
+  it('uses the warning tone for ambiguous outcome and danger tone for unknown outcome', () => {
+    const { rerender } = render(
+      <ApiMockTransactionDetail
+        selected={makeTx({ outcome: 'ambiguous', explanation: { ...makeTx().explanation, policyDecision: { policy: 'highest_priority', equalPriorityPolicy: 'reject', matchedCount: 2, highestPriority: 10, tiedAtHighest: 2, outcome: 'ambiguous' } } })}
+        routeName={() => '—'}
+      />,
+    );
+    expect(screen.getByTestId('api-mock-tx-outcome')).toHaveTextContent('ambiguous');
+
+    rerender(
+      <ApiMockTransactionDetail
+        selected={makeTx({ outcome: 'error' })}
+        routeName={() => '—'}
+      />,
+    );
+    expect(screen.getByTestId('api-mock-tx-outcome')).toHaveTextContent('error');
+  });
+
+  it('omits the candidates/near-misses section when both arrays are empty', () => {
+    render(
+      <ApiMockTransactionDetail
+        selected={makeTx({ explanation: { ...makeTx().explanation, candidates: [], nearMisses: [] } })}
+        routeName={() => '—'}
+      />,
+    );
+    expect(screen.queryByTestId('api-mock-tx-candidates')).toBeNull();
+    expect(screen.queryByTestId('api-mock-tx-near-misses')).toBeNull();
+  });
+
+  it('adds no primary class when outcome is matched and onCreateRouteFromTransaction is provided; handles non-string id', () => {
+    const onCreateRouteFromTransaction = vi.fn().mockReturnValueOnce(undefined);
+    render(
+      <ApiMockTransactionDetail
+        selected={makeTx({ outcome: 'matched', matchedRouteId: 'r1' })}
+        routeName={() => '—'}
+        onCreateRouteFromTransaction={onCreateRouteFromTransaction}
+      />,
+    );
+    const btn = screen.getByTestId('api-mock-tx-create-route');
+    expect(btn.className).not.toContain('primary');
+    fireEvent.click(btn);
+    expect(onCreateRouteFromTransaction).toHaveBeenCalled();
+    // id is undefined → setCreatedRouteId(undefined), but flash still works
+    expect(btn).toHaveTextContent('Created');
   });
 });

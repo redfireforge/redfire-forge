@@ -119,7 +119,7 @@ export function ApiMockStudioPage() {
     setConflictStats(undefined);
   }, []);
 
-  const latestRef = useApiMockStudioPersistence({
+  const { latestRef, isHydrated } = useApiMockStudioPersistence({
     servers,
     activeServerId,
     openTabIds,
@@ -640,7 +640,7 @@ export function ApiMockStudioPage() {
         statusById={statusById}
         dirtyById={dirtyById}
       />
-      {!activeServer && (
+      {isHydrated && !activeServer && (
         <ApiMockLibraryLanding onCreate={handleCreateServer} />
       )}
       {activeServer && (

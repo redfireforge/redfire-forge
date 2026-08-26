@@ -128,3 +128,113 @@ describe('convertBatch', () => {
     expect(results[0].route.id).not.toBe(results[1].route.id);
   });
 });
+
+describe('harSourceEntry population (B-3a)', () => {
+  const harOpts: ConversionOptions = { sourceKind: 'har' };
+
+  it('populates harSourceEntry when sourceKind is har and status is present', () => {
+    const input: SourceRequest = {
+      method: 'POST', path: '/api/orders', status: 201,
+      responseBody: '{"id":"order-1"}', responseContentType: 'application/json',
+      body: '{"item":"widget"}',
+    };
+    const { route } = convertSourceToRule(input, harOpts);
+    expect(route.harSourceEntry).toBeDefined();
+    expect(route.harSourceEntry?.originalStatus).toBe(201);
+    expect(route.harSourceEntry?.originalContentType).toBe('application/json');
+    expect(route.harSourceEntry?.originalBody).toBe('{"id":"order-1"}');
+    expect(route.harSourceEntry?.requestFingerprint).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('does not populate harSourceEntry when sourceKind is not har', () => {
+    const input: SourceRequest = { method: 'GET', path: '/users', status: 200 };
+    const { route } = convertSourceToRule(input, { sourceKind: 'curl' });
+    expect(route.harSourceEntry).toBeUndefined();
+  });
+
+  it('does not populate harSourceEntry when status is absent', () => {
+    const input: SourceRequest = { method: 'GET', path: '/users' };
+    const { route } = convertSourceToRule(input, harOpts);
+    expect(route.harSourceEntry).toBeUndefined();
+  });
+
+  it('truncates originalBody to 4096 characters', () => {
+    const longBody = 'x'.repeat(5000);
+    const input: SourceRequest = { method: 'GET', path: '/big', status: 200, responseBody: longBody };
+    const { route } = convertSourceToRule(input, harOpts);
+    expect(route.harSourceEntry?.originalBody?.length).toBe(4096);
+  });
+
+  it('generates a consistent requestFingerprint for same method+path+body', () => {
+    const input: SourceRequest = { method: 'POST', path: '/api/orders', status: 200, body: '{"q":1}' };
+    const r1 = convertSourceToRule(input, harOpts);
+    const r2 = convertSourceToRule(input, harOpts);
+    expect(r1.route.harSourceEntry?.requestFingerprint).toBe(r2.route.harSourceEntry?.requestFingerprint);
+  });
+
+  it('fingerprint differs when body differs', () => {
+    const r1 = convertSourceToRule({ method: 'POST', path: '/api', status: 200, body: '{"a":1}' }, harOpts);
+    const r2 = convertSourceToRule({ method: 'POST', path: '/api', status: 200, body: '{"b":2}' }, harOpts);
+    expect(r1.route.harSourceEntry?.requestFingerprint).not.toBe(r2.route.harSourceEntry?.requestFingerprint);
+  });
+
+  it('uses normalized uppercase method in fingerprint so lowercase input still matches', () => {
+    // Lowercase 'post' at import time should produce same fingerprint as uppercase 'POST' at journal time
+    const rLower = convertSourceToRule({ method: 'post', path: '/api', status: 200, body: '{"a":1}' }, harOpts);
+    const rUpper = convertSourceToRule({ method: 'POST', path: '/api', status: 200, body: '{"a":1}' }, harOpts);
+    expect(rLower.route.harSourceEntry?.requestFingerprint).toBe(rUpper.route.harSourceEntry?.requestFingerprint);
+  });
+});
+
+describe('convertSourceToRule — uncovered branch coverage', () => {
+  it('sets body kind to text when responseContentType is not JSON (covers line 80 text branch)', () => {
+    const result = convertSourceToRule(
+      { method: 'GET', path: '/stream', responseBody: 'data:event\n\n', responseContentType: 'text/event-stream' },
+      { sourceKind: 'curl', sourceLabel: 'test' },
+    );
+    expect(result.route.responses[0].body.kind).toBe('text');
+    expect(result.route.responses[0].body.contentType).toBe('text/event-stream');
+  });
+
+  it('sets fault on response behavior when input.fault is set (covers line 87)', () => {
+    const result = convertSourceToRule(
+      { method: 'GET', path: '/slow', fault: 'timeout' },
+      { sourceKind: 'curl', sourceLabel: 'test' },
+    );
+    expect(result.route.responses[0].behavior.fault).toBe('timeout');
+  });
+
+  it('adds scenario tags and state transition when scenario fields are set (covers lines 89-105)', () => {
+    const result = convertSourceToRule(
+      {
+        method: 'POST',
+        path: '/orders',
+        scenario: { name: 'CreateOrder', requiredState: 'Idle', newState: 'Created' },
+      },
+      { sourceKind: 'wiremock', sourceLabel: 'test' },
+    );
+    expect(result.route.responses[0].transition).toEqual({
+      currentState: 'Idle',
+      targetState: 'Created',
+    });
+    expect(result.route.tags).toContain('scenario:CreateOrder');
+    expect(result.route.tags).toContain('scenario-required:Idle');
+    expect(result.route.tags).toContain('scenario-new:Created');
+    expect(result.route.name).toContain('[CreateOrder]');
+  });
+
+  it('includes extra predicates in route when input.predicates is set (covers line 237)', () => {
+    const pred = {
+      id: 'pred-1',
+      source: 'query' as const,
+      operator: 'exact' as const,
+      expected: 'val',
+    };
+    const result = convertSourceToRule(
+      { method: 'GET', path: '/search', predicates: [pred] },
+      { sourceKind: 'wiremock', sourceLabel: 'test' },
+    );
+    const childIds = result.route.predicates.children.map((c: { id: string }) => c.id);
+    expect(childIds).toContain('pred-1');
+  });
+});

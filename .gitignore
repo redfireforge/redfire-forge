@@ -74,3 +74,18 @@ results-dropdown.yml
 runner-results.yml
 training-ppt/
 coverage-analysis/
+
+# Environment files — use .env.example as the template
+.env.development
+.env.production
+.env.production.demo
+.env.local
+.env.*.local
+
+# Internal docs — maintained in redfireforge-private
+docs/design/
+docs/testing/
+docs/guides/grpc-phase*.md
+docs/guides/api-mock/screenshots/VALIDATION_RECORD.md
+e2e/DEMO-LESSON-E2E-MEMO.md
+docs/mockups/
