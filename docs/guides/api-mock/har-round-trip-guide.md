@@ -74,9 +74,9 @@ Click **Compare HAR** to open the round-trip comparison modal, which shows:
 | **Diff** | ✓ match, ✗ mismatch, ~ template, ← only in original, → only in mock |
 | **Mock response** | Value the server actually returned |
 
-### 6 — Export the comparison report
+### 6 — Export the HAR report
 
-If your mock has HAR-sourced routes, the Journal toolbar shows a **Compare report** button. Click it to download a JSON report covering all matched transactions:
+If your mock has HAR-sourced routes, the Journal toolbar shows a **HAR report** button. Click it to download a JSON report covering all matched transactions:
 
 ```json
 {
@@ -127,7 +127,7 @@ When the mock response body contains `{{helper}}` expressions (e.g., `{{faker.na
 
 ## Bulk export
 
-The **Compare report** button in the Journal toolbar exports a summary JSON covering **all** HAR-matched transactions since the last clear:
+The **HAR report** button in the Journal toolbar exports a summary JSON covering **all** HAR-matched transactions since the last clear:
 
 - `totalTransactions` — total Journal rows (including unmatched and proxied)
 - `matched` — rows where a HAR-sourced route fingerprint was found
