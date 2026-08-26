@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { harToWorkflow, mimeToBodyType } from './harToWorkflow';
+import { harToWorkflow, mimeToBodyType, collectRedactedVariableNames } from './harToWorkflow';
 import type { HarWorkflowResult } from './harToWorkflow';
 import type { ParsedHarEntry } from './harParser';
 
@@ -214,6 +214,49 @@ describe('harToWorkflow', () => {
   it('does NOT set baseUrl when entries is empty', () => {
     const result = harToWorkflow([]);
     expect(result.variables['baseUrl']).toBeUndefined();
+  });
+
+  it('seeds empty workflow variables for unique redacted header placeholders', () => {
+    const result = harToWorkflow([
+      makeEntry('GET', 'https://api.example.com/users', {
+        headers: { Authorization: '{{authToken}}', Accept: 'application/json' },
+        hasRedactedHeaders: true,
+        redactedHeaderNames: ['Authorization'],
+      }),
+      makeEntry('GET', 'https://api.example.com/users/1', {
+        headers: { Authorization: '{{authToken}}', Cookie: '{{cookieSession}}' },
+        hasRedactedHeaders: true,
+        redactedHeaderNames: ['Authorization', 'Cookie'],
+      }),
+    ]);
+    expect(result.variables.baseUrl).toBe('https://api.example.com');
+    expect(result.variables.authToken).toBe('');
+    expect(result.variables.cookieSession).toBe('');
+    expect(result.extractionSummary.some((s) => s.includes('{{authToken}}'))).toBe(true);
+    expect(result.extractionSummary.some((s) => s.includes('{{cookieSession}}'))).toBe(true);
+  });
+
+  it('collectRedactedVariableNames skips missing or non-placeholder values', () => {
+    expect(collectRedactedVariableNames([])).toEqual([]);
+    expect(
+      collectRedactedVariableNames([
+        makeEntry('GET', 'https://api.example.com/x', {
+          headers: { Authorization: 'not-a-placeholder' },
+          redactedHeaderNames: ['Authorization', 'Missing'],
+        }),
+      ]),
+    ).toEqual([]);
+  });
+
+  it('does not overwrite baseUrl when a redacted placeholder reuses that name', () => {
+    const result = harToWorkflow([
+      makeEntry('GET', 'https://api.example.com/users', {
+        headers: { 'X-Base': '{{baseUrl}}' },
+        hasRedactedHeaders: true,
+        redactedHeaderNames: ['X-Base'],
+      }),
+    ]);
+    expect(result.variables.baseUrl).toBe('https://api.example.com');
   });
 
   it('adds extractionSummary line mentioning baseUrl when extracted', () => {

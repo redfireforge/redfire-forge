@@ -981,37 +981,18 @@ export async function runAm15HarPreview(ctx: DemoActionContext): Promise<void> {
   if (filteredEl && !filteredEl.hasAttribute('open')) {
     await am15Click(ctx, `${API_MOCK.HAR_PREVIEW_FILTERED_SECTION} summary`, T.look);
     await am15Look(ctx, API_MOCK.HAR_PREVIEW_FILTERED_SECTION);
+    await am15Break(ctx);
   }
-  await am15Payoff(ctx, API_MOCK.HAR_PREVIEW_FILTERED_SECTION);
-}
 
-/**
- * Ensure the server is running and the import modal is open at the HAR source
- * with a fresh preview shown, ready for the checkbox interaction step.
- */
-export async function ensureAm15ForHarCheckbox(ctx: DemoActionContext): Promise<void> {
-  await ensureAm15HarDrafts(ctx);
-  await openAm15Import(ctx, false);
-  await quietHarParsePaste(ctx);
-}
-
-/**
- * Demo action for `har-checkbox` step:
- * deselect first entry → spotlight Select All → restore selection → cancel.
- */
-export async function runAm15HarCheckbox(ctx: DemoActionContext): Promise<void> {
-  await ctx.waitFor(API_MOCK.HAR_PREVIEW_LIST, 5_000).catch(() => undefined);
-
-  // Uncheck first entry to show checkbox interaction
+  // Uncheck first entry to show checkbox interaction, then restore with Select All
   const firstCb = firstVisibleElement(API_MOCK.harPreviewEntryCheckbox(0));
   if (firstCb) {
     await am15Look(ctx, API_MOCK.harPreviewEntry(0));
     await am15Click(ctx, API_MOCK.harPreviewEntryCheckbox(0), T.look);
     await am15Break(ctx);
+    await am15Reveal(ctx, API_MOCK.HAR_PREVIEW_SELECT_ALL, T.payoff);
+    await am15Click(ctx, API_MOCK.HAR_PREVIEW_SELECT_ALL, T.payoff);
   }
-
-  // Spotlight Select All — restore selection
-  await am15Reveal(ctx, API_MOCK.HAR_PREVIEW_SELECT_ALL, T.payoff);
-  await am15Click(ctx, API_MOCK.HAR_PREVIEW_SELECT_ALL, T.payoff);
-  await am15Payoff(ctx, API_MOCK.HAR_PREVIEW_SELECT_ALL);
+  await am15Payoff(ctx, API_MOCK.HAR_PREVIEW_LIST);
 }
+

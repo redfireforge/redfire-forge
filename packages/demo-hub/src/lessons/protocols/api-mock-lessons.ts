@@ -30,6 +30,7 @@ import { apiMockAm21Lesson } from './api-mock-am21';
 import { apiMockAm22Lesson } from './api-mock-am22';
 import { apiMockAm23Lesson } from './api-mock-am23';
 import { apiMockAm24Lesson } from './api-mock-am24';
+import { apiMockAm25Lesson } from './api-mock-am25';
 
 export const apiMockLessons: DemoLesson[] = [
   apiMockAm01Lesson,
@@ -56,4 +57,5 @@ export const apiMockLessons: DemoLesson[] = [
   apiMockAm22Lesson,
   apiMockAm23Lesson,
   apiMockAm24Lesson,
+  apiMockAm25Lesson,
 ];

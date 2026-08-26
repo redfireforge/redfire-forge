@@ -223,6 +223,37 @@ describe('HarImportPreviewModal', () => {
     expect(checkbox).toBeChecked();
   });
 
+  it('shows response status on each entry row', () => {
+    const result = makeResult({
+      entries: [makeEntry('GET', '/users', { responseStatus: 201 })],
+    });
+    render(<HarImportPreviewModal {...baseProps} parseResult={result} />);
+    expect(screen.getByTestId('har-entry-status-0')).toHaveTextContent('201');
+  });
+
+  it('selects all entries from the All control', () => {
+    const result = makeResult({
+      entries: [makeEntry('GET', '/a'), makeEntry('GET', '/b')],
+    });
+    render(<HarImportPreviewModal {...baseProps} parseResult={result} />);
+    fireEvent.click(screen.getByTestId('har-entry-checkbox-0'));
+    expect(screen.getByTestId('har-entry-checkbox-0')).not.toBeChecked();
+    fireEvent.click(screen.getByTestId('har-import-select-all'));
+    expect(screen.getByTestId('har-entry-checkbox-0')).toBeChecked();
+    expect(screen.getByTestId('har-entry-checkbox-1')).toBeChecked();
+  });
+
+  it('clears selection from the None control', () => {
+    const result = makeResult({
+      entries: [makeEntry('GET', '/a'), makeEntry('GET', '/b')],
+    });
+    render(<HarImportPreviewModal {...baseProps} parseResult={result} />);
+    fireEvent.click(screen.getByTestId('har-import-select-none'));
+    expect(screen.getByTestId('har-entry-checkbox-0')).not.toBeChecked();
+    expect(screen.getByTestId('har-entry-checkbox-1')).not.toBeChecked();
+    expect(screen.getByTestId('har-import-confirm')).toBeDisabled();
+  });
+
   it('shows warning icon for entries with warnings', () => {
     const result = makeResult({
       entries: [
@@ -349,6 +380,18 @@ describe('HarImportPreviewModal', () => {
     });
     fireEvent.click(screen.getByTestId('har-import-confirm'));
     expect(onImport).toHaveBeenCalledWith(expect.any(Array), 'My API Test');
+  });
+
+  it('calls onImport with the name currently in the input field', () => {
+    const onImport = vi.fn();
+    const result = makeResult({ entries: [makeEntry('GET', '/users')] });
+    render(
+      <HarImportPreviewModal {...baseProps} onImport={onImport} parseResult={result} />,
+    );
+    const input = screen.getByTestId('har-import-wf-name') as HTMLInputElement;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, 'Petstore Session');
+    fireEvent.click(screen.getByTestId('har-import-confirm'));
+    expect(onImport).toHaveBeenCalledWith(expect.any(Array), 'Petstore Session');
   });
 
   it('falls back to "HAR import" when workflow name is all whitespace', () => {
