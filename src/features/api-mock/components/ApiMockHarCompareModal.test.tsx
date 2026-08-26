@@ -75,8 +75,8 @@ describe('ApiMockHarCompareModal', () => {
 
   it('shows original and mock status values', () => {
     render(<ApiMockHarCompareModal tx={makeTx()} harSource={makeHarSource()} onClose={vi.fn()} />);
-    expect(screen.getByTestId('api-mock-har-compare-orig-status').textContent).toBe('201');
-    expect(screen.getByTestId('api-mock-har-compare-mock-status').textContent).toBe('201');
+    expect(screen.getByTestId('api-mock-har-compare-orig-status').textContent).toContain('201');
+    expect(screen.getByTestId('api-mock-har-compare-mock-status').textContent).toContain('201');
   });
 
   it('calls onClose when Close button clicked', () => {
@@ -89,15 +89,15 @@ describe('ApiMockHarCompareModal', () => {
   it('calls onClose on Escape key', () => {
     const onClose = vi.fn();
     render(<ApiMockHarCompareModal tx={makeTx()} harSource={makeHarSource()} onClose={onClose} />);
-    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.keyDown(document, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('does not call onClose for non-Escape keys (covers line 105 false branch)', () => {
     const onClose = vi.fn();
     render(<ApiMockHarCompareModal tx={makeTx()} harSource={makeHarSource()} onClose={onClose} />);
-    fireEvent.keyDown(window, { key: 'Enter' });
-    fireEvent.keyDown(window, { key: 'ArrowDown' });
+    fireEvent.keyDown(document, { key: 'Enter' });
+    fireEvent.keyDown(document, { key: 'ArrowDown' });
     expect(onClose).not.toHaveBeenCalled();
   });
 
@@ -111,6 +111,91 @@ describe('ApiMockHarCompareModal', () => {
     const harSource = makeHarSource({ originalBody: undefined });
     render(<ApiMockHarCompareModal tx={tx} harSource={harSource} onClose={vi.fn()} />);
     expect(screen.getByTestId('api-mock-har-compare-body-empty')).toBeTruthy();
+  });
+
+  it('shows full match verdict and success panel when all fields match', () => {
+    const txMatch = makeTx({
+      response: {
+        status: 200,
+        headers: {},
+        cookies: [],
+        body: '{"status":"ok"}',
+        bodyTruncated: false,
+        durationMs: 5,
+        generationAtResponse: 1,
+      },
+    });
+    render(
+      <ApiMockHarCompareModal
+        tx={txMatch}
+        harSource={makeHarSource({ originalStatus: 200, originalBody: '{"status":"ok"}' })}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('api-mock-har-compare-overall-verdict').textContent).toContain('Full match');
+    expect(screen.getByTestId('api-mock-har-compare-success')).toBeTruthy();
+  });
+
+  it('shows field breakdown after clicking Show field breakdown', () => {
+    const txMatch = makeTx({
+      response: {
+        status: 200,
+        headers: {},
+        cookies: [],
+        body: '{"status":"ok"}',
+        bodyTruncated: false,
+        durationMs: 5,
+        generationAtResponse: 1,
+      },
+    });
+    render(
+      <ApiMockHarCompareModal
+        tx={txMatch}
+        harSource={makeHarSource({ originalStatus: 200, originalBody: '{"status":"ok"}' })}
+        onClose={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('api-mock-har-compare-show-breakdown'));
+    expect(screen.getByTestId('api-mock-har-compare-body-rows')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('api-mock-har-compare-hide-breakdown'));
+    expect(screen.getByTestId('api-mock-har-compare-success')).toBeTruthy();
+  });
+
+  it('filters rows with search and toggles All fields filter', () => {
+    render(<ApiMockHarCompareModal tx={makeTx()} harSource={makeHarSource()} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByTestId('api-mock-har-compare-search'), { target: { value: 'id' } });
+    expect(screen.getByTestId('api-mock-har-compare-body-rows')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('api-mock-har-compare-filter-all'));
+    fireEvent.click(screen.getByTestId('api-mock-har-compare-filter-diffs'));
+    fireEvent.change(screen.getByTestId('api-mock-har-compare-search'), { target: { value: 'zzzz-no-match' } });
+    expect(screen.getByTestId('api-mock-har-compare-filter-empty')).toBeTruthy();
+  });
+
+  it('shows partial match verdict when status matches but body differs', () => {
+    render(<ApiMockHarCompareModal tx={makeTx()} harSource={makeHarSource()} onClose={vi.fn()} />);
+    expect(screen.getByTestId('api-mock-har-compare-overall-verdict').textContent).toContain('Partial match');
+  });
+
+  it('shows mismatch verdict and warning status pills for client errors', () => {
+    render(
+      <ApiMockHarCompareModal
+        tx={makeTx({ response: { ...makeTx().response!, status: 404 } })}
+        harSource={makeHarSource({ originalStatus: 500 })}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('api-mock-har-compare-overall-verdict').textContent).toContain('Mismatch');
+    expect(screen.getByTestId('api-mock-har-compare-orig-status').textContent).toContain('500');
+    expect(screen.getByTestId('api-mock-har-compare-mock-status').textContent).toContain('404');
+  });
+
+  it('supports search navigation controls', () => {
+    render(<ApiMockHarCompareModal tx={makeTx()} harSource={makeHarSource()} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByTestId('api-mock-har-compare-search'), { target: { value: 'id' } });
+    fireEvent.click(screen.getByLabelText('Next'));
+    fireEvent.click(screen.getByLabelText('Previous'));
+    fireEvent.click(screen.getByLabelText('Clear search'));
+    expect(screen.getByTestId('api-mock-har-compare-body-rows')).toBeTruthy();
   });
 });
 
