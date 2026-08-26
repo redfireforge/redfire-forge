@@ -21,9 +21,9 @@ test.describe('Sample auto-layout on load', () => {
     await newBtn.click();
     await page.locator('.wf-new-dropdown-item:has-text("From Template")').click();
 
-    // Gallery page should appear — filter to Workflows domain
-    await page.locator('.gallery-domain-btn:has-text("Workflows")').waitFor({ state: 'visible', timeout: 5000 });
-    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    // Gallery page should appear — filter to Workflow domain
+    await page.locator('.gallery-domain-btn:has-text("Workflow")').waitFor({ state: 'visible', timeout: 5000 });
+    await page.locator('.gallery-domain-btn:has-text("Workflow")').click();
     await page.waitForTimeout(300);
 
     // Click the first workflow card and note its name
@@ -57,9 +57,9 @@ test.describe('Sample auto-layout on load', () => {
     await newBtn.click();
     await page.locator('.wf-new-dropdown-item:has-text("From Template")').click();
 
-    // Gallery page — filter to Workflows
-    await page.locator('.gallery-domain-btn:has-text("Workflows")').waitFor({ state: 'visible', timeout: 5000 });
-    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    // Gallery page — filter to Workflow
+    await page.locator('.gallery-domain-btn:has-text("Workflow")').waitFor({ state: 'visible', timeout: 5000 });
+    await page.locator('.gallery-domain-btn:has-text("Workflow")').click();
     await page.waitForTimeout(300);
 
     // Click a sample and load it
@@ -93,8 +93,8 @@ test.describe('Sample auto-layout on load', () => {
     await newBtn.waitFor({ state: 'visible', timeout: 5000 });
     await newBtn.click();
     await page.locator('.wf-new-dropdown-item:has-text("From Template")').click();
-    await page.locator('.gallery-domain-btn:has-text("Workflows")').waitFor({ state: 'visible', timeout: 5000 });
-    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    await page.locator('.gallery-domain-btn:has-text("Workflow")').waitFor({ state: 'visible', timeout: 5000 });
+    await page.locator('.gallery-domain-btn:has-text("Workflow")').click();
     await page.waitForTimeout(300);
     await page.locator('.gallery-card').first().click();
     await page.waitForTimeout(300);
@@ -108,8 +108,8 @@ test.describe('Sample auto-layout on load', () => {
     // Load second sample
     await newBtn.click();
     await page.locator('.wf-new-dropdown-item:has-text("From Template")').click();
-    await page.locator('.gallery-domain-btn:has-text("Workflows")').waitFor({ state: 'visible', timeout: 5000 });
-    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    await page.locator('.gallery-domain-btn:has-text("Workflow")').waitFor({ state: 'visible', timeout: 5000 });
+    await page.locator('.gallery-domain-btn:has-text("Workflow")').click();
     await page.waitForTimeout(300);
     await page.locator('.gallery-card').nth(1).click();
     await page.waitForTimeout(300);

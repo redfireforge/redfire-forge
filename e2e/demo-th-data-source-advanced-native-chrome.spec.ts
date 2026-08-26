@@ -7,6 +7,8 @@ import {
 } from './demo-player-helpers';
 
 const CHROME_PATH = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+/** Step 2–3 include live jsonplaceholder fetches — allow extra headroom beyond default 60s. */
+const STEP_TIMEOUT_MS = 120_000;
 
 test('TH-18 completes at step 6 in native Google Chrome', async () => {
   test.setTimeout(480_000);
@@ -38,7 +40,7 @@ test('TH-18 completes at step 6 in native Google Chrome', async () => {
 
     for (let completedStep = 1; completedStep < 6; completedStep += 1) {
       console.log(`\n=== Running step ${completedStep} ===`);
-      await runNextStep(page, 60_000);
+      await runNextStep(page, STEP_TIMEOUT_MS);
       console.log(`✓ Step ${completedStep} complete`);
     }
 
@@ -51,7 +53,7 @@ test('TH-18 completes at step 6 in native Google Chrome', async () => {
     page.on('console', (msg) => {
       if (msg.type() === 'error') errors.push(msg.text());
     });
-    await finishDemoStep(page, 120_000);
+    await finishDemoStep(page, STEP_TIMEOUT_MS);
     console.log(`✓ Step 6 action finished. Console errors: ${errors.length}`);
     if (errors.length > 0) {
       console.log('Errors:', errors.slice(0, 3).join(' | '));

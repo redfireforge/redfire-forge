@@ -489,6 +489,7 @@ export async function fillStreamRequest(
   }
 
   if (fields.message !== undefined) {
+    await fillProtoField(page, 'message', fields.message);
     await expect(page.locator('[data-testid="grpc-proto-field-input-message"]')).toHaveValue(fields.message);
   }
   if (fields.repeat_count !== undefined) {
