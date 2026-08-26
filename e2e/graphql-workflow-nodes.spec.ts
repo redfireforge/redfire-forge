@@ -13,7 +13,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import { gotoAppTab, seedAppData, seedWorkflowsInLocalStorage, clickFitViewIfVisible } from './helpers';
+import { gotoAppTab, seedAppData, seedWorkflowInLocalStorage, clickFitViewIfVisible } from './helpers';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 
 test.describe.configure({ mode: 'serial' });
@@ -127,7 +127,7 @@ function makeGraphqlWorkflow(): Workflow {
 
 async function seedGraphqlWorkflow(page: Page) {
   await seedAppData(page);
-  await seedWorkflowsInLocalStorage(page, [makeGraphqlWorkflow()], 'wf-gql-nodes-1');
+  await seedWorkflowInLocalStorage(page, [makeGraphqlWorkflow()], 'wf-gql-nodes-1');
 }
 
 // ── 1. Canvas rendering ───────────────────────────────────────────────────────
@@ -513,8 +513,8 @@ test.describe('GraphQL workflow nodes — gallery templates', () => {
     await page.locator('button:has-text("+ New")').click();
     await page.locator('.wf-new-dropdown-item:has-text("From Template")').click();
     await page.locator('.gallery-domain-btn').first().waitFor({ state: 'visible', timeout: 8000 });
-    // Filter to Workflows domain
-    await page.locator('.gallery-domain-btn:has-text("Workflows")').click();
+    // Filter to Workflow domain
+    await page.locator('.gallery-domain-btn:has-text("Workflow")').click();
     await page.getByRole('searchbox', { name: 'Search gallery' }).fill('graphql');
     await page.waitForTimeout(300);
   });

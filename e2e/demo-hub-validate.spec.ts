@@ -191,7 +191,7 @@ test.describe('Demo Hub — Top-level Navigation', () => {
     await expect(card).toContainText('API Mock');
     await card.click();
     await expect(page.locator('.demo-lesson-list')).toBeVisible();
-    await expect(page.locator('.demo-lesson-item')).toHaveCount(24);
+    await expect(page.locator('.demo-lesson-item')).toHaveCount(25);
   });
 
   test('Protocols domain opens and shows category tabs', async ({ page }) => {
