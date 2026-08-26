@@ -200,6 +200,43 @@ describe('parseHarEntries', () => {
     expect(result.filteredCount).toBe(1);
   });
 
+  it('filters out HEAD requests (not supported by workflow HTTP node)', () => {
+    const result = parseHarEntries(
+      buildHar([
+        buildEntry('HEAD', 'https://api.example.com/resource'),
+        buildEntry('GET', 'https://api.example.com/resource'),
+      ]),
+    );
+    expect(result.entries).toHaveLength(1);
+    expect(result.entries[0].method).toBe('GET');
+    expect(result.filteredCount).toBe(1);
+  });
+
+  it('filters out CONNECT requests (not supported)', () => {
+    const result = parseHarEntries(
+      buildHar([
+        buildEntry('CONNECT', 'https://api.example.com/resource'),
+        buildEntry('POST', 'https://api.example.com/data', { body: '{}' }),
+      ]),
+    );
+    expect(result.entries).toHaveLength(1);
+    expect(result.filteredCount).toBe(1);
+  });
+
+  it('accepts all supported methods: GET, POST, PUT, PATCH, DELETE', () => {
+    const result = parseHarEntries(
+      buildHar([
+        buildEntry('GET', 'https://api.example.com/a'),
+        buildEntry('POST', 'https://api.example.com/b', { body: '{}' }),
+        buildEntry('PUT', 'https://api.example.com/c', { body: '{}' }),
+        buildEntry('PATCH', 'https://api.example.com/d', { body: '{}' }),
+        buildEntry('DELETE', 'https://api.example.com/e'),
+      ]),
+    );
+    expect(result.entries).toHaveLength(5);
+    expect(result.filteredCount).toBe(0);
+  });
+
   it('filters out non-HTTP URLs (chrome-extension://)', () => {
     const result = parseHarEntries(
       buildHar([
@@ -484,6 +521,14 @@ describe('parseHarEntries', () => {
     const result = parseHarEntries(loadFixture('sample-localhost.har'));
     const entryPrivate = result.entries.find((e) => e.host === '192.168.1.10');
     expect(entryPrivate?.warnings.some((w) => /192\.168/.test(w))).toBe(true);
+  });
+
+  it('adds warning for IPv6 localhost [::1]', () => {
+    const result = parseHarEntries(
+      buildHar([buildEntry('GET', 'http://[::1]:8080/api/health')]),
+    );
+    expect(result.entries).toHaveLength(1);
+    expect(result.entries[0].warnings.some((w) => /::1|localhost|private ip/i.test(w))).toBe(true);
   });
 
   it('does NOT add warnings for public API URLs', () => {
