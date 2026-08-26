@@ -1,9 +1,41 @@
 import { describe, expect, it } from 'vitest';
-import { parseHarEntries } from './harImport';
+import { parseHarEntries, fixHarSampleExpected } from './harImport';
 import { HAR_IMPORT_LIMITS } from './proxyContracts';
+import type { ApiMockSimulationSampleV1 } from './contracts';
+import type { SourceRequest } from './sourceToRule';
 
 function harDoc(entries: unknown[]) {
   return JSON.stringify({ log: { version: '1.2', entries } });
+}
+
+function makeBaseSample(overrides: Partial<ApiMockSimulationSampleV1> = {}): ApiMockSimulationSampleV1 {
+  return {
+    id: 'test-id',
+    name: 'GET /test',
+    routeId: 'rte-abc',
+    request: {
+      method: 'GET',
+      path: '/test',
+      rawPath: '/test',
+      query: {},
+      headers: {},
+      cookies: {},
+      body: null,
+      bodyTruncated: false,
+      receivedAt: new Date().toISOString(),
+    },
+    expected: { outcome: 'matched', status: 200 },
+    ...overrides,
+  };
+}
+
+function makeSource(overrides: Partial<SourceRequest> = {}): SourceRequest {
+  return {
+    method: 'GET',
+    path: '/test',
+    status: 200,
+    ...overrides,
+  };
 }
 
 describe('parseHarEntries', () => {
@@ -77,5 +109,54 @@ describe('parseHarEntries', () => {
     expect(batch.sources.find(s => s.path === '/b')?.responseContentType).toBe('application/json');
     expect(batch.sources.find(s => s.path === '/c')?.responseContentType).toBe('text/plain');
     expect(batch.diagnostics.some(d => d.message.includes('entries'))).toBe(true);
+  });
+});
+
+describe('fixHarSampleExpected', () => {
+  it('sets outcome matched and real status for 2xx', () => {
+    const result = fixHarSampleExpected(makeBaseSample(), makeSource({ status: 201 }));
+    expect(result.expected?.outcome).toBe('matched');
+    expect(result.expected?.status).toBe(201);
+  });
+
+  it('sets outcome matched for 3xx', () => {
+    const result = fixHarSampleExpected(makeBaseSample(), makeSource({ status: 302 }));
+    expect(result.expected?.outcome).toBe('matched');
+    expect(result.expected?.status).toBe(302);
+  });
+
+  it('sets outcome unmatched for 4xx', () => {
+    const result = fixHarSampleExpected(makeBaseSample(), makeSource({ status: 404 }));
+    expect(result.expected?.outcome).toBe('unmatched');
+    expect(result.expected?.status).toBe(404);
+  });
+
+  it('sets outcome unmatched for 5xx', () => {
+    const result = fixHarSampleExpected(makeBaseSample(), makeSource({ status: 500 }));
+    expect(result.expected?.outcome).toBe('unmatched');
+    expect(result.expected?.status).toBe(500);
+  });
+
+  it('defaults to matched/200 when source.status is undefined', () => {
+    const result = fixHarSampleExpected(makeBaseSample(), makeSource({ status: undefined }));
+    expect(result.expected?.outcome).toBe('matched');
+    expect(result.expected?.status).toBe(200);
+  });
+
+  it('preserves routeId and other sample fields', () => {
+    const sample = makeBaseSample({ routeId: 'rte-xyz', name: 'POST /orders' });
+    const result = fixHarSampleExpected(sample, makeSource({ status: 201 }));
+    expect(result.routeId).toBe('rte-xyz');
+    expect(result.name).toBe('POST /orders');
+    expect(result.request.method).toBe('GET');
+  });
+
+  it('preserves existing expected fields not overridden', () => {
+    const sample = makeBaseSample({
+      expected: { outcome: 'matched', status: 200, bodyContains: 'hello' },
+    });
+    const result = fixHarSampleExpected(sample, makeSource({ status: 201 }));
+    expect(result.expected?.bodyContains).toBe('hello');
+    expect(result.expected?.status).toBe(201);
   });
 });

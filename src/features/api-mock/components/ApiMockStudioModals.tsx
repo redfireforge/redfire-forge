@@ -28,6 +28,7 @@ interface ApiMockStudioModalsProps {
   onImportRoutes: (
     routes: ApiMockServerDefinitionV1['routes'],
     options?: { mode: 'merge' | 'replace' | 'copy'; newFolderName?: string },
+    samples?: ApiMockSimulationSampleV1[],
   ) => void;
   folders: ApiMockRouteFolderV1[];
   onSaveSample?: (sample: ApiMockSimulationSampleV1) => void;
