@@ -19,6 +19,8 @@ import {
   ensureAm15ForCurl,
   ensureAm15ForDrafts,
   ensureAm15ForHar,
+  ensureAm15ForHarPreview,
+  ensureAm15ForHarSamples,
   ensureAm15ForInternal,
   ensureAm15ForOpenApi,
   ensureAm15ForProve,
@@ -30,6 +32,8 @@ import {
   runAm15Drafts,
   runAm15EnableAndProve,
   runAm15Har,
+  runAm15HarPreview,
+  runAm15HarSamples,
   runAm15ImportPanel,
   runAm15InternalSources,
   runAm15OpenApi,
@@ -216,6 +220,36 @@ export const apiMockAm15Lesson: DemoLesson = {
       preAction: ensureAm15ForHar,
       action: runAm15Har,
       verify: API_MOCK.ROUTES_FOOTER,
+    },
+    {
+      id: 'har-preview',
+      title: 'Per-entry preview: review and filter requests before they become rules',
+      description:
+        'After parsing, every request appears as a **checkbox row** — method, path, status, '
+        + 'and a 🔒 when sensitive headers were redacted.\n\n'
+        + 'Uncheck anything you don\'t want as a rule — static assets, 4xx error '
+        + 'responses, or internal health checks. **All / None** bulk-toggle the list. '
+        + 'If any entries were auto-filtered (OPTIONS preflights, tracking domains, '
+        + 'duplicates), an **Automatically filtered** section appears below — expand it '
+        + 'to see what was removed. Nothing lands as a rule without your review.',
+      highlight: API_MOCK.HAR_PREVIEW_ENTRY_TABLE,
+      preAction: ensureAm15ForHarPreview,
+      action: runAm15HarPreview,
+      verify: API_MOCK.HAR_PREVIEW_LIST,
+    },
+    {
+      id: 'har-samples',
+      title: 'HAR import can also seed Simulate saved samples',
+      description:
+        'Re-open the HAR import and hold **Also create Simulate samples** — the checkbox '
+        + 'below the entry list, checked by default. Confirm.\n\n'
+        + 'Navigate to **Simulate**. Under **Saved samples** you will find one entry per '
+        + 'imported request, pre-filled with its method, path, and the expected HTTP status '
+        + 'from the real HAR response. Run them to confirm the mock answers correctly.',
+      highlight: API_MOCK.HAR_IMPORT_SAMPLES_TOGGLE,
+      preAction: ensureAm15ForHarSamples,
+      action: runAm15HarSamples,
+      verify: API_MOCK.SIMULATE_SECTION_SAVED,
     },
     {
       id: 'internal-sources',
