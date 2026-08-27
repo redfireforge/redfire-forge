@@ -49,7 +49,7 @@ export interface GrpcExplorerPaneProps {
 
 /**
  * Phase 1E explorer + Phase 1F call composer.
- * Layout follows `docs/plan/future/grpc/mockups/01-main-studio.html`.
+ * Layout for explorer + call composer.
  */
 export function GrpcExplorerPane({
   tab,

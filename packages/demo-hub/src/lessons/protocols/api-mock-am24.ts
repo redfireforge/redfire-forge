@@ -5,7 +5,7 @@
  * as drafts, authors matching, a templated response, variants, resilience,
  * then proves the contract in Simulate, analyzes a duplicate health-check,
  * and ships it on the wire and as a Workflow Quick Test after exporting.
- * Curriculum: `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track E.
+ * Curriculum: API Mock demo curriculum v2 §5 Track E.
  */
 import { API_MOCK } from '@shared/selectors';
 import type { DemoLesson } from '../../types';

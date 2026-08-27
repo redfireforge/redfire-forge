@@ -4,7 +4,7 @@
  * Scenario: eight rules already overlap in four path-disjoint pairs. The corpus is
  * the *problem*. Duplicate is one arc (name → Simulate AMBIGUOUS → Open in Studio),
  * then Shadowed → two Simulate probes, then Definite → two Simulate probes, then Potential → two header probes, then rank and acknowledge-then-stale.
- * Curriculum: `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track B.
+ * Curriculum: API Mock demo curriculum v2 §5 Track B.
  */
 import { API_MOCK } from '@shared/selectors';
 import type { DemoLesson } from '../../types';

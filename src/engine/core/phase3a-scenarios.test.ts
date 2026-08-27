@@ -1,10 +1,9 @@
 /**
  * Phase 3A — Visual Test Scenarios: engine-level validation.
  *
- * Exercises every scenario from docs/plan/throughput-phase3a-test-scenarios.md
- * through buildValidationResult (the same function used by both JS and Rust
- * executor paths). This guarantees the exported JSON at
- * docs/test-data/phase3-test-scenarios-export.json is correct.
+ * Exercises every Phase 3A throughput scenario through buildValidationResult
+ * (the same function used by both JS and Rust executor paths). This guarantees
+ * the exported JSON at docs/test-data/phase3-test-scenarios-export.json is correct.
  */
 import { describe, it, expect } from 'vitest';
 import { buildValidationResult, type ValidationInput } from './validationResult';

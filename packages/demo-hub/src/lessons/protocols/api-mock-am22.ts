@@ -7,7 +7,7 @@
  * HTTP call, configures isolation and journal assertions live, and
  * connects each node as it lands (Start → Apply → HTTP → Assert → Reset
  * → Stop). Quick Test then runs the lifecycle green. Curriculum:
- * `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track E.
+ * API Mock demo curriculum v2 §5 Track E.
  */
 import { API_MOCK, WF } from '@shared/selectors';
 import type { DemoLesson } from '../../types';

@@ -17,7 +17,6 @@ DELIVERABLES=(
   src/shared/grpc/grpcAdvancedFeatureExport.test.ts
   src/shared/grpc/grpcAdvancedFeatureExport.coverage-gaps.test.ts
   src/shared/grpc/grpcPhase11hAcceptance.test.ts
-  docs/plan/future/grpc/grpc-cross-feature-matrix.md
   scripts/test-grpc-phase11h.sh
 )
 for deliverable in "${DELIVERABLES[@]}"; do

@@ -5,7 +5,7 @@
  * (`/produts/42`) misses. The journal explains why, closest-match puts that
  * explanation on the wire, and the unmatched row promotes into a draft rule
  * and a regression example. Curriculum:
- * `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track D.
+ * API Mock demo curriculum v2 §5 Track D.
  */
 import { API_MOCK } from '@shared/selectors';
 import type { DemoLesson } from '../../types';
