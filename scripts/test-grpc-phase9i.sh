@@ -18,8 +18,6 @@ DELIVERABLES=(
   src/shared/grpc/grpcPhase9iAcceptance.test.ts
   scripts/test-grpc-phase9i.sh
   scripts/test-grpc-phase9.sh
-  docs/guides/grpc-phase9-runbook.md
-  docs/guides/grpc-phase9-validation-report.md
 )
 for deliverable in "${DELIVERABLES[@]}"; do
   if [[ ! -f "$ROOT/$deliverable" ]]; then

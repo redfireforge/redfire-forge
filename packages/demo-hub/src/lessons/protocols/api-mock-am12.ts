@@ -4,7 +4,7 @@
  * Scenario: one cart rule already answers `POST /cart` with a single 200. A 404
  * sibling, its JSONPath condition, Default, and sequence mode are authored live.
  * The listener is started quietly so Apply is a hot-swap, not a first Start.
- * Curriculum: `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track C.
+ * Curriculum: API Mock demo curriculum v2 §5 Track C.
  */
 import { API_MOCK } from '@shared/selectors';
 import type { DemoLesson } from '../../types';

@@ -11,7 +11,6 @@
 | Companion | `npm run server:dev` required | Native listen; companion for TLS helpers |
 | Wipe state | Clear site data / storage for the origin, or use a clean profile | Clear persisted `api-mock-workspace-v1` via app storage / reinstall profile |
 | Sample file | `examples/api-mock/sample-workspace.json` | same |
-| Richer fixture | `docs/plan/future/apimock/fixtures/valid-server-with-routes.json` | same |
 
 Navigation reminder:
 
@@ -112,14 +111,6 @@ Import modes available in review: **merge**, **replace**, **copy**.
 
 ---
 
-## Evidence
+## Done
 
-Record completion in [`screenshots/VALIDATION_RECORD.md`](./screenshots/VALIDATION_RECORD.md):
-
-- [ ] Track A web  
-- [ ] Track A Tauri  
-- [ ] Track B web  
-- [ ] Track C web  
-- [ ] Optional: D–F as needed for your release
-
-Attach dated screenshots under `screenshots/` using names like `track-a-web-runtime-transactions.png`.
+When Tracks A–C pass on web and Tauri, the walkthrough exit criteria are met. Optional Tracks D–F can be recorded for your release notes.

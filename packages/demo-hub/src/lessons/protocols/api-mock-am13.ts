@@ -3,7 +3,7 @@
  *
  * Helpers are imported as a namespace so Vite HMR cannot leave
  * `runAm13StateLive` / `ensureAm13FirstCall` as unbound names on this path.
- * Curriculum: `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track C.
+ * Curriculum: API Mock demo curriculum v2 §5 Track C.
  */
 import { API_MOCK } from '@shared/selectors';
 import type { DemoLesson } from '../../types';

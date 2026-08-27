@@ -4,7 +4,7 @@
  * Scenario: the frontend needs `/widgets/42` before that route exists in the
  * mock. Arm unmatched proxy at a Docker echo, record the hop as a draft, then
  * enable the draft so the mock owns the path. Curriculum:
- * `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track D.
+ * API Mock demo curriculum v2 §5 Track D.
  */
 import { API_MOCK } from '@shared/selectors';
 import type { DemoLesson } from '../../types';
