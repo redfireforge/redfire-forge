@@ -1,6 +1,5 @@
 /**
  * Vitest product vs demo project globs.
- * @see docs/plan/feature/separate-demo/separate-demo-codebase-plan.md Phase 1
  */
 import minimatch from 'minimatch';
 

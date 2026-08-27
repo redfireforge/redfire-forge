@@ -6,7 +6,7 @@
  * Simulate is the unit-test runner — scratch pad, decision trace, assertions
  * you can edit, FAIL, run-all with sequential state, two identical weighted
  * runs, an export bundle, then Examples that outlive the session. Curriculum:
- * `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track E.
+ * API Mock demo curriculum v2 §5 Track E.
  */
 import { API_MOCK } from '@shared/selectors';
 import type { DemoLesson } from '../../types';

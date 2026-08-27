@@ -161,7 +161,7 @@ connectrpc.eliza.v1.ElizaService
 echo.EchoService
 ```
 
-Streaming RPCs appear in the explorer with SS/CS/BD badges; full execution UI (stream log, compose panel) ships in Phase 2 — see [`docs/guides/grpc-phase2-runbook.md`](../../docs/guides/grpc-phase2-runbook.md).
+Streaming RPCs appear in the explorer with SS/CS/BD badges; full stream compose UI ships with the Studio streaming panels.
 
 ## TLS/mTLS certs
 
@@ -205,9 +205,8 @@ Mock rule source: `go-mock-server/config/rules.json`.
 # Without Docker — shell + mocked drift specs; live specs skip gracefully:
 npx playwright test e2e/grpc-studio-shell.spec.ts e2e/grpc-studio-schema-drift.spec.ts --reporter=list
 
-# Full suite — 31 tests across 8 specs (shell, API, unary, 3 streaming, manage-schemas, schema-drift):
+# Full suite — shell + live specs (see `npm run test:e2e:grpc`):
 npm run test:e2e:grpc
 ```
 
-Phase 3 descriptor sources, drift, and merge gate: [`docs/guides/grpc-phase3-runbook.md`](../../docs/guides/grpc-phase3-runbook.md).  
-See [`docs/guides/grpc-phase1-runbook.md`](../../docs/guides/grpc-phase1-runbook.md) for troubleshooting and mockup parity notes.
+Descriptor sources, schema drift, and Studio troubleshooting notes live with the gRPC Studio product UI and `docs/guides/grpc-dev-loop.md` (local phase-gate workflow).

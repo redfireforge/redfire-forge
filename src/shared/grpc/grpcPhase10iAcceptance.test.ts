@@ -605,20 +605,6 @@ describe('Phase 10I-F — acceptance checklist traceability: all Phase 10 test f
     expect(src).toContain('export function buildSpringServletMethodPath');
   });
 
-  it('grpc-phase10-runbook.md exists in docs/guides/', () => {
-    expect(() => readFileSync(
-      path.join(ROOT, '..', 'docs', 'guides', 'grpc-phase10-runbook.md'),
-      'utf-8',
-    )).not.toThrow();
-  });
-
-  it('grpc-phase10-validation-report.md exists in docs/guides/', () => {
-    expect(() => readFileSync(
-      path.join(ROOT, '..', 'docs', 'guides', 'grpc-phase10-validation-report.md'),
-      'utf-8',
-    )).not.toThrow();
-  });
-
   it('grpcStudioUnaryCommands.ts wires assertGrpcTransportExecutePreflight in prepareExecuteSnapshot', () => {
     const src = readSrc('features/grpc/hooks/grpcStudioUnaryCommands.ts');
     expect(src).toContain('assertGrpcTransportExecutePreflight');

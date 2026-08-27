@@ -8,8 +8,6 @@
  * top of the conversion result — it never changes semantics and never gates
  * Download/Save. Every failure (import, sort, bundling) degrades gracefully back to
  * the un-sorted YAML so a browser-bundling problem can never break conversion.
- *
- * See docs/plan/future/catalog/convert-swagger-to-openapi-plan.md (§P4 optional).
  */
 import YAML from 'yaml';
 
