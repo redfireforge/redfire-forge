@@ -271,20 +271,40 @@ export async function launchGrpcLesson(
 // ─── Step control ─────────────────────────────────────────────────────────────
 
 /**
- * Wait until the demo enters its READING phase
- * (`data-step-phase="reading"`). Next stays disabled during reading —
- * skip via the phase badge, then advance after done.
+ * Wait until the demo step is ready for E2E interaction.
+ * Accepts `pre` (waits through it), `reading`, or any post-reading pipeline phase —
+ * fast mode can skip past `reading` before Playwright polls.
  */
 export async function waitForReadingPhase(
   page: Page,
   timeout = STEP_TIMEOUT,
 ): Promise<void> {
+  const panelSel = '[data-testid="demo-live-panel"]';
   await page.waitForFunction(
-    (sel) =>
-      document.querySelector(sel)?.getAttribute('data-step-phase') === 'reading',
-    '[data-testid="demo-live-panel"]',
+    (sel) => {
+      const phase = document.querySelector(sel)?.getAttribute('data-step-phase');
+      return (
+        phase === 'pre'
+        || phase === 'reading'
+        || phase === 'action'
+        || phase === 'verify'
+        || phase === 'done'
+      );
+    },
+    panelSel,
     { timeout },
   );
+  const phase = await page.locator(panelSel).getAttribute('data-step-phase');
+  if (phase === 'pre') {
+    await page.waitForFunction(
+      (sel) => {
+        const p = document.querySelector(sel)?.getAttribute('data-step-phase');
+        return p === 'reading' || p === 'action' || p === 'verify' || p === 'done';
+      },
+      panelSel,
+      { timeout },
+    );
+  }
 }
 
 /** Click the skippable reading badge when the step is still in reading phase. */
@@ -343,6 +363,14 @@ export async function completeCurrentStepAction(
   const phase = await page.locator(panelSel).getAttribute('data-step-phase');
   if (phase === 'reading') {
     await skipReadingPause(page);
+    const stillReading = await page.locator(panelSel).getAttribute('data-step-phase');
+    if (stillReading === 'reading') {
+      await page.evaluate(async () => {
+        const fn = (window as Window & { __demoFinishStepFromReading?: () => Promise<void> })
+          .__demoFinishStepFromReading;
+        if (fn) await fn();
+      });
+    }
   }
   await page.waitForFunction(
     (sel) => document.querySelector(sel)?.getAttribute('data-step-phase') === 'done',
