@@ -107,6 +107,7 @@ function makePage(state: {
       return makeLocatorChain({});
     }),
     waitForFunction: vi.fn().mockResolvedValue(undefined),
+    evaluate: vi.fn().mockResolvedValue(undefined),
   } as unknown as Page;
 }
 
@@ -160,8 +161,7 @@ describe('graphql-lesson step-driver', () => {
   it('skipDemoReading clicks skippable badge when visible', async () => {
     const page = makePage({ badgeVisible: true });
     await skipDemoReading(page);
-    const badge = page.locator('.demo-live-phase-badge.skippable');
-    expect(badge.click).toHaveBeenCalled();
+    expect(page.evaluate).toHaveBeenCalled();
   });
 
   it('makeDemoLessonWalk advances steps-1 times then completes final step', async () => {
