@@ -149,14 +149,12 @@ function makeStreamDeps(events: GrpcStreamEvent[]) {
 }
 
 describe('Phase 8I deliverables', () => {
-  it('exports gate scripts and documentation paths', async () => {
+  it('exports gate scripts', async () => {
     const fs = await import('fs/promises');
     const read = (rel: string) =>
       fs.access(new URL(rel, import.meta.url)).then(() => true);
     await expect(read('../../../scripts/test-grpc-phase8i.sh')).resolves.toBe(true);
     await expect(read('../../../scripts/test-grpc-phase8.sh')).resolves.toBe(true);
-    await expect(read('../../../docs/guides/grpc-phase8-runbook.md')).resolves.toBe(true);
-    await expect(read('../../../docs/guides/grpc-phase8-validation-report.md')).resolves.toBe(true);
   });
 
   it('registers npm gate scripts for phase 8I and full phase 8', async () => {

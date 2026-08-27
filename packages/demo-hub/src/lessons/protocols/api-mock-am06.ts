@@ -4,7 +4,7 @@
  * Scenario: one `POST /orders` rule with a forgiving `json_subset` baseline. The corpus is
  * the *starting point*; strict equality, a JSONPath matcher picked out of a sample payload,
  * the match-style toggle, and a JSON Schema contract are all authored live and proven in
- * Simulate. Curriculum: `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track B.
+ * Simulate. Curriculum: API Mock demo curriculum v2 §5 Track B.
  */
 import { API_MOCK } from '@shared/selectors';
 import type { DemoLesson } from '../../types';

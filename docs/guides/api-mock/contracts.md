@@ -85,15 +85,4 @@ Some fields are version/capability gated. Invalid capability usage fails validat
 
 ## 8. Fixtures for integrators
 
-Under `docs/plan/future/apimock/fixtures/`:
-
-| File | Use |
-|---|---|
-| `valid-empty-workspace.json` | Empty envelope |
-| `valid-server-with-routes.json` | Users API sample |
-| `valid-deterministic-export.json` | Ordering |
-| `valid-redaction-test.json` | Secret redaction |
-| `invalid-*.json` | Negative validation cases |
-| `conformance-seed-*.json` | Operator corpus seeds |
-
-Authoritative TypeScript types live in `src/shared/api-mock/contracts.ts`.
+Use the published samples under [`examples/api-mock/`](../../../examples/api-mock/) for CLI and walkthrough imports. Authoritative TypeScript types live in `src/shared/api-mock/contracts.ts`.
