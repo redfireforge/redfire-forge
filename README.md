@@ -26,20 +26,20 @@
 
 ### A closer look
 
-**Workflow Designer** — chain requests visually with fork/join, conditions, and variable extraction:
-![Workflow Designer](docs/assets/screenshots/workflow-designer.png)
-
 **Requests** — a Postman/Insomnia-style ad-hoc client with a live JSON response tree:
 ![Requests](docs/assets/screenshots/requests-workspace.png)
-
-**API Mock Studio** — rule-based routing, templated responses, and a live request journal:
-![API Mock Studio](docs/assets/screenshots/api-mock-studio.png)
 
 **API Catalog** — import OpenAPI/Swagger specs, browse endpoints, and execute them directly:
 ![API Catalog](docs/assets/screenshots/api-catalog.png)
 
-**Gallery** — 30+ ready-to-run samples across every protocol, plus guided training paths:
-![Gallery](docs/assets/screenshots/gallery-samples.png)
+**API Mock Studio** — rule-based routing, templated responses, and a live request journal:
+![API Mock Studio](docs/assets/screenshots/api-mock-studio.png)
+
+**Workflow Designer** — chain requests visually with fork/join, conditions, and variable extraction:
+![Workflow Designer](docs/assets/screenshots/workflow-designer.png)
+
+**Test Runner Results** — assertions, timings, and pass/fail status across every protocol:
+![Test Runner Results](docs/assets/screenshots/test-runner-results.png)
 
 **Kafka Studio** — produce/consume messages, inspect topics, and manage clusters:
 ![Kafka Studio](docs/assets/screenshots/kafka-studio.png)
@@ -50,8 +50,11 @@
 **gRPC Studio** — reflection-based service/method discovery with streaming support:
 ![gRPC Studio](docs/assets/screenshots/grpc-studio.png)
 
-**Test Runner Results** — assertions, timings, and pass/fail status across every protocol:
-![Test Runner Results](docs/assets/screenshots/test-runner-results.png)
+**Gallery** — 30+ ready-to-run samples across every protocol, plus guided training paths:
+![Gallery](docs/assets/screenshots/gallery-samples.png)
+
+**Learning Hub** — 140+ interactive guided lessons across every feature, organized into learning paths:
+![Learning Hub](docs/assets/screenshots/learning-hub.png)
 
 ---
 
