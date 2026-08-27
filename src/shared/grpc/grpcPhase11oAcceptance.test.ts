@@ -148,8 +148,6 @@ describe('Phase 11O acceptance — checklist-4: deliverables', () => {
     expect(readSrc('scripts/test-grpc-phase11o.sh')).toContain('Phase 11O gate');
     expect(readSrc('src/shared/grpc/grpcLoadTestStreamScheduler.ts'))
       .toContain('startGrpcLoadTestStreamSchedulerRun');
-    expect(readSrc('docs/plan/future/grpc/grpc-studio-plan.md')).toContain('Phase 11O');
-    expect(readSrc('docs/plan/future/grpc/grpc-cross-feature-matrix.md')).toContain('Phase 11O');
     expect(readSrc('src/shared/grpc/grpcAdvancedFeatureContracts.ts'))
       .toContain('deriveGrpcLoadTestOperationOutcome');
   });

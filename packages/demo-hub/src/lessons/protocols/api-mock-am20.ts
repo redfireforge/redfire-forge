@@ -7,7 +7,7 @@
  * bundle. A security `certSubject` condition pins that CN; Simulate proves
  * match and miss because browsers cannot attach a PEM. Export redacts the
  * private key. Curriculum:
- * `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track E.
+ * API Mock demo curriculum v2 §5 Track E.
  */
 import { API_MOCK } from '@shared/selectors';
 import type { DemoLesson } from '../../types';

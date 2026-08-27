@@ -50,13 +50,6 @@ describe('Phase 11H acceptance checklist', () => {
     expect(diffPanel).toContain('advanced.exportSchemaDiffMarkdown');
   });
 
-  it('cross-feature matrix documents Phase 11H advanced export rows', () => {
-    const matrix = readSrc('docs/plan/future/grpc/grpc-cross-feature-matrix.md');
-    expect(matrix).toContain('grpc_load_test_export');
-    expect(matrix).toContain('grpc_schema_diff_export');
-    expect(matrix).toContain('prepareGrpcLoadTestRunSummaryExportSafe');
-  });
-
   it('replay actions land on studio sub-nav; load-test handoff uses advanced sub-nav', () => {
     const replay = readSrc('src/features/grpc/hooks/useGrpcStudioReplayActions.ts');
     expect(replay).toContain("onNavigate('studio')");

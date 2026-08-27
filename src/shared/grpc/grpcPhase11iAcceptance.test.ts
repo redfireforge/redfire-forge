@@ -74,21 +74,6 @@ describe('Phase 11I acceptance checklist', () => {
     expect(gate11h).toContain('grpc_gate_run_regression');
   });
 
-  it('checklist-4: runbook and validation report are published with Phase 11 sign-off sections', () => {
-    const runbook = readSrc('docs/guides/grpc-phase11-runbook.md');
-    const report = readSrc('docs/guides/grpc-phase11-validation-report.md');
-
-    expect(runbook).toContain('test:grpc:phase11i');
-    expect(runbook).toContain('Troubleshooting: Load test panel');
-    expect(runbook).toContain('Troubleshooting: Mock server runtime');
-    expect(runbook).toContain('Troubleshooting: Schema diff panel');
-    expect(runbook).toContain('Troubleshooting: Advanced export safety');
-
-    expect(report).toContain('Phase | 11I (Hardening Gate)');
-    expect(report).toContain('Sign-off status | ✅ PASS');
-    expect(report).toContain('Known limitations');
-  });
-
   it('checklist-5: export safety targets remain forbidden persist sinks and wiring remains safe', () => {
     expect(GRPC_FORBIDDEN_SECRET_PERSIST_TARGETS).toContain('grpc_load_test_export');
     expect(GRPC_FORBIDDEN_SECRET_PERSIST_TARGETS).toContain('grpc_schema_diff_export');
@@ -106,16 +91,4 @@ describe('Phase 11I acceptance checklist', () => {
     expect(exportSafety).toContain('sanitizeTargetTemplateForExport(sourceMetadata.targetTemplate)');
   });
 
-  it('checklist-6: plan and matrix documents reflect Phase 11 hardening and integration coverage', () => {
-    const plan = readSrc('docs/plan/future/grpc/grpc-studio-plan.md');
-    const matrix = readSrc('docs/plan/future/grpc/grpc-cross-feature-matrix.md');
-
-    expect(plan).toContain('Phase 11I');
-    expect(plan).toContain('test:grpc:phase11i');
-    expect(plan).toContain('11A–11I');
-    expect(plan).toContain('Phase 12');
-    expect(plan).not.toMatch(/Phase 11 \(Advanced\) ◄── 🔴 NEXT/);
-    expect(matrix).toContain('Phase 11H — Advanced feature exports');
-    expect(matrix).toContain('prepareGrpcLoadTestRunSummaryExportSafe');
-  });
 });

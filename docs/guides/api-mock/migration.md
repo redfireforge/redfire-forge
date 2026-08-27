@@ -31,7 +31,7 @@ Runtime running/stopped flags from disk are **not** trusted. After load, the UI 
 ## 3. Authoring migrations (maintainers)
 
 - Add a migration with `registerMigration` in `src/shared/api-mock/migration.ts`.
-- Bump `CURRENT_SCHEMA_VERSION` only with a forward migration and fixtures under `docs/plan/future/apimock/fixtures/`.
+- Bump `CURRENT_SCHEMA_VERSION` only with a forward migration and matching negative/positive contract tests.
 - Add `invalid-unknown-version.json`-style negative tests.
 
 ## 4. Manual recovery

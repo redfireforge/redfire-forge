@@ -5,7 +5,7 @@
  * object. Every helper is typed (or mapped) in the editor. Monaco `{{`
  * completions and Map body are the power-user beats. The listener is started
  * quietly so Apply is a hot-swap, not a first Start.
- * Curriculum: `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track C.
+ * Curriculum: API Mock demo curriculum v2 §5 Track C.
  */
 import { API_MOCK } from '@shared/selectors';
 import type { DemoLesson } from '../../types';
