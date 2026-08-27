@@ -5,7 +5,7 @@
  * version header; Default matches everything. Nested OR tenants, a None-of debug
  * guard, a raised priority, and the two multiple-match policies are authored live
  * and proven in Simulate. Curriculum:
- * `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track B.
+ * API Mock demo curriculum v2 §5 Track B.
  */
 import { API_MOCK } from '@shared/selectors';
 import type { DemoLesson } from '../../types';

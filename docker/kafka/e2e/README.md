@@ -41,7 +41,7 @@ End-to-end test scripts for validating Kafka integration across all Docker profi
 2. Start the server: `npm run server`
 3. Start the web UI: `npm run dev`
 4. Open http://localhost:5173
-5. Follow the step-by-step instructions in `docs/plan/future/kafka/test-scenarios/`
+5. Exercise Kafka Studio against the seeded plaintext broker (127.0.0.1:19092)
 
 ## Prerequisites
 

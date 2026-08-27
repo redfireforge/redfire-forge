@@ -3,7 +3,7 @@
  *
  * Scenario: the checkout frontend needs `GET /health` before the real service exists.
  * Everything is authored live — no Gallery import.
- * Curriculum: `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track A.
+ * Curriculum: API Mock demo curriculum v2 §5 Track A.
  */
 import { API_MOCK } from '@shared/selectors';
 import type { DemoLesson } from '../../types';

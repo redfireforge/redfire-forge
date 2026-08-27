@@ -515,7 +515,6 @@ describe('Phase 11N acceptance — checklist-6: deliverables', () => {
     expect(readSrc('src/features/workflow/engine/graphRunnerGrpcAdvancedNodeHandlers.ts')).toContain('handleGrpcLoadTestNode');
     expect(readSrc('src/shared/grpc/grpcHarnessAdvancedPromotion.ts')).toContain('prepareGrpcHarnessResultReportExportWithAdvanced');
     expect(readSrc('src/features/grpc/hooks/useGrpcCollections.ts')).toContain('compareSavedRequestSchema');
-    expect(readSrc('docs/plan/future/grpc/grpc-cross-feature-matrix.md')).toContain('Phase 11N');
     expect(readSrc('src/shared/grpc/buildGrpcNodeOperations.ts')).toContain('resolveGrpcWorkflowDescriptorByKey');
     expect(readSrc('src-server/routes/grpc/grpc-routes.ts')).toContain('/api/grpc/descriptor/lookup');
   });

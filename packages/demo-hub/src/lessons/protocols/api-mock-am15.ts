@@ -5,7 +5,7 @@
  * that works, an OpenAPI spec, a WireMock mapping, a HAR capture, and the
  * in-app Catalog / Requests libraries. Imports land as drafts. Replace is
  * destructive and says so. The last beat enables one draft and proves it live.
- * Curriculum: `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track D.
+ * Curriculum: API Mock demo curriculum v2 §5 Track D.
  */
 import { API_MOCK } from '@shared/selectors';
 import type { DemoLesson } from '../../types';
