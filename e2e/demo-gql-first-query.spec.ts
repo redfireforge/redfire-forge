@@ -21,7 +21,9 @@ import {
 import {
   GQL_HEALTH,
   GQL_HTTP,
+  ensureGqlDemoHeaderSelected,
   isGraphqlServerHealthy,
+  seedGqlDemoEnvironmentForE2e,
   silenceLogStream,
 } from './graphql-helpers';
 import {
@@ -97,6 +99,9 @@ test.describe('GQL-1 — Environment Manager', () => {
 test.describe('GQL-1 — endpoint variable resolution', () => {
   test('studio shows {{graphqlUrl}} and resolved preview after header setup', async ({ page }) => {
     test.setTimeout(240_000);
+    // EM must exist before {{graphqlUrl}} resolves — lesson step 1 configures it, but fast
+    // step advances can outrun the UI; seed matches GQL-2 bootstrap (see graphql-helpers).
+    await seedGqlDemoEnvironmentForE2e(page);
     await launchGqlLesson(page, LESSON_NAME);
     await restartLesson(page);
 
@@ -104,9 +109,15 @@ test.describe('GQL-1 — endpoint variable resolution', () => {
     await advanceSteps(page, 4, DEMO_ACTION_TIMEOUT);
     await completeCurrentStepAction(page, DEMO_ACTION_TIMEOUT);
 
+    // Belt: header picks can race fast step advances — resolution needs env + svc context.
+    await ensureGqlDemoHeaderSelected(page);
+
     await expect(page.locator('[data-testid="gql-endpoint-input"]')).toHaveValue('{{graphqlUrl}}');
     const preview = page.locator('[data-testid="gql-endpoint-preview"]');
     await expect(preview).toBeVisible({ timeout: 10_000 });
+    // EM GraphQL tab uses row status "explicit" (✓) — not a separate "resolved" status.
+    await expect(preview).toHaveAttribute('data-status', 'explicit', { timeout: 30_000 });
+    await expect(preview).toContainText('✓');
     await expect(preview).toContainText(GQL_HTTP.replace('http://', '').replace('https://', ''));
 
     await takeNamedScreenshot(page, 'gql1-endpoint-resolved');

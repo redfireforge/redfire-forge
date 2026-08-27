@@ -587,7 +587,7 @@ test.describe('Designer Canvas Controls', () => {
     ],
   };
 
-  test('toolbar shows simplified controls without Auto-Layout and Undo/Redo', async ({ page }) => {
+  test('toolbar shows canvas controls without a dedicated Auto-Layout button', async ({ page }) => {
     await page.addInitScript((wfs) => {
       localStorage.setItem('workflows', JSON.stringify(wfs));
       localStorage.setItem('workflows_selected_id', wfs[0].id);
@@ -606,15 +606,17 @@ test.describe('Designer Canvas Controls', () => {
     const saveLayoutBtn = page.locator('button[title*="Save current"]');
     await expect(saveLayoutBtn).toBeVisible({ timeout: 5000 });
 
-    // Should NOT have Auto-Layout button
+    // Should NOT have a dedicated Auto-Layout toolbar button (layout is via ⌘L shortcut)
     const autoLayoutBtn = page.locator('button[title*="Auto-layout" i], button[title*="Auto layout" i]');
     await expect(autoLayoutBtn).not.toBeVisible();
 
-    // Should NOT have Undo/Redo buttons
+    // Undo/Redo are visible in the designer toolbar but disabled on a fresh workflow
     const undoBtn = page.locator('button[title*="Undo" i]');
     const redoBtn = page.locator('button[title*="Redo" i]');
-    await expect(undoBtn).not.toBeVisible();
-    await expect(redoBtn).not.toBeVisible();
+    await expect(undoBtn).toBeVisible();
+    await expect(redoBtn).toBeVisible();
+    await expect(undoBtn).toBeDisabled();
+    await expect(redoBtn).toBeDisabled();
   });
 
   test('Save current layout button is clickable', async ({ page }) => {

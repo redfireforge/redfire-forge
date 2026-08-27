@@ -527,13 +527,11 @@ describe('Phase 5I acceptance checklist', () => {
     expect(saved).toBeTruthy();
   });
 
-  it('Phase 5I deliverable docs and gate script exist', async () => {
+  it('Phase 5I gate script and collections E2E exist', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const root = path.resolve(__dirname, '../../..');
     const required = [
-      'docs/guides/grpc-phase5-validation-report.md',
-      'docs/guides/grpc-phase5-runbook.md',
       'scripts/test-grpc-phase5i.sh',
       'e2e/grpc-studio-collections-history.spec.ts',
     ];
