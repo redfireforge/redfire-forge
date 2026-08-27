@@ -9,6 +9,13 @@ Format follows Keep a Changelog and Semantic Versioning.
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- **E2E full-suite stability** — demo player step waits tolerate fast-mode phase skips; GQL-1 endpoint preview asserts `data-status="explicit"`; designer Undo/Redo visibility matches current toolbar; run-comparison baseline picker waits for the portaled listbox.
+
+---
+
 ## [0.8.0] - 2026-08-26
 
 ### Added
