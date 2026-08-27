@@ -4,7 +4,7 @@
  * Scenario: four bare rules that answer non-JSON payloads — a urlencoded token form, a
  * multipart upload, a namespaced SOAP order, and a raw firmware blob. Every matcher is
  * authored live and proven in Simulate. Curriculum:
- * `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track B.
+ * API Mock demo curriculum v2 §5 Track B.
  */
 import { API_MOCK } from '@shared/selectors';
 import type { DemoLesson } from '../../types';

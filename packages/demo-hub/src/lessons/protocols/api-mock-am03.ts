@@ -4,7 +4,7 @@
  * Scenario: a storefront mock that has outgrown a flat list. The twelve-rule library
  * arrives as a quiet corpus (it is the *subject*); every navigation, edit, and
  * metadata feature is exercised live.
- * Curriculum: `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track A.
+ * Curriculum: API Mock demo curriculum v2 §5 Track A.
  */
 import { API_MOCK } from '@shared/selectors';
 import type { DemoLesson } from '../../types';

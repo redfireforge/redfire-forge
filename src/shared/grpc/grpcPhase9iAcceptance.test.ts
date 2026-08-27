@@ -375,22 +375,6 @@ describe('Phase 9I hardening deliverables', () => {
     expect(pkg.scripts?.['test:grpc:phase9']).toContain('test-grpc-phase9.sh');
   });
 
-  it('ships Phase 9 validation report and runbook', async () => {
-    const fs = await import('fs/promises');
-    const report = await fs.readFile(
-      new URL('../../../docs/guides/grpc-phase9-validation-report.md', import.meta.url),
-      'utf8',
-    );
-    const runbook = await fs.readFile(
-      new URL('../../../docs/guides/grpc-phase9-runbook.md', import.meta.url),
-      'utf8',
-    );
-    expect(report).toContain('9I (Hardening Gate)');
-    expect(report).toContain('Sign-off status');
-    expect(runbook).toContain('test:grpc:phase9i');
-    expect(runbook).toContain('interpolation');
-  });
-
   it('exports stream message send resolver wired in useGrpcStreamSession', async () => {
     const studioExec = await import('./grpcStudioExecuteInterpolation');
     expect(typeof studioExec.resolveGrpcStudioStreamMessageBodyForSend).toBe('function');
