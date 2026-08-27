@@ -4,7 +4,7 @@
  * Scenario: one rule that answers every caller identically. The corpus is the *problem*;
  * every condition — query, header, security facet, absence guard, cookie regex, and a
  * bulk-composed request shape — is authored live and proven in Simulate.
- * Curriculum: `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track B.
+ * Curriculum: API Mock demo curriculum v2 §5 Track B.
  */
 import { API_MOCK } from '@shared/selectors';
 import type { DemoLesson } from '../../types';

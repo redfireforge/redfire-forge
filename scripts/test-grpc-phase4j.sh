@@ -11,9 +11,6 @@ source "$(cd "$(dirname "$0")" && pwd)/grpc-phase-gate-lib.sh"
 
 echo "== Phase 4J: Deliverable files =="
 DELIVERABLES=(
-  docs/guides/grpc-phase4-runbook.md
-  docs/plan/future/grpc/grpc-studio-plan.md
-  .cursor/rules/grpc-studio-ui.mdc
   scripts/test-grpc-phase4j.sh
   src/features/grpc/components/GrpcConnectionBar.tsx
   src/features/grpc/components/GrpcTlsConfigModal.tsx
@@ -31,18 +28,6 @@ for deliverable in "${DELIVERABLES[@]}"; do
 done
 if ! grep -q '"test:grpc:phase4j"' "$ROOT/package.json"; then
   echo 'Missing package.json script: test:grpc:phase4j' >&2
-  exit 1
-fi
-if ! grep -q 'test:grpc:phase4j' "$ROOT/docs/guides/grpc-phase4-runbook.md"; then
-  echo 'Runbook missing test:grpc:phase4j reference' >&2
-  exit 1
-fi
-if ! grep -q 'test:grpc:phase4j' "$ROOT/.cursor/rules/grpc-studio-ui.mdc"; then
-  echo 'grpc-studio-ui.mdc missing test:grpc:phase4j merge gate reference' >&2
-  exit 1
-fi
-if ! grep -q '4J-A through 4J-E shipped' "$ROOT/docs/plan/future/grpc/grpc-studio-plan.md"; then
-  echo 'grpc-studio-plan.md missing 4J-E shipped status' >&2
   exit 1
 fi
 

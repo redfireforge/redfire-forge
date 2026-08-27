@@ -8,8 +8,6 @@
  * that. oas-validator targets **OpenAPI 3.0.x**; 3.1/3.2 documents report
  * `supported: false`. Every failure (import, engine, runtime) degrades gracefully so a
  * browser-bundling problem can never break conversion.
- *
- * See docs/plan/future/catalog/convert-swagger-to-openapi-plan.md (§P4-D).
  */
 
 export interface LintFinding {

@@ -7,7 +7,7 @@
  * inbound size and drain, redacts Authorization and `$.password`, persists
  * the log, then Diagnostics and Console show the cost. Outbound transforms
  * inject `X-Mocked-By` and a callback is allowlisted. Curriculum:
- * `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track D.
+ * API Mock demo curriculum v2 §5 Track D.
  */
 import { API_MOCK } from '@shared/selectors';
 import type { DemoLesson } from '../../types';

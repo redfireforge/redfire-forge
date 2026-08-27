@@ -19,8 +19,6 @@ DELIVERABLES=(
   src/shared/grpc/grpcSpringServletPathResolver.ts
   src/features/grpc/grpcStudioTypes.ts
   src/shared/grpc/grpcPhase10iAcceptance.test.ts
-  docs/guides/grpc-phase10-runbook.md
-  docs/guides/grpc-phase10-validation-report.md
   scripts/test-grpc-phase10i.sh
 )
 for deliverable in "${DELIVERABLES[@]}"; do
@@ -53,18 +51,6 @@ if ! grep -q 'buildSpringServletMethodPath' "$ROOT/src/shared/grpc/grpcSpringSer
 fi
 if ! grep -q 'Phase 10I' "$ROOT/src/shared/grpc/grpcPhase10iAcceptance.test.ts"; then
   echo 'Missing Phase 10I label in grpcPhase10iAcceptance' >&2
-  exit 1
-fi
-if ! grep -q 'Troubleshooting: gRPC-Web' "$ROOT/docs/guides/grpc-phase10-runbook.md"; then
-  echo 'Missing Troubleshooting: gRPC-Web section in grpc-phase10-runbook.md' >&2
-  exit 1
-fi
-if ! grep -q 'Troubleshooting: Spring Servlet' "$ROOT/docs/guides/grpc-phase10-runbook.md"; then
-  echo 'Missing Troubleshooting: Spring Servlet section in grpc-phase10-runbook.md' >&2
-  exit 1
-fi
-if ! grep -Eq 'Server streaming deferred on browser-direct transports|Browser-direct server streaming behavior' "$ROOT/docs/guides/grpc-phase10-runbook.md"; then
-  echo 'Missing browser-direct server streaming section in grpc-phase10-runbook.md' >&2
   exit 1
 fi
 if ! grep -q 'Phase 10I acceptance checklist' "$ROOT/src/shared/grpc/grpcPhase10iAcceptance.test.ts"; then
