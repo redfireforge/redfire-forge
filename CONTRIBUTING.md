@@ -57,7 +57,7 @@ npm run lint               # ESLint
 
 1. **One concern per PR** — keep changes focused and reviewable.
 2. **Tests required** — all new behaviour must have unit or E2E coverage. The TypeScript check and product test suite must pass.
-3. **No internal-only docs** — keep runbooks, planning docs, and design specs out of the public repo.
+3. **Docs in PRs** — only product and contributor docs that belong with the release (guides under `docs/guides/`, training manuals, etc.). Do not add personal scratch notes or one-off plans to PRs.
 4. **Conventional commits** encouraged but not required:
    - `feat:` new user-visible feature
    - `fix:` bug fix

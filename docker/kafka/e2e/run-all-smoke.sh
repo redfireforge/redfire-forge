@@ -240,8 +240,7 @@ if [[ "$SEED_ONLY" == "true" ]]; then
   echo "    1. Start the server:  npm run server"
   echo "    2. Start the web UI:  npm run dev"
   echo "    3. Open http://localhost:5173"
-  echo "    4. Follow test-scenario MD files in:"
-  echo "       docs/plan/future/kafka/test-scenarios/"
+  echo "    4. Exercise Kafka Studio against the seeded plaintext broker"
 else
   if [[ "$PROFILES_FAILED" -eq 0 ]]; then
     echo -e "  ${GREEN}${BOLD}ALL ${PROFILES_RUN} PROFILE(S) PASSED${RESET}"

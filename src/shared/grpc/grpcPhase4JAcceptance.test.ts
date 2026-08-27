@@ -78,14 +78,4 @@ describe('Phase 4J acceptance checklist (4J-E traceability)', () => {
     expect(source).toContain('spring_health_actuator');
   });
 
-  it('runbook and UI rules document Phase 4J merge gate (4J-E)', () => {
-    const runbook = readFileSync(join(ROOT, 'docs/guides/grpc-phase4-runbook.md'), 'utf8');
-    expect(runbook).toContain('## Phase 4J manual smoke');
-    expect(runbook).toContain('test:grpc:phase4j');
-    expect(runbook).toMatch(/Cancel.*revert/i);
-    expect(runbook).toMatch(/Close.*keep/i);
-
-    const uiRules = readFileSync(join(ROOT, '.cursor/rules/grpc-studio-ui.mdc'), 'utf8');
-    expect(uiRules).toContain('test:grpc:phase4j');
-  });
 });

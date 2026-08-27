@@ -2,8 +2,7 @@
 
 > **Phase:** 12D (documentation & training)  
 > **Audience:** Authors, QA, automation, and maintainers  
-> **Product entry:** Protocols → **API Mock**  
-> **Planning checklist:** [`docs/plan/future/apimock/apimock-studio-demo-doc.md`](../../plan/future/apimock/apimock-studio-demo-doc.md)
+> **Product entry:** Protocols → **API Mock**
 
 API Mock Studio is a GUI-first local HTTP mock server studio. Each tab is an independently runnable mock environment (host, port, routes, journal, TLS/proxy settings).
 
@@ -40,15 +39,11 @@ API Mock Studio is a GUI-first local HTTP mock server studio. Each tab is an ind
 | [Migration](./migration.md) | Schema version, corrupt storage recovery |
 | [Operations](./operations.md) | Companion lifecycle, ports, soak ceilings, shutdown |
 | [Compatibility matrix](./compatibility.md) | Web companion vs Tauri native feature matrix |
-| [Screenshots / validation](./screenshots/VALIDATION_RECORD.md) | Walkthrough evidence checklist |
 
 ## Related artifacts (not end-user guides)
 
 | Path | Role |
 |---|---|
-| [`docs/plan/future/apimock/apimock-studio-plan.md`](../../plan/future/apimock/apimock-studio-plan.md) | Full product/implementation plan |
-| [`docs/plan/future/apimock/mockups/`](../../plan/future/apimock/mockups/) | Phase 0 interactive design catalog |
-| [`docs/plan/future/apimock/fixtures/`](../../plan/future/apimock/fixtures/) | Conformance / validation JSON |
 | [`examples/api-mock/`](../../../examples/api-mock/) | CLI sample workspace + Dockerfile |
 | [`cli/README.md`](../../../cli/README.md) | CLI command reference |
 

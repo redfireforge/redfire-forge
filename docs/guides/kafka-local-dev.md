@@ -2,9 +2,6 @@
 
 Status: active (plaintext assets implemented and runtime smoke validated)
 Last updated: 2026-05-29
-Related plan: docs/plan/future/kafka/integration-plan.md
-Related tracker: docs/plan/future/kafka/integration-tracker.md
-Related test plan: docs/plan/future/kafka/integration-test-plan.md
 
 ## Purpose
 

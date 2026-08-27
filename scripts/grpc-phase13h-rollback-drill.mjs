@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * Phase 13H operational runbook + rollback drill gate.
+ * Phase 13H rollback drill gate.
  *
  * Checks:
- * 1) Runbook presence/required sections
- * 2) CI phase-gate chain and pull_request execution guards
- * 3) Live rollback drill (optional --require-live)
+ * 1) CI phase-gate chain and pull_request execution guards
+ * 2) Live rollback drill (optional --require-live)
  */
 
 import fs from 'node:fs/promises';
@@ -95,23 +94,6 @@ async function fetchJson(url, timeoutMs) {
   }
 }
 
-function validateRunbookSections(runbookText) {
-  const requiredHeadings = [
-    '## Incident Triage',
-    '## Rollback Decision Matrix',
-    '## Immediate Rollback Procedure',
-    '## Verification After Rollback',
-    '## Artifact Checklist',
-  ];
-
-  const missing = requiredHeadings.filter((heading) => !runbookText.includes(heading));
-  return {
-    requiredCount: requiredHeadings.length,
-    missing,
-    passed: missing.length === 0,
-  };
-}
-
 function validateCiChain(ciText) {
   const parsed = yaml.parse(ciText);
   const jobs = parsed?.jobs ?? {};
@@ -186,24 +168,11 @@ async function runLiveDrill(baseUrl, timeoutMs) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
 
-  const runbookPath = 'docs/guides/grpc-phase13h-operations-runbook.md';
   const ciPath = '.github/workflows/ci.yml';
 
   const checks = [];
 
-  const [runbookText, ciText] = await Promise.all([
-    readText(runbookPath),
-    readText(ciPath),
-  ]);
-
-  const runbookResult = validateRunbookSections(runbookText);
-  addCheck(
-    checks,
-    'runbook_required_sections_present',
-    runbookResult.passed,
-    'Phase 13H runbook contains mandatory operational and rollback sections',
-    { missing: runbookResult.missing },
-  );
+  const ciText = await readText(ciPath);
 
   const ciResult = validateCiChain(ciText);
   addCheck(
@@ -255,7 +224,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log('[grpc-phase13h] All operational runbook and rollback drill checks passed.');
+  console.log('[grpc-phase13h] All rollback drill checks passed.');
 }
 
 main().catch((error) => {

@@ -5,7 +5,7 @@ Use this as the **merge gate** when creating or materially changing a Demo Hub l
 **Scope:** Lesson wrappers under `src/features/demo-player/lessons/` and their E2E specs (`e2e/demo-*.spec.ts`).  
 **Not in scope:** Runtime product code (GraphQL Studio, engine, workflow, etc.) — those keep the full >90% coverage bar.
 
-Authoring quality (delays, WHY copy, diagrams, step pacing) still follows `.cursor/rules/demo-player-lessons.mdc` sections 1–7 and 9.  
+Authoring quality (delays, WHY narration, diagrams, step pacing) is covered in this checklist and in `e2e/DEMO-LESSON-E2E-MEMO.md`.  
 **Done** means only the five items below.
 
 ---
@@ -107,6 +107,6 @@ Demo lesson checklist:
 
 ## Related docs
 
-- Authoring: `.cursor/rules/demo-player-lessons.mdc`
+- Authoring conventions: `docs/guides/demo-lesson-done-checklist.md`
 - E2E pitfalls: `e2e/DEMO-LESSON-E2E-MEMO.md`
-- E2E conventions: `.cursor/rules/e2e-testing.mdc`
+- E2E overview: `e2e/README.md`
