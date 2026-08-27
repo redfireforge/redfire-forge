@@ -163,7 +163,7 @@ export function useDemoHubStepPipeline({
   const executeCurrentStep = useCallback(async (
     step: DemoStep,
     speed: SpeedMultiplier,
-    options?: { skipReading?: boolean; stepIndex?: number },
+    options?: { skipReading?: boolean; stepIndex?: number; stopAfterReading?: boolean },
   ) => {
     abortRef.current?.abort();
     purgeAllSpotlightRings();
@@ -267,6 +267,10 @@ export function useDemoHubStepPipeline({
       await Promise.all([readingPause, revealBootSurface, spotlightWork, readingSyncWork]);
       skipReadingRef.current = null;
       if (signal.aborted) return;
+
+      if (options?.stopAfterReading) {
+        return;
+      }
 
       if (step.action) {
         setStepPhase('action');

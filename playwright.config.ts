@@ -541,7 +541,7 @@ export default defineConfig({
       timeout: 30_000,
     },
     {
-      command: 'VITE_SUPPRESS_PROXY_ERRORS=1 npm run dev',
+      command: 'VITE_SUPPRESS_PROXY_ERRORS=1 VITE_ENABLE_DEMO_HUB=true vite',
       url: 'http://localhost:5173',
       // Release gates start a fresh frontend; locally reuse :5173 if it is already up
       // so a finished E2E run does not tear down the Vite tab you are watching.

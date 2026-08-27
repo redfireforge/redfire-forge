@@ -1,0 +1,26 @@
+# CODEOWNERS — automatic reviewer assignment for pull requests.
+# See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything not matched below
+*                                   @redfireforge
+
+# Protocol-specific areas — assign to specialist if/when team grows
+src/features/graphql/               @redfireforge
+src/features/grpc/                  @redfireforge
+src/features/kafka/                 @redfireforge
+src/features/websocket/             @redfireforge
+src/features/sse/                   @redfireforge
+
+# CLI — separate review focus
+cli/                                @redfireforge
+
+# Tauri / desktop
+src-tauri/                          @redfireforge
+
+# Demo hub lessons — lesson authors when team grows
+packages/demo-hub/src/lessons/      @redfireforge
+
+# CI/CD and release — require extra scrutiny
+.github/workflows/                  @redfireforge
+.github/FUNDING.yml                 @redfireforge
+.github/CLA.md                      @redfireforge

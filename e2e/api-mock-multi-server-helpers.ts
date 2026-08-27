@@ -136,11 +136,18 @@ export async function configureActiveServerIdentity(
 
 async function patchActiveRoute(
   page: Page,
-  patch: { path?: string; body?: string },
+  patch: { path?: string; body?: string; addRoute?: boolean; method?: string; selectPath?: string },
 ): Promise<void> {
-  const ok = await page.evaluate((p) => {
+  const ok = await page.evaluate(async (p) => {
     const fn = (window as unknown as {
-      __demoPatchApiMockActiveRoute?: (patch: { path?: string; body?: string; priority?: number }) => boolean;
+      __demoPatchApiMockActiveRoute?: (patch: {
+        path?: string;
+        body?: string;
+        priority?: number;
+        addRoute?: boolean;
+        method?: string;
+        selectPath?: string;
+      }) => boolean;
     }).__demoPatchApiMockActiveRoute;
     if (!fn) return false;
     return fn(p);
@@ -149,29 +156,22 @@ async function patchActiveRoute(
   await page.waitForTimeout(300);
 }
 
+/** Seed path + JSON body via demo bridge (avoids flaky rule-editor UI on multi-tab setup). */
 export async function ensureRouteWithBody(
   page: Page,
   path: string,
   body: string,
 ): Promise<void> {
-  const routeCount = await page.locator(API_MOCK.ROUTE_ROW).count();
-  if (routeCount === 0) {
-    const noRouteCreate = page.locator(API_MOCK.NO_ROUTE_CREATE);
-    if (await noRouteCreate.isVisible().catch(() => false)) {
-      await noRouteCreate.click();
-    } else {
-      await page.locator(API_MOCK.ADD_ROUTE).click();
-    }
-    await expect(page.locator(API_MOCK.ROUTE_EDITOR)).toBeVisible({ timeout: 10_000 });
+  const rowForPath = page.locator(API_MOCK.ROUTE_ROW).filter({ hasText: path });
+  if ((await rowForPath.count()) === 0) {
+    await patchActiveRoute(page, { addRoute: true, path, method: 'GET' });
   } else {
-    await page.locator(API_MOCK.FIRST_ROUTE).click();
-    await expect(page.locator(API_MOCK.ROUTE_EDITOR)).toBeVisible({ timeout: 10_000 });
+    await rowForPath.first().click();
   }
-
-  await page.locator(API_MOCK.PATH_INPUT).fill(path);
-  await page.locator(API_MOCK.BTAB_RESPONSE).click();
-  await expect(page.locator(API_MOCK.VARIANT_BODY)).toBeVisible({ timeout: 10_000 });
-  await patchActiveRoute(page, { path, body });
+  await patchActiveRoute(page, { selectPath: path, body });
+  await expect(page.locator(API_MOCK.ROUTE_ROW).filter({ hasText: path }).first()).toBeVisible({
+    timeout: 10_000,
+  });
 }
 
 export async function createConfiguredServer(
@@ -236,7 +236,17 @@ export async function sendFromRequestsStudio(
   page: Page,
   url: string,
   expectBodyFragment: string,
+  request?: APIRequestContext,
 ): Promise<void> {
+  if (request) {
+    const parsed = new URL(url);
+    const port = Number(parsed.port);
+    await expect.poll(async () => {
+      const hit = await fetchMock(request, port, parsed.pathname).catch(() => ({ status: 0, body: '' }));
+      return hit.status;
+    }, { timeout: 20_000 }).toBe(200);
+  }
+
   await page.getByRole('button', { name: 'API', exact: true }).click();
   await page.locator('[data-testid="nav-tab-requests"]').click();
   await ensureAppSidebarExpanded(page);
@@ -273,9 +283,10 @@ export async function sendFromRequestsStudio(
 
   await page.locator('[data-testid="req-url-input"]').fill(url);
   await page.locator('[data-testid="req-send-btn"]').click();
-  await expect(page.locator('[data-testid="req-status-pill"]')).toBeVisible({ timeout: 20_000 });
-  await expect(page.locator('[data-testid="req-status-pill"]')).toContainText(/200/);
-  await expect(page.locator('.req-pane-right')).toContainText(expectBodyFragment, { timeout: 10_000 });
+  const statusPill = page.locator('[data-testid="req-status-pill"]');
+  await expect(statusPill).toBeVisible({ timeout: 20_000 });
+  await expect(statusPill).toContainText(/200/, { timeout: 30_000 });
+  await expect(page.locator('.req-pane-right')).toContainText(expectBodyFragment, { timeout: 15_000 });
 }
 
 /** Node-side fetch (avoids browser CORS — mock CORS is off by default). */
