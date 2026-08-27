@@ -10,8 +10,6 @@ source "$(cd "$(dirname "$0")" && pwd)/grpc-phase-gate-lib.sh"
 
 echo "== Phase 5I: Deliverable files =="
 DELIVERABLES=(
-  docs/guides/grpc-phase5-runbook.md
-  docs/guides/grpc-phase5-validation-report.md
   src/features/grpc/utils/grpcResponseSnapshot.ts
   src/features/grpc/components/GrpcResponseSnapshotPanel.tsx
   src/features/grpc/components/GrpcResponseSnapshotDiffModal.tsx

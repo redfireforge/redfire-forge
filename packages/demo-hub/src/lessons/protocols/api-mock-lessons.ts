@@ -1,7 +1,6 @@
 /**
- * API Mock Studio demo curriculum v2 — canonical lesson order (AM-01 … AM-24).
+ * Canonical lesson order (AM-01 … AM-24) for API Mock demo curriculum v2.
  *
- * Plan: `docs/plan/future/apimock/apimock-demo-curriculum-v2.md`
  * Lessons are appended one at a time as they pass the 5-item done checklist;
  * `api-mock-lessons.test.ts` pins the order so slots cannot drift.
  */
