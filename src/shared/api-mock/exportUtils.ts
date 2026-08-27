@@ -165,7 +165,7 @@ function collectRedactionHeaders(workspace: ApiMockWorkspaceV1): string[] {
 }
 
 function redactRoute(route: ApiMockRouteV1, headerNames: string[]): ApiMockRouteV1 {
-  return {
+  const redacted: ApiMockRouteV1 = {
     ...route,
     responses: route.responses.map(v => ({
       ...v,
@@ -175,6 +175,13 @@ function redactRoute(route: ApiMockRouteV1, headerNames: string[]): ApiMockRoute
       cookies: v.cookies.map(c => ({ ...c, value: '[REDACTED]' })),
     })),
   };
+  // Response bodies captured from HAR imports may contain sensitive API data.
+  // Strip originalBody on redacted exports; the non-sensitive fields (originalStatus,
+  // originalContentType, requestFingerprint) are retained for round-trip matching.
+  if (redacted.harSourceEntry?.originalBody !== undefined) {
+    redacted.harSourceEntry = { ...redacted.harSourceEntry, originalBody: undefined };
+  }
+  return redacted;
 }
 
 function redactHeaderMap(

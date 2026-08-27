@@ -8,6 +8,11 @@ import { useTheme } from './useTheme';
 // Mock storage
 vi.mock('../../shared/utils/storage', () => ({
   saveTheme: vi.fn(),
+  readKey: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock('@shared/utils/platform', () => ({
+  isTauri: vi.fn().mockReturnValue(false),
 }));
 
 vi.mock('../themeCustomizerUtils', () => ({
@@ -18,15 +23,41 @@ vi.mock('../themeCustomizerUtils', () => ({
   clearCustomOverrides: vi.fn(),
 }));
 
-import { saveTheme } from '@shared/utils/storage';
+import { saveTheme, readKey } from '@shared/utils/storage';
+import { isTauri } from '@shared/utils/platform';
 import { loadSavedThemes, isCustomThemeId, findSavedTheme, applyCustomTheme, clearCustomOverrides } from '../themeCustomizerUtils';
 
 const mockSaveTheme = vi.mocked(saveTheme);
+const mockReadKey = vi.mocked(readKey);
+const mockIsTauri = vi.mocked(isTauri);
 const mockLoadSavedThemes = vi.mocked(loadSavedThemes);
 const mockIsCustomThemeId = vi.mocked(isCustomThemeId);
 const mockFindSavedTheme = vi.mocked(findSavedTheme);
 const mockApplyCustomTheme = vi.mocked(applyCustomTheme);
 const mockClearCustomOverrides = vi.mocked(clearCustomOverrides);
+
+/** Install a fake `window.matchMedia` reporting the given color scheme. */
+function mockMatchMedia(prefersLight: boolean): { fireChange: (matchesDark: boolean) => void } {
+  const listeners: Array<(e: MediaQueryListEvent) => void> = [];
+  const mql = {
+    matches: false,
+    media: '',
+    addEventListener: (_: string, cb: (e: MediaQueryListEvent) => void) => { listeners.push(cb); },
+    removeEventListener: (_: string, cb: (e: MediaQueryListEvent) => void) => {
+      const i = listeners.indexOf(cb);
+      if (i >= 0) listeners.splice(i, 1);
+    },
+  };
+  vi.stubGlobal('matchMedia', vi.fn((query: string) => ({
+    ...mql,
+    matches: query.includes('light') ? prefersLight : !prefersLight,
+  })));
+  return {
+    fireChange: (matchesDark: boolean) => {
+      listeners.forEach(cb => cb({ matches: matchesDark } as MediaQueryListEvent));
+    },
+  };
+}
 
 describe('useTheme', () => {
   beforeEach(() => {
@@ -34,11 +65,16 @@ describe('useTheme', () => {
     mockIsCustomThemeId.mockImplementation((id: string) => id.startsWith('custom:'));
     mockLoadSavedThemes.mockReturnValue([]);
     mockFindSavedTheme.mockReturnValue(null);
+    mockIsTauri.mockReturnValue(false);
+    mockReadKey.mockResolvedValue(null);
     document.documentElement.removeAttribute('data-theme');
+    localStorage.clear();
   });
 
   afterEach(() => {
     document.documentElement.removeAttribute('data-theme');
+    localStorage.clear();
+    vi.unstubAllGlobals();
   });
 
   describe('initial state', () => {
@@ -63,6 +99,81 @@ describe('useTheme', () => {
       expect(result.current.THEMES.length).toBeGreaterThan(0);
       expect(result.current.THEME_ICONS).toBeDefined();
       expect(result.current.THEME_ICONS['dark']).toBeDefined();
+    });
+  });
+
+  describe('system preference auto-detect', () => {
+    it('defaults to dark when system prefers dark and no saved theme', () => {
+      mockMatchMedia(false);
+
+      const { result } = renderHook(() => useTheme());
+
+      expect(result.current.theme).toBe('dark');
+    });
+
+    it('defaults to light when system prefers light and no saved theme', () => {
+      mockMatchMedia(true);
+
+      const { result } = renderHook(() => useTheme());
+
+      expect(result.current.theme).toBe('light');
+    });
+
+    it('does not persist the auto-derived initial theme to storage', () => {
+      mockMatchMedia(true);
+
+      renderHook(() => useTheme());
+
+      expect(mockSaveTheme).not.toHaveBeenCalled();
+    });
+
+    it('saved theme overrides system preference on initial load', () => {
+      localStorage.setItem('perf-test-theme', 'steel');
+      mockMatchMedia(true); // system prefers light — saved 'steel' should still win
+
+      const { result } = renderHook(() => useTheme());
+
+      expect(result.current.theme).toBe('steel');
+    });
+
+    it('live system preference change updates theme when no explicit choice was made', () => {
+      const { fireChange } = mockMatchMedia(false); // starts dark-preferring
+
+      const { result } = renderHook(() => useTheme());
+      expect(result.current.theme).toBe('dark');
+
+      act(() => {
+        fireChange(false); // system switched to light
+      });
+
+      expect(result.current.theme).toBe('light');
+    });
+
+    it('live system preference change is ignored after the user picks a theme', () => {
+      const { fireChange } = mockMatchMedia(false);
+
+      const { result } = renderHook(() => useTheme());
+
+      act(() => {
+        result.current.setTheme('sapphire'); // explicit user pick
+      });
+
+      act(() => {
+        fireChange(false); // system flips to light — should be ignored now
+      });
+
+      expect(result.current.theme).toBe('sapphire');
+    });
+
+    it('restores a previously saved Tauri theme asynchronously on mount', async () => {
+      mockIsTauri.mockReturnValue(true);
+      mockReadKey.mockResolvedValue('dusk');
+
+      const { result } = renderHook(() => useTheme());
+
+      await act(async () => { await Promise.resolve(); });
+
+      expect(result.current.theme).toBe('dusk');
     });
   });
 

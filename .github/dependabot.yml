@@ -1,0 +1,39 @@
+version: 2
+updates:
+  # npm — root workspace (covers packages/* via npm workspaces, e.g. demo-hub)
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    groups:
+      # Batch minor/patch updates into one PR per week instead of one per package
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  # npm — CLI package
+  - package-ecosystem: npm
+    directory: /cli
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  # Cargo — Tauri / Rust deps
+  - package-ecosystem: cargo
+    directory: /src-tauri
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday

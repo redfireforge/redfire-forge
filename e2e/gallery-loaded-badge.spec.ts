@@ -16,7 +16,7 @@ const SAMPLE_NAME = 'Parallel API Calls';
 async function goToGalleryWorkflows(page: import('@playwright/test').Page) {
   await page.goto('/?tab=gallery');
   await page.waitForSelector('.gallery-domain-btn', { timeout: 10000 });
-  await page.locator('.gallery-domain-btn', { hasText: 'Workflows' }).click();
+  await page.locator('.gallery-domain-btn', { hasText: 'Workflow' }).click();
   await page.waitForTimeout(300);
 }
 
@@ -58,7 +58,7 @@ test.describe('Gallery Loaded Badge Lifecycle', () => {
     // Navigate back to gallery
     await page.goto('/?tab=gallery');
     await page.waitForSelector('.gallery-domain-btn', { timeout: 10000 });
-    await page.locator('.gallery-domain-btn', { hasText: 'Workflows' }).click();
+    await page.locator('.gallery-domain-btn', { hasText: 'Workflow' }).click();
     await page.waitForTimeout(300);
 
     // Badge should show
@@ -87,7 +87,7 @@ test.describe('Gallery Loaded Badge Lifecycle', () => {
     // Navigate to gallery — badge should still show
     await page.goto('/?tab=gallery');
     await page.waitForSelector('.gallery-domain-btn', { timeout: 10000 });
-    await page.locator('.gallery-domain-btn', { hasText: 'Workflows' }).click();
+    await page.locator('.gallery-domain-btn', { hasText: 'Workflow' }).click();
     await page.waitForTimeout(300);
     await expect(loadedBadge(page)).toBeVisible({ timeout: 5000 });
 
@@ -107,7 +107,7 @@ test.describe('Gallery Loaded Badge Lifecycle', () => {
     // Navigate to gallery — badge should be GONE
     await page.goto('/?tab=gallery');
     await page.waitForSelector('.gallery-domain-btn', { timeout: 10000 });
-    await page.locator('.gallery-domain-btn', { hasText: 'Workflows' }).click();
+    await page.locator('.gallery-domain-btn', { hasText: 'Workflow' }).click();
     await page.waitForTimeout(300);
     await expect(loadedBadge(page)).not.toBeVisible();
   });
@@ -132,7 +132,7 @@ test.describe('Gallery Loaded Badge Lifecycle', () => {
     // Navigate to gallery — badge should be GONE
     await page.goto('/?tab=gallery');
     await page.waitForSelector('.gallery-domain-btn', { timeout: 10000 });
-    await page.locator('.gallery-domain-btn', { hasText: 'Workflows' }).click();
+    await page.locator('.gallery-domain-btn', { hasText: 'Workflow' }).click();
     await page.waitForTimeout(300);
     await expect(loadedBadge(page)).not.toBeVisible();
   });
@@ -154,7 +154,7 @@ test.describe('Gallery Loaded Badge Lifecycle', () => {
     // Go back to gallery
     await page.goto('/?tab=gallery');
     await page.waitForSelector('.gallery-domain-btn', { timeout: 10000 });
-    await page.locator('.gallery-domain-btn', { hasText: 'Workflows' }).click();
+    await page.locator('.gallery-domain-btn', { hasText: 'Workflow' }).click();
     await page.waitForTimeout(300);
 
     // Click the card and then the "✓ Loaded" action button

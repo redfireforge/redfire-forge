@@ -79,6 +79,13 @@ const SECONDARY_LABELS: Partial<Record<GalleryDomain, string>> = {
   requests: 'Try It',
 };
 
+/** Protocol tabs mix harness tests + workflow templates — route by catalog membership. */
+const WORKFLOW_SAMPLE_IDS = new Set(sampleWorkflowCatalog.map((e) => e.id));
+
+function isWorkflowGallerySample(entry: GalleryEntry<unknown>): boolean {
+  return WORKFLOW_SAMPLE_IDS.has(entry.id);
+}
+
 /**
  * Unified Gallery Page — top-level domain that surfaces all gallery entries
  * (requests, catalog, tests, workflows, assertions) in a single browsable grid.
@@ -128,6 +135,20 @@ export function GalleryPage({
     grpc: onImportTest,
   }), [onImportRequest, onImportCatalog, onImportTest, onImportWorkflow, onImportApiMock]);
 
+  const resolveImportHandler = useCallback((entry: GalleryEntry<unknown>) => {
+    if (isWorkflowGallerySample(entry)) return onImportWorkflow;
+    return importHandlers[entry.domain];
+  }, [importHandlers, onImportWorkflow]);
+
+  const resolveActionLabel = useCallback((entry: GalleryEntry<unknown>) => {
+    if (!resolveImportHandler(entry)) return undefined;
+    const status = sampleStatus?.[entry.id];
+    if (status === 'imported') return '✓ Loaded';
+    if (status === 'updated') return '↻ Reload (Updated)';
+    if (isWorkflowGallerySample(entry)) return 'Load Workflow';
+    return ACTION_LABELS[entry.domain];
+  }, [resolveImportHandler, sampleStatus]);
+
   const handleAction = useCallback((entry: GalleryEntry<unknown>) => {
     const status = sampleStatus[entry.id];
     if (status === 'imported') {
@@ -140,8 +161,8 @@ export function GalleryPage({
       setConfirmUpdate(entry);
       return;
     }
-    importHandlers[entry.domain]?.(entry);
-  }, [importHandlers, sampleStatus, onNavigateTo]);
+    resolveImportHandler(entry)?.(entry);
+  }, [resolveImportHandler, sampleStatus, onNavigateTo]);
 
   const handleSecondary = useCallback((entry: GalleryEntry<unknown>) => {
     if (entry.domain === 'requests') {
@@ -173,13 +194,7 @@ export function GalleryPage({
     <div className="gallery-page">
       <GalleryGrid
         entries={ALL_ENTRIES}
-        actionLabel={(e) => {
-          if (!importHandlers[e.domain]) return undefined;
-          const status = sampleStatus?.[e.id];
-          if (status === 'imported') return '✓ Loaded';
-          if (status === 'updated') return '↻ Reload (Updated)';
-          return ACTION_LABELS[e.domain];
-        }}
+        actionLabel={resolveActionLabel}
         secondaryLabel={(e) => SECONDARY_LABELS[e.domain]}
         onAction={handleAction}
         onSecondary={handleSecondary}
@@ -195,7 +210,7 @@ export function GalleryPage({
           cancelLabel="Cancel"
           variant="default"
           onConfirm={() => {
-            importHandlers[confirmUpdate.domain]?.(confirmUpdate);
+            resolveImportHandler(confirmUpdate)?.(confirmUpdate);
             setConfirmUpdate(null);
           }}
           onCancel={() => setConfirmUpdate(null)}

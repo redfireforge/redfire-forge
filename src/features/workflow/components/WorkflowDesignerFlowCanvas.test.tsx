@@ -79,15 +79,21 @@ vi.mock('./canvas/WorkflowNodeContextMenu', () => ({
   },
 }));
 vi.mock('./canvas/WorkflowCanvasControls', () => ({
-  default: ({ onToggleMinimap, onAutoLayout, onSaveLayout }: {
+  default: ({ onToggleMinimap, onAutoLayout, onSaveLayout, canUndo, canRedo, onUndo, onRedo }: {
     onToggleMinimap: () => void;
     onAutoLayout: () => void;
     onSaveLayout: () => void;
+    canUndo?: boolean;
+    canRedo?: boolean;
+    onUndo?: () => void;
+    onRedo?: () => void;
   }) => (
     <div data-testid="controls">
       <button data-testid="ctrl-mini" onClick={onToggleMinimap}>m</button>
       <button data-testid="ctrl-layout" onClick={onAutoLayout}>l</button>
       <button data-testid="ctrl-save" onClick={onSaveLayout}>s</button>
+      <button data-testid="ctrl-undo" disabled={!canUndo} onClick={onUndo}>u</button>
+      <button data-testid="ctrl-redo" disabled={!canRedo} onClick={onRedo}>r</button>
     </div>
   ),
 }));
@@ -146,7 +152,14 @@ function makeVm(over: Partial<WorkflowDesignerViewModel> = {}): WorkflowDesigner
     handleReactFlowInit: vi.fn(),
     showMinimap: false,
     setShowMinimap: vi.fn(),
-    undoRedo: {},
+    undoRedo: {
+      canUndo: vi.fn(() => false),
+      canRedo: vi.fn(() => false),
+      takeSnapshot: vi.fn(),
+      undo: vi.fn(),
+      redo: vi.fn(),
+      clear: vi.fn(),
+    },
     handleUndoAction: vi.fn(),
     handleRedoAction: vi.fn(),
     handleAutoLayout: vi.fn(),
@@ -295,6 +308,53 @@ describe('WorkflowDesignerFlowCanvas', () => {
     fireEvent.click(screen.getByTestId('ctrl-save'));
     expect(persistWorkflow).toHaveBeenCalled();
     expect(update).toHaveBeenCalledWith('w1', { savedViewport: { x: 1, y: 2, zoom: 1 } });
+  });
+
+  it('canvas controls: wires undo/redo handlers and passes canUndo/canRedo through', () => {
+    const handleUndoAction = vi.fn();
+    const handleRedoAction = vi.fn();
+    const undoRedo = {
+      canUndo: vi.fn(() => true),
+      canRedo: vi.fn(() => false),
+      takeSnapshot: vi.fn(),
+      undo: vi.fn(),
+      redo: vi.fn(),
+      clear: vi.fn(),
+    };
+    render(<WorkflowDesignerFlowCanvas vm={makeVm({ undoRedo, handleUndoAction, handleRedoAction })} selected={selected} />);
+
+    const undoBtn = screen.getByTestId('ctrl-undo') as HTMLButtonElement;
+    const redoBtn = screen.getByTestId('ctrl-redo') as HTMLButtonElement;
+    expect(undoBtn.disabled).toBe(false); // canUndo() -> true
+    expect(redoBtn.disabled).toBe(true); // canRedo() -> false
+
+    fireEvent.click(undoBtn);
+    expect(handleUndoAction).toHaveBeenCalled();
+    fireEvent.click(redoBtn);
+    // redoBtn is disabled, so the click is a no-op — assert it was NOT called.
+    expect(handleRedoAction).not.toHaveBeenCalled();
+  });
+
+  it('canvas controls: enables redo and disables undo when the stack is empty/exhausted', () => {
+    const handleUndoAction = vi.fn();
+    const handleRedoAction = vi.fn();
+    const undoRedo = {
+      canUndo: vi.fn(() => false),
+      canRedo: vi.fn(() => true),
+      takeSnapshot: vi.fn(),
+      undo: vi.fn(),
+      redo: vi.fn(),
+      clear: vi.fn(),
+    };
+    render(<WorkflowDesignerFlowCanvas vm={makeVm({ undoRedo, handleUndoAction, handleRedoAction })} selected={selected} />);
+
+    const undoBtn = screen.getByTestId('ctrl-undo') as HTMLButtonElement;
+    const redoBtn = screen.getByTestId('ctrl-redo') as HTMLButtonElement;
+    expect(undoBtn.disabled).toBe(true);
+    expect(redoBtn.disabled).toBe(false);
+
+    fireEvent.click(redoBtn);
+    expect(handleRedoAction).toHaveBeenCalled();
   });
 
   it('shows minimap when enabled', () => {
