@@ -318,6 +318,9 @@ describe('gql-workflow-integration lesson — actions', () => {
     let stepClicks = 0;
     document.body.innerHTML = `
       ${buildQueryConfigDom()}
+      <div class="wf-canvas-area"></div>
+      <div data-testid="gql-canvas-query-node" class="react-flow__node"></div>
+      <div data-testid="gql-canvas-assert-node" class="react-flow__node"></div>
       <button class="wf-quick-test-btn"></button>
       <button title="Run workflow step-by-step"></button>
       <div data-testid="wf-exec-summary"></div>
