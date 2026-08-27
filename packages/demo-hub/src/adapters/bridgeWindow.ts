@@ -279,6 +279,10 @@ export type DemoBridgeWindow = Window &
       serverId?: string;
       timeoutMs?: number;
     }) => Promise<{ status: number; body: string } | null>;
+    /** E2E: jump to a step's reading phase (preAction only — skips action/verify). */
+    __demoGoToStepReadingOnly?: (index: number) => Promise<void>;
+    /** E2E: run action/verify for the current step from its reading phase. */
+    __demoFinishStepFromReading?: () => Promise<void>;
   };
 
 export function getDemoBridgeWindow(): DemoBridgeWindow {

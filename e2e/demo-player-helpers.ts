@@ -400,6 +400,27 @@ export async function advanceSteps(
 }
 
 /**
+ * Simulate rapid Next through all prior steps — land on the final step's reading
+ * phase with only its preAction recovery (no intermediate step actions).
+ * Next is disabled during reading in the live UI, so this uses the E2E bridge.
+ */
+export async function rapidAdvanceToLastStepReading(
+  page: Page,
+  lastStepIndex: number,
+  timeout = STEP_TIMEOUT,
+): Promise<void> {
+  await page.evaluate(async (index) => {
+    const fn = (window as Window & { __demoGoToStepReadingOnly?: (i: number) => Promise<void> })
+      .__demoGoToStepReadingOnly;
+    if (!fn) {
+      throw new Error('__demoGoToStepReadingOnly bridge missing — enable demo hub for Playwright');
+    }
+    await fn(index);
+  }, lastStepIndex);
+  await waitForReadingPhase(page, timeout);
+}
+
+/**
  * Finish the current demo step (skip reading → wait for action/verify → done).
  * Safe on the last step where Next stays disabled after done.
  *
@@ -430,7 +451,18 @@ export async function finishDemoStep(
     if (phase === 'done') return;
   }
 
-  await skipReadingPause(page);
+  if (phase === 'reading') {
+    await skipReadingPause(page);
+    const stillReading = await readPhase();
+    if (stillReading === 'reading') {
+      await page.evaluate(async () => {
+        const fn = (window as Window & { __demoFinishStepFromReading?: () => Promise<void> })
+          .__demoFinishStepFromReading;
+        if (fn) await fn();
+      });
+    }
+  }
+
   await page.waitForFunction(
     (sel) => document.querySelector(sel)?.getAttribute('data-step-phase') === 'done',
     panelSel,
