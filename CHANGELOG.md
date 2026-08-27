@@ -9,7 +9,7 @@ Format follows Keep a Changelog and Semantic Versioning.
 
 ---
 
-## [Unreleased]
+## [0.8.0] - 2026-08-26
 
 ### Added
 - **Learning Hub — richer learning-path cards** — the Demo Hub landing page now shows path descriptions, per-category lesson counts, progress bars, completion rings, status pills, and estimated total time derived from the live lesson registry.
