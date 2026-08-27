@@ -70,7 +70,7 @@ describe('isPublicationStale', () => {
 describe('republishAtCurrentVersion', () => {
   afterEach(() => { vi.restoreAllMocks(); });
 
-  it('returns undefined for unpublished endpoints', () => {
+  it('returns undefined for endpoints', () => {
     const ep = makeEndpoint();
     const entry = makeEntry();
     expect(republishAtCurrentVersion(ep, entry)).toBeUndefined();

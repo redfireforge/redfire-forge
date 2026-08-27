@@ -3,8 +3,7 @@
  *
  * The published package (v7.0.8) ships no type declarations and there is no
  * `@types/swagger2openapi`. We only use `convertObj` in object/offline mode,
- * so this declares just that surface. See
- * docs/plan/future/catalog/convert-swagger-to-openapi-plan.md (§6.1).
+ * so this declares just that surface.
  */
 declare module 'swagger2openapi' {
   export interface ConvertOptions {
