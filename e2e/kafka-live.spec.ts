@@ -21,7 +21,7 @@
 
 import { expect, test, type Page } from '@playwright/test';
 import { seedAppData } from './helpers';
-import { isSchemaRegistryReachable } from './kafka-docker-helpers';
+import { isSchemaRegistryReachable, selectCustomOption } from './kafka-docker-helpers';
 
 // ── Skip entire suite when backend / Docker infra is not running ──────────────
 
@@ -164,7 +164,7 @@ test.describe('Kafka Message Studio — Live Docker', () => {
     await page.waitForTimeout(400);
 
     await page.locator('input[placeholder="e.g. orders.events"]').fill('orders.created');
-    await page.getByLabel('Start Position').selectOption('earliest');
+    await selectCustomOption(page, page.getByLabel('Start Position'), 'Earliest');
     await page.getByLabel('Max Messages').fill('5');
 
     // Use the execute button (not the mode tab which also has text "Consume Once")
@@ -177,7 +177,9 @@ test.describe('Kafka Message Studio — Live Docker', () => {
 
     // Click last row to open detail pane
     await rows[rows.length - 1].click();
-    await expect(page.locator('button:has-text("Copy Payload")')).toBeVisible({ timeout: 3000 });
+    const detail = page.getByRole('dialog', { name: 'Message Detail' });
+    await expect(detail).toBeVisible({ timeout: 3000 });
+    await expect(detail.getByRole('button', { name: 'Copy' }).first()).toBeVisible();
   });
 
   test('Topics — lists topics with domain chips and opens orders.created detail', async ({ page }) => {
@@ -214,29 +216,24 @@ test.describe('Kafka Message Studio — Live Docker', () => {
     await page.locator('button:has-text("Schema Registry")').first().click();
     await page.waitForTimeout(400);
 
-    // Fill SR URL and connect
+    // Fill SR URL and connect / refresh subjects
     await page.locator('input[placeholder="http://localhost:8085"]').fill(SR_URL);
-    await page.locator('button:has-text("Connect to Registry")').click();
+    await page.getByRole('button', { name: /Connect to Registry|Refresh Subjects/i }).click();
     await page.waitForTimeout(3000);
 
-    // Subjects table should appear
-    await expect(page.locator('text=orders.created-value')).toBeVisible({ timeout: 8000 });
+    // Subjects table should appear (Docker SR uses orders-value, not orders.created-value)
+    await expect(page.locator('text=orders-value')).toBeVisible({ timeout: 8000 });
 
-    // Click orders.created-value
-    await page.locator('text=orders.created-value').click();
+    await page.locator('text=orders-value').click();
     await page.waitForTimeout(1000);
 
-    // Schema content should appear and show Avro badge (first match to avoid strict-mode violation)
     await expect(page.locator('text=Avro').first()).toBeVisible({ timeout: 5000 });
 
-    // Version dropdown should have at least v1
-    const versionOptions = await page.$$eval('select option', opts =>
-      opts.map(o => o.value),
-    );
-    expect(versionOptions.length).toBeGreaterThanOrEqual(1);
+    // Version picker is a CustomSelect — latest version should be selected after load
+    await expect(page.getByLabel('Schema version')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByLabel('Schema version')).toContainText(/v\d+/);
 
-    // Copy Schema button should be present
-    await expect(page.locator('button:has-text("Copy Schema")')).toBeVisible({ timeout: 3000 });
+    await expect(page.locator('[data-testid="copy-schema-btn"]')).toBeVisible({ timeout: 3000 });
   });
 });
 

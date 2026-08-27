@@ -71,9 +71,9 @@ export function WorkflowDesignerFlowCanvas({
     handleReactFlowInit,
     showMinimap,
     setShowMinimap,
-    undoRedo: _undoRedo,
-    handleUndoAction: _handleUndoAction,
-    handleRedoAction: _handleRedoAction,
+    undoRedo,
+    handleUndoAction,
+    handleRedoAction,
     handleAutoLayout,
     setNodes: _setNodes,
     runVariableSnapshot,
@@ -353,6 +353,10 @@ export function WorkflowDesignerFlowCanvas({
             disableLayout={!!previewWorkflow}
             savedViewport={selected.savedViewport}
             onAutoLayout={handleAutoLayout}
+            canUndo={undoRedo.canUndo()}
+            canRedo={undoRedo.canRedo()}
+            onUndo={handleUndoAction}
+            onRedo={handleRedoAction}
             onSaveLayout={() => {
               if (selected) {
                 persistWorkflow();
