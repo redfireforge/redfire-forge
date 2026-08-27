@@ -162,7 +162,8 @@ export async function prepareGql12DockerLesson(
   await page.waitForSelector('[data-testid="gql-studio-page"]', { timeout: 180_000 });
   await ensureGqlDemoHeaderSelected(page);
   await ensureGql3StudioEndpoint(page);
-  await waitForReadingPhase(page, 180_000);
+  // startLesson already waited for reading|done. Fast mode can finish step 1
+  // action while we patch the endpoint — do not require reading again.
 }
 
 /** GQL-13: Docker live endpoint + desktop mock proxy (port 3001) with Tauri shim. */
