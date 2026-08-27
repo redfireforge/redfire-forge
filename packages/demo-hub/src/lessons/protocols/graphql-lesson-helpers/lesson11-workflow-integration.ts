@@ -793,6 +793,14 @@ export async function demonstrateLesson11ObserveFailure(ctx: DemoActionContext):
  */
 export async function ensureLesson11GraphReadyForQuickTest(ctx: DemoActionContext): Promise<void> {
   await closeWfConfigModalIfOpen(ctx);
+  // Rapid Next: patches only work on an existing graph — rebuild when nodes are gone.
+  if (
+    !document.querySelector(GQL.WF_CANVAS_QUERY_NODE)
+    || !document.querySelector(GQL.WF_CANVAS_ASSERT_NODE)
+  ) {
+    await ensureLesson11AssertRuleConfigured(ctx, LESSON11_PASS_THRESHOLD_MS);
+    return;
+  }
   if (!isLesson11QueryConfiguredInWorkflow()) {
     patchLesson11QueryNodeQuiet();
     _lesson11QueryConfigured = true;
@@ -996,8 +1004,16 @@ export async function closeLesson11Console(ctx: DemoActionContext): Promise<void
 
 /** Reading pause before Debug Mode (threshold tightened; no Quick Test re-run). */
 export async function prepareGql11DebugReading(ctx: DemoActionContext): Promise<void> {
-  ensureLesson11FailThresholdQuiet();
   await closeWfConfigModalIfOpen(ctx);
+  await closeWfConsoleIfOpen(ctx);
+  // Rapid Next skips authoring steps — rebuild Start→Query→Assert when missing.
+  if (
+    !document.querySelector(GQL.WF_CANVAS_QUERY_NODE)
+    || !document.querySelector(GQL.WF_CANVAS_ASSERT_NODE)
+  ) {
+    await ensureLesson11AssertRuleConfigured(ctx, LESSON11_PASS_THRESHOLD_MS);
+  }
+  ensureLesson11FailThresholdQuiet();
 }
 
 /** Start a step-through Debug run and click Step on each paused node. */
