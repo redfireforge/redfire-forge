@@ -5,7 +5,7 @@
  * reason phrase, Format, headers, cookies, HTML/binary kinds, Apply, and the live
  * proof are authored in the UI. The listener is started quietly so Apply is a
  * hot-swap, not a first Start (AM-01 already taught that).
- * Curriculum: `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track C.
+ * Curriculum: API Mock demo curriculum v2 §5 Track C.
  */
 import { API_MOCK } from '@shared/selectors';
 import type { DemoLesson } from '../../types';

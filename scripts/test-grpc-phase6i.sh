@@ -12,8 +12,6 @@ echo "== Phase 6I: Deliverable files =="
 DELIVERABLES=(
   src/shared/grpc/grpcPhase6iAcceptance.test.ts
   scripts/test-grpc-phase6i.sh
-  docs/guides/grpc-phase6-runbook.md
-  docs/guides/grpc-phase6-validation-report.md
 )
 for deliverable in "${DELIVERABLES[@]}"; do
   if [[ ! -f "$ROOT/$deliverable" ]]; then

@@ -1,7 +1,7 @@
 {
   "_meta": {
     "feature": "SLA Dashboard (T-5)",
-    "description": "Test data for docs/plan/sla-dashboard-test-scenarios.md. Contains SLA target configurations, mock test runs for all visual test scenarios (Phases A-E, per-scenario SLA, workflow-scoped, embedded run-level), and CLI import test data (§5).",
+    "description": "Test data for SLA dashboard scenarios. Contains SLA target configurations, mock test runs for all visual test scenarios (Phases A-E, per-scenario SLA, workflow-scoped, embedded run-level), and CLI import test data (§5).",
     "appVersion": "0.5.9",
     "createdAt": "2026-05-24T00:00:00.000Z",
     "storageKeys": {

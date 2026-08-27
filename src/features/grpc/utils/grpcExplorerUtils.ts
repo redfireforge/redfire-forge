@@ -33,7 +33,7 @@ export function formatGrpcCallTypeLabel(callType: GrpcCallType): string {
   }
 }
 
-/** Short badge codes from `docs/plan/future/grpc/mockups/01-main-studio.html`. */
+/** Short badge codes for gRPC call types. */
 export function formatGrpcCallTypeBadge(callType: GrpcCallType): string {
   switch (callType) {
     case 'unary':
