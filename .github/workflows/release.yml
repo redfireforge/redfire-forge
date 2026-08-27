@@ -162,3 +162,34 @@ jobs:
       - name: Cleanup macOS keychain
         if: matrix.platform == 'macos-latest' && always()
         run: security delete-keychain build.keychain 2>/dev/null || true
+
+  sbom:
+    name: Generate SBOM
+    needs: build
+    # Only for an actual tag push — a manual workflow_dispatch test run has no
+    # tag to attach the asset to.
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          format: spdx-json
+          output-file: sbom.spdx.json
+          # This workflow triggers on `push: tags`, not the native `release`
+          # event, and tauri-action (not this action) owns release creation —
+          # disable the action's own auto-upload heuristic so there is exactly
+          # one, explicit upload path below instead of two ambiguous ones.
+          upload-release-assets: false
+
+      - name: Upload SBOM to the release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # tauri-action creates the (draft) release per matrix leg above; attach
+        # the SBOM as an extra asset via the tag name rather than the
+        # deprecated actions/upload-release-asset@v1 + upload_url pattern.
+        run: gh release upload "${{ github.ref_name }}" sbom.spdx.json --clobber

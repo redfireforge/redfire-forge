@@ -226,7 +226,7 @@ export async function selectWsCustomSelect(
 ): Promise<void> {
   const wrapper = page.getByTestId(testId);
   await wrapper.locator('.cs-trigger').click();
-  const menu = page.locator('.cs-menu');
+  const menu = page.locator('.cs-menu[role="listbox"]');
   await menu.waitFor({ state: 'visible', timeout: 5000 });
   if (option.value) {
     await menu.locator(`.cs-item[data-value="${option.value}"]`).click();
@@ -237,6 +237,19 @@ export async function selectWsCustomSelect(
   }
 }
 
+/** Open a portaled CustomSelect and return option `data-value` strings. */
+export async function listWsCustomSelectOptions(page: Page, testId: string): Promise<string[]> {
+  const wrapper = page.getByTestId(testId);
+  await wrapper.locator('.cs-trigger').click();
+  const menu = page.locator('.cs-menu[role="listbox"]');
+  await menu.waitFor({ state: 'visible', timeout: 5000 });
+  const values = await menu.locator('.cs-item[data-value]').evaluateAll(
+    (els) => els.map((el) => el.getAttribute('data-value')).filter((v): v is string => Boolean(v)),
+  );
+  await page.keyboard.press('Escape');
+  return values;
+}
+
 /** Select a CustomSelect by the trigger's aria-label (no data-testid). */
 export async function selectWsCustomSelectByAriaLabel(
   page: Page,
@@ -244,7 +257,7 @@ export async function selectWsCustomSelectByAriaLabel(
   label: string,
 ): Promise<void> {
   await page.locator(`button[aria-label="${ariaLabel}"]`).first().click();
-  const menu = page.locator('.cs-menu');
+  const menu = page.locator('.cs-menu[role="listbox"]');
   await menu.waitFor({ state: 'visible', timeout: 5000 });
   await menu.locator('.cs-item', { hasText: label }).first().click();
 }
