@@ -9,7 +9,7 @@ import { beginApiMockDemoPersistence, resetApiMockWorkspaceSnapshot } from './ap
 /** Creating a server asks the control plane for a free port, so it settles async. */
 async function createFirstServer() {
   render(<ApiMockStudioPage />);
-  fireEvent.click(screen.getByTestId('api-mock-landing-create'));
+  fireEvent.click(await screen.findByTestId('api-mock-landing-create'));
   await screen.findByTestId('api-mock-server-bar');
 }
 
@@ -28,9 +28,9 @@ describe('ApiMockStudioPage', () => {
     localStorage.clear();
     resetApiMockWorkspaceSnapshot();
   });
-  it('renders the library landing with create button', () => {
+  it('renders the library landing with create button', async () => {
     render(<ApiMockStudioPage />);
-    expect(screen.getByTestId('api-mock-library-landing')).toBeTruthy();
+    expect(await screen.findByTestId('api-mock-library-landing')).toBeTruthy();
     expect(screen.getByTestId('api-mock-landing-create')).toBeTruthy();
   });
 

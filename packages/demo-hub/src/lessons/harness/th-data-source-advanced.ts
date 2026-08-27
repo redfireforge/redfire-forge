@@ -468,12 +468,17 @@ export const thDataSourceAdvancedLesson: DemoLesson = {
       pauseAfter: true,
 
       preAction: async (ctx) => {
-        // Force re-seed so validate column maps to $.name (live jsonplaceholder names)
-        await ensureTh18Ready(ctx, { forceSeed: true, includeNameColumn: true });
         closeRowDetailModal();
         closeContractPanel();
         closeSharedDsModal();
         closeVerifyModal();
+        // Only force re-seed when the validate column is missing (rapid-Next / restart).
+        // After step 2 the grid already has $.name — re-seeding wipes saves and stalls E2E.
+        if (!document.querySelector(HAR.DS_COL_MAPPING)) {
+          await ensureTh18Ready(ctx, { forceSeed: true, includeNameColumn: true });
+        } else {
+          await ensureTh18Ready(ctx);
+        }
         await ensureOnDataTab(ctx);
         closeVerifyModal();
         await ctx.delay(300);

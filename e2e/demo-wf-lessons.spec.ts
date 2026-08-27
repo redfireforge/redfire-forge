@@ -1,5 +1,6 @@
 /**
- * Demo Hub — Workflows domain lesson smoke walks (WF-1 … WF-8).
+ * Demo Hub — Workflows domain lesson smoke walks (WF-1 … WF-8, excluding WF-HAR).
+ * HAR import lesson lives in demo-workflow-har-import.spec.ts.
  *
  * Run one lesson:
  *   npx playwright test --project=demo-wf e2e/demo-wf-lessons.spec.ts -g "WF-1" --reporter=html --workers=1
@@ -85,6 +86,7 @@ test('WF-7: Versioning, Services & Catalog Integration', async ({ page }) => {
     actionTimeoutMs: 240_000,
   });
 });
+
 
 test('WF-8: Protocol Nodes Overview', async ({ page }) => {
   test.setTimeout(600_000);

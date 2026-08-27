@@ -24,7 +24,7 @@ describe('sampleWorkflowCatalog', () => {
   });
 
   it('every category is valid', () => {
-    const validCategories: SampleCategory[] = ['api-patterns', 'flow-control', 'event-driven', 'orchestration', 'performance'];
+    const validCategories: SampleCategory[] = ['api-patterns', 'flow-control', 'event-driven', 'orchestration', 'performance', 'grpc', 'websocket'];
     for (const entry of sampleWorkflowCatalog) {
       expect(validCategories).toContain(entry.category);
     }

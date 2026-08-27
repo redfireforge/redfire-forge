@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest';
 import { apiMockLessons } from './api-mock-lessons';
 
 describe('API Mock lesson roster (curriculum v2)', () => {
-  it('registers lessons in AM-01 … AM-24 order with unique ids', () => {
+  it('registers lessons in AM-01 … AM-25 order with unique ids', () => {
     const ids = apiMockLessons.map(l => l.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toEqual([...ids].sort());
@@ -86,6 +86,18 @@ describe('API Mock lesson roster (curriculum v2)', () => {
       'live',
       'export',
       'ship',
+    ]);
+  });
+
+  it('AM-25 round-trip follows import → enable → replay → compare → modal → report order', () => {
+    const am25 = apiMockLessons.find(l => l.id === 'am-25-har-roundtrip');
+    expect(am25?.steps.map(s => s.id)).toEqual([
+      'import',
+      'enable',
+      'replay',
+      'compare',
+      'modal',
+      'report',
     ]);
   });
 });

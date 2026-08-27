@@ -17,18 +17,21 @@ test.describe('Gallery Page', () => {
 
   test('gallery shows domain filter buttons', async ({ page }) => {
     const domainBtns = page.locator('.gallery-domain-btn');
-    // All + every registered gallery domain (requests, catalog, tests, workflows, assertions, data-mapper, api-mock, grpc, websocket).
-    await expect(domainBtns).toHaveCount(10);
+    // All + 10 registered gallery domains (see src/data/galleries/registry.ts).
+    await expect(domainBtns).toHaveCount(11);
   });
 
   test('can filter by domain', async ({ page }) => {
-    const allCards = await page.locator('.gallery-card').count();
-    // Click Assertions domain (has fewer than page-size entries)
-    await page.locator('.gallery-domain-btn', { hasText: 'Assertions' }).click();
+    const countLine = page.locator('.gallery-result-count');
+    const allCount = await countLine.textContent();
+    // SSE has only a handful of entries — much smaller than the full gallery.
+    await page.locator('.gallery-domain-btn', { hasText: 'SSE' }).click();
     await page.waitForTimeout(200);
+    const sseCount = await countLine.textContent();
+    expect(sseCount).not.toEqual(allCount);
     const filteredCards = await page.locator('.gallery-card').count();
-    expect(filteredCards).toBeLessThan(allCards);
     expect(filteredCards).toBeGreaterThan(0);
+    expect(filteredCards).toBeLessThan(12);
   });
 
   test('can search gallery entries', async ({ page }) => {
@@ -139,7 +142,7 @@ test.describe('Gallery Page', () => {
   });
 
   test('importing a workflow entry navigates to workflow tab', async ({ page }) => {
-    await page.locator('.gallery-domain-btn', { hasText: 'Workflows' }).click();
+    await page.locator('.gallery-domain-btn', { hasText: 'Workflow' }).click();
     await page.waitForTimeout(200);
     await page.locator('.gallery-card').first().click();
     await page.locator('.gallery-detail-btn-primary').click();

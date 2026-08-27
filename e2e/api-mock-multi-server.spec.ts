@@ -98,11 +98,13 @@ test('API Mock multi-server lifecycle (§12.2)', async ({ page, request }) => {
     page,
     `http://localhost:${USERS_PORT}${USERS_PATH}`,
     'users',
+    request,
   );
   await sendFromRequestsStudio(
     page,
     `http://localhost:${PAYMENTS_PORT}${PAYMENTS_PATH}`,
     'payments',
+    request,
   );
 
   await switchToApiMockStudio(page);
