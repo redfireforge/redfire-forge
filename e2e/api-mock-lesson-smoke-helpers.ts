@@ -50,7 +50,7 @@ export const AM_LESSON_STEPS: Record<string, number> = {
   am12: 8,
   am13: 8,
   am14: 8,
-  am15: 10,
+  am15: 12,
   am16: 6,
   am17: 8,
   am18: 8,

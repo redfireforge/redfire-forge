@@ -1,6 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { loadSavedThemes, isCustomThemeId, findSavedTheme, applyCustomTheme, clearCustomOverrides } from '../themeCustomizerUtils';
-import { saveTheme } from '@shared/utils/storage';
+import { saveTheme, readKey } from '@shared/utils/storage';
+import { THEME_KEY } from '@shared/utils/storageKeys';
+import { isTauri } from '@shared/utils/platform';
 
 const THEMES = [
   { group: 'Dark', items: [
@@ -28,13 +30,77 @@ const THEME_ICONS: Record<string, string> = {
   custom: '🎨',
 };
 
+/**
+ * Synchronously read a previously saved theme in browser mode (localStorage is
+ * synchronous). Tauri's store is async — restored separately in an effect on
+ * mount, since it cannot be read before first render.
+ */
+function getSavedThemeSync(): string | null {
+  if (isTauri()) return null;
+  try {
+    return localStorage.getItem(THEME_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** True when the OS/browser reports a light color-scheme preference. */
+function prefersLightScheme(): boolean {
+  return typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(prefers-color-scheme: light)').matches;
+}
+
+/** Saved preference always wins; otherwise fall back to system preference. */
+function getInitialTheme(): string {
+  const saved = getSavedThemeSync();
+  if (saved) return saved;
+  return prefersLightScheme() ? 'light' : 'dark';
+}
+
 export function useTheme() {
-  const [theme, setTheme] = useState<string>('dark');
+  const [theme, rawSetTheme] = useState<string>(getInitialTheme);
+  // True once the theme reflects an explicit user choice (or a restored saved
+  // value) rather than the system-preference auto-default. Gates persistence
+  // and stops the live system-preference listener from overriding a real pick.
+  const explicitPreferenceRef = useRef<boolean>(getSavedThemeSync() !== null);
   const [showCustomizer, setShowCustomizer] = useState(false);
   const [themePickerOpen, setThemePickerOpen] = useState(false);
   const themePickerRef = useRef<HTMLDivElement>(null);
 
-  // Apply theme to DOM + persist
+  /** Public setter — any explicit call marks the theme as a real user choice. */
+  const setTheme = useCallback((next: string) => {
+    explicitPreferenceRef.current = true;
+    rawSetTheme(next);
+  }, []);
+
+  // Tauri's store is async — getInitialTheme() cannot read it synchronously,
+  // so restore any previously saved theme once here after mount.
+  useEffect(() => {
+    if (!isTauri()) return;
+    let cancelled = false;
+    readKey(THEME_KEY).then((saved) => {
+      if (!cancelled && saved) setTheme(saved);
+    }).catch(() => { /* keep the system-preferred default */ });
+    return () => { cancelled = true; };
+  }, [setTheme]);
+
+  // Live system theme changes only take effect until the user makes an
+  // explicit choice (or a saved preference is restored) — then this no-ops.
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e: MediaQueryListEvent) => {
+      if (explicitPreferenceRef.current) return;
+      rawSetTheme(e.matches ? 'dark' : 'light');
+    };
+    mq.addEventListener('change', handleChange);
+    return () => mq.removeEventListener('change', handleChange);
+  }, []);
+
+  // Apply theme to DOM + persist (only once an explicit preference exists —
+  // an auto-derived default is never written to storage, so the live listener
+  // above keeps tracking system changes across the whole session).
   useEffect(() => {
     if (theme === 'custom') {
       // Legacy migration: single-custom → named custom theme
@@ -49,8 +115,8 @@ export function useTheme() {
       clearCustomOverrides();
       document.documentElement.setAttribute('data-theme', theme);
     }
-    saveTheme(theme);
-  }, [theme]);
+    if (explicitPreferenceRef.current) saveTheme(theme);
+  }, [theme, setTheme]);
 
   // Close picker on outside click
   useEffect(() => {

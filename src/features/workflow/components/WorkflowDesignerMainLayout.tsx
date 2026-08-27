@@ -45,6 +45,7 @@ export default function WorkflowDesignerMainLayout(vm: WorkflowDesignerViewModel
         runProgress={vm.runProgress}
         onReset={vm.handleResetRunStatus}
         onRunInHarness={onRunInHarness ? () => onRunInHarness(selected.id) : undefined}
+        onHarFileParsed={vm.handleHarFileParsed}
       />
 
       {/* SLA-B8: design-time SLA target editor — primary edit point for workflow-level SLA */}

@@ -35,6 +35,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { seedAppData } from './helpers';
 import {
   connectKafkaClusterInSettings,
+  selectCustomOption,
   disconnectKafkaClusterBackend,
   expectKafkaTestConnectionFailed,
   gotoKafkaPublishTab,
@@ -75,7 +76,6 @@ const TLS_CLUSTER_NAME = 'TLS Demo';
 const TLS_USERNAME = 'redfireforge-app';
 const TLS_PASSWORD = 'app-password';
 // Must match the <option value="scram-sha-256"> in KafkaClusterEditor
-const TLS_MECHANISM_VALUE = 'scram-sha-256';
 const TLS_TOPIC = 'redfireforge.workflow.test'; // pre-created by init container
 const TLS_WRONG_CLUSTER_NAME = 'TLS Demo Bad Password';
 
@@ -126,10 +126,10 @@ async function fillTlsClusterForm(page: Page): Promise<void> {
   await brokerInput.fill(TLS_BROKER);
   await page.waitForTimeout(200);
 
-  // Auth Mode → scram-sha-256 (matches the option value attribute, not label text)
-  const authSelect = editor.locator('#kafka-auth-mode');
+  // Auth Mode → SCRAM-SHA-256 (CustomSelect, not native <select>)
+  const authSelect = editor.getByLabel('Mechanism');
   await expect(authSelect).toBeVisible({ timeout: 5000 });
-  await authSelect.selectOption(TLS_MECHANISM_VALUE);
+  await selectCustomOption(page, authSelect, 'SCRAM-SHA-256');
   await page.waitForTimeout(300);
 
   // Username + password

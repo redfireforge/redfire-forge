@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type {
   ApiMockConflictFindingV1,
+  ApiMockHarSourceEntryV1,
   ApiMockRouteV1,
   ApiMockServerDefinitionV1,
   ApiMockServerSettingsV1,
@@ -9,6 +10,8 @@ import type {
 } from '@shared/api-mock/contracts';
 import { handleTabListArrowKeys } from '@shared/utils/tabListKeyboard';
 import {
+  buildRoundTripReport,
+  exportRoundTripReport,
   exportTransactionsJson,
   filterTransactions,
 } from '../apiMockJournalActions';
@@ -16,6 +19,7 @@ import type { ApiMockConsoleLine } from '../useApiMockConsole';
 import { ApiMockConflictInspector } from './ApiMockConflictInspector';
 import { ChevronDownIcon, ChevronUpIcon, MaximizeIcon, MinimizeIcon, PlusIcon, TrashIcon } from './ApiMockIcons';
 import { deriveScenarioModel, timeOf } from './apiMockDockHelpers';
+import { ApiMockHarCompareModal } from './ApiMockHarCompareModal';
 import { ApiMockTransactionDetail } from './ApiMockTransactionDetail';
 import { ApiMockRuntimeGuide } from './ApiMockRuntimeGuide';
 import { ApiMockRuntimeSettingsPanel } from './ApiMockRuntimeSettingsPanel';
@@ -153,6 +157,21 @@ export function ApiMockDock({
   );
   const selected = filteredTransactions.find(t => t.id === selectedTxId)
     ?? transactions.find(t => t.id === selectedTxId);
+
+  // B-3b: map routeId → harSourceEntry for Compare button lookup
+  const routeHarSourceMap = useMemo(
+    () => new Map<string, ApiMockHarSourceEntryV1>(
+      routes.flatMap(r => r.harSourceEntry ? [[r.id, r.harSourceEntry]] : []),
+    ),
+    [routes],
+  );
+  const hasHarRoutes = routeHarSourceMap.size > 0;
+  const selectedTxHarSource = selected
+    ? routeHarSourceMap.get(selected.matchedRouteId ?? '')
+    : undefined;
+
+  // B-3b: state for HAR comparison modal
+  const [compareHarTx, setCompareHarTx] = useState<ApiMockTransactionV1 | null>(null);
   const splitContainerRef = useRef<HTMLDivElement>(null);
   const { width: listWidth, dividerProps } = useSplitPaneResize({
     storageKey: TX_SPLIT_STORAGE_KEY,
@@ -319,6 +338,20 @@ export function ApiMockDock({
                 >
                   Export
                 </button>
+                {hasHarRoutes && (
+                  <button
+                    type="button"
+                    className="am-btn small"
+                    onClick={() => exportRoundTripReport(
+                      buildRoundTripReport(transactions, routes),
+                      server?.name,
+                    )}
+                    data-testid="api-mock-journal-compare-report"
+                    title="Export HAR round-trip comparison report"
+                  >
+                    HAR report
+                  </button>
+                )}
                 <button type="button" className="am-btn small danger" onClick={onClearTransactions} data-testid="api-mock-journal-clear">
                   Clear
                 </button>
@@ -419,6 +452,8 @@ export function ApiMockDock({
                       onCreateRouteFromTransaction={onCreateRouteFromTransaction}
                       onSaveSampleFromTransaction={onSaveSampleFromTransaction}
                       onCopyTransaction={onCopyTransaction}
+                      matchedRouteHarSource={selectedTxHarSource}
+                      onCompareHar={selectedTxHarSource ? () => setCompareHarTx(selected) : undefined}
                     />
                   </>
                 )
@@ -605,6 +640,13 @@ export function ApiMockDock({
           <ApiMockConsolePanel lines={consoleLines} onClear={onClearConsole} />
         )}
       </div>
+      {compareHarTx && routeHarSourceMap.get(compareHarTx.matchedRouteId ?? '') && (
+        <ApiMockHarCompareModal
+          tx={compareHarTx}
+          harSource={routeHarSourceMap.get(compareHarTx.matchedRouteId ?? '')!}
+          onClose={() => setCompareHarTx(null)}
+        />
+      )}
     </div>
   );
 }

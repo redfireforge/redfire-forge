@@ -18,6 +18,7 @@ const mockLoadRequests = vi.mocked(loadRequests);
 describe('ApiMockImportReview', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    Element.prototype.scrollIntoView = vi.fn();
     mockLoadCatalog.mockResolvedValue([
       {
         id: 'cat-1',

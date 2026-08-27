@@ -83,6 +83,12 @@ export type DemoBridgeWindow = Window &
     };
     __wfQuickTest?: () => void;
     __wfCloseConfigModal?: () => void;
+    /**
+     * Parse HAR JSON text and open the Workflow Designer HAR import preview modal —
+     * avoids driving the native OS file picker, which cannot be automated.
+     * Used by the `wf-har-import` demo lesson.
+     */
+    __wfTriggerHarImport?: (harText: string, fileName?: string) => void;
     __demoSeedHarnessTarget?: () => { envId: string; svcId: string } | null;
     __demoSeedFeatureGroup?: (fg: Record<string, unknown>) => void;
     __demoSelectEnvSvc?: (envId: string, svcId: string) => void;
@@ -273,6 +279,10 @@ export type DemoBridgeWindow = Window &
       serverId?: string;
       timeoutMs?: number;
     }) => Promise<{ status: number; body: string } | null>;
+    /** E2E: jump to a step's reading phase (preAction only — skips action/verify). */
+    __demoGoToStepReadingOnly?: (index: number) => Promise<void>;
+    /** E2E: run action/verify for the current step from its reading phase. */
+    __demoFinishStepFromReading?: () => Promise<void>;
   };
 
 export function getDemoBridgeWindow(): DemoBridgeWindow {

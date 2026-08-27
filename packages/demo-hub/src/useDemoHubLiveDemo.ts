@@ -37,6 +37,7 @@ import {
   runGqlStudioLessonTeardown,
   runGrpcDemoStorageHygiene,
 } from './useDemoHubHelpers';
+import { isDemoE2EFastMode } from './demoE2EFastMode';
 import { purgeAllSpotlightRings } from './demoRipple';
 import { clearDemoBootFreeze, installDemoBootFreeze, revealDemoBootSurface } from './demoBootFreeze';
 import { clearDemoInitialSurface, setDemoInitialSurface } from '@shared/demoInitialSurface';
@@ -62,7 +63,7 @@ export interface UseDemoHubLiveDemoOptions {
   executeCurrentStep: (
     step: DemoStep,
     speed: SpeedMultiplier,
-    options?: { skipReading?: boolean; stepIndex?: number },
+    options?: { skipReading?: boolean; stepIndex?: number; stopAfterReading?: boolean },
   ) => Promise<void>;
   finishCurrentStepFromReading: (step: DemoStep, speed: SpeedMultiplier) => Promise<void>;
   syncGqlModalLockForLessonStep: (lesson: DemoLesson, stepIndex: number, step: DemoStep) => void;
@@ -344,6 +345,39 @@ export function useDemoHubLiveDemo({
     }
   }, [state.selectedLesson, state.speed, executeCurrentStep, progress, syncGqlModalLockForLessonStep, autoPlayRef, autoPlayGenRef, abortRef, setStepPhase, setState]);
 
+  /** E2E-only: run preAction + reading for a step, skip action/verify (rapid-Next recovery tests). */
+  const goToStepReadingOnly = useCallback(async (index: number) => {
+    const lesson = state.selectedLesson;
+    if (!lesson) return;
+    const clamped = Math.max(0, Math.min(index, lesson.steps.length - 1));
+    if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
+    autoPlayGenRef.current++;
+    abortRef.current?.abort();
+    skipReadingRef.current?.();
+    skipReadingRef.current = null;
+    setStepPhase('pre');
+    const targetStep = lesson.steps[clamped];
+    if (isGraphqlStudioLesson(lesson)) {
+      syncGqlModalLockForLessonStep(lesson, clamped, targetStep);
+    }
+    setState(prev => ({ ...prev, stepIndex: clamped, isPlaying: false }));
+    await executeCurrentStep(targetStep, state.speed, {
+      stepIndex: clamped,
+      stopAfterReading: true,
+      skipReading: isDemoE2EFastMode(),
+    });
+    progress.setLessonStep(lesson.id, clamped);
+  }, [state.selectedLesson, state.speed, executeCurrentStep, progress, syncGqlModalLockForLessonStep, autoPlayRef, autoPlayGenRef, abortRef, skipReadingRef, setStepPhase, setState]);
+
+  /** Finish the current step's action/verify from reading (E2E rapid-advance recovery). */
+  const finishCurrentStepAction = useCallback(async () => {
+    const lesson = state.selectedLesson;
+    if (!lesson) return;
+    const step = lesson.steps[state.stepIndex];
+    if (!step) return;
+    await finishCurrentStepFromReading(step, state.speed);
+  }, [state.selectedLesson, state.stepIndex, state.speed, finishCurrentStepFromReading]);
+
   const nextStep = useCallback(async () => {
     const lesson = state.selectedLesson;
     if (!lesson) return;
@@ -624,6 +658,8 @@ export function useDemoHubLiveDemo({
     startLiveDemo,
     exitLiveDemo,
     goToStep,
+    goToStepReadingOnly,
+    finishCurrentStepAction,
     nextStep,
     toggleAutoPlay,
     restartDemo,

@@ -182,6 +182,18 @@ export interface ApiMockRouteFolderV1 {
 
 // ── Route ───────────────────────────────────────────────────────────
 
+/** HAR-origin metadata attached to a route created via HAR import. Non-breaking: absent on non-HAR routes. */
+export interface ApiMockHarSourceEntryV1 {
+  /** Original HTTP response status from the HAR entry. */
+  originalStatus: number;
+  /** Original response body (truncated to 4 KB). */
+  originalBody?: string;
+  /** Original response Content-Type. */
+  originalContentType?: string;
+  /** SHA-256 of "METHOD::path::body.slice(0,512)" — used to match journal transactions back to HAR entries. */
+  requestFingerprint: string;
+}
+
 export interface ApiMockRouteV1 {
   id: string;
   folderId?: string;
@@ -197,6 +209,8 @@ export interface ApiMockRouteV1 {
   operationId?: string;
   createdAt: string;
   updatedAt: string;
+  /** Source HAR entry metadata — present when route was created from a HAR import. */
+  harSourceEntry?: ApiMockHarSourceEntryV1;
 }
 
 // ── Settings ────────────────────────────────────────────────────────

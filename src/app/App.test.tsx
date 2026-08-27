@@ -10,7 +10,7 @@
  * mocked AppActivityBar stub (which exposes a `goto-<tab>` button per tab) and
  * via `window.location` for the initial-tab read.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
 import type { Ref } from 'react';
 import { sampleWorkflowCatalog } from '../data/galleries/workflows';
@@ -644,19 +644,29 @@ vi.mock('../features/grpc/GrpcStudioPage', () => ({
   GrpcStudioPage: () => <div data-testid="grpc-studio-page" />,
 }));
 
-vi.mock('./demo/DemoShellHost', () => ({
-  DemoShellHost: (props: Record<string, unknown>) => {
-    queueMicrotask(() => {
-      const navigate = props.navigateToTab as ((tab: string) => void) | undefined;
-      navigate?.('workflow');
-    });
-    return <div id="demo-hub-mount" data-testid="demo-shell-host" />;
-  },
-}));
+vi.mock('./demo/DemoShellHost', () => {
+  // Off by default — only 'DemoShellHost navigateToTab uses flushSync tab switch'
+  // opts in. Auto-navigating on every mount would leak an unflushed async state
+  // update into every other test that renders <App /> without an explicit flush.
+  let autoNavigateOnMount = false;
+  return {
+    DemoShellHost: (props: Record<string, unknown>) => {
+      if (autoNavigateOnMount) {
+        queueMicrotask(() => {
+          const navigate = props.navigateToTab as ((tab: string) => void) | undefined;
+          navigate?.('workflow');
+        });
+      }
+      return <div id="demo-hub-mount" data-testid="demo-shell-host" />;
+    },
+    __setDemoShellHostAutoNavigate: (value: boolean) => { autoNavigateOnMount = value; },
+  };
+});
 
 import App from './App';
 import { demoHubRuntimeRef } from './demo/demoHubRuntimeRef';
 import { readKey, ensureBrowserLargeDataMigrated } from '@shared/utils/storage';
+import { __setDemoShellHostAutoNavigate } from './demo/DemoShellHost';
 
 // real sample workflow id for the load-template happy path
 (h as unknown as { realSampleId: string }).realSampleId = sampleWorkflowCatalog[0]?.id ?? 'unknown';
@@ -684,13 +694,38 @@ function resetState() {
   h.demoLive.purge.mockClear();
 }
 
+// DemoShellHost is lazy-loaded (React.lazy + Suspense) and always mounted when
+// DEMO_HUB_ENABLED is true. The first `render(<App />)` in the whole file to
+// resolve that dynamic import does so outside any single test's act() scope,
+// tripping a false-positive "not wrapped in act(...)" warning on whichever test
+// happens to run first. Warm it up once here so every test after this already
+// sees a resolved module and a settled Suspense boundary.
+beforeAll(async () => {
+  const { unmount } = render(<App />);
+  await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+  unmount();
+});
+
 beforeEach(() => {
   resetAllMocks();
   resetState();
   window.history.pushState({}, '', '/');
+  __setDemoShellHostAutoNavigate(false);
 });
 
-afterEach(() => cleanup());
+afterEach(async () => {
+  // Several App mount effects are genuinely async (storage readKey/
+  // ensureBrowserLargeDataMigrated resolution, DemoShellHost's lazy Suspense
+  // settling, demoLive.hasRestorable). A test that doesn't explicitly await
+  // its own render leaves these pending; if they resolve after this test
+  // already returned, React attributes the "not wrapped in act(...)" warning
+  // to whichever test happens to be running next. Flush them here — while
+  // the tree is still mounted, so any resulting update lands on a live
+  // component instead of triggering a *different* unmounted-update warning —
+  // before tearing down.
+  await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+  cleanup();
+});
 
 function goto(tab: string) {
   fireEvent.click(screen.getByTestId(`goto-${tab}`));
@@ -1078,7 +1113,7 @@ describe('App — requests / catalog sidebar handlers', () => {
 });
 
 describe('App — ApiCatalog page handlers', () => {
-  it('wires the ApiCatalog callbacks', () => {
+  it('wires the ApiCatalog callbacks', async () => {
     render(<App />);
     fireEvent.click(screen.getByTestId('ac-import'));
     expect(h.catalogState.setShowCatalogImport).toHaveBeenCalledWith(true);
@@ -1101,7 +1136,13 @@ describe('App — ApiCatalog page handlers', () => {
     expect(h.catalogExport.handleExportSingleEndpoint).toHaveBeenCalled();
     fireEvent.click(screen.getByTestId('ac-export-confirm'));
     expect(h.catalogExport.handleInlineExportConfirm).toHaveBeenCalledWith({ ok: true });
-    fireEvent.click(screen.getByTestId('ac-previews-changed'));
+    // refreshWfPreviews() → loadWorkflowPreviews().then(setWfPreviewEndpoints)
+    // is a genuine async chain — flush it inside act() so its state update
+    // doesn't resolve after this test has already returned.
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('ac-previews-changed'));
+      await new Promise((r) => setTimeout(r, 0));
+    });
   });
 
   it('opens export-to-api-mock modal from catalog endpoint export', () => {
@@ -1395,7 +1436,11 @@ describe('App — coverage gaps', () => {
     delete (window as unknown as { __wfRunnerApplySelection?: unknown }).__wfRunnerApplySelection;
     h.wfHook.workflows = [{ id: 'wf-99', name: 'Runner Target' }];
     render(<App />);
-    expect((window as unknown as { __wfRunnerSelectByName: (n: string) => boolean }).__wfRunnerSelectByName('Runner Target')).toBe(true);
+    let result = false;
+    act(() => {
+      result = (window as unknown as { __wfRunnerSelectByName: (n: string) => boolean }).__wfRunnerSelectByName('Runner Target');
+    });
+    expect(result).toBe(true);
     goto('workflow-runner');
     expect(screen.getByTestId('workflow-runner')).toBeTruthy();
   });
@@ -1484,6 +1529,7 @@ describe('App — coverage gaps', () => {
   });
 
   it('DemoShellHost navigateToTab uses flushSync tab switch', async () => {
+    __setDemoShellHostAutoNavigate(true);
     render(<App />);
     await act(async () => { await Promise.resolve(); });
     expect(screen.getByTestId('workflow-sidebar')).toBeTruthy();
@@ -1514,9 +1560,10 @@ describe('App — coverage gaps', () => {
     expect(document.getElementById('demo-hub-mount')).toBeNull();
   });
 
-  it('opens api mock journal entry in requests using existing collection', () => {
+  it('opens api mock journal entry in requests using existing collection', async () => {
     h.wb.collections = [{ id: 'journal-col', name: 'API Mock Journal', requests: [], folders: [] }];
     render(<App />);
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     act(() => {
       window.dispatchEvent(new CustomEvent(API_MOCK_OPEN_IN_REQUESTS_EVENT, {
         detail: {
@@ -1528,6 +1575,7 @@ describe('App — coverage gaps', () => {
         },
       }));
     });
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     expect(h.wb.addCollection).not.toHaveBeenCalled();
     expect(h.wb.addRequest).toHaveBeenCalledWith('journal-col', undefined, 'Mock GET /pets');
     expect(h.wb.updateRequest).toHaveBeenCalledWith('journal-col', 'new-req', expect.objectContaining({
@@ -1538,9 +1586,10 @@ describe('App — coverage gaps', () => {
     expect(screen.getByTestId('requests-page')).toBeTruthy();
   });
 
-  it('creates API Mock Journal collection when opening mock entry in requests', () => {
+  it('creates API Mock Journal collection when opening mock entry in requests', async () => {
     h.wb.collections = [];
     render(<App />);
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     act(() => {
       window.dispatchEvent(new CustomEvent(API_MOCK_OPEN_IN_REQUESTS_EVENT, {
         detail: {
@@ -1552,22 +1601,25 @@ describe('App — coverage gaps', () => {
         },
       }));
     });
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     expect(h.wb.addCollection).toHaveBeenCalledWith({ name: 'API Mock Journal', mode: 'direct' });
     expect(h.wb.updateRequest).toHaveBeenCalledWith('new-col', 'new-req', expect.objectContaining({
       bodyType: 'none',
     }));
   });
 
-  it('ignores api mock open-in-requests events without detail', () => {
+  it('ignores api mock open-in-requests events without detail', async () => {
     render(<App />);
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     act(() => {
       window.dispatchEvent(new CustomEvent(API_MOCK_OPEN_IN_REQUESTS_EVENT));
     });
     expect(h.wb.addRequest).not.toHaveBeenCalled();
   });
 
-  it('removes api mock open-in-requests listener on unmount', () => {
+  it('removes api mock open-in-requests listener on unmount', async () => {
     const { unmount } = render(<App />);
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     const addSpy = vi.spyOn(window, 'addEventListener');
     const removeSpy = vi.spyOn(window, 'removeEventListener');
     unmount();

@@ -1,7 +1,16 @@
 /**
  * Shared helpers for live Docker-backed Kafka E2E specs.
  */
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
+
+/** Pick an option from a CustomSelect (pass wrapper, trigger, or aria-label locator). */
+export async function selectCustomOption(page: Page, select: Locator, label: string): Promise<void> {
+  const wrapper = select.locator('xpath=ancestor-or-self::*[contains(@class,"cs-wrapper")]').first();
+  await wrapper.locator('.cs-trigger').click();
+  const menu = page.locator('.cs-menu[role="listbox"]');
+  await menu.waitFor({ state: 'visible', timeout: 5000 });
+  await menu.locator('.cs-item[role="option"]', { hasText: label }).click();
+}
 
 /** Enable auto-connect so Message Studio reconnects after a full page reload. */
 export async function seedKafkaAutoConnect(page: Page): Promise<void> {

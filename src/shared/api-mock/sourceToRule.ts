@@ -14,6 +14,7 @@ import type {
 } from './contracts';
 import { createDefaultResponse, EMPTY_PREDICATE_GROUP } from './defaults';
 import { normalizePathMatcher } from './pathMatcher';
+import { sha256HexSync } from './sha256Sync';
 
 export interface SourceRequest {
   method: string;
@@ -113,6 +114,18 @@ export function convertSourceToRule(input: SourceRequest, options: ConversionOpt
     createdAt: ts,
     updatedAt: ts,
   };
+
+  if (options.sourceKind === 'har' && input.status) {
+    route.harSourceEntry = {
+      originalStatus: input.status,
+      originalBody: input.responseBody?.slice(0, 4096),
+      originalContentType: input.responseContentType,
+      // Use normalized uppercase method so fingerprint matches journal transaction lookups.
+      requestFingerprint: sha256HexSync(
+        `${method}::${input.path}::${(input.body ?? '').slice(0, 512)}`,
+      ),
+    };
+  }
 
   const captured: ApiMockCapturedRequestV1 = {
     method,

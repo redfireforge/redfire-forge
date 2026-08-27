@@ -28,6 +28,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { seedAppData } from './helpers';
 import {
   connectKafkaClusterInSettings,
+  selectCustomOption,
   disconnectKafkaClusterBackend,
   expectKafkaTestConnectionFailed,
   gotoKafkaPublishTab,
@@ -68,7 +69,6 @@ const SASL_CLUSTER_NAME = 'Secure Demo';
 const SASL_USERNAME = 'redfireforge-app';
 const SASL_PASSWORD = 'app-password';
 // Must match the <option value="scram-sha-256"> in KafkaClusterEditor
-const SASL_MECHANISM_VALUE = 'scram-sha-256';
 const SASL_TOPIC = 'redfireforge.debug.consume'; // pre-created by init container
 const SASL_WRONG_CLUSTER_NAME = 'Secure Demo Bad Password';
 
@@ -119,10 +119,10 @@ async function fillSaslClusterForm(page: Page): Promise<void> {
   await brokerInput.fill(SASL_BROKER);
   await page.waitForTimeout(200);
 
-  // Auth Mode → scram-sha-256 (matches the option value attribute, not label text)
-  const authSelect = editor.locator('#kafka-auth-mode');
+  // Auth Mode → SCRAM-SHA-256 (CustomSelect, not native <select>)
+  const authSelect = editor.getByLabel('Mechanism');
   await expect(authSelect).toBeVisible({ timeout: 5000 });
-  await authSelect.selectOption(SASL_MECHANISM_VALUE);
+  await selectCustomOption(page, authSelect, 'SCRAM-SHA-256');
   await page.waitForTimeout(300);
 
   // Username + password (revealed after selecting SCRAM)
@@ -163,8 +163,8 @@ test.describe('Kafka Secure Cluster — SASL/SCRAM-256 (Live Docker)', () => {
     await gotoKafkaSettings(page);
     await openClusterEditor(page);
 
-    const authSelect = page.locator('#kafka-auth-mode');
-    await authSelect.selectOption(SASL_MECHANISM_VALUE);
+    const authSelect = page.locator('[data-testid="kafka-cluster-editor"]').getByLabel('Mechanism');
+    await selectCustomOption(page, authSelect, 'SCRAM-SHA-256');
     await page.waitForTimeout(300);
 
     await expect(page.locator('#kafka-auth-username')).toBeVisible({ timeout: 3000 });

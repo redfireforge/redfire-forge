@@ -1,4 +1,4 @@
-import { useCallback, useMemo, type MouseEvent } from 'react';
+import { useCallback, useMemo, useState, type MouseEvent } from 'react';
 
 import { isHttpWorkflowNode } from '../utils/workflowVariableHints';
 import { resolveHttpNodeBaseUrl } from '../utils/workflowHostResolve';
@@ -25,7 +25,10 @@ import { useDemoWorkflowConfigModalBridge } from '@app/hooks/useDemoWorkflowConf
 import { useDemoWorkflowCanvasBridge } from '@app/hooks/useDemoWorkflowCanvasBridge';
 import { useDemoWorkflowLivePatchSync } from '@app/hooks/useDemoWorkflowLivePatchSync';
 import { useDemoWorkflowRunBridge } from '@app/hooks/useDemoWorkflowRunBridge';
+import { useDemoWorkflowHarBridge } from '@app/hooks/useDemoWorkflowHarBridge';
 import type { WorkflowDesignerControllerPartA } from './useWorkflowDesignerControllerPartA';
+import type { HarParseResult, ParsedHarEntry } from '../utils/harParser';
+import { harToWorkflow } from '../utils/harToWorkflow';
 
 /**
  * Second half of Workflow Designer controller: node actions, execution, canvas sync,
@@ -55,6 +58,7 @@ export function useWorkflowDesignerControllerPartB(
     nextNodeYRef,
     persistWorkflow, serializeNodes, serializeEdges, insertNodeAndPersist,
     undoRedo, nodesRef, edgesRef, handleQuickTestRef, handleDebugQuickTestRef,
+    rfInstance,
     setLayoutVersion,
     toast,
     versioning,
@@ -196,6 +200,38 @@ export function useWorkflowDesignerControllerPartB(
     onClearPreview();
     create(name.trim());
   }, [create, onClearPreview]);
+
+  // ── HAR import state and handlers ─────────────────────────────────────────
+  const [harParseResult, setHarParseResult] = useState<HarParseResult | null>(null);
+  const [harFileName, setHarFileName] = useState('');
+
+  const handleHarFileParsed = useCallback((result: HarParseResult, fileName: string) => {
+    setHarParseResult(result);
+    setHarFileName(fileName);
+  }, []);
+  useDemoWorkflowHarBridge(handleHarFileParsed);
+
+  const handleHarImportClose = useCallback(() => {
+    setHarParseResult(null);
+    setHarFileName('');
+  }, []);
+
+  const handleHarImport = useCallback((entries: ParsedHarEntry[], workflowName: string) => {
+    const { nodes: harNodes, edges: harEdges, variables: harVariables } = harToWorkflow(entries);
+    onClearPreview();
+    const name = workflowName.trim() || 'HAR import';
+    const existing = workflows.find((w) => w.name === name);
+    const wf = existing ?? create(name);
+    // Replace the default start node with the HAR-generated nodes/edges/variables
+    update(wf.id, { nodes: harNodes, edges: harEdges, variables: harVariables });
+    select(wf.id);
+    setHarParseResult(null);
+    setHarFileName('');
+    // Select-change fitView runs before HAR nodes land; refit after layout.
+    window.setTimeout(() => {
+      rfInstance.fitView({ padding: 0.15, maxZoom: 1, minZoom: 0.4, duration: 300 });
+    }, 180);
+  }, [create, update, select, onClearPreview, rfInstance, workflows]);
 
   const handleSelect = useCallback((id: string) => {
     onClearPreview();
@@ -353,6 +389,11 @@ export function useWorkflowDesignerControllerPartB(
     handleNew,
     handleSelect,
     inspectActions,
+    harParseResult,
+    harFileName,
+    handleHarFileParsed,
+    handleHarImportClose,
+    handleHarImport,
     onConnect,
     onReconnect,
     isDragOver,
