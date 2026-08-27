@@ -13,7 +13,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import { gotoAppTab, seedAppData, seedWorkflowsInLocalStorage, clickFitViewIfVisible } from './helpers';
+import { gotoAppTab, seedAppData, seedWorkflowsInLocalStorage, clickFitViewIfVisible, confirmFolderPickerModal } from './helpers';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 
 test.describe.configure({ mode: 'serial' });
@@ -503,8 +503,9 @@ test.describe('GraphQL workflow nodes — palette registration', () => {
 // ── 8. Gallery templates — graphql entries ────────────────────────────────────
 
 test.describe('GraphQL workflow nodes — gallery templates', () => {
+  // Colon required — distinguishes workflow sample from harness "GraphQL Health Check".
   const healthCheckCard = (page: import('@playwright/test').Page) =>
-    page.locator('.gallery-card').filter({ hasText: /GraphQL:?\s+Health Check/i }).first();
+    page.locator('.gallery-card').filter({ hasText: /GraphQL:\s+Health Check/i }).first();
 
   test.beforeEach(async ({ page }) => {
     await seedAppData(page);
@@ -513,9 +514,8 @@ test.describe('GraphQL workflow nodes — gallery templates', () => {
     await page.locator('button:has-text("+ New")').click();
     await page.locator('.wf-new-dropdown-item:has-text("From Template")').click();
     await page.locator('.gallery-domain-btn').first().waitFor({ state: 'visible', timeout: 8000 });
-    // Filter to Workflow domain
-    await page.locator('.gallery-domain-btn:has-text("Workflow")').click();
-    await page.getByRole('searchbox', { name: 'Search gallery' }).fill('graphql');
+    // GraphQL workflow samples live under the GraphQL domain (not Workflow).
+    await page.locator('.gallery-domain-btn:has-text("GraphQL")').click();
     await page.waitForTimeout(300);
   });
 
@@ -528,7 +528,7 @@ test.describe('GraphQL workflow nodes — gallery templates', () => {
   });
 
   test('gallery shows graphql-e-commerce-flow template', async ({ page }) => {
-    const card = page.locator('.gallery-card').filter({ hasText: /e.commerce|E.Commerce|order/i });
+    const card = page.locator('.gallery-card').filter({ hasText: /E-Commerce|e-commerce|order/i });
     // At least one graphql e-commerce template card exists
     const count = await card.count();
     expect(count).toBeGreaterThanOrEqual(1);
@@ -539,22 +539,21 @@ test.describe('GraphQL workflow nodes — gallery templates', () => {
     await expect(card).toBeVisible({ timeout: 5000 });
 
     // Click the card to select it — this opens the GalleryDetailPanel on the right.
-    // The "Load Workflow" action button lives in the detail panel, NOT inside the card itself.
     await card.click();
 
-    // Wait for the primary action button ("Load Workflow") in the detail panel
-    const actionBtn = page.locator('.gallery-detail-btn-primary');
-    await actionBtn.waitFor({ state: 'visible', timeout: 5000 });
-    await actionBtn.click();
+    const loadBtn = page.locator('.gallery-detail-btn-primary');
+    await expect(loadBtn).toHaveText('Load Workflow', { timeout: 5000 });
+    await loadBtn.click();
 
-    // Handle folder picker modal if it appears (workflow save-to-folder flow)
-    const folderModal = page.locator('.fp-dialog');
-    if (await folderModal.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await page.locator('.fp-dialog .btn-primary').click();
-    }
+    // Preview mode → save to sidebar
+    await expect(page.locator('button:has-text("Use as Template")')).toBeVisible({ timeout: 5000 });
+    await page.locator('button:has-text("Use as Template")').click();
+    await confirmFolderPickerModal(page);
 
-    // After loading, App navigates back to the workflow designer tab
     await expect(page.locator('.wf-designer')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.wf-sidebar-item').filter({ hasText: /Health Check/i }).first()).toBeVisible({
+      timeout: 5000,
+    });
   });
 });
 
