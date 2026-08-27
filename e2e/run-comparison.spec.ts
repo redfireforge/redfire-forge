@@ -125,9 +125,10 @@ test.describe('Phase 25 run comparison and trends', () => {
     const compareSelect = page.locator('.baseline-compare-select');
     await expect(compareSelect).toBeVisible();
     await compareSelect.locator('.cs-trigger').click();
-    const optionTexts = await page.locator('.cs-menu[role="listbox"] .cs-item[role="option"]').allTextContents();
-    expect(optionTexts.some((text) => text.includes('★'))).toBe(true);
-    expect(optionTexts.some((text) => text.includes('TPS'))).toBe(true);
+    const compareMenu = page.getByRole('listbox').filter({ has: page.getByText('Baselines', { exact: true }) });
+    await expect(compareMenu).toBeVisible();
+    await expect(compareMenu.getByRole('option', { name: /★.*6\.94 TPS/ })).toBeVisible();
+    await expect(compareMenu.getByRole('option', { name: /8\.2 TPS/ })).toBeVisible();
   });
 
   test('RunComparisonPanel renders all 4 tabs when comparison is active', async ({ page }) => {
