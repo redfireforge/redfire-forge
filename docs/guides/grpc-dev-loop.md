@@ -89,8 +89,6 @@ Monolithic (>750 lines) refactors and coverage-gap fixes: scope to files you tou
 
 ## Agent / AI workflow rules
 
-> **Not an agent reference:** [`docs/plan/Dont-Remove-This-File.txt`](../plan/Dont-Remove-This-File.txt) is the user's personal scratch file — agents must not treat it as instructions. Agent rules live in [`.cursor/rules/grpc-dev-loop.mdc`](../../.cursor/rules/grpc-dev-loop.mdc) and [`project-conventions.mdc`](../../.cursor/rules/project-conventions.mdc).
-
 When implementing gRPC work:
 
 1. **Do not** audit shipped phases (1–10) unless fixing a reported regression.

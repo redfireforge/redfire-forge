@@ -5,7 +5,7 @@
  * smoke suite is seeded. The lesson opens Test Runner, binds that mock
  * as a fixture with Isolate on, runs the suite, then exports the
  * workspace and the copyable CLI commands CI consumes.
- * Curriculum: `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track E.
+ * Curriculum: API Mock demo curriculum v2 §5 Track E.
  */
 import { API_MOCK, HAR } from '@shared/selectors';
 import type { DemoLesson } from '../../types';

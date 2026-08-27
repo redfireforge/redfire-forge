@@ -927,27 +927,6 @@ This launches the native desktop window with **hot-reload** — any changes to R
 | `npm run dev` | Browser-only at `localhost:5173` | Quick UI tweaks, no Rust needed |
 | `npm run tauri:build` | Production build for current OS | Testing the final binary locally |
 
-### Private docs (local only)
-
-Internal plans, gRPC phase runbooks, and Cursor rules live in the sibling
-`redfireforge-private` repo and are gitignored here. After cloning both repos as
-siblings, link them once:
-
-```bash
-bash scripts/link-private-docs.sh
-```
-
-This creates:
-
-| Public path | Private target |
-|---|---|
-| `docs/plan/` | `redfireforge-private/docs-plan/` |
-| `docs/guides/grpc-phase*.md` | `redfireforge-private/docs-guides/` |
-| `.cursor/rules/` | `redfireforge-private/.cursor/rules/` |
-
-Without these links, Vitest acceptance tests that read plan fixtures or gRPC
-phase runbooks will fail with `ENOENT`.
-
 ### Making Changes
 
 1. Edit files in `src/` (React/TypeScript) — changes appear instantly in the desktop window via hot-reload.
@@ -971,7 +950,6 @@ phase runbooks will fail with `ENOENT`.
 | `npm run test:e2e:headed` | Run E2E tests with visible browser |
 | `npm run lint` | Run ESLint |
 | `./scripts/version.sh` | Bump version across all config files |
-| `bash scripts/link-private-docs.sh` | Symlink private plans/guides/rules for local Vitest gates |
 | `ENV=t01 COUNT=100 node scripts/generate-csv-from-db.cjs` | Generate CSV test template from PostgreSQL data dump |
 
 ---

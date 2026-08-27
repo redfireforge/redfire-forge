@@ -1,5 +1,4 @@
 // Phase 1 shared types for GraphQL Studio
-// See docs/plan/future/graphql/graphql-studio-plan.md Section 4.3
 
 export interface GraphqlConnection {
   id: string;
