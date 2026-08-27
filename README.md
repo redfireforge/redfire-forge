@@ -1285,3 +1285,13 @@ Legacy keys (`perf-test-environments`, `perf-test-microservices`, etc.) are migr
 
 **Storage Management:**
 The Storage section in Settings shows current usage and per-key breakdown. If a test run cannot be saved due to a full quota, a confirmation banner appears offering to automatically remove old runs to make room. To reset all data manually, clear site data in your browser's DevTools (Application → Storage → Clear site data).
+
+---
+
+## Legal
+
+- [LICENSE](./LICENSE) — AGPL-3.0
+- [SECURITY.md](./SECURITY.md) — Vulnerability reporting
+- [CONTRIBUTING.md](./CONTRIBUTING.md) — Contribution guide
+- [PRIVACY.md](./PRIVACY.md) — Privacy policy
+
