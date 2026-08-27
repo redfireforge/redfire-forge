@@ -13,6 +13,10 @@ Format follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 - **E2E full-suite stability** — demo player step waits tolerate fast-mode phase skips; GQL-1 endpoint preview asserts `data-status="explicit"`; designer Undo/Redo visibility matches current toolbar; run-comparison baseline picker waits for the portaled listbox.
+- **Local Vitest acceptance gates** — added `scripts/link-private-docs.sh` to symlink private `docs/plan`, gRPC phase runbooks, and Cursor rules so parity/acceptance tests stop failing with missing-file errors after the public-launch doc split.
+
+### Changed
+- **`.gitignore`** — also ignore a `docs/plan` symlink (not only `docs/plan/`).
 
 ---
 
