@@ -2,10 +2,18 @@
 
 This is the lightweight active changelog.
 
-For full historical entries, see:
-- CHANGELOG.archive.md (private)
-
 Format follows Keep a Changelog and Semantic Versioning.
+
+---
+
+## [Unreleased]
+
+### Changed
+- **Public repo self-contained for shipping docs/tests** — removed plan/runbook coupling from gates/tests; restored `e2e/DEMO-LESSON-E2E-MEMO.md` (needed by public demo E2E); dropped dead links to missing runbooks/validation records; simplified docs conventions to match published trees only.
+- **`.gitignore`** — removed ignore rules for planning/runbook/archive paths that are not part of this repository.
+
+### Fixed
+- **E2E full-suite stability** — demo player step waits tolerate fast-mode phase skips; GQL-1 endpoint preview asserts `data-status="explicit"`; designer Undo/Redo visibility matches current toolbar; run-comparison baseline picker waits for the portaled listbox.
 
 ---
 
@@ -88,5 +96,3 @@ Format follows Keep a Changelog and Semantic Versioning.
 ### 0.5.x
 - Data Mapper, validation, and results explorer refinements.
 - Workflow UX and storage reliability improvements.
-
-> Full engineering-level detail and historical release notes are in `CHANGELOG.archive.md` (private repo).

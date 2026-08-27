@@ -5,7 +5,7 @@
  * Export is six shapes for six jobs. Redaction is the proof that keys never
  * leave the machine. WireMock and HAR carry an honest loss note. The real test
  * of an export is importing it back as a copy. The CLI line is the CI artifact.
- * Curriculum: `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track D.
+ * Curriculum: API Mock demo curriculum v2 §5 Track D.
  */
 import { API_MOCK } from '@shared/selectors';
 import type { DemoLesson } from '../../types';
