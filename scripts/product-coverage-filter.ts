@@ -3,8 +3,6 @@
  * Strips demo-hub sources from the product Vitest coverage map and prints
  * product-only totals. Demo files can appear in raw coverage when product
  * tests import demo helpers (e.g. SettingsStorageTab → gql-demo-storage-cleanup).
- *
- * @see docs/plan/feature/separate-demo/separate-demo-codebase-plan.md Phase 1
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import libCoverage from 'istanbul-lib-coverage';

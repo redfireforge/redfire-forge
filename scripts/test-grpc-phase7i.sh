@@ -18,9 +18,6 @@ DELIVERABLES=(
   src/shared/grpc/grpcPhase7iAcceptance.test.ts
   scripts/test-grpc-phase7i.sh
   scripts/test-grpc-phase7.sh
-  docs/guides/grpc-phase7-runbook.md
-  docs/guides/grpc-phase7-validation-report.md
-  docs/guides/grpc-phase7-parity-matrix.md
   e2e/grpc-studio-native-transport.spec.ts
 )
 for deliverable in "${DELIVERABLES[@]}"; do

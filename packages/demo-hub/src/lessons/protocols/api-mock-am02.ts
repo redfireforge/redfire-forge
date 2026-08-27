@@ -3,7 +3,7 @@
  *
  * Scenario: a checkout flow that talks to two services. One service mock is already
  * in the workspace (quiet corpus); the payments mock beside it is authored live.
- * Curriculum: `docs/plan/future/apimock/apimock-demo-curriculum-v2.md` §5 Track A.
+ * Curriculum: API Mock demo curriculum v2 §5 Track A.
  */
 import { API_MOCK } from '@shared/selectors';
 import type { DemoLesson } from '../../types';

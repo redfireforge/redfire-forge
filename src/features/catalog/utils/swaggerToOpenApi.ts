@@ -5,7 +5,6 @@ import YAML from 'yaml';
  *
  * Ships two lazy-loaded, user-selectable engines behind one identical result
  * shape, with a mandatory validation gate and validate-driven auto-fallback.
- * See docs/plan/future/catalog/convert-swagger-to-openapi-plan.md (§6.1).
  */
 
 export type ConvertEngine = 'swagger2openapi' | 'scalar';
