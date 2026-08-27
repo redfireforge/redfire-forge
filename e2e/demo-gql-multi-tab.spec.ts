@@ -16,6 +16,7 @@ import {
   finishDemoStep,
   getStepInfo,
   launchGqlLesson,
+  rapidAdvanceToLastStepReading,
   restartLesson,
   takeNamedScreenshot,
   waitForReadingPhase,
@@ -154,15 +155,10 @@ test.describe('GQL-14 — full lesson (Docker)', () => {
     await prepareGql14DockerLesson(page, request);
     await restartLesson(page);
 
-    for (let i = 0; i < TOTAL_STEPS - 1; i++) {
-      await waitForReadingPhase(page, MUTATION_TIMEOUT);
-      await page.locator('[aria-label="Next step"]').click();
-      await page.waitForTimeout(200);
-    }
+    await rapidAdvanceToLastStepReading(page, TOTAL_STEPS - 1, MUTATION_TIMEOUT);
 
     let { counter, title } = await getStepInfo(page);
-    // Rapid Next skips actions — land on step 11 or 12 reading before finishDemoStep.
-    expect(counter).toMatch(/1[12]\s*[/]\s*12/);
+    expect(counter).toMatch(new RegExp(`${TOTAL_STEPS}\\s*[/]\\s*${TOTAL_STEPS}`));
 
     // Last step: Next stays disabled — use finishDemoStep, not completeCurrentStepAction.
     await finishDemoStep(page, MUTATION_TIMEOUT);

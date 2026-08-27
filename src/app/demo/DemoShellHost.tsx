@@ -16,6 +16,7 @@ import { useDemoWorkspaceDefaultsBridge } from '../hooks/useDemoWorkspaceDefault
 import { useDemoAppEnvironmentCleanupBridge } from '../hooks/useDemoAppEnvironmentCleanupBridge';
 import { useDemoSettingsEnvBridge } from '../hooks/useDemoSettingsEnvBridge';
 import { useDemoSettingsSvcBridge } from '../hooks/useDemoSettingsSvcBridge';
+import { useDemoPlayerE2EBridge } from '../hooks/useDemoPlayerE2EBridge';
 import AppLiveDemoOverlay from '../components/AppLiveDemoOverlay';
 import '../../styles/demo-player.css';
 import '../../styles/demo-hub.css';
@@ -65,6 +66,7 @@ export function DemoShellHost({
   });
   useDemoSettingsEnvBridge({ setEnvironments });
   useDemoSettingsSvcBridge({ setMicroservices });
+  useDemoPlayerE2EBridge(demoHub.goToStepReadingOnly, demoHub.finishCurrentStepAction, true);
 
   syncDemoHubRuntimeRef(demoHub as DemoHubApi);
 
