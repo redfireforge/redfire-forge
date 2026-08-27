@@ -74,6 +74,7 @@ export default function LiveDemo({
   const step = lesson.steps[stepIndex];
   const [targetFound, setTargetFound] = useState(false);
   const [overviewOpen, setOverviewOpen] = useState(false);
+  const [hidden, setHidden] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const targetFoundRef = useRef(false);
   const autoScrolledRef = useRef(false);
@@ -176,6 +177,19 @@ export default function LiveDemo({
         />
       )}
 
+      {/* Hidden-mode restore pill — tiny fixed dot so user can always get the panel back */}
+      {hidden && (
+        <button
+          className="demo-live-restore-pill"
+          onClick={() => setHidden(false)}
+          title="Restore demo panel"
+          aria-label="Restore demo panel"
+          data-testid="demo-live-restore-pill"
+        >
+          ▶
+        </button>
+      )}
+
       {/* Terminal surface — CLI-domain lessons render a pinned transcript instead of a DOM spotlight. */}
       {surfaceReady && isTerminalStep && !overviewOpen && (
         <DemoTerminal
@@ -195,6 +209,7 @@ export default function LiveDemo({
       )}
 
       {/* Floating narration panel */}
+      {!hidden && (
       <div
         className="demo-live-panel demo-live-panel--clickthrough"
         ref={panelRef}
@@ -276,6 +291,15 @@ export default function LiveDemo({
               />
             </span>
           )}
+          <button
+            className="demo-live-btn demo-live-hide-btn"
+            onClick={() => setHidden(true)}
+            title="Hide panel"
+            aria-label="Hide demo panel"
+            data-testid="demo-live-hide-btn"
+          >
+            👁
+          </button>
         </div>
 
         <div className="demo-live-progress-bar">
@@ -358,6 +382,7 @@ export default function LiveDemo({
           Space play/pause · → next · Esc exit
         </div>
       </div>
+      )}
     </>
   );
 }

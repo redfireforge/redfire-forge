@@ -1499,6 +1499,37 @@ body[data-demo-bootstrapping="1"] .kafka-settings-content {
   pointer-events: none;
 }
 
+/* Screenshot mode — hide button in header + restore pill */
+.demo-live-panel--clickthrough .demo-live-hide-btn {
+  pointer-events: auto;
+}
+
+.demo-live-restore-pill {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 10120;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--primary, #3b82f6);
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  color: #fff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  opacity: 0.85;
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.demo-live-restore-pill:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
 /*
  * Clickthrough must let app controls under the card receive clicks.
  * Do NOT set pointer-events:auto on the whole .demo-live-panel-body —
