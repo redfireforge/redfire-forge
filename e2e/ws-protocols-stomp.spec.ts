@@ -7,7 +7,7 @@
  *   - Backend on 3001
  */
 import { test, expect, type Page } from '@playwright/test';
-import { gotoWsStudio, selectWsCustomSelect } from './ws-helpers';
+import { gotoWsStudio, listWsCustomSelectOptions, selectWsCustomSelect } from './ws-helpers';
 
 const STOMP_URL = 'ws://localhost:15674/ws';
 const RABBITMQ_HEALTH = 'http://localhost:15672/api/overview';
@@ -186,17 +186,11 @@ test.describe('STOMP Live (WP-08–11)', () => {
     await expect(commandSelect).toBeVisible();
     await expect(commandSelect.locator('.cs-trigger')).toContainText('SEND');
 
-    // Verify all expected command options exist (CustomSelect menu)
-    await commandSelect.locator('.cs-trigger').click();
-    const optionTexts = await page.locator('.cs-menu .cs-item').allTextContents();
-    await page.keyboard.press('Escape');
-    expect(optionTexts.some((t) => t.includes('SEND'))).toBeTruthy();
-    expect(optionTexts.some((t) => t.includes('SUBSCRIBE'))).toBeTruthy();
-    expect(optionTexts.some((t) => t.includes('UNSUBSCRIBE'))).toBeTruthy();
-    expect(optionTexts.some((t) => t.includes('CONNECT'))).toBeTruthy();
-    expect(optionTexts.some((t) => t.includes('DISCONNECT'))).toBeTruthy();
-    expect(optionTexts.some((t) => t.includes('ACK'))).toBeTruthy();
-    expect(optionTexts.some((t) => t.includes('NACK'))).toBeTruthy();
+    // Verify all expected command options exist (portaled CustomSelect menu)
+    const optionValues = await listWsCustomSelectOptions(page, 'stomp-command');
+    expect(optionValues).toEqual(expect.arrayContaining([
+      'SEND', 'SUBSCRIBE', 'UNSUBSCRIBE', 'CONNECT', 'DISCONNECT', 'ACK', 'NACK',
+    ]));
 
     // Destination input should be visible
     const destInput = page.locator('[data-testid="stomp-destination"]');
