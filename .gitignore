@@ -60,7 +60,10 @@ test-script-paste.cjs
 src-tauri/binaries/
 
 # Private planning and internal artifacts maintained in redfireforge-private
+# (symlink target — match both the directory and a docs/plan symlink)
 docs/plan/
+docs/plan
+docs/plan/**
 .cursor/
 REFACTORING_PLAN.md
 RESTRUCTURING_PLAN.md
