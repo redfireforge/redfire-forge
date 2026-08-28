@@ -22,6 +22,8 @@ jobs:
       pull-requests: read
     outputs:
       demo: ${{ steps.filter.outputs.demo }}
+      product: ${{ steps.filter.outputs.product }}
+      grpc: ${{ steps.filter.outputs.grpc }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,6 +51,24 @@ jobs:
               - 'vitest.config.ts'
               - 'scripts/product-coverage-filter.ts'
               - 'src/test-utils/vitestProjectSplit.test.ts'
+            product:
+              - 'src/**'
+              - 'cli/**'
+              - 'src-server/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig*.json'
+              - 'vite.config.ts'
+              - 'vitest.config.ts'
+              - 'vitest.projectPatterns.ts'
+            grpc:
+              - 'src/features/grpc/**'
+              - 'src-server/grpc/**'
+              - 'src/shared/grpc/**'
+              - 'scripts/grpc-*.mjs'
+              - 'scripts/grpc-*.ts'
+              - 'package.json'
+              - 'package-lock.json'
 
   typecheck:
     name: TypeScript Check
@@ -65,8 +85,8 @@ jobs:
   grpc-phase13a-slo:
     name: gRPC Phase 13A SLO Gate
     runs-on: ubuntu-latest
-    needs: typecheck
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
+    needs: [typecheck, changes]
+    if: needs.changes.outputs.grpc == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -106,7 +126,6 @@ jobs:
     name: gRPC Phase 13B Probe Gate
     runs-on: ubuntu-latest
     needs: [typecheck, grpc-phase13a-slo]
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -133,7 +152,6 @@ jobs:
     name: gRPC Phase 13C Failure Drills
     runs-on: ubuntu-latest
     needs: [typecheck, grpc-phase13b-slo]
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -174,7 +192,6 @@ jobs:
     name: gRPC Phase 13D Recovery Drills
     runs-on: ubuntu-latest
     needs: [typecheck, grpc-phase13c-drills]
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -215,7 +232,6 @@ jobs:
     name: gRPC Phase 13E Accessibility and Virtualization Gate
     runs-on: ubuntu-latest
     needs: [typecheck, grpc-phase13d-recovery]
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -236,7 +252,6 @@ jobs:
     name: gRPC Phase 13F Observability and Redaction Audit Gate
     runs-on: ubuntu-latest
     needs: [typecheck, grpc-phase13e-a11y]
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -257,7 +272,6 @@ jobs:
     name: gRPC Phase 13H Operational Rollback Drill Gate
     runs-on: ubuntu-latest
     needs: [typecheck, grpc-phase13f-observability]
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -298,7 +312,6 @@ jobs:
     name: gRPC Phase 13I Final GA Sign-off
     runs-on: ubuntu-latest
     needs: [typecheck, grpc-phase13h-rollback]
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -360,7 +373,8 @@ jobs:
   unit-tests-product:
     name: Unit Tests (product)
     runs-on: ubuntu-latest
-    needs: typecheck
+    needs: [typecheck, changes]
+    if: needs.changes.outputs.product == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

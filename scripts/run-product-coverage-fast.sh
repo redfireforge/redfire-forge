@@ -121,7 +121,7 @@ for i in $(seq 1 "$SHARDS"); do
   fi
 
   if [[ -f "$SHARD_FINAL" ]]; then
-    SIZE=$(stat -f '%z' "$SHARD_FINAL" 2>/dev/null || stat --printf='%s' "$SHARD_FINAL" 2>/dev/null || echo "0")
+    SIZE=$(wc -c < "$SHARD_FINAL" 2>/dev/null | tr -d ' ' || echo "0")
     echo "  ✓ shard $i: $(( SIZE / 1048576 ))MB"
     ((SHARD_COUNT++)) || true
   else
