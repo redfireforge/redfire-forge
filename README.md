@@ -26,20 +26,20 @@
 
 ### A closer look
 
-**Workflow Designer** — chain requests visually with fork/join, conditions, and variable extraction:
-![Workflow Designer](docs/assets/screenshots/workflow-designer.png)
-
 **Requests** — a Postman/Insomnia-style ad-hoc client with a live JSON response tree:
 ![Requests](docs/assets/screenshots/requests-workspace.png)
-
-**API Mock Studio** — rule-based routing, templated responses, and a live request journal:
-![API Mock Studio](docs/assets/screenshots/api-mock-studio.png)
 
 **API Catalog** — import OpenAPI/Swagger specs, browse endpoints, and execute them directly:
 ![API Catalog](docs/assets/screenshots/api-catalog.png)
 
-**Gallery** — 30+ ready-to-run samples across every protocol, plus guided training paths:
-![Gallery](docs/assets/screenshots/gallery-samples.png)
+**API Mock Studio** — rule-based routing, templated responses, and a live request journal:
+![API Mock Studio](docs/assets/screenshots/api-mock-studio.png)
+
+**Workflow Designer** — chain requests visually with fork/join, conditions, and variable extraction:
+![Workflow Designer](docs/assets/screenshots/workflow-designer.png)
+
+**Test Runner Results** — assertions, timings, and pass/fail status across every protocol:
+![Test Runner Results](docs/assets/screenshots/test-runner-results.png)
 
 **Kafka Studio** — produce/consume messages, inspect topics, and manage clusters:
 ![Kafka Studio](docs/assets/screenshots/kafka-studio.png)
@@ -50,29 +50,40 @@
 **gRPC Studio** — reflection-based service/method discovery with streaming support:
 ![gRPC Studio](docs/assets/screenshots/grpc-studio.png)
 
-**Test Runner Results** — assertions, timings, and pass/fail status across every protocol:
-![Test Runner Results](docs/assets/screenshots/test-runner-results.png)
+**Gallery** — 30+ ready-to-run samples across every protocol, plus guided training paths:
+![Gallery](docs/assets/screenshots/gallery-samples.png)
+
+**Learning Hub** — 140+ interactive guided lessons across every feature, organized into learning paths:
+![Learning Hub](docs/assets/screenshots/learning-hub.png)
 
 ---
 
 ## Quick Start
 
-### Desktop app (recommended)
+### Download a pre-built installer
+
+Head to the **[Latest Release](https://github.com/redfireforge/redfire-forge/releases/latest)** for `.dmg` (macOS), `.msi`/`.exe` (Windows), and `.deb`/`.AppImage` (Linux) — no build toolchain required.
+
+### Build from source (desktop)
+
+Requires **Node.js 20+** and **[Rust](https://rustup.rs/)** (for the native desktop shell):
 
 ```bash
+git clone https://github.com/redfireforge/redfire-forge.git
+cd redfire-forge
 npm install
-npm run tauri:dev     # launches the native desktop window with hot-reload
+npm run tauri:dev     # native desktop window with hot-reload
 ```
 
-Building a real installer for your OS:
+To build a distributable installer:
 
 ```bash
 npm run tauri:build   # .dmg (macOS) / .msi+.exe (Windows) / .deb+.AppImage (Linux)
 ```
 
-No Rust needed by end users — installers bundle everything. See the [Cross-Platform Guide](docs/guides/cross-platform.md) for platform-specific notes (code-signing warnings, all-platform CI builds, etc).
+See the [Cross-Platform Guide](docs/guides/cross-platform.md) for code-signing notes and multi-platform CI builds.
 
-### Learning Hub (interactive lessons)
+### Learning Hub variant (interactive lessons)
 
 RedfireForge ships two desktop variants side-by-side (different bundle IDs so both can be installed at once):
 
@@ -90,7 +101,11 @@ The Learning Hub is a guided lesson library covering every protocol (GraphQL, gR
 
 ### Browser (web mode)
 
+Requires **Node.js 20+**:
+
 ```bash
+git clone https://github.com/redfireforge/redfire-forge.git
+cd redfire-forge
 npm install
 npm run dev            # http://localhost:5173, hot-reload
 # or, for a production build:
@@ -99,9 +114,19 @@ npm run build && npx serve dist/
 
 ### CLI
 
+Run from source (no install needed):
+
 ```bash
-npm install -g redfireforge-cli   # or: npx tsx cli/index.ts ...
-rff run examples/cli-basic-test.yaml
+git clone https://github.com/redfireforge/redfire-forge.git
+cd redfire-forge && npm install
+npx tsx cli/index.ts run examples/cli-basic-test.yaml
+```
+
+Once [published to npm](https://www.npmjs.com/package/redfireforge-cli):
+
+```bash
+npm install -g redfireforge-cli
+rff run my-tests.yaml
 ```
 
 ```yaml
