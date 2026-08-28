@@ -232,16 +232,21 @@ describe('parseOpenApiSpec', () => {
     });
 
     it('falls back to non-crypto string hash when subtle is unavailable', async () => {
-      const prevCrypto = globalThis.crypto;
-      Object.defineProperty(globalThis, 'crypto', {
-        value: { subtle: undefined as SubtleCrypto | undefined },
+      const prevSubtle = globalThis.crypto.subtle;
+      Object.defineProperty(globalThis.crypto, 'subtle', {
+        value: undefined,
         configurable: true,
+        writable: true,
       });
       try {
         const r = await parseOpenApiSpec(OPENAPI_3_MINIMAL);
         expect(r.entry.versions[0].specHash).toMatch(/^[0-9a-f]{8,}$/);
       } finally {
-        Object.defineProperty(globalThis, 'crypto', { value: prevCrypto, configurable: true });
+        Object.defineProperty(globalThis.crypto, 'subtle', {
+          value: prevSubtle,
+          configurable: true,
+          writable: true,
+        });
       }
     });
   });

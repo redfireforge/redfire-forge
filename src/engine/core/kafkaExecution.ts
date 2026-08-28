@@ -79,7 +79,6 @@ async function executeKafkaProduce(
       headers: cfg.headers,
     };
   } catch (err) {
-    httpStatus = 0;
     errorMessage = toErrorMessage(err);
     const failureClass = classifyKafkaFailure(errorMessage);
     if (failureClass !== 'network') {
@@ -171,7 +170,6 @@ async function executeKafkaConsume(
     });
 
     if (messages.length === 0) {
-      httpStatus = 0;
       errorMessage = 'No messages received within timeout';
     } else {
       const msg = messages[0];
@@ -189,7 +187,6 @@ async function executeKafkaConsume(
       };
     }
   } catch (err) {
-    httpStatus = 0;
     errorMessage = toErrorMessage(err);
     // Classify error type (auth/tls/timeout/network) and surface it
     const failureClass = classifyKafkaFailure(errorMessage);

@@ -204,7 +204,7 @@ export function useSplitPaneResize(options: SplitPaneResizeOptions): SplitPaneRe
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      let next: number | null = null;
+      let next: number | undefined;
       const arrowStep = e.shiftKey ? pageStep : step;
       switch (e.key) {
         case 'ArrowLeft':
@@ -233,7 +233,7 @@ export function useSplitPaneResize(options: SplitPaneResizeOptions): SplitPaneRe
           return;
       }
       e.preventDefault();
-      setWidth(clampWidth(next));
+      setWidth(clampWidth(next!));
     },
     [clampWidth, containerRef, minWidth, minOppositeWidth, step, pageStep],
   );

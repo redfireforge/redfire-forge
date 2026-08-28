@@ -84,8 +84,10 @@ export function showSpotlightRing(el: HTMLElement, opts?: SpotlightRingOptions):
     disposed = true;
     activeSpotlightDisposers.delete(dispose);
     if (interval) clearInterval(interval);
-    window.removeEventListener('resize', onLayoutChange);
-    window.removeEventListener('scroll', onLayoutChange, true);
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('resize', onLayoutChange);
+      window.removeEventListener('scroll', onLayoutChange, true);
+    }
     ring.remove();
     endManualSpotlight();
   };
@@ -93,7 +95,7 @@ export function showSpotlightRing(el: HTMLElement, opts?: SpotlightRingOptions):
   const position = () => {
     // Drop ghost rings when React replaces the node mid-step (filter clears,
     // results mount, etc.) — a detached node's rect is 0,0 and looks random.
-    if (!el.isConnected) {
+    if (typeof window === 'undefined' || !el.isConnected) {
       dispose();
       return;
     }
