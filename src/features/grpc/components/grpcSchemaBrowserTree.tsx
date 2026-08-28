@@ -107,6 +107,7 @@ export function SchemaBrowserTree({
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function findSchemaNodeByTypeName(
   nodes: SchemaBrowserNode[],
   typeName: string,

@@ -84,7 +84,7 @@ describe('recoveryDiagnostics coverage gaps', () => {
   it('returns the migrated workspace when validation reports errors', () => {
     vi.spyOn(validationModule, 'validateWorkspace').mockReturnValue([
       { code: 'AMS-TEST', severity: 'error', path: '/servers/0', message: 'broken' },
-    ] as any);
+    ] as unknown[]);
     const result = safeLoadWorkspace(makeWorkspace());
     expect(result.ok).toBe(false);
     expect(result.workspace?.servers).toHaveLength(1);

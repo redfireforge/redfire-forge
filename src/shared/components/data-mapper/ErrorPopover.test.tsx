@@ -69,7 +69,7 @@ describe('ErrorPopover', () => {
 
   it('calls onClose when close button clicked', () => {
     const onClose = vi.fn();
-    const { container } = render(
+    render(
       <ErrorPopover data={baseData} y={100} onClose={onClose} />,
     );
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
