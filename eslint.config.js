@@ -10,6 +10,7 @@ export default defineConfig([
     'dist',
     'dist-cli',
     'dist-server',
+    'cli/dist',
     'coverage',
     'coverage-*',
     'cov-*',
