@@ -88,7 +88,7 @@ jobs:
       - name: Run Phase 13A SLO gate
         run: npm run grpc:phase13a:gate -- --require-live --base-url=http://127.0.0.1:3001
       - name: Upload baseline artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: grpc-phase13a-baseline
           path: artifacts/grpc-phase13a-baseline.json
@@ -115,7 +115,7 @@ jobs:
         run: npm run grpc:phase13b:ci
       - name: Upload baseline artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: grpc-phase13b-baseline
           path: artifacts/grpc-phase13b-baseline.ci.json
@@ -150,7 +150,7 @@ jobs:
         run: npm run grpc:phase13c:gate -- --base-url=http://127.0.0.1:3001
       - name: Upload drill artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: grpc-phase13c-drills
           path: artifacts/grpc-phase13c-drills.json
@@ -191,7 +191,7 @@ jobs:
         run: npm run grpc:phase13d:gate -- --base-url=http://127.0.0.1:3001
       - name: Upload recovery drill artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: grpc-phase13d-recovery
           path: artifacts/grpc-phase13d-recovery.json
@@ -218,7 +218,7 @@ jobs:
         run: npm run grpc:phase13e:gate
       - name: Upload a11y artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: grpc-phase13e-a11y
           path: artifacts/grpc-phase13e-a11y.json
@@ -239,7 +239,7 @@ jobs:
         run: npm run grpc:phase13f:gate
       - name: Upload observability audit artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: grpc-phase13f-observability
           path: artifacts/grpc-phase13f-observability.json
@@ -274,7 +274,7 @@ jobs:
         run: npm run grpc:phase13h:gate -- --base-url=http://127.0.0.1:3001
       - name: Upload rollback drill artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: grpc-phase13h-rollback
           path: artifacts/grpc-phase13h-rollback-drill.json
@@ -301,7 +301,7 @@ jobs:
         run: npm run grpc:phase13i:gate
       - name: Upload GA sign-off artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: grpc-phase13i-ga-signoff
           path: artifacts/grpc-phase13i-ga-signoff.json
