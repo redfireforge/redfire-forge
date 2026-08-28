@@ -98,64 +98,23 @@ function validateCiChain(ciText) {
   const parsed = yaml.parse(ciText);
   const jobs = parsed?.jobs ?? {};
 
-  const phaseJobs = [
-    'grpc-phase13a-slo',
-    'grpc-phase13b-slo',
-    'grpc-phase13c-drills',
-    'grpc-phase13d-recovery',
-    'grpc-phase13e-a11y',
-    'grpc-phase13f-observability',
-    'grpc-phase13h-rollback',
-  ];
+  // The gRPC E2E suite is now a single Playwright job (e2e-grpc), replacing
+  // the old per-phase job chain (grpc-phase13a-slo … grpc-phase13h-rollback).
+  const E2E_JOB = 'e2e-grpc';
+  const missingJobs = jobs[E2E_JOB] ? [] : [E2E_JOB];
 
-  const missingJobs = phaseJobs.filter((jobId) => !jobs[jobId]);
-
-  // Gate check: accept either the legacy PR-only guard OR the current path-filter
-  // approach where 13a is gated by the changes path filter and downstream jobs
-  // cascade automatically via the needs chain (skipped when 13a is skipped).
-  const GATE_13A = "needs.changes.outputs.grpc == 'true'";
-  const GATE_PR  = "github.event_name == 'pull_request'";
-  const gate13aCondition = String(jobs['grpc-phase13a-slo']?.if ?? '');
-  const usesPathFilter = gate13aCondition.includes(GATE_13A);
-  const usesPrGuard   = gate13aCondition.includes(GATE_PR);
-
-  const nonPrJobs = phaseJobs.filter((jobId) => {
-    const condition = String(jobs[jobId]?.if ?? '');
-    if (usesPathFilter) {
-      // Path-filter mode: 13a must have the path-filter gate; downstream jobs
-      // inherit the skip via the cascade needs chain and need no explicit guard.
-      if (jobId === 'grpc-phase13a-slo') return !condition.includes(GATE_13A);
-      return false; // downstream cascade jobs are implicitly gated
-    }
-    // Legacy PR-guard mode: every job must have the PR event guard.
-    return !condition.includes(GATE_PR);
-  });
-  const ungatedEntryPoint = !usesPathFilter && !usesPrGuard ? ['grpc-phase13a-slo'] : [];
-
-  const dependencyChecks = [
-    ['grpc-phase13b-slo', 'grpc-phase13a-slo'],
-    ['grpc-phase13c-drills', 'grpc-phase13b-slo'],
-    ['grpc-phase13d-recovery', 'grpc-phase13c-drills'],
-    ['grpc-phase13e-a11y', 'grpc-phase13d-recovery'],
-    ['grpc-phase13f-observability', 'grpc-phase13e-a11y'],
-    ['grpc-phase13h-rollback', 'grpc-phase13f-observability'],
-  ];
-
-  const missingNeeds = [];
-  for (const [jobId, needsJobId] of dependencyChecks) {
-    const needsValue = jobs[jobId]?.needs;
-    const normalized = Array.isArray(needsValue) ? needsValue : [needsValue].filter(Boolean);
-    if (!normalized.includes(needsJobId)) {
-      missingNeeds.push({ jobId, needsJobId, actual: normalized });
-    }
-  }
+  const GATE_PR      = "github.event_name == 'pull_request'";
+  const GATE_DEVELOP = "github.ref == 'refs/heads/develop'";
+  const condition    = String(jobs[E2E_JOB]?.if ?? '');
+  const hasGate      = condition.includes(GATE_PR) || condition.includes(GATE_DEVELOP);
+  const nonPrJobs    = hasGate ? [] : (jobs[E2E_JOB] ? [E2E_JOB] : []);
 
   return {
-    passed: missingJobs.length === 0 && nonPrJobs.length === 0 && missingNeeds.length === 0 && ungatedEntryPoint.length === 0,
+    passed: missingJobs.length === 0 && nonPrJobs.length === 0,
     missingJobs,
     nonPrJobs,
-    missingNeeds,
-    ungatedEntryPoint,
+    missingNeeds: [],
+    ungatedEntryPoint: [],
   };
 }
 
