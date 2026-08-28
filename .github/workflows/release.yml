@@ -5,9 +5,9 @@ on:
     tags:
       - 'v*'
     # Explicit branch triggers let the guard job run on branch pushes so
-    # GitHub shows ✅ instead of "workflow file issue" (which occurs when
-    # the workflow fires via a phantom tag-context evaluation but all jobs
-    # are skipped and 0 jobs complete).
+    # GitHub shows a passing result instead of "workflow file issue" (which
+    # occurs when the workflow fires via a phantom tag-context evaluation
+    # but all jobs are skipped and 0 jobs complete).
     branches:
       - master
       - develop
@@ -25,9 +25,9 @@ on:
           - both
 
 jobs:
-  # Runs only on non-tag pushes so GitHub always has at least one completed job
-  # and reports the workflow as ✅ instead of "workflow file issue" (which
-  # happens when every job is skipped).
+  # Runs only on non-tag pushes so GitHub always has at least one completed
+  # job and reports the workflow as passing instead of "workflow file issue"
+  # (which happens when every job is skipped).
   guard:
     name: Skip (not a tag push)
     runs-on: ubuntu-latest
