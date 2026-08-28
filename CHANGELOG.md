@@ -8,9 +8,16 @@ Format follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+- **CODE_OF_CONDUCT.md** — Contributor Covenant v2.1 added to the repository root.
+- **grpcDemoCollectionsCleanup tests** — unit tests covering `purgeGrpcDemoSavedRequests` and `purgeEmptyGrpcDemoCollectionsByName` (100% coverage).
+
 ### Changed
 - **Public repo self-contained for shipping docs/tests** — removed plan/runbook coupling from gates/tests; restored `e2e/DEMO-LESSON-E2E-MEMO.md` (needed by public demo E2E); dropped dead links to missing runbooks/validation records; simplified docs conventions to match published trees only.
 - **`.gitignore`** — removed ignore rules for planning/runbook/archive paths that are not part of this repository.
+- **README Quick Start** — added "Download a pre-built installer" section (GitHub Releases link, no build toolchain); added `git clone` + Node.js 20+ + Rust prerequisites to build-from-source sections; fixed CLI section to use `npx tsx cli/index.ts` as the working from-source command.
+- **CONTRIBUTING.md** — full rewrite: CLA requirements, Node 20+ prerequisites, development workflow, branch naming, PR guidelines, code style, Tauri build notes, issue reporting, corporate CCLA contact.
+- **PRIVACY.md** — added canonical GitHub URL, GDPR legal basis for waitlist data processing, clarified storage section (Tally + Supabase with DPA mention).
 
 ### Fixed
 - **E2E full-suite stability** — demo player step waits tolerate fast-mode phase skips; GQL-1 endpoint preview asserts `data-status="explicit"`; designer Undo/Redo visibility matches current toolbar; run-comparison baseline picker waits for the portaled listbox.
