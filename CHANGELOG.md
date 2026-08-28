@@ -10,6 +10,30 @@ Format follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 - **CODE_OF_CONDUCT.md** — Contributor Covenant v2.1 added to the repository root.
+
+### Changed
+- **CI — Node.js 20 → 22** — all GitHub Actions workflows (`ci.yml`, `release.yml`, `demo-nightly.yml`, `publish-cli.yml`) upgraded to Node.js 22 to satisfy peer-dependency requirements of `graphql@17`, `@scalar/*`, and `@kafkajs/confluent-schema-registry`.
+- **CI — Unit Tests (product) sharding** — `COVERAGE_SHARDS` set to 2 in CI to match the 2-vCPU `ubuntu-latest` runner, eliminating CPU contention and cutting product coverage run time from ~45 min to ~19 min.
+- **CI — path-filter gating** — product and gRPC unit-test jobs now only run when the relevant source paths changed, using `dorny/paths-filter`; unrelated pushes skip the expensive jobs entirely.
+- **CI — gRPC Phase 13 artifact chain** — Phase 13B now uploads its transport-parity artifact; Phase 13I downloads all upstream artifacts before running the GA sign-off gate.
+- **CI — release.yml branch triggers** — added branch push triggers and a `validate` job so the release workflow reports success (not phantom failure) on non-tag pushes.
+- **Dependency upgrades (major)** — applied with full code-compatibility fixes:
+  - `eslint` 9 → 10 + `@eslint/js` 9 → 10: disabled unused React Compiler rules; fixed ~30 `no-useless-assignment`, 8 `preserve-caught-error`, and `no-unassigned-vars` violations across the codebase.
+  - `express` 4 → 5: updated wildcard route to `{*path}` syntax for `path-to-regexp` v8 compatibility.
+  - `better-sqlite3` 12 → 13: N-API refactor, no API changes required.
+  - `@testing-library/jest-dom` 6 → 7: added `@testing-library/dom` peer dependency.
+  - `jsdom` 29 → 30: fixed `CSS.escape.bind(CSS)` call in `useKeyboardNavigation.ts`.
+  - `lint-staged` 16 → 17, `uuid` 13 → 14, `commander` 14 → 15 in `/cli`, `@types/node` 24 → 26.
+- **Dependency upgrades (minor/patch)** — 49-package minor/patch group including `graphql-ws`, `graphql-sse`, `typescript-eslint`, and all transitive updates.
+
+### Fixed
+- **`vitest.projectPatterns.ts`** — switched to named import `{ minimatch }` after `minimatch` v10 dropped the default export; fixed post-test coverage verification crash.
+- **`demoRipple.ts`** — added `typeof window !== 'undefined'` guards in `dispose()` and `position()` to prevent `ReferenceError: window is not defined` when a `setInterval` fires after jsdom environment teardown.
+- **`vite.config.ts`** — added `undici` to `optimizeDeps.exclude` to prevent Vite/rolldown from attempting to pre-bundle this Node-only library for the browser (E2E dev server crash).
+- **gRPC Phase 13H/13I gate scripts** — updated `validateCiChain` to recognise path-filter gating (`needs.changes.outputs.grpc == 'true'`) as a valid CI guard, in addition to the legacy `pull_request` event check.
+- **`scripts/run-product-coverage-fast.sh`** — replaced non-portable `stat -f '%z'` with `wc -c` for cross-platform file-size detection on Linux CI runners.
+- **`ApiMockStudioPage.orchestration` test** — increased timeout to 30 s to prevent flaky failures on slow CI runners.
+- **CI — `changes` job permissions** — added `pull-requests: read` so `dorny/paths-filter` can access PR diff metadata.
 - **grpcDemoCollectionsCleanup tests** — unit tests covering `purgeGrpcDemoSavedRequests` and `purgeEmptyGrpcDemoCollectionsByName` (100% coverage).
 
 ### Changed
