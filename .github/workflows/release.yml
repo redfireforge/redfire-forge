@@ -63,7 +63,7 @@ jobs:
       (github.event_name == 'push' && ((endsWith(github.ref_name, '-demo') && matrix.variant == 'demo') || (!endsWith(github.ref_name, '-demo') && matrix.variant == 'standard')))
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Node.js
         uses: actions/setup-node@v4
@@ -173,7 +173,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Generate SBOM
         uses: anchore/sbom-action@v0
