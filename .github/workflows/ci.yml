@@ -163,9 +163,7 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
       - name: Run gRPC Studio E2E
-        env:
-          E2E_GRPC_SERVER: '1'
-        run: npm run test:e2e:grpc
+        run: npm run test:e2e:grpc:ci
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4
