@@ -91,7 +91,6 @@ async function executeWsConnect(
       url: cfg.url,
     };
   } catch (err) {
-    httpStatus = 0;
     errorMessage = toErrorMessage(err);
     const failureClass = classifyWsFailure(errorMessage);
     if (failureClass !== 'network') {
@@ -176,7 +175,6 @@ async function executeWsSend(
       void sendResult;
     }
   } catch (err) {
-    httpStatus = 0;
     errorMessage = toErrorMessage(err);
     const failureClass = classifyWsFailure(errorMessage);
     if (failureClass !== 'network') {
@@ -253,7 +251,6 @@ async function executeWsReceive(
       messageSize: new TextEncoder().encode(received.data).length,
     };
   } catch (err) {
-    httpStatus = 0;
     errorMessage = toErrorMessage(err);
     const failureClass = classifyWsFailure(errorMessage);
     if (failureClass !== 'network') {

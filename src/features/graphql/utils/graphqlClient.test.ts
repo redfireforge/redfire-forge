@@ -1114,10 +1114,9 @@ describe('createWsProxyTransport', () => {
   });
 
   it('unsubscribe() aborts the fetch', async () => {
-    let resolveBody!: () => void;
     const readable = new ReadableStream<Uint8Array>({
       start(_ctrl) { /* keeps open until aborted */ },
-      cancel() { resolveBody?.(); },
+      cancel() { /* aborted by unsubscribe */ },
     });
     mockFetch.mockResolvedValue({ ok: true, body: readable });
 

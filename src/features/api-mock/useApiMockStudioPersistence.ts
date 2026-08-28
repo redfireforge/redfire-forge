@@ -57,7 +57,7 @@ export function useApiMockStudioPersistence(opts: {
         setOpenTabIds(hydrated.openTabIds);
         setActiveServerId(hydrated.activeServerId);
         // AMS-010 / W21 — reconcile live companion/native status (never trust disk for running).
-        let live: Array<{ serverId: string; state: 'running' | 'stopped'; generation?: number }> | null = null;
+        let live: Array<{ serverId: string; state: 'running' | 'stopped'; generation?: number }> | null;
         if (isTauri()) {
           live = await Promise.all(hydrated.servers.map(async (s) => {
             const st = await apiMockControlClient.status(s.id);

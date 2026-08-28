@@ -88,7 +88,7 @@ function mapRustResultJsFallback(
   scenario: Scenario,
   errorMessage: string | undefined,
 ): RequestResult {
-  let responseObj: unknown = null;
+  let responseObj: unknown;
   const needsParse =
     (rustResult.httpStatus >= 400 || rustResult.httpStatus === 0)
     || scenario.validation.mode !== 'none'

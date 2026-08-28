@@ -147,9 +147,9 @@ export function buildColumnsAndRowsFromParseResult(
   const skipFields = new Set(['name', 'method', 'url', 'body', 'auth_type']);
 
   for (const colName of colNames) {
-    let type: DataSourceColumn['type'] = 'param';
-    let mapping = colName;
-    let displayName = colName;
+    let type: DataSourceColumn['type'];
+    let mapping: string;
+    let displayName: string;
 
     if (colName.startsWith('path:')) { type = 'path'; mapping = colName.slice(5); displayName = mapping; }
     else if (colName.startsWith('param:')) { type = 'param'; mapping = colName.slice(6); displayName = mapping; }
@@ -166,6 +166,7 @@ export function buildColumnsAndRowsFromParseResult(
       } else {
         const existing = existingColumns.find(c => c.name.toLowerCase() === colName.toLowerCase());
         if (existing) { type = existing.type; mapping = existing.mapping; }
+        else { type = 'param'; mapping = colName; }
       }
       displayName = colName;
     }
