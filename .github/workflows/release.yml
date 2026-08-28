@@ -60,7 +60,7 @@ jobs:
 
     if: |
       (github.event_name == 'workflow_dispatch' && (inputs.variant == 'both' || inputs.variant == matrix.variant)) ||
-      (github.event_name == 'push' && github.ref_type == 'tag' && ((endsWith(github.ref_name, '-demo') && matrix.variant == 'demo') || (!endsWith(github.ref_name, '-demo') && matrix.variant == 'standard')))
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && ((endsWith(github.ref_name, '-demo') && matrix.variant == 'demo') || (!endsWith(github.ref_name, '-demo') && matrix.variant == 'standard')))
 
     steps:
       - uses: actions/checkout@v4
@@ -110,7 +110,7 @@ jobs:
 
       - name: Build Tauri app (standard)
         if: matrix.variant == 'standard'
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # macOS signing & notarization
@@ -135,7 +135,7 @@ jobs:
 
       - name: Build Tauri app (Learning Hub)
         if: matrix.variant == 'demo'
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # macOS signing & notarization
@@ -168,7 +168,7 @@ jobs:
     needs: build
     # Only for an actual tag push — a manual workflow_dispatch test run has no
     # tag to attach the asset to.
-    if: github.event_name == 'push' && github.ref_type == 'tag'
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
       contents: write
