@@ -58,7 +58,6 @@ async function registerSchedule(trigger: ScheduleTrigger): Promise<void> {
         await executeTrigger(trigger);
       },
       {
-        scheduled: true,
         timezone: trigger.timezone || 'UTC',
       }
     );
