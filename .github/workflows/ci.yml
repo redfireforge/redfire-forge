@@ -321,6 +321,11 @@ jobs:
         with:
           name: grpc-phase13d-recovery
           path: artifacts/
+      - name: Download Phase 13E artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: grpc-phase13e-a11y
+          path: artifacts/
       - name: Download Phase 13F artifact
         uses: actions/download-artifact@v4
         with:
