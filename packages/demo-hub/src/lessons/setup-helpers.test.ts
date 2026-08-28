@@ -525,6 +525,7 @@ describe('setup-helpers', () => {
     const stopBtn = document.createElement('button');
     stopBtn.setAttribute('data-testid', 'mock-stop-btn');
     setTimeout(() => {
+      if (typeof document === 'undefined' || !document.body) return;
       makeVisible(stopBtn);
       document.body.appendChild(stopBtn);
     }, 50);
