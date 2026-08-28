@@ -615,7 +615,7 @@ export function createCorrelationRouter(options: CorrelationRouterOptions = {}):
   });
 
   // Generic webhook callback — matches incoming webhooks against paused correlations
-  router.all('/webhooks/callback/*', (req: Request, res: Response) => {
+  router.all('/webhooks/callback/{*path}', (req: Request, res: Response) => {
     const webhookPath = req.path; // e.g. /webhooks/callback/payment
     const { method, headers, query, body } = req;
 

@@ -93,7 +93,7 @@ export async function idbClearAllRuns(): Promise<void> {
 export async function idbGetRunsInfo(): Promise<{ count: number; approxBytes: number }> {
   const all = await idbLoadTestRuns();
   // Estimate size by serializing (sampling for speed)
-  let approxBytes = 0;
+  let approxBytes: number;
   if (all.length <= 10) {
     approxBytes = all.reduce((sum, r) => sum + JSON.stringify(r).length * 2, 0);
   } else {

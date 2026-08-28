@@ -51,7 +51,7 @@ async function readText(filePath) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
 
-  const panelPath = 'src/features/grpc/components/GrpcSchemaDiffPanel.tsx';
+  const panelPath = 'src/features/grpc/components/grpcSchemaDiffPanel/GrpcSchemaDiffPanel.tsx';
   const cssPath = 'src/styles/grpc-studio.css';
 
   const [panelText, cssText] = await Promise.all([

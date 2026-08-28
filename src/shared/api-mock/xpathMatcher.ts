@@ -26,7 +26,7 @@ function parseXml(body: string): unknown | null {
     const parsed = parser.parseFromString(body, 'text/xml');
     doc = parsed ?? null;
   } catch {
-    doc = null;
+    // doc stays null (initial value)
   }
   docCache.set(body, doc);
   return doc;

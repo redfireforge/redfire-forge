@@ -161,16 +161,34 @@ async function evaluateCiChain(checks) {
     { missingJobs },
   );
 
+  // Gate check: accept either the legacy PR-only guard OR the current path-filter
+  // approach where 13a is gated by the changes path filter and downstream jobs
+  // cascade automatically via the needs chain (skipped when 13a is skipped).
+  const GATE_13A = "needs.changes.outputs.grpc == 'true'";
+  const GATE_PR  = "github.event_name == 'pull_request'";
+  const gate13aCondition = String(jobs['grpc-phase13a-slo']?.if ?? '');
+  const usesPathFilter = gate13aCondition.includes(GATE_13A);
+  const usesPrGuard   = gate13aCondition.includes(GATE_PR);
+
   const nonPrJobs = phaseJobs.filter((jobId) => {
     const condition = String(jobs[jobId]?.if ?? '');
-    return !condition.includes("github.event_name == 'pull_request'");
+    if (usesPathFilter) {
+      // Path-filter mode: 13a must have the path-filter gate; downstream jobs
+      // inherit the skip via the cascade needs chain and need no explicit guard.
+      if (jobId === 'grpc-phase13a-slo') return !condition.includes(GATE_13A);
+      return false; // downstream cascade jobs are implicitly gated
+    }
+    // Legacy PR-guard mode: every job must have the PR event guard.
+    return !condition.includes(GATE_PR);
   });
+  const ungatedEntryPoint = !usesPathFilter && !usesPrGuard ? ['grpc-phase13a-slo'] : [];
+
   addCheck(
     checks,
     'ci_phase13_jobs_include_pr_guard',
-    nonPrJobs.length === 0,
-    'All Phase 13 jobs include pull_request event guard',
-    { nonPrJobs },
+    nonPrJobs.length === 0 && ungatedEntryPoint.length === 0,
+    'All Phase 13 jobs include pull_request event guard or path-filter gate',
+    { nonPrJobs, ungatedEntryPoint },
   );
 
   const expectedNeeds = [

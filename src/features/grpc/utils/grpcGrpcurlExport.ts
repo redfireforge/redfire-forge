@@ -37,7 +37,7 @@ export function buildGrpcurlInvokeCommandFromSnapshot(
   snapshot: GrpcTabExecuteSnapshot,
   context?: GrpcGrpcurlExportContext,
 ): string {
-  let effectiveMetadata: Record<string, string> | undefined = snapshot.metadata;
+  let effectiveMetadata: Record<string, string> | undefined;
   try {
     effectiveMetadata = prepareGrpcExecuteRequestMetadata(snapshot.metadata, snapshot.auth) ?? snapshot.metadata;
   } catch {

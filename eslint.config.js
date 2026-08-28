@@ -10,6 +10,7 @@ export default defineConfig([
     'dist',
     'dist-cli',
     'dist-server',
+    'cli/dist',
     'coverage',
     'coverage-*',
     'cov-*',
@@ -40,9 +41,14 @@ export default defineConfig([
         caughtErrorsIgnorePattern: '^_',
         ignoreRestSiblings: true,
       }],
+      // React Compiler rules — disabled; we do not use the React Compiler.
       'react-hooks/preserve-manual-memoization': 'off',
       'react-hooks/set-state-in-effect': 'off',
       'react-hooks/refs': 'off',
+      'react-hooks/immutability': 'off',
+      'react-hooks/purity': 'off',
+      'react-hooks/use-memo': 'off',
+      'react-hooks/incompatible-library': 'off',
     },
   },
 ])

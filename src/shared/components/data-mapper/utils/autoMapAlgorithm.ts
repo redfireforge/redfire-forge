@@ -203,7 +203,6 @@ export function computeAutoMapCandidates(
             semanticType: srcType,
           });
           claimedSources.add(sourcePath);
-          matched = true;
           break;
         }
       }
