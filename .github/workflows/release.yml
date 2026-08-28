@@ -4,6 +4,10 @@ on:
   push:
     tags:
       - 'v*'
+    branches:
+      - master
+      - develop
+      - 'release/**'
   workflow_dispatch:
     inputs:
       variant:
@@ -17,6 +21,13 @@ on:
           - both
 
 jobs:
+  guard:
+    name: Skip (not a tag push)
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'branch'
+    steps:
+      - run: echo "Not a tag push - build jobs skipped."
+
   build:
     strategy:
       fail-fast: false
