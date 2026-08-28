@@ -109,7 +109,7 @@ export function loadSlaTargetFile(filePath: string): SlaTarget[] {
   try {
     raw = readFileSync(filePath, 'utf-8');
   } catch (err) {
-    throw new Error(`Cannot read SLA config file "${filePath}": ${(err as Error).message}`);
+    throw new Error(`Cannot read SLA config file "${filePath}": ${(err as Error).message}`, { cause: err });
   }
 
   let parsed: unknown;

@@ -17,8 +17,13 @@ jobs:
   changes:
     name: Detect changed paths
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       demo: ${{ steps.filter.outputs.demo }}
+      product: ${{ steps.filter.outputs.product }}
+      grpc: ${{ steps.filter.outputs.grpc }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -46,6 +51,24 @@ jobs:
               - 'vitest.config.ts'
               - 'scripts/product-coverage-filter.ts'
               - 'src/test-utils/vitestProjectSplit.test.ts'
+            product:
+              - 'src/**'
+              - 'cli/**'
+              - 'src-server/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig*.json'
+              - 'vite.config.ts'
+              - 'vitest.config.ts'
+              - 'vitest.projectPatterns.ts'
+            grpc:
+              - 'src/features/grpc/**'
+              - 'src-server/grpc/**'
+              - 'src/shared/grpc/**'
+              - 'scripts/grpc-*.mjs'
+              - 'scripts/grpc-*.ts'
+              - 'package.json'
+              - 'package-lock.json'
 
   typecheck:
     name: TypeScript Check
@@ -54,7 +77,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - run: npx tsc -b --noEmit
@@ -62,13 +85,13 @@ jobs:
   grpc-phase13a-slo:
     name: gRPC Phase 13A SLO Gate
     runs-on: ubuntu-latest
-    needs: typecheck
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
+    needs: [typecheck, changes]
+    if: needs.changes.outputs.grpc == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - name: Start API server
@@ -103,12 +126,11 @@ jobs:
     name: gRPC Phase 13B Probe Gate
     runs-on: ubuntu-latest
     needs: [typecheck, grpc-phase13a-slo]
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - name: Run Phase 13B fixture-backed gate
@@ -119,17 +141,22 @@ jobs:
         with:
           name: grpc-phase13b-baseline
           path: artifacts/grpc-phase13b-baseline.ci.json
+      - name: Upload transport parity artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: grpc-phase13b-transport-parity
+          path: artifacts/grpc-transport-parity-matrix.ci.json
 
   grpc-phase13c-drills:
     name: gRPC Phase 13C Failure Drills
     runs-on: ubuntu-latest
     needs: [typecheck, grpc-phase13b-slo]
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - name: Start API server
@@ -165,12 +192,11 @@ jobs:
     name: gRPC Phase 13D Recovery Drills
     runs-on: ubuntu-latest
     needs: [typecheck, grpc-phase13c-drills]
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - name: Start API server
@@ -206,12 +232,11 @@ jobs:
     name: gRPC Phase 13E Accessibility and Virtualization Gate
     runs-on: ubuntu-latest
     needs: [typecheck, grpc-phase13d-recovery]
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - name: Run Phase 13E a11y + virtualization gate
@@ -227,12 +252,11 @@ jobs:
     name: gRPC Phase 13F Observability and Redaction Audit Gate
     runs-on: ubuntu-latest
     needs: [typecheck, grpc-phase13e-a11y]
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - name: Run Phase 13F observability + redaction gate
@@ -248,12 +272,11 @@ jobs:
     name: gRPC Phase 13H Operational Rollback Drill Gate
     runs-on: ubuntu-latest
     needs: [typecheck, grpc-phase13f-observability]
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - name: Start API server
@@ -289,14 +312,43 @@ jobs:
     name: gRPC Phase 13I Final GA Sign-off
     runs-on: ubuntu-latest
     needs: [typecheck, grpc-phase13h-rollback]
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
+      - name: Download transport parity artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: grpc-phase13b-transport-parity
+          path: artifacts/
+      - name: Download Phase 13C artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: grpc-phase13c-drills
+          path: artifacts/
+      - name: Download Phase 13D artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: grpc-phase13d-recovery
+          path: artifacts/
+      - name: Download Phase 13E artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: grpc-phase13e-a11y
+          path: artifacts/
+      - name: Download Phase 13F artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: grpc-phase13f-observability
+          path: artifacts/
+      - name: Download Phase 13H artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: grpc-phase13h-rollback
+          path: artifacts/
       - name: Run Phase 13I final GA sign-off gate
         run: npm run grpc:phase13i:gate
       - name: Upload GA sign-off artifact
@@ -313,7 +365,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - run: npx eslint src/ cli/
@@ -321,15 +373,19 @@ jobs:
   unit-tests-product:
     name: Unit Tests (product)
     runs-on: ubuntu-latest
-    needs: typecheck
+    needs: [typecheck, changes]
+    if: needs.changes.outputs.product == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run test:product:coverage:fast
+      - name: Run product coverage (2 shards — matches CI runner vCPU count)
+        run: npm run test:product:coverage:fast
+        env:
+          COVERAGE_SHARDS: 2
       - name: Check coverage thresholds
         run: |
           echo "Product coverage report generated. Review in PR for >90% target."
@@ -343,7 +399,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run test:demo
@@ -357,7 +413,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run build:prod
@@ -380,7 +436,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - name: Install Playwright browsers

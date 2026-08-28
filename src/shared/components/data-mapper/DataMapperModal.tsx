@@ -398,7 +398,7 @@ export default function DataMapperModal<TOutput = unknown>({
       return;
     }
 
-    let adapterIssues: ReturnType<NonNullable<typeof adapter.validate>> = [];
+    let adapterIssues: ReturnType<NonNullable<typeof adapter.validate>>;
     try {
       adapterIssues = adapter.validate?.(mappings) ?? [];
     } catch (err) {

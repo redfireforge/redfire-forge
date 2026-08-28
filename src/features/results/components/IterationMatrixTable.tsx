@@ -119,7 +119,7 @@ export default function IterationMatrixTable({
     const sorted = [...filteredRows];
 
     sorted.sort((a, b) => {
-      let cmp = 0;
+      let cmp: number;
 
       if (sortField === 'iteration') {
         cmp = a.originalIndex - b.originalIndex;

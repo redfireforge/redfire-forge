@@ -207,7 +207,7 @@ export function useGrpcStudioAdvancedMockActions(options: UseGrpcStudioAdvancedM
         } catch (error) {
           if (isTauri()) {
             const message = error instanceof Error ? error.message : 'unknown error';
-            throw new Error(`Native mock listener requires descriptor export: ${message}`);
+            throw new Error(`Native mock listener requires descriptor export: ${message}`, { cause: error });
           }
           protosetBase64 = undefined;
           contentSha256 = undefined;

@@ -6,7 +6,8 @@ import ErrorPopover from './ErrorPopover';
 import MapperFooter from './MapperFooter';
 import ExampleInferenceModal from './ExampleInferenceModal';
 
-export function DataMapperOverlays(props: any) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function DataMapperOverlays(props: Record<string, any>) {
   return (
     <>
       <DataMapperArraySuggestionBar
