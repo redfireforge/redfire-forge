@@ -145,8 +145,8 @@ jobs:
   # ── E2E Integration Tests ────────────────────────────────────────────────
   # These run on PRs and develop/release merges only — not on every feature push.
 
-  e2e-grpc-integration:
-    name: E2E gRPC Integration (phases 13A–13I)
+  e2e-grpc:
+    name: E2E gRPC Studio
     runs-on: ubuntu-latest
     needs: [typecheck]
     if: |
@@ -160,51 +160,19 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-
-      - name: Start API server
-        run: npm run server > /tmp/redfire-grpc-server.log 2>&1 & echo $! > /tmp/redfire-grpc-server.pid
-      - name: Wait for gRPC route
-        run: |
-          for i in {1..40}; do
-            if curl --noproxy '*' -sSf http://127.0.0.1:3001/api/grpc/describe/usage > /dev/null; then
-              echo "gRPC route ready"; exit 0
-            fi
-            sleep 1
-          done
-          echo "Server failed to become ready"
-          cat /tmp/redfire-grpc-server.log || true
-          exit 1
-
-      - name: Phase 13A — SLO Gate
-        run: npm run grpc:phase13a:gate -- --require-live --base-url=http://127.0.0.1:3001
-      - name: Phase 13B — Probe Gate
-        run: npm run grpc:phase13b:ci
-      - name: Phase 13C — Failure Drills
-        run: npm run grpc:phase13c:gate -- --base-url=http://127.0.0.1:3001
-      - name: Phase 13D — Recovery Drills
-        run: npm run grpc:phase13d:gate -- --base-url=http://127.0.0.1:3001
-      - name: Phase 13E — Accessibility and Virtualization
-        run: npm run grpc:phase13e:gate
-      - name: Phase 13F — Observability and Redaction Audit
-        run: npm run grpc:phase13f:gate
-      - name: Phase 13H — Operational Rollback Drill
-        run: npm run grpc:phase13h:gate -- --base-url=http://127.0.0.1:3001
-      - name: Phase 13I — Final GA Sign-off
-        run: npm run grpc:phase13i:gate
-
-      - name: Stop API server
-        if: always()
-        run: |
-          if [ -f /tmp/redfire-grpc-server.pid ]; then
-            kill "$(cat /tmp/redfire-grpc-server.pid)" || true
-          fi
-
-      - name: Upload gRPC integration artifacts
-        if: always()
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+      - name: Run gRPC Studio E2E
+        env:
+          E2E_GRPC_SERVER: '1'
+        run: npm run test:e2e:grpc
+      - name: Upload Playwright report
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: grpc-integration-artifacts
-          path: artifacts/grpc-phase13*.json
+          name: grpc-e2e-playwright-report
+          path: playwright-report/
+          retention-days: 7
 
   e2e-demo-gql5:
     name: E2E Demo GQL-5 (Docker)
