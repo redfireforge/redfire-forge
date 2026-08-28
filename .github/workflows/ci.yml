@@ -363,7 +363,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run test:product:coverage:fast
+      - name: Run product coverage (2 shards — matches CI runner vCPU count)
+        run: npm run test:product:coverage:fast
+        env:
+          COVERAGE_SHARDS: 2
       - name: Check coverage thresholds
         run: |
           echo "Product coverage report generated. Review in PR for >90% target."
