@@ -98,7 +98,7 @@ export function GrpcTabBar({
       const idx = tabs.findIndex((t) => t.id === tabId);
       if (idx < 0) return;
 
-      let targetIndex = -1;
+      let targetIndex: number | undefined;
       switch (e.key) {
         case 'ArrowLeft':
           targetIndex = idx > 0 ? idx - 1 : tabs.length - 1;
@@ -135,7 +135,7 @@ export function GrpcTabBar({
           return;
       }
 
-      if (targetIndex >= 0 && targetIndex !== idx) {
+      if (targetIndex !== undefined && targetIndex !== idx) {
         e.preventDefault();
         const el = tabElRefs.current.get(tabs[targetIndex].id);
         el?.focus();

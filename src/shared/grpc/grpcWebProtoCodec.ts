@@ -53,7 +53,7 @@ export function loadProtobufRootFromProtosetBase64(protosetBase64: string): prot
     fileDescriptorSet = FileDescriptorSetCodec.decode(buffer);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to decode protoset: ${message}`);
+    throw new Error(`Failed to decode protoset: ${message}`, { cause: error });
   }
   if (!fileDescriptorSet.file?.length) {
     throw new Error('protoset contains no file descriptors');
@@ -66,7 +66,7 @@ export function loadProtobufRootFromProtosetBase64(protosetBase64: string): prot
     return root;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to load protoset descriptor: ${message}`);
+    throw new Error(`Failed to load protoset descriptor: ${message}`, { cause: error });
   }
 }
 
