@@ -546,7 +546,10 @@ export default defineConfig({
       // Release gates start a fresh frontend; locally reuse :5173 if it is already up
       // so a finished E2E run does not tear down the Vite tab you are watching.
       reuseExistingServer: reuseExistingE2EServers,
-      timeout: 30_000,
+      // 120s: Vite's first-run dependency pre-bundling on a cold CI runner (no .vite/deps
+      // cache after npm ci) can take 40-90s before the HTTP server responds. 30s was
+      // too tight and caused intermittent timeout failures on fresh CI runs.
+      timeout: 120_000,
     },
   ],
 });
