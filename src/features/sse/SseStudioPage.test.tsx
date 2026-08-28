@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { ReactNode } from 'react';
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { SseStudioPage } from './SseStudioPage';
 import type { UseSseConnectionReturn } from './useSseConnection';
 import type { SseConnectionConfig, SseConnectionSnapshot, SseStats, SseEvent } from './sseTypes';
