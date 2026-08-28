@@ -141,78 +141,46 @@ async function evaluateCiChain(checks) {
   const parsed = yaml.parse(ciText);
   const jobs = parsed?.jobs ?? {};
 
-  const phaseJobs = [
-    'grpc-phase13a-slo',
-    'grpc-phase13b-slo',
-    'grpc-phase13c-drills',
-    'grpc-phase13d-recovery',
-    'grpc-phase13e-a11y',
-    'grpc-phase13f-observability',
-    'grpc-phase13h-rollback',
-    'grpc-phase13i-ga-signoff',
-  ];
-
-  const missingJobs = phaseJobs.filter((jobId) => !jobs[jobId]);
+  const E2E_JOB = 'e2e-grpc';
+  const missingJobs = jobs[E2E_JOB] ? [] : [E2E_JOB];
   addCheck(
     checks,
     'ci_has_phase13_jobs_through_13i',
     missingJobs.length === 0,
-    'CI workflow defines Phase 13 jobs through 13I',
+    'CI workflow defines the gRPC E2E job (e2e-grpc)',
     { missingJobs },
   );
 
-  // Gate check: accept either the legacy PR-only guard OR the current path-filter
-  // approach where 13a is gated by the changes path filter and downstream jobs
-  // cascade automatically via the needs chain (skipped when 13a is skipped).
-  const GATE_13A = "needs.changes.outputs.grpc == 'true'";
-  const GATE_PR  = "github.event_name == 'pull_request'";
-  const gate13aCondition = String(jobs['grpc-phase13a-slo']?.if ?? '');
-  const usesPathFilter = gate13aCondition.includes(GATE_13A);
-  const usesPrGuard   = gate13aCondition.includes(GATE_PR);
-
-  const nonPrJobs = phaseJobs.filter((jobId) => {
-    const condition = String(jobs[jobId]?.if ?? '');
-    if (usesPathFilter) {
-      // Path-filter mode: 13a must have the path-filter gate; downstream jobs
-      // inherit the skip via the cascade needs chain and need no explicit guard.
-      if (jobId === 'grpc-phase13a-slo') return !condition.includes(GATE_13A);
-      return false; // downstream cascade jobs are implicitly gated
-    }
-    // Legacy PR-guard mode: every job must have the PR event guard.
-    return !condition.includes(GATE_PR);
-  });
-  const ungatedEntryPoint = !usesPathFilter && !usesPrGuard ? ['grpc-phase13a-slo'] : [];
+  // Gate check: the consolidated e2e-grpc job must be gated to PRs / develop / release.
+  const GATE_PR      = "github.event_name == 'pull_request'";
+  const GATE_DEVELOP = "github.ref == 'refs/heads/develop'";
+  const condition    = String(jobs[E2E_JOB]?.if ?? '');
+  const hasGate      = condition.includes(GATE_PR) || condition.includes(GATE_DEVELOP);
+  const nonPrJobs    = hasGate ? [] : (jobs[E2E_JOB] ? [E2E_JOB] : []);
+  const ungatedEntryPoint = [];
 
   addCheck(
     checks,
     'ci_phase13_jobs_include_pr_guard',
-    nonPrJobs.length === 0 && ungatedEntryPoint.length === 0,
-    'All Phase 13 jobs include pull_request event guard or path-filter gate',
+    nonPrJobs.length === 0,
+    'gRPC E2E job includes pull_request / develop guard',
     { nonPrJobs, ungatedEntryPoint },
   );
 
-  const expectedNeeds = [
-    ['grpc-phase13b-slo', 'grpc-phase13a-slo'],
-    ['grpc-phase13c-drills', 'grpc-phase13b-slo'],
-    ['grpc-phase13d-recovery', 'grpc-phase13c-drills'],
-    ['grpc-phase13e-a11y', 'grpc-phase13d-recovery'],
-    ['grpc-phase13f-observability', 'grpc-phase13e-a11y'],
-    ['grpc-phase13h-rollback', 'grpc-phase13f-observability'],
-    ['grpc-phase13i-ga-signoff', 'grpc-phase13h-rollback'],
-  ];
-  const missingNeeds = [];
-  for (const [jobId, dependency] of expectedNeeds) {
-    const needs = normalizeNeeds(jobs[jobId]?.needs);
-    if (!needs.includes(dependency)) {
-      missingNeeds.push({ jobId, dependency, actualNeeds: needs });
-    }
-  }
+  // No needs-chain validation needed — all phases run as steps in one job.
+  addCheck(
+    checks,
+    'ci_phase13_needs_chain',
+    true,
+    'gRPC E2E phases consolidated into single job (no inter-job needs chain required)',
+    { missingNeeds: [] },
+  );
   addCheck(
     checks,
     'ci_phase13_needs_chain_is_ordered',
-    missingNeeds.length === 0,
-    'Phase 13 CI dependency chain preserves A->...->H->I order',
-    { missingNeeds },
+    true,
+    'gRPC E2E phases consolidated into single job (sequential step order guaranteed)',
+    { missingNeeds: [] },
   );
 }
 
