@@ -281,7 +281,7 @@
     "react-router-dom": "^7.14.0",
     "recharts": "^3.8.1",
     "swagger2openapi": "^7.0.8",
-    "uuid": "^13.0.0",
+    "uuid": "^14.0.2",
     "ws": "^8.21.0",
     "xlsx-js-style": "^1.2.0",
     "xpath": "^0.0.34",
