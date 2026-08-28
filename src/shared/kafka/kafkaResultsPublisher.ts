@@ -61,6 +61,7 @@ export async function publishRunResults(
   };
 
   let retryCount = 0;
+  // eslint-disable-next-line no-useless-assignment -- null is the TypeScript-safe initializer; lastError is always set in catch before use after the loop
   let lastError: Error | null = null;
 
   while (true) {

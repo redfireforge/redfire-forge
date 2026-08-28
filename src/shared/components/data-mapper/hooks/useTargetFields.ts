@@ -205,7 +205,7 @@ export function useTargetFields<TOutput = unknown>({
       }
       const msg = e instanceof Error ? e.message : 'Failed to fetch target schema';
       setTargetFetchError({ message: msg });
-      throw new Error(msg);
+      throw new Error(msg, { cause: e });
     }
   }, [adapter]);
 

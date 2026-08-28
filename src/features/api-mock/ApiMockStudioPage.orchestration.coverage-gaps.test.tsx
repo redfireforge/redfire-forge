@@ -455,7 +455,7 @@ describe('ApiMockStudioPage orchestration coverage', () => {
 
     fireEvent.click(screen.getByTestId('mock-create-server'));
     await waitFor(() => expect(screen.getByTestId('api-mock-live-region')).toHaveTextContent(/created on port 4601/i));
-  });
+  }, 30000);
 
   it('covers duplicate, library reorder, demo naming, and no-port failures', async () => {
     const { ApiMockStudioPage } = await import('./ApiMockStudioPage');

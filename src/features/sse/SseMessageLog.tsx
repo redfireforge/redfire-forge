@@ -94,7 +94,6 @@ export function SseMessageLog({
     return result;
   }, [events, searchText, eventTypeFilter, showBookmarked, bookmarkedIds]);
 
-  // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: filteredEvents.length,
     getScrollElement: () => parentRef.current,

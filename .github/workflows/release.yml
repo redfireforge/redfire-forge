@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+    branches:
+      - develop
+      - master
+      - 'release/**'
+      - 'feature/**'
+      - 'hotfix/**'
   workflow_dispatch:
     inputs:
       variant:
@@ -17,6 +23,15 @@ on:
           - both
 
 jobs:
+  # Lightweight guard job — always passes. Prevents GitHub from reporting
+  # "failure" when a branch push evaluates this workflow but all build jobs
+  # are skipped (build jobs only run on tag pushes / workflow_dispatch).
+  validate:
+    name: Release workflow ready
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "release.yml evaluated OK"
+
   build:
     strategy:
       fail-fast: false
@@ -60,7 +75,7 @@ jobs:
 
     if: |
       (github.event_name == 'workflow_dispatch' && (inputs.variant == 'both' || inputs.variant == matrix.variant)) ||
-      (github.event_name == 'push' && ((endsWith(github.ref_name, '-demo') && matrix.variant == 'demo') || (!endsWith(github.ref_name, '-demo') && matrix.variant == 'standard')))
+      (github.event_name == 'push' && github.ref_type == 'tag' && ((endsWith(github.ref_name, '-demo') && matrix.variant == 'demo') || (!endsWith(github.ref_name, '-demo') && matrix.variant == 'standard')))
 
     steps:
       - uses: actions/checkout@v4
@@ -68,7 +83,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install Rust stable
@@ -168,7 +183,7 @@ jobs:
     needs: build
     # Only for an actual tag push — a manual workflow_dispatch test run has no
     # tag to attach the asset to.
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref_type == 'tag'
     runs-on: ubuntu-latest
     permissions:
       contents: write

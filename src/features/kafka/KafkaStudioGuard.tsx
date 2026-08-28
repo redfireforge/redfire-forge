@@ -21,8 +21,6 @@ export function KafkaStudioGuard({
     btnLabel = '→ Add a cluster';
   } else if (connection.state === 'testing') {
     title = 'Connecting to cluster…';
-    subtitle = null;
-    btnLabel = null;
   } else if (connection.state === 'error') {
     title = 'Cluster connection error';
     subtitle = connection.lastError ?? 'Unknown error';

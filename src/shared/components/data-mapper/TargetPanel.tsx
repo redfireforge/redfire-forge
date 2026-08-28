@@ -239,7 +239,7 @@ export default function TargetPanel({
     requestAnimationFrame(() => {
       const container = treeContainerRef.current;
       if (!container) return;
-      const esc = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape : (s: string) => s;
+      const esc = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape.bind(CSS) : (s: string) => s;
       const el =
         container.querySelector(`[data-path="${esc(stripped)}"]`) ??
         container.querySelector(`[data-path="${esc(path)}"]`);
