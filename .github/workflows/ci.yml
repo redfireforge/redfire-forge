@@ -24,10 +24,10 @@ jobs:
       demo: ${{ steps.filter.outputs.demo }}
       product: ${{ steps.filter.outputs.product }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -65,8 +65,8 @@ jobs:
     name: TypeScript Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -77,8 +77,8 @@ jobs:
     name: ESLint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -91,8 +91,8 @@ jobs:
     needs: [typecheck, changes]
     if: needs.changes.outputs.product == 'true'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -111,8 +111,8 @@ jobs:
     needs: [typecheck, changes]
     if: needs.changes.outputs.demo == 'true'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -125,8 +125,8 @@ jobs:
     needs: [typecheck, lint]
     if: github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/')
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -154,8 +154,8 @@ jobs:
       github.ref == 'refs/heads/develop' ||
       startsWith(github.ref, 'refs/heads/release/')
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -166,7 +166,7 @@ jobs:
         run: npm run test:e2e:grpc:ci
       - name: Upload Playwright report
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: grpc-e2e-playwright-report
           path: playwright-report/
@@ -182,8 +182,8 @@ jobs:
        github.ref == 'refs/heads/develop' ||
        startsWith(github.ref, 'refs/heads/release/'))
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
