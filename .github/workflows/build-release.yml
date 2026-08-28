@@ -1,4 +1,4 @@
-name: "Build & Release"
+name: Build and Release
 
 on:
   push:
@@ -21,57 +21,67 @@ on:
           - both
 
 jobs:
+  # Completes on branch pushes so GitHub reports a passing run instead of
+  # "workflow file issue" (which happens when every job is skipped).
   guard:
     name: Skip (not a tag push)
     runs-on: ubuntu-latest
-    if: github.ref_type == 'branch'
+    if: github.event_name == 'push' && github.ref_type == 'branch'
     steps:
       - run: echo "Not a tag push - build jobs skipped."
 
+  # Job-level `if` is evaluated before the matrix exists, so `matrix.*` there
+  # makes GitHub reject the whole workflow (0 jobs, name falls back to the
+  # file path). Filter the matrix here instead.
+  prepare:
+    name: Select build matrix
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/'))
+    runs-on: ubuntu-latest
+    outputs:
+      include: ${{ steps.select.outputs.include }}
+    steps:
+      - id: select
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          VARIANT: ${{ inputs.variant }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          rows = [
+            {"platform": "macos-latest", "target": "aarch64-apple-darwin", "label": "macOS-ARM64", "variant": "standard"},
+            {"platform": "macos-latest", "target": "aarch64-apple-darwin", "label": "macOS-ARM64-Demo", "variant": "demo"},
+            {"platform": "macos-latest", "target": "x86_64-apple-darwin", "label": "macOS-x64", "variant": "standard"},
+            {"platform": "macos-latest", "target": "x86_64-apple-darwin", "label": "macOS-x64-Demo", "variant": "demo"},
+            {"platform": "ubuntu-22.04", "target": "x86_64-unknown-linux-gnu", "label": "Linux-x64", "variant": "standard"},
+            {"platform": "ubuntu-22.04", "target": "x86_64-unknown-linux-gnu", "label": "Linux-x64-Demo", "variant": "demo"},
+            {"platform": "windows-latest", "target": "x86_64-pc-windows-msvc", "label": "Windows-x64", "variant": "standard"},
+            {"platform": "windows-latest", "target": "x86_64-pc-windows-msvc", "label": "Windows-x64-Demo", "variant": "demo"},
+          ]
+          event = os.environ["EVENT"]
+          ref_name = os.environ["REF_NAME"]
+          variant = os.environ.get("VARIANT") or ""
+          if event == "workflow_dispatch":
+              selected = rows if variant == "both" else [r for r in rows if r["variant"] == variant]
+          elif event == "push":
+              want = "demo" if ref_name.endswith("-demo") else "standard"
+              selected = [r for r in rows if r["variant"] == want]
+          else:
+              selected = []
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write("include=" + json.dumps(selected, separators=(",", ":")) + "\n")
+          PY
+
   build:
+    needs: prepare
+    if: needs.prepare.result == 'success' && needs.prepare.outputs.include != '[]'
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: macos-latest
-            target: aarch64-apple-darwin
-            label: macOS-ARM64
-            variant: standard
-          - platform: macos-latest
-            target: aarch64-apple-darwin
-            label: macOS-ARM64-Demo
-            variant: demo
-          - platform: macos-latest
-            target: x86_64-apple-darwin
-            label: macOS-x64
-            variant: standard
-          - platform: macos-latest
-            target: x86_64-apple-darwin
-            label: macOS-x64-Demo
-            variant: demo
-          - platform: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            label: Linux-x64
-            variant: standard
-          - platform: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            label: Linux-x64-Demo
-            variant: demo
-          - platform: windows-latest
-            target: x86_64-pc-windows-msvc
-            label: Windows-x64
-            variant: standard
-          - platform: windows-latest
-            target: x86_64-pc-windows-msvc
-            label: Windows-x64-Demo
-            variant: demo
+        include: ${{ fromJson(needs.prepare.outputs.include) }}
 
     runs-on: ${{ matrix.platform }}
     name: Build (${{ matrix.label }})
-
-    if: |
-      (github.event_name == 'workflow_dispatch' && (inputs.variant == 'both' || inputs.variant == matrix.variant)) ||
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && ((endsWith(github.ref_name, '-demo') && matrix.variant == 'demo') || (!endsWith(github.ref_name, '-demo') && matrix.variant == 'standard')))
 
     steps:
       - uses: actions/checkout@v5
