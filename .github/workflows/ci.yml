@@ -17,6 +17,8 @@ jobs:
   changes:
     name: Detect changed paths
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
     outputs:
       demo: ${{ steps.filter.outputs.demo }}
     steps:
