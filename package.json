@@ -255,7 +255,7 @@
     "better-sqlite3": "^12.9.0",
     "busboy": "^1.6.0",
     "commander": "^14.0.3",
-    "express": "^4.21.2",
+    "express": "^5.2.1",
     "extract-files": "^13.0.0",
     "graphql": "^17.0.1",
     "graphql-sse": "^2.6.0",
