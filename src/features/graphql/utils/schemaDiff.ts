@@ -62,6 +62,7 @@ export function computeSchemaDiff(
   } catch (err) {
     throw new Error(
       `schemaDiff: failed to parse SDL — ${err instanceof Error ? err.message : String(err)}`,
+      { cause: err },
     );
   }
 

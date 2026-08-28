@@ -155,7 +155,7 @@ export function SseConnectionTabBar({
       const currentIndex = tabs.findIndex((t) => t.id === tabId);
       if (currentIndex === -1) return;
 
-      let targetIndex = -1;
+      let targetIndex: number | undefined;
       switch (e.key) {
         case 'ArrowLeft':
           targetIndex = currentIndex > 0 ? currentIndex - 1 : tabs.length - 1;
@@ -182,7 +182,7 @@ export function SseConnectionTabBar({
         default: return;
       }
 
-      if (targetIndex >= 0 && targetIndex !== currentIndex) {
+      if (targetIndex !== undefined && targetIndex !== currentIndex) {
         e.preventDefault();
         const el = tabElRefs.current.get(tabs[targetIndex].id);
         el?.focus();

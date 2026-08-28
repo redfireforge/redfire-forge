@@ -70,7 +70,7 @@ export function stripPaths(obj: any, paths: string[]): any {
       const bracketMatch = seg.match(/^(.+)\[(\d+)\]$/);
       if (bracketMatch) {
         cursor = cursor?.[bracketMatch[1]];
-        cursor = Array.isArray(cursor) ? (cursor = [...cursor]) : cursor;
+        if (Array.isArray(cursor)) cursor = [...cursor];
         cursor = cursor?.[Number(bracketMatch[2])];
       } else {
         if (cursor && typeof cursor === 'object' && !Array.isArray(cursor)) cursor[seg] = { ...cursor[seg] };

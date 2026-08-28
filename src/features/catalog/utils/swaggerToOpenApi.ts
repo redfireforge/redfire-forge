@@ -647,7 +647,7 @@ export async function upgradeOpenApi3Yaml(
     const { doc, notes } = normalizeConvertedOpenApi3(rawOutput.openapi);
     output = { ...rawOutput, openapi: doc, warnings: [...rawOutput.warnings, ...notes] };
   } catch (err) {
-    throw new Error(`Upgrade failed: ${err instanceof Error ? err.message : String(err)}`);
+    throw new Error(`Upgrade failed: ${err instanceof Error ? err.message : String(err)}`, { cause: err });
   }
 
   const errors = validateOpenApi3(output.openapi);

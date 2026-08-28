@@ -511,9 +511,9 @@ function buildParameterizedTest(tests: Scenario[], parseResult: CsvParseResult):
   const skipFields = new Set(['name', 'method', 'url', 'body', 'auth_type']);
 
   for (const colName of colNames) {
-    let type: DataSourceColumn['type'] = 'param';
-    let mapping = colName;
-    let displayName = colName;
+    let type: DataSourceColumn['type'];
+    let mapping: string;
+    let displayName: string;
 
     // 1. Check for explicit prefixes (CSV format)
     if (colName.startsWith('path:')) {
