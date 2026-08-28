@@ -4,6 +4,14 @@ on:
   push:
     tags:
       - 'v*'
+    # Explicit branch triggers let the guard job run on branch pushes so
+    # GitHub shows ✅ instead of "workflow file issue" (which occurs when
+    # the workflow fires via a phantom tag-context evaluation but all jobs
+    # are skipped and 0 jobs complete).
+    branches:
+      - master
+      - develop
+      - 'release/**'
   workflow_dispatch:
     inputs:
       variant:
