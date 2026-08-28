@@ -122,6 +122,12 @@ jobs:
         with:
           name: grpc-phase13b-baseline
           path: artifacts/grpc-phase13b-baseline.ci.json
+      - name: Upload transport parity artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: grpc-phase13b-transport-parity
+          path: artifacts/grpc-transport-parity-matrix.ci.json
 
   grpc-phase13c-drills:
     name: gRPC Phase 13C Failure Drills
@@ -300,6 +306,31 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Download transport parity artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: grpc-phase13b-transport-parity
+          path: artifacts/
+      - name: Download Phase 13C artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: grpc-phase13c-drills
+          path: artifacts/
+      - name: Download Phase 13D artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: grpc-phase13d-recovery
+          path: artifacts/
+      - name: Download Phase 13F artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: grpc-phase13f-observability
+          path: artifacts/
+      - name: Download Phase 13H artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: grpc-phase13h-rollback
+          path: artifacts/
       - name: Run Phase 13I final GA sign-off gate
         run: npm run grpc:phase13i:gate
       - name: Upload GA sign-off artifact
