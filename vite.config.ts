@@ -383,7 +383,7 @@ export default defineConfig({
   plugins: [demoHubRootImportsPlugin(), monacoDevNoisePlugin(), react(), proxyPlugin(), demoLiveGuardPlugin(), docsPlugin()],
   customLogger: createMonacoAwareLogger(),
   build: {
-    chunkSizeWarningLimit: 8000,
+    chunkSizeWarningLimit: 10000,
   },
   define: {
     'process.env': '{}',
