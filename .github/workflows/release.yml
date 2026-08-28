@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+    branches:
+      - develop
+      - master
+      - 'release/**'
+      - 'feature/**'
+      - 'hotfix/**'
   workflow_dispatch:
     inputs:
       variant:
@@ -69,7 +75,7 @@ jobs:
 
     if: |
       (github.event_name == 'workflow_dispatch' && (inputs.variant == 'both' || inputs.variant == matrix.variant)) ||
-      (github.event_name == 'push' && ((endsWith(github.ref_name, '-demo') && matrix.variant == 'demo') || (!endsWith(github.ref_name, '-demo') && matrix.variant == 'standard')))
+      (github.event_name == 'push' && github.ref_type == 'tag' && ((endsWith(github.ref_name, '-demo') && matrix.variant == 'demo') || (!endsWith(github.ref_name, '-demo') && matrix.variant == 'standard')))
 
     steps:
       - uses: actions/checkout@v4
@@ -177,7 +183,7 @@ jobs:
     needs: build
     # Only for an actual tag push — a manual workflow_dispatch test run has no
     # tag to attach the asset to.
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref_type == 'tag'
     runs-on: ubuntu-latest
     permissions:
       contents: write
