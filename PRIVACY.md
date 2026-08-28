@@ -1,6 +1,8 @@
 # Privacy Policy
 
-**Last updated:** 2026-08-26
+**Last updated:** 2026-08-27
+
+**Canonical URL:** https://github.com/redfireforge/redfire-forge/blob/master/PRIVACY.md
 
 RedfireForge is a local-first API/protocol testing tool. This policy explains what data the desktop and web apps handle today, and what will change if the optional cloud waitlist and SaaS offering (planned, not yet live) launch.
 
@@ -28,10 +30,12 @@ When the optional cloud waitlist form goes live, submitting it will collect:
 
 We collect this **only** to notify you about RedfireForge Cloud availability and to send infrequent, relevant product updates. We will never sell this data or use it for third-party advertising.
 
+**Legal basis (GDPR):** Processing is based on your consent — you provide your details voluntarily by submitting the waitlist form, and you can withdraw consent and request deletion at any time (see §6).
+
 ## 4. Where is data stored?
 
 - **App data** (requests, workflows, mock configs, test runs): stored **locally on your device**. We never see it.
-- **Waitlist data** (once live): stored with our form provider (e.g. Tally) and/or a spreadsheet/database backend (e.g. Google Sheets initially, migrating to a managed Postgres provider such as Supabase). Both are standard, reputable data processors.
+- **Waitlist data** (once live): stored with our form provider (e.g. Tally) and/or a database backend (e.g. Supabase — a managed PostgreSQL service). Both are standard, reputable data processors operating under GDPR-compliant data processing agreements.
 
 ## 5. How long is data kept?
 

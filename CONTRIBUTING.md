@@ -4,88 +4,167 @@ Thank you for your interest in contributing! Here's everything you need to get s
 
 ---
 
-## CLA
+## 0. CLA Requirement
 
-Before your first Pull Request can be merged, you must agree to the [Contributor License Agreement](CLA.md). By opening a PR you signify acceptance of the CLA.
+Before your first Pull Request can be merged, you must sign the
+[Contributor License Agreement](.github/CLA.md). The **CLA Assistant bot**
+will automatically comment on your PR with a one-click signing link — it
+takes under a minute and is required only once.
+
+**Corporate contributors:** If you are contributing on behalf of your employer,
+your company must sign a Corporate CLA before your employees open PRs. Please
+email the maintainers at **contribute@redfireforge.com** to obtain the Corporate
+CLA template before submitting your first PR.
 
 ---
 
-## Quick Start
+## 1. Prerequisites
 
-### Prerequisites
-
-- **Node.js** >= 18
-- **npm**
+- **Node.js** >= 20
+- **npm** >= 10
 - **Rust** (desktop builds only — install via [rustup](https://rustup.rs/))
+- **Git** >= 2.38
 
-### Setup
+---
+
+## 2. Repository Setup
 
 ```bash
 git clone https://github.com/redfireforge/redfire-forge.git
 cd redfire-forge
 npm install
 npm run dev        # web dev server at http://localhost:5173
-npm run tauri:dev  # or native desktop with hot-reload
-```
-
-### Run tests
-
-```bash
-npm run typecheck          # TypeScript check (must always pass)
-npm run test:product       # unit tests for product code
-npm run test:e2e           # E2E tests (no Docker required)
-npm run lint               # ESLint
+npm run tauri:dev  # native desktop with hot-reload (requires Rust)
 ```
 
 ---
 
-## Branching Strategy
+## 3. Development Workflow
+
+### TypeScript check (mandatory after every change)
+
+```bash
+npx tsc -b --noEmit
+```
+
+This is **not** optional. The `-b` flag is required because the root
+`tsconfig.json` uses project references. Vitest does not type-check source
+files — only `tsc` catches missing properties, bad imports, and type
+mismatches.
+
+### Unit tests (touched files only during development)
+
+```bash
+npx vitest run src/path/to/changed.test.ts
+```
+
+Run the full suite only before merging:
+
+```bash
+npm run test:product   # product code
+npm run test:demo      # demo hub lessons
+```
+
+### Lint
+
+```bash
+npm run lint           # ESLint — must report 0 errors and 0 warnings
+```
+
+### E2E tests
+
+```bash
+npm run dev            # start dev server on :5173 first
+npx playwright test --reporter=list
+```
+
+E2E tests are **only required before merging** to `develop`, `release/*`, or
+`master`. Do not run them on every feature iteration.
+
+---
+
+## 4. Branch & PR Rules
 
 | Branch | Purpose |
 |--------|---------|
 | `develop` | Main integration branch — all PRs target this |
 | `feature/<name>` | New features or improvements |
 | `fix/<name>` | Bug fixes |
-| `hotfix/<name>` | Critical production fixes |
+| `hotfix/<name>` | Urgent fixes against a `release/*` branch |
 | `release/<version>` | Release preparation |
 
-**Always branch from `develop`.** Do not open PRs directly to `master`.
+- **Always branch from `develop`.** Do not open PRs directly to `master`.
+- **Never commit directly to `develop`, `release/*`, or `master`** — all
+  changes go through a `feature/*` or `hotfix/*` branch first.
+- **One concern per PR** — keep changes focused and reviewable.
+
+### Commit message format
+
+Use [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+feat: add WebSocket message history export
+fix: correct timeout handling in gRPC stream
+docs: update Kafka Studio setup guide
+refactor: extract bottleneck analysis into separate module
+test: add coverage for validationDsl parser
+chore: bump vitest to 2.1.0
+```
 
 ---
 
-## Pull Request Guidelines
+## 5. Code Standards
 
-1. **One concern per PR** — keep changes focused and reviewable.
-2. **Tests required** — all new behaviour must have unit or E2E coverage. The TypeScript check and product test suite must pass.
-3. **Docs in PRs** — only product and contributor docs that belong with the release (guides under `docs/guides/`, training manuals, etc.). Do not add personal scratch notes or one-off plans to PRs.
-4. **Conventional commits** encouraged but not required:
-   - `feat:` new user-visible feature
-   - `fix:` bug fix
-   - `docs:` documentation only
-   - `refactor:` no behaviour change
-   - `test:` test-only change
-   - `chore:` maintenance
-5. **PR description** — describe what changed and why. Link any relevant issues.
-
----
-
-## Code Style
-
-- TypeScript strict mode is enforced (`npx tsc -b --noEmit` must pass).
-- ESLint rules are enforced (`npm run lint` must pass).
-- Source files have a 900-line monolith limit enforced by `npm run lint:max-lines`.
-- No raw `any` in production code — prefer explicit types or `unknown`.
+- **TypeScript strict mode** — `npx tsc -b --noEmit` must pass with zero errors.
+  No `any` in production code — prefer explicit types or `unknown`.
+- **ESLint** — `npm run lint` must pass with zero errors and zero warnings.
+- **Test coverage ≥ 90%** on all four metrics (statements, branches, functions,
+  lines) for every new or modified file.
+- **No monolithic files** — source files must stay under 900 lines. The lint
+  rule `lint:max-lines` enforces this.
+- **No raw `alert()` or `confirm()`** — use the existing `ConfirmModal`
+  component or equivalent.
+- **No direct `localStorage` access** — always go through `src/utils/storage.ts`.
+- **No hardcoded colors** — always use CSS design token variables (`--bg`,
+  `--surface`, `--border`, `--text`, `--primary`).
 
 ---
 
-## Reporting Issues
+## 6. Building the Tauri Desktop App
 
-- **Bugs** — use the Bug Report issue template.
-- **Feature requests** — use the Feature Request issue template.
-- **Security vulnerabilities** — see [SECURITY.md](SECURITY.md). Do not open a public issue.
+```bash
+# Development
+npm run tauri:dev
+
+# Production build (creates .app and .dmg on macOS)
+npm run tauri:build:prod
+
+# Learning Hub variant
+npm run tauri:build:demo
+```
+
+Requires the Rust toolchain. Run `rustup update` to stay current.
 
 ---
 
-## License
+## 7. Reporting Issues
 
-By contributing, you agree that your contributions will be licensed under the [GNU Affero General Public License v3](LICENSE) and the terms of the [CLA](CLA.md).
+- **Bugs** — use the [Bug Report](.github/ISSUE_TEMPLATE/bug_report.md) template.
+- **Feature requests** — use the [Feature Request](.github/ISSUE_TEMPLATE/feature_request.md) template.
+- **Security vulnerabilities** — see [SECURITY.md](SECURITY.md). **Do not open a public issue for security bugs.**
+
+---
+
+## 8. Code of Conduct
+
+This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md).
+By participating you agree to uphold its standards. Please report unacceptable
+behaviour to **conduct@redfireforge.com**.
+
+---
+
+## 9. License
+
+By contributing, you agree that your contributions will be licensed under the
+[GNU Affero General Public License v3](LICENSE) and the terms of the
+[Contributor License Agreement](.github/CLA.md).
