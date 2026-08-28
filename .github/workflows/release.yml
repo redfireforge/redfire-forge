@@ -4,14 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-    # Explicit branch triggers let the guard job run on branch pushes so
-    # GitHub shows a passing result instead of "workflow file issue" (which
-    # occurs when the workflow fires via a phantom tag-context evaluation
-    # but all jobs are skipped and 0 jobs complete).
-    branches:
-      - master
-      - develop
-      - 'release/**'
   workflow_dispatch:
     inputs:
       variant:
@@ -25,16 +17,6 @@ on:
           - both
 
 jobs:
-  # Runs only on non-tag pushes so GitHub always has at least one completed
-  # job and reports the workflow as passing instead of "workflow file issue"
-  # (which happens when every job is skipped).
-  guard:
-    name: Skip (not a tag push)
-    runs-on: ubuntu-latest
-    if: github.ref_type == 'branch'
-    steps:
-      - run: echo "Not a tag push - build jobs skipped."
-
   build:
     strategy:
       fail-fast: false
@@ -184,7 +166,7 @@ jobs:
   sbom:
     name: Generate SBOM
     needs: build
-    # Only for an actual tag push - a manual workflow_dispatch test run has no
+    # Only for an actual tag push — a manual workflow_dispatch test run has no
     # tag to attach the asset to.
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
@@ -199,7 +181,7 @@ jobs:
           format: spdx-json
           output-file: sbom.spdx.json
           # This workflow triggers on `push: tags`, not the native `release`
-          # event, and tauri-action (not this action) owns release creation -
+          # event, and tauri-action (not this action) owns release creation —
           # disable the action's own auto-upload heuristic so there is exactly
           # one, explicit upload path below instead of two ambiguous ones.
           upload-release-assets: false
