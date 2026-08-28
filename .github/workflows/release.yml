@@ -17,6 +17,16 @@ on:
           - both
 
 jobs:
+  # Runs only on non-tag pushes so GitHub always has at least one completed job
+  # and reports the workflow as ✅ instead of "workflow file issue" (which
+  # happens when every job is skipped).
+  guard:
+    name: Skip (not a tag push)
+    runs-on: ubuntu-latest
+    if: "!startsWith(github.ref, 'refs/tags/')"
+    steps:
+      - run: echo "Not a tag push — build jobs skipped."
+
   build:
     strategy:
       fail-fast: false
