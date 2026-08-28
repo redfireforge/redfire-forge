@@ -217,7 +217,7 @@ export default defineConfig({
     ['list'],
   ],
   use: {
-    baseURL: 'http://127.0.0.1:5173',
+    baseURL: 'http://localhost:5173',
     headless: true,
     screenshot: 'only-on-failure',
   },
@@ -535,18 +535,21 @@ export default defineConfig({
   webServer: [
     {
       command: 'VITE_SUPPRESS_PROXY_ERRORS=1 npm run server',
-      url: 'http://127.0.0.1:3001/health',
+      url: 'http://localhost:3001/health',
       // Release gates start a fresh companion; locally reuse :3001 if it is already up.
       reuseExistingServer: reuseExistingCompanion,
       timeout: 30_000,
     },
     {
       command: 'VITE_SUPPRESS_PROXY_ERRORS=1 VITE_ENABLE_DEMO_HUB=true vite',
-      url: 'http://127.0.0.1:5173',
+      url: 'http://localhost:5173',
       // Release gates start a fresh frontend; locally reuse :5173 if it is already up
       // so a finished E2E run does not tear down the Vite tab you are watching.
       reuseExistingServer: reuseExistingE2EServers,
-      timeout: 30_000,
+      // 120s: Vite's first-run dependency pre-bundling on a cold CI runner (no .vite/deps
+      // cache after npm ci) can take 40-90s before the HTTP server responds. 30s was
+      // too tight and caused intermittent timeout failures on fresh CI runs.
+      timeout: 120_000,
     },
   ],
 });
