@@ -110,7 +110,10 @@ jobs:
             libgtk-3-dev
 
       - name: Import macOS signing certificate
-        if: matrix.platform == 'macos-latest'
+        # Skip when APPLE_CERTIFICATE is not set - produces an unsigned build.
+        # Users can open it via right-click -> Open. Add the Apple Developer
+        # Program secrets to the repo when signing is needed.
+        if: matrix.platform == 'macos-latest' && secrets.APPLE_CERTIFICATE != ''
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -181,7 +184,7 @@ jobs:
           args: --target ${{ matrix.target }} --config src-tauri/tauri.conf.demo.json
 
       - name: Cleanup macOS keychain
-        if: matrix.platform == 'macos-latest' && always()
+        if: matrix.platform == 'macos-latest' && secrets.APPLE_CERTIFICATE != '' && always()
         run: security delete-keychain build.keychain 2>/dev/null || true
 
   sbom:
