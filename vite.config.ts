@@ -392,6 +392,10 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
   optimizeDeps: {
+    exclude: [
+      // Node-only networking library — must not be pre-bundled for the browser
+      'undici',
+    ],
     include: [
       '@scalar/openapi-upgrader',
       '@scalar/openapi-upgrader/2.0-to-3.0',
