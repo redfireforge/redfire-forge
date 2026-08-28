@@ -1,7 +1,7 @@
 /**
  * Vitest product vs demo project globs.
  */
-import minimatch from 'minimatch';
+import { minimatch } from 'minimatch';
 
 /** All unit/integration test entry points (both projects). */
 export const ALL_TEST_GLOBS = [
