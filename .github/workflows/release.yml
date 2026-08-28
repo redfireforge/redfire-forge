@@ -4,12 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-    branches:
-      - develop
-      - master
-      - 'release/**'
-      - 'feature/**'
-      - 'hotfix/**'
   workflow_dispatch:
     inputs:
       variant:
@@ -23,15 +17,6 @@ on:
           - both
 
 jobs:
-  # Lightweight guard job — always passes. Prevents GitHub from reporting
-  # "failure" when a branch push evaluates this workflow but all build jobs
-  # are skipped (build jobs only run on tag pushes / workflow_dispatch).
-  validate:
-    name: Release workflow ready
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "release.yml evaluated OK"
-
   build:
     strategy:
       fail-fast: false
