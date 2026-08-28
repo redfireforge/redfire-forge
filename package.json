@@ -259,7 +259,7 @@
     "extract-files": "^13.0.0",
     "graphql": "^17.0.1",
     "graphql-sse": "^2.6.1",
-    "graphql-ws": "^6.0.8",
+    "graphql-ws": "^6.2.1",
     "grpc-js-reflection-client": "^1.4.0",
     "html-to-image": "^1.11.11",
     "json-diff-kit": "^1.0.35",
