@@ -418,7 +418,7 @@ export function createExportProtosetHandler(
       downloadProtosetFile(envelope.data.protosetBase64, envelope.data.fileName);
     } catch (error) {
       if (error instanceof GrpcApiClientError && error.code === GRPC_ERROR_CODES.INVALID_DESCRIPTOR) {
-        throw new Error(`${error.message} Reload the schema (Reflect or Load) and try export again.`);
+        throw new Error(`${error.message} Reload the schema (Reflect or Load) and try export again.`, { cause: error });
       }
       throw error;
     }

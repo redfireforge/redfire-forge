@@ -106,7 +106,6 @@ async function executeRequest(
     timing = result.timing;
 
     if (result.error) {
-      httpStatus = 0;
       errorMessage = result.error;
     } else {
       httpStatus = result.status;
@@ -124,7 +123,6 @@ async function executeRequest(
       }
     }
   } catch (err) {
-    httpStatus = 0;
     errorMessage = toErrorMessage(err);
   }
 

@@ -210,7 +210,7 @@ export function WsConnectionTabBar({
       const currentIndex = tabs.findIndex((t) => t.id === tabId);
       if (currentIndex === -1) return;
 
-      let targetIndex = -1;
+      let targetIndex: number | undefined;
       switch (e.key) {
         case 'ArrowLeft':
           targetIndex = currentIndex > 0 ? currentIndex - 1 : tabs.length - 1;
@@ -242,7 +242,7 @@ export function WsConnectionTabBar({
           return;
       }
 
-      if (targetIndex >= 0 && targetIndex !== currentIndex) {
+      if (targetIndex !== undefined && targetIndex !== currentIndex) {
         e.preventDefault();
         const targetTab = tabs[targetIndex];
         const el = tabElRefs.current.get(targetTab.id);

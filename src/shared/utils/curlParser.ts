@@ -115,7 +115,7 @@ export function parseCurl(curlCommand: string): Partial<Scenario> {
   }
 
   // Extract a name from the URL path
-  let name = '';
+  let name: string;
   try {
     const parsed = new URL(url);
     const pathParts = parsed.pathname.split('/').filter(Boolean);

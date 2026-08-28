@@ -51,7 +51,7 @@ export function useKeyboardNavigation({
     const container = containerRef.current;
     if (!container) return false;
     const panelClass = region;
-    const esc = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape : (s: string) => s;
+    const esc = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape.bind(CSS) : (s: string) => s;
     const normalized = normalizeMapperPath(path);
     // Keep empty path (root) as-is — do not invent `$.`.
     const candidates = path === '' || normalized === ''
