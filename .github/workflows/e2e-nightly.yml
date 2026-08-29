@@ -1,0 +1,151 @@
+name: E2E Nightly
+
+# ── When it runs ──────────────────────────────────────────────────────────────
+# 1. Nightly at 02:00 UTC against the develop branch.
+# 2. Manually via workflow_dispatch — choose any project or run all of them.
+#
+# Failure notifications: GitHub automatically emails all repo watchers when a
+# scheduled workflow fails. No extra setup required.
+
+on:
+  schedule:
+    - cron: '0 2 * * *'   # 02:00 UTC every day
+  workflow_dispatch:
+    inputs:
+      project:
+        description: 'Playwright project to run'
+        required: false
+        default: 'ci'
+        type: choice
+        options:
+          - ci          # ~222 tests, core product, no Docker (~10-15 min)
+          - chromium    # ~1357 tests, full product, no Docker (~30-45 min)
+          - grpc        # gRPC Studio shell + TLS + schema-drift + interpolation
+          - gql5        # GQL-5 TLS/mTLS demo lesson (requires Docker)
+          - all         # ci + grpc + gql5 in parallel
+      ref:
+        description: 'Branch or SHA to test (default: develop)'
+        required: false
+        default: 'develop'
+
+# ── Jobs ──────────────────────────────────────────────────────────────────────
+
+jobs:
+  # --------------------------------------------------------------------------
+  # Core product E2E — 29 spec files, no Docker required
+  # Runs nightly, or when project is 'ci', 'chromium', or 'all'.
+  # --------------------------------------------------------------------------
+  e2e-product:
+    name: E2E Product (${{ github.event.inputs.project == 'chromium' && 'chromium — full' || 'ci — core' }})
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'schedule' ||
+      github.event.inputs.project == 'ci' ||
+      github.event.inputs.project == 'chromium' ||
+      github.event.inputs.project == 'all'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.inputs.ref || 'develop' }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Run E2E — ${{ github.event.inputs.project == 'chromium' && 'full chromium project' || 'ci core project' }}
+        run: |
+          PROJECT="${{ github.event.inputs.project == 'chromium' && 'chromium' || 'ci' }}"
+          npm run test:e2e:ci -- --project="$PROJECT" --workers=4
+        env:
+          CI: 'true'
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: e2e-product-report-${{ github.run_id }}
+          path: playwright-report/
+          retention-days: 14
+
+  # --------------------------------------------------------------------------
+  # gRPC Studio E2E — shell + TLS + schema-drift + interpolation (no Docker)
+  # Runs nightly, or when project is 'grpc' or 'all'.
+  # --------------------------------------------------------------------------
+  e2e-grpc:
+    name: E2E gRPC Studio
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'schedule' ||
+      github.event.inputs.project == 'grpc' ||
+      github.event.inputs.project == 'all'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.inputs.ref || 'develop' }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Run gRPC Studio E2E
+        run: npm run test:e2e:grpc:ci
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: e2e-grpc-report-${{ github.run_id }}
+          path: playwright-report/
+          retention-days: 14
+
+  # --------------------------------------------------------------------------
+  # GQL-5 Demo E2E — HTTPS / TLS / mTLS lesson (requires Docker)
+  # Runs nightly, or when project is 'gql5' or 'all'.
+  # --------------------------------------------------------------------------
+  e2e-demo-gql5:
+    name: E2E Demo GQL-5 (Docker — TLS)
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'schedule' ||
+      github.event.inputs.project == 'gql5' ||
+      github.event.inputs.project == 'all'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.inputs.ref || 'develop' }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Run GQL-5 demo E2E (TLS + mTLS + plain GraphQL)
+        run: npm run test:e2e:demo:gql5:ci
+        env:
+          E2E_GQL5_DOCKER: '1'
+          E2E_DOCKER_TEARDOWN: '1'
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: e2e-gql5-report-${{ github.run_id }}
+          path: playwright-report/
+          retention-days: 14
