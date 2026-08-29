@@ -52,7 +52,25 @@ describe('ApiMockServerBar', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders stopped state and starts the server', () => {
+  it('renders stopped state with desktop-required gate in web mode (isTauri=false)', () => {
+    const onStart = vi.fn();
+    render(<ApiMockServerBar server={makeServer()} onUpdate={vi.fn()} onStart={onStart} />);
+
+    expect(screen.getByText('Stopped')).toBeTruthy();
+    expect(screen.getByTestId('api-mock-address').textContent).toContain('http://127.0.0.1:4600/api');
+    // Start button disabled + desktop tooltip in web mode
+    const startBtn = screen.getByTestId('api-mock-start');
+    expect(startBtn).toBeDisabled();
+    expect(startBtn).toHaveAttribute('title', 'Starting a mock server requires the RedfireForge desktop app');
+    // Desktop-required notice is visible
+    expect(screen.getByTestId('api-mock-desktop-required')).toBeTruthy();
+    // Clicking disabled button does not fire onStart
+    fireEvent.click(startBtn);
+    expect(onStart).not.toHaveBeenCalled();
+  });
+
+  it('renders stopped state and starts the server in Tauri (desktop) mode', () => {
+    vi.mocked(isTauri).mockReturnValue(true);
     const onStart = vi.fn();
     render(<ApiMockServerBar server={makeServer()} onUpdate={vi.fn()} onStart={onStart} />);
 
@@ -66,7 +84,8 @@ describe('ApiMockServerBar', () => {
     expect(onStart).toHaveBeenCalled();
   });
 
-  it('renders running controls, dirty badge, generation, and error message', () => {
+  it('renders running controls, dirty badge, generation, and error message (Tauri mode)', () => {
+    vi.mocked(isTauri).mockReturnValue(true);
     const onApply = vi.fn();
     const onRestart = vi.fn();
     const onStop = vi.fn();
