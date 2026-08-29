@@ -135,7 +135,7 @@ describe('cron-scheduler', () => {
       expect(mockCronSchedule).toHaveBeenCalledWith(
         '*/5 * * * *',
         expect.any(Function),
-        { scheduled: true, timezone: 'America/New_York' },
+        { timezone: 'America/New_York' },
       );
     });
 
@@ -150,7 +150,7 @@ describe('cron-scheduler', () => {
       expect(mockCronSchedule).toHaveBeenCalledWith(
         '*/5 * * * *',
         expect.any(Function),
-        { scheduled: true, timezone: 'UTC' },
+        { timezone: 'UTC' },
       );
     });
 
