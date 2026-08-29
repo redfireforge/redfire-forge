@@ -114,12 +114,13 @@ npm run build && npx serve dist/
 
 ### CLI
 
-Run from source (no install needed):
+Build and run from source:
 
 ```bash
 git clone https://github.com/redfireforge/redfire-forge.git
 cd redfire-forge && npm install
-npx tsx cli/index.ts run examples/cli-basic-test.yaml
+npm run build:cli
+node dist-cli/redfireforge.mjs run examples/cli-basic-test.yaml
 ```
 
 Once [published to npm](https://www.npmjs.com/package/redfireforge-cli):
