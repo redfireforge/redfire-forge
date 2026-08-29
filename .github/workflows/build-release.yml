@@ -146,6 +146,16 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Set macOS signing identity (only when a real cert is configured)
+        # APPLE_SIGNING_IDENTITY must be completely absent — not just empty — for
+        # Tauri v2 to skip codesigning. An empty-string env var still satisfies
+        # std::env::var() in Rust, causing security import to be called even when
+        # APPLE_CERTIFICATE is unset. Exporting via GITHUB_ENV ensures the var is
+        # present only when we actually have a certificate to sign with.
+        if: startsWith(matrix.platform, 'macos') && secrets.APPLE_CERTIFICATE != ''
+        shell: bash
+        run: echo "APPLE_SIGNING_IDENTITY=${{ secrets.APPLE_SIGNING_IDENTITY }}" >> "$GITHUB_ENV"
+
       - name: Build CLI package (required by Tauri bundle resources)
         shell: bash
         run: bash scripts/build-cli-package.sh
@@ -158,13 +168,11 @@ jobs:
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS signing & notarization
+          # macOS signing & notarization (APPLE_SIGNING_IDENTITY is set via
+          # GITHUB_ENV above only when APPLE_CERTIFICATE is present, so Tauri
+          # will skip codesigning when no cert is configured)
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          # Only use a signing identity when a real certificate is also present.
-          # When APPLE_CERTIFICATE is absent/empty, this resolves to "" which
-          # makes Tauri skip codesigning entirely (avoids security import error).
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_SIGNING_IDENTITY || '' }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -186,11 +194,10 @@ jobs:
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS signing & notarization
+          # macOS signing & notarization (APPLE_SIGNING_IDENTITY is set via
+          # GITHUB_ENV above only when APPLE_CERTIFICATE is present)
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          # Only use a signing identity when a real certificate is also present.
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_SIGNING_IDENTITY || '' }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
