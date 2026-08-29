@@ -8,13 +8,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { ResultsEmptyState } from './ResultsEmptyState';
 
 describe('ResultsEmptyState', () => {
-  it('renders an icon, a message and a call to action', () => {
+  it('renders an icon ring, heading, subtitle and call to action', () => {
     render(<ResultsEmptyState runTypeFilter="all" onNavigate={vi.fn()} />);
 
     const panel = screen.getByTestId('results-empty-state');
     expect(panel).toBeInTheDocument();
+    expect(panel.querySelector('.results-empty-state-icon-ring')).toBeInTheDocument();
     expect(panel.querySelector('svg')).toBeInTheDocument();
     expect(screen.getByText('No test runs yet')).toBeInTheDocument();
+    expect(screen.getByText(/Run a test to see pass\/fail results/)).toBeInTheDocument();
     expect(screen.getByTestId('results-empty-state-cta')).toHaveTextContent('Run a test');
   });
 
@@ -28,12 +30,11 @@ describe('ResultsEmptyState', () => {
   });
 
   it('sends a workflow-filtered dashboard to the Workflow Runner instead', async () => {
-    // Running a *test* would leave this view just as empty, so the destination
-    // has to follow the filter.
     const onNavigate = vi.fn();
     render(<ResultsEmptyState runTypeFilter="workflow" onNavigate={onNavigate} />);
 
     expect(screen.getByText('No workflow runs yet')).toBeInTheDocument();
+    expect(screen.getByText(/Run a workflow to see execution results/)).toBeInTheDocument();
     await userEvent.click(screen.getByTestId('results-empty-state-cta'));
 
     expect(onNavigate).toHaveBeenCalledWith('workflow-runner');
