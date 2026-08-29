@@ -8,6 +8,10 @@ Format follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+---
+
+## [0.8.2] — 2026-08-29
+
 ### Added
 - **CODE_OF_CONDUCT.md** — Contributor Covenant v2.1 added to the repository root.
 
