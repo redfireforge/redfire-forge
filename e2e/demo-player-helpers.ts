@@ -76,7 +76,7 @@ const APP_NAV_DELAY_MS  = 2_000;
 // Vite cold-start on a fresh CI runner can take 60-90s to pre-bundle and serve
 // the full module graph. React mounts only after JS executes, so waitUntil:
 // 'domcontentloaded' is not sufficient — we must wait for the app shell explicitly.
-const APP_SHELL_TIMEOUT = 120_000;
+const APP_SHELL_TIMEOUT = 180_000;
 
 async function gotoAppWithRetry(page: Page, url: string): Promise<void> {
   let lastError: unknown;
