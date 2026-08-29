@@ -152,9 +152,17 @@ jobs:
         # std::env::var() in Rust, causing security import to be called even when
         # APPLE_CERTIFICATE is unset. Exporting via GITHUB_ENV ensures the var is
         # present only when we actually have a certificate to sign with.
-        if: startsWith(matrix.platform, 'macos') && secrets.APPLE_CERTIFICATE != ''
+        # Note: secrets.* cannot be used in if: conditions, so the check is
+        # done inside the script using an env var mapped from the secret.
+        if: startsWith(matrix.platform, 'macos')
         shell: bash
-        run: echo "APPLE_SIGNING_IDENTITY=${{ secrets.APPLE_SIGNING_IDENTITY }}" >> "$GITHUB_ENV"
+        env:
+          _APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          _APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          if [ -n "$_APPLE_CERTIFICATE" ]; then
+            echo "APPLE_SIGNING_IDENTITY=$_APPLE_SIGNING_IDENTITY" >> "$GITHUB_ENV"
+          fi
 
       - name: Build CLI package (required by Tauri bundle resources)
         shell: bash
