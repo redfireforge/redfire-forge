@@ -61,7 +61,7 @@ sha2 = "0.10"
 hex = "0.4"
 sxd-document = "0.3"
 sxd-xpath = "0.4"
-openssl = "0.10"
+openssl = { version = "0.10", features = ["vendored"] }
 tauri-plugin-connector = { version = "0.12", optional = true }
 tauri-plugin-mcp-bridge = "0.11.2"
 
