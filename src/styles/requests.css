@@ -2325,6 +2325,11 @@
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 .jt-expand-collapse-btn:hover { background: var(--surface-hover, #333); color: var(--text); border-color: var(--text-muted); }
+/* The copy button is the only one in this toolbar carrying an icon, so it
+   needs the row layout the text-only buttons do not. */
+[data-testid="req-resp-copy"] { display: inline-flex; align-items: center; gap: 4px; }
+[data-testid="req-resp-copy"] svg { flex-shrink: 0; }
+.req-resp-copy-label { line-height: 1; }
 .jt-key { color: #c084fc; font-weight: 500; flex-shrink: 0; }
 .jt-colon { color: var(--text-muted); margin-right: 4px; flex-shrink: 0; }
 .jt-str { color: #86efac; }
