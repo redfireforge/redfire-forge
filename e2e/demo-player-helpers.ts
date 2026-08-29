@@ -73,6 +73,10 @@ const STEP_TIMEOUT      = 25_000;  // one step action (some steps have long wait
 const RESTART_TIMEOUT   = 30_000;  // restart includes cleanup + setup
 const APP_NAV_ATTEMPTS  = 5;
 const APP_NAV_DELAY_MS  = 2_000;
+// Vite cold-start on a fresh CI runner can take 60-90s to pre-bundle and serve
+// the full module graph. React mounts only after JS executes, so waitUntil:
+// 'domcontentloaded' is not sufficient — we must wait for the app shell explicitly.
+const APP_SHELL_TIMEOUT = 120_000;
 
 async function gotoAppWithRetry(page: Page, url: string): Promise<void> {
   let lastError: unknown;
@@ -128,6 +132,10 @@ export async function openDemoHub(page: Page): Promise<void> {
     await clearDemoE2EStorage(page);
     await page.reload({ waitUntil: 'domcontentloaded' });
   }
+  // 'domcontentloaded' fires before React hydrates. On a cold CI Vite start the
+  // activity bar may not appear for 60-90s while Vite pre-bundles the module graph.
+  // Wait for the shell nav to mount before clicking the Demo Hub button.
+  await page.waitForSelector('.activity-bar', { state: 'visible', timeout: APP_SHELL_TIMEOUT });
   await page.locator('[title="Demo Hub"]').click();
   await page.waitForSelector('.demo-domain-card', { timeout: HUB_TIMEOUT });
 }
