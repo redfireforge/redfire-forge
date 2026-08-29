@@ -311,6 +311,7 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
                 onClear={() => { clearResponseSearch(); setSearchMatchCount(0); }}
                 onExpandAll={handleExpandAll}
                 onCollapseAll={handleCollapseAll}
+                copyText={result.responseBody}
               />
               <JsonPreview
                 body={result.responseBody}
