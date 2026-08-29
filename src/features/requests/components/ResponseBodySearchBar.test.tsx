@@ -116,4 +116,39 @@ describe('ResponseBodySearchBar copy button', () => {
     expect(screen.getByTestId('req-resp-expand-all')).toBeInTheDocument();
     expect(screen.getByTestId('req-resp-collapse-all')).toBeInTheDocument();
   });
+
+  it('resets the existing timer when copy is clicked twice quickly', async () => {
+    // Covers the resetTimer.current branch inside handleCopy that clears any
+    // already-running timeout before scheduling a new one.
+    stubClipboard(vi.fn().mockResolvedValue(undefined));
+
+    render(toolbar('{"ok":true}'));
+    const button = screen.getByTestId('req-resp-copy');
+
+    await userEvent.click(button);
+    await waitFor(() => expect(button).toHaveTextContent('Copied!'));
+
+    // Click again while the first timer is still running.
+    await userEvent.click(button);
+    await waitFor(() => expect(button).toHaveTextContent('Copied!'));
+
+    // Both clicks should have scheduled a reset; advance past the window.
+    vi.advanceTimersByTime(1600);
+    await waitFor(() => expect(button).toHaveTextContent('Copy'));
+  });
+
+  it('clears the pending reset timer when the component unmounts', async () => {
+    // Covers the resetTimer.current branch inside the useEffect cleanup.
+    stubClipboard(vi.fn().mockResolvedValue(undefined));
+
+    const { unmount } = render(toolbar('{"ok":true}'));
+    const button = screen.getByTestId('req-resp-copy');
+
+    await userEvent.click(button);
+    await waitFor(() => expect(button).toHaveTextContent('Copied!'));
+
+    // Unmount while the reset timer is still running; should not throw.
+    unmount();
+    vi.advanceTimersByTime(1600); // would fire the stale timer if not cleared
+  });
 });
