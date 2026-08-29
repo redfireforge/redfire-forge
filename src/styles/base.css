@@ -1220,23 +1220,49 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   padding: 60px 20px;
   font-size: 1rem;
 }
-/* Results dashboard first-run state: icon, one sentence, one action. */
+/* Results dashboard first-run state: icon ring, heading, subtitle, CTA. */
 .results-empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   text-align: center;
-  padding: 60px 20px;
+  padding: 72px 24px;
+}
+.results-empty-state-icon-ring {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border));
+  margin-bottom: 4px;
+  flex-shrink: 0;
 }
 .results-empty-state-icon {
-  color: var(--text-muted);
-  opacity: 0.55;
+  color: var(--primary);
+  opacity: 0.75;
 }
 .results-empty-state-message {
-  color: var(--text-muted);
-  font-size: 1rem;
+  color: var(--text);
+  font-size: 1.05rem;
+  font-weight: 500;
   margin: 0;
+}
+.results-empty-state-subtitle {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  margin: 0;
+  max-width: 340px;
+  line-height: 1.5;
+}
+.results-empty-state-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
 }
 
 .empty-hint {
