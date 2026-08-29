@@ -13,6 +13,9 @@ import { createMonacoAwareLogger, monacoDevNoisePlugin } from './vite/monacoDevN
 const PROXY_RETRY_CODES = new Set([
   'ENOTFOUND', 'ECONNREFUSED', 'ETIMEDOUT', 'ECONNRESET',
   'UND_ERR_ABORTED', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_SOCKET',
+  // Zscaler / BlueCoat forward-proxy error codes (UN2_*, UN_*)
+  // e.g. UN2_FPR_INVALID_400 returned when the proxy rejects the request
+  'UN2_FPR_INVALID_400', 'UN2_FPR_DENIED', 'UN2_FPR_TIMEOUT',
 ]);
 
 /**
@@ -117,6 +120,12 @@ function isProxyError(err: unknown): boolean {
     } else break;
   }
   if ([...codes].some(c => PROXY_RETRY_CODES.has(c))) return true;
+  // Zscaler and similar proxies may embed their error code in the message
+  // (e.g. "invalid onRequestStart method (UN2_FPR_INVALID_400)") rather than
+  // setting a Node error code.  Match both the known Zscaler code prefix and
+  // the undici dispatcher hook name to avoid false positives.
+  if (messages.some(m => /\bUN[0-9]_[A-Z_]+\b/.test(m))) return true;
+  if (messages.some(m => /onRequestStart/i.test(m))) return true;
   return messages.some(m => /Proxy response \(\d+\) !== 200 when HTTP Tunneling/i.test(m));
 }
 
@@ -294,9 +303,21 @@ function proxyPlugin(): Plugin {
           } catch (proxyErr) {
             if (ac.signal.aborted) throw proxyErr;
             if (isProxy && isProxyError(proxyErr)) {
+              // Known proxy error (Zscaler, CONNECT tunnel, network codes) — retry direct.
               const directOpts = { ...fetchOpts };
               delete directOpts.dispatcher;
               result = await doFetch(directOpts);
+            } else if (isProxy) {
+              // Unknown error while a proxy dispatcher is active.  Try direct once
+              // before surfacing the failure — covers VPN scenarios where the proxy
+              // env var is set but the VPN tunnel bypasses the proxy.
+              try {
+                const directOpts = { ...fetchOpts };
+                delete directOpts.dispatcher;
+                result = await doFetch(directOpts);
+              } catch {
+                throw proxyErr; // both failed — surface the original proxy error
+              }
             } else {
               throw proxyErr;
             }
