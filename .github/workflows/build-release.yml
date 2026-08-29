@@ -146,6 +146,33 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Set macOS signing identity (only when a real cert is configured)
+        # Tauri v2 calls `security import` whenever APPLE_CERTIFICATE is present
+        # in the environment — even as an empty string — because it checks
+        # std::env::var().is_ok() rather than checking that the value is non-empty.
+        # Likewise for APPLE_SIGNING_IDENTITY. To fully suppress codesigning when
+        # no certificate is configured, ALL Apple signing env vars must be completely
+        # absent from the process environment, not merely empty strings.
+        # We inject them via GITHUB_ENV only when a real certificate is present.
+        if: startsWith(matrix.platform, 'macos')
+        shell: bash
+        env:
+          _APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          _APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          _APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          _APPLE_ID: ${{ secrets.APPLE_ID }}
+          _APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          _APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -n "$_APPLE_CERTIFICATE" ]; then
+            echo "APPLE_CERTIFICATE=$_APPLE_CERTIFICATE" >> "$GITHUB_ENV"
+            echo "APPLE_CERTIFICATE_PASSWORD=$_APPLE_CERTIFICATE_PASSWORD" >> "$GITHUB_ENV"
+            echo "APPLE_SIGNING_IDENTITY=$_APPLE_SIGNING_IDENTITY" >> "$GITHUB_ENV"
+            echo "APPLE_ID=$_APPLE_ID" >> "$GITHUB_ENV"
+            echo "APPLE_PASSWORD=$_APPLE_PASSWORD" >> "$GITHUB_ENV"
+            echo "APPLE_TEAM_ID=$_APPLE_TEAM_ID" >> "$GITHUB_ENV"
+          fi
+
       - name: Build CLI package (required by Tauri bundle resources)
         shell: bash
         run: bash scripts/build-cli-package.sh
@@ -158,16 +185,10 @@ jobs:
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS signing & notarization
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          # Only use a signing identity when a real certificate is also present.
-          # When APPLE_CERTIFICATE is absent/empty, this resolves to "" which
-          # makes Tauri skip codesigning entirely (avoids security import error).
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_SIGNING_IDENTITY || '' }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # All Apple signing env vars (APPLE_CERTIFICATE, APPLE_SIGNING_IDENTITY,
+          # etc.) are injected via GITHUB_ENV by the step above only when a real
+          # certificate is present. They must be completely absent (not empty strings)
+          # for Tauri v2 to skip codesigning.
           # Updater signing (signs the update payload so the app trusts it)
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -186,14 +207,7 @@ jobs:
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS signing & notarization
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          # Only use a signing identity when a real certificate is also present.
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_SIGNING_IDENTITY || '' }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # All Apple signing env vars injected via GITHUB_ENV above only when cert present.
           # Updater signing
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
