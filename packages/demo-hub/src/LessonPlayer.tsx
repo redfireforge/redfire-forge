@@ -6,7 +6,7 @@ import PrerequisiteGate from './components/PrerequisiteGate';
 import DesktopOnlyGate from './components/DesktopOnlyGate';
 import { renderMarkdown } from './ConceptSlide';
 import { isGraphqlStudioLesson } from './adapters';
-import { isLessonDesktopOnlyBlocked } from './utils/lessonPlatform';
+import { isLessonDesktopOnlyBlocked, isDockerLessonBlockedOnWeb } from './utils/lessonPlatform';
 import LessonNotesEditor from './LessonNotesEditor';
 import { useLessonNotesContext } from './LessonNotesContext';
 
@@ -53,8 +53,10 @@ export default function LessonPlayer({ lesson, onStartDemo, newStepsFrom }: Less
   const tabBudget = lesson.tabBudget ?? 1;
   const needsTabGate = isGraphqlStudioLesson(lesson) && tabBudget > 1;
   const desktopBlocked = isLessonDesktopOnlyBlocked(lesson);
+  const dockerBlockedOnWeb = isDockerLessonBlockedOnWeb(lesson);
   const canStart =
     !desktopBlocked
+    && !dockerBlockedOnWeb
     && (!needsDockerGate || dockerGateCleared)
     && (!needsTabGate || tabGateCleared);
 
@@ -72,14 +74,14 @@ export default function LessonPlayer({ lesson, onStartDemo, newStepsFrom }: Less
       onClick={onStartDemo}
       disabled={!canStart}
       title={
-        desktopBlocked
+        desktopBlocked || dockerBlockedOnWeb
           ? 'This demo requires the RedfireForge desktop app'
           : !canStart
             ? 'Complete the prerequisites above before starting'
             : undefined
       }
     >
-      {desktopBlocked
+      {desktopBlocked || dockerBlockedOnWeb
         ? 'Desktop app required'
         : needsDockerGate && !dockerGateCleared
           ? waitingLabel
@@ -94,6 +96,7 @@ export default function LessonPlayer({ lesson, onStartDemo, newStepsFrom }: Less
           <button
             className={`demo-sidebar-nav-item ${selected === 'concept' ? 'active' : ''}`}
             onClick={() => setSelected('concept')}
+            data-testid="demo-lesson-sidebar-concept"
           >
             <span className="demo-sidebar-nav-icon">📖</span>
             <span className="demo-sidebar-nav-label">Concept</span>
@@ -163,9 +166,11 @@ export default function LessonPlayer({ lesson, onStartDemo, newStepsFrom }: Less
           </div>
         ) : null}
 
-        {selected === 'concept' && desktopBlocked && <DesktopOnlyGate />}
+        {selected === 'concept' && (desktopBlocked || dockerBlockedOnWeb) && (
+          <DesktopOnlyGate reason={dockerBlockedOnWeb ? 'docker-backend' : 'desktop-only'} />
+        )}
 
-        {selected === 'concept' && needsDockerGate && !desktopBlocked && (
+        {selected === 'concept' && needsDockerGate && !desktopBlocked && !dockerBlockedOnWeb && (
           <PrerequisiteGate
             endpoints={dockerEndpoints}
             endpointLabels={lesson.dockerEndpointLabels}
