@@ -310,11 +310,26 @@ describe('ResultsDashboard', () => {
 
     render(<ResultsDashboard initialRunTypeFilter="workflow" />);
 
-    expect(await screen.findByText('No workflow runs yet. Run a workflow from the Workflow Runner tab.')).toBeTruthy();
+    expect(await screen.findByText('No workflow runs yet')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /🧪 Test Runs/i }));
-    expect(screen.getByText('No test runs yet. Run a test first.')).toBeTruthy();
+    expect(screen.getByText('No test runs yet')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /All Runs/i }));
-    expect(screen.getByText('No test runs yet. Run a test first.')).toBeTruthy();
+    expect(screen.getByText('No test runs yet')).toBeTruthy();
+  });
+
+  it('offers a call to action from the empty state, routed by run type', async () => {
+    storageMocks.loadTestRunsLite.mockResolvedValue([]);
+    runBaselineMocks.loadBaselines.mockResolvedValue([]);
+    const onNavigate = vi.fn();
+
+    render(<ResultsDashboard initialRunTypeFilter="workflow" onNavigate={onNavigate} />);
+
+    fireEvent.click(await screen.findByTestId('results-empty-state-cta'));
+    expect(onNavigate).toHaveBeenCalledWith('workflow-runner');
+
+    fireEvent.click(screen.getByRole('button', { name: /🧪 Test Runs/i }));
+    fireEvent.click(screen.getByTestId('results-empty-state-cta'));
+    expect(onNavigate).toHaveBeenCalledWith('runner');
   });
 
   it('generates markdown report from the report menu', async () => {
