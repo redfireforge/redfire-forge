@@ -1,13 +1,13 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "RedfireForge Learning Hub",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "identifier": "com.redfireforge.desktop.demo",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "npm run dev:demo",
-    "beforeBuildCommand": "npm run build:demo"
+    "beforeBuildCommand": "npm run build:demo && npm run build:sidecar"
   },
   "app": {
     "withGlobalTauri": true,

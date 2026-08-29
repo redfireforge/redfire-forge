@@ -593,6 +593,7 @@ export default function App() {
               onRerunFailed={handleRerunFailed}
               isRerunning={isRerunning}
               initialRunTypeFilter={resultsRunTypeFilter}
+              onNavigate={navigateToTab}
             />
           )}
           <div className="app-tab-pane" style={{ display: activeTab === 'catalog' ? 'flex' : 'none' }}>

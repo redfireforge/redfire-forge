@@ -63,6 +63,30 @@ const nextAutoPort = vi.fn();
 const analyzeConflicts = vi.fn();
 const clearConsole = vi.fn();
 
+// In jsdom isTauri() returns false, which makes ApiMockServerBar disable the
+// Start button (desktopRequired=true). Mock it as true so control-flow tests
+// can exercise start/stop/apply/restart branches.
+vi.mock('@shared/utils/platform', () => ({
+  isTauri: () => true,
+  supportsWorkers: () => false,
+  isNode: () => false,
+}));
+
+// When isTauri() returns true, useSplitPaneResize tries to persist via the
+// storage layer → tauriStore → @tauri-apps/api/core invoke, which blows up
+// in jsdom. Stub every exported function from the storage abstraction so those
+// async side-effects are silent no-ops.
+vi.mock('../../shared/utils/storage', () => ({
+  readKey: vi.fn().mockResolvedValue(null),
+  writeKey: vi.fn().mockResolvedValue(undefined),
+  removeKey: vi.fn().mockResolvedValue(undefined),
+  readJson: vi.fn().mockResolvedValue(null),
+  writeJson: vi.fn().mockResolvedValue(undefined),
+  getItem: vi.fn().mockResolvedValue(null),
+  setItem: vi.fn().mockResolvedValue(undefined),
+  removeItem: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('./apiMockPersistence', () => ({
   isApiMockDemoPersistenceActive: vi.fn(() => false),
   loadApiMockWorkspace: (...args: unknown[]) => loadApiMockWorkspace(...args),

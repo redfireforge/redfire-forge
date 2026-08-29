@@ -564,6 +564,7 @@ export default function RequestEditor({
               onClear={() => { clearResponseSearch(); setSearchMatchCount(0); }}
               onExpandAll={handleExpandAll}
               onCollapseAll={handleCollapseAll}
+              copyText={response?.body}
             />
           )}
 

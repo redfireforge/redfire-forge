@@ -8,6 +8,7 @@ import { hasWorkflowData } from '../test-runner/utils/resultsGrouping';
 import { RunComparisonPanel, TrendChart } from './components/RunComparisonPanel';
 import { ResponseTimeHistogram } from './components/ResponseTimeHistogram';
 import { WorkflowResultsSummary } from './components/WorkflowResultsSummary';
+import { ResultsEmptyState } from './components/ResultsEmptyState';
 import { ResultsMetricsCards } from './components/ResultsMetricsCards';
 import { generateReport, downloadReport } from './utils/reportGenerator';
 import {
@@ -42,6 +43,8 @@ interface Props {
   isRerunning?: boolean;
   /** Initial run type filter (can be set from post-run navigation) */
   initialRunTypeFilter?: 'all' | 'test' | 'workflow';
+  /** Navigate to another top-level tab. Without it the empty state shows no call to action. */
+  onNavigate?: (tab: 'runner' | 'workflow-runner') => void;
 }
 
 type RunTypeFilter = 'all' | 'test' | 'workflow';
@@ -54,7 +57,7 @@ const RESULTS_TAB_IDS: Record<ResultsViewTab, { tab: string; panel: string }> = 
   analysis: { tab: 'results-tab-analysis', panel: 'results-panel-analysis' },
 };
 
-export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRerunning, initialRunTypeFilter }: Props) {
+export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRerunning, initialRunTypeFilter, onNavigate }: Props) {
   const [allRuns, setAllRuns] = useState<TestRun[]>([]);
   const [baselines, setBaselines] = useState<BaselineMark[]>([]);
   const [compareBaselineId, setCompareBaselineId] = useState<string>('');
@@ -350,13 +353,7 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
         </div>
         {importError && <div className="results-import-error">{importError} <button className="btn-dismiss" onClick={() => setImportError(null)}>×</button></div>}
         <ResultsRunTypeTabs runTypeFilter={runTypeFilter} runCounts={runCounts} onChange={setRunTypeFilter} />
-        <div className="empty-state">
-          {runTypeFilter === 'workflow'
-            ? 'No workflow runs yet. Run a workflow from the Workflow Runner tab.'
-            : runTypeFilter === 'test'
-            ? 'No test runs yet. Run a test first.'
-            : 'No test runs yet. Run a test first.'}
-        </div>
+        <ResultsEmptyState runTypeFilter={runTypeFilter} onNavigate={onNavigate} />
         {showReplayModal && replayTrace && (
           <WorkflowResultsExplorerModal
             trace={replayTrace}
