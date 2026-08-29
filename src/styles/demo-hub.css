@@ -2561,6 +2561,21 @@ body[data-demo-bootstrapping="1"] .kafka-settings-content {
   border-color: color-mix(in srgb, var(--primary) 35%, var(--border, #3b4a60));
 }
 
+.prereq-gate-download-link {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 0.78rem;
+  color: var(--primary, #3b82f6);
+  text-decoration: none;
+  font-weight: 500;
+  transition: opacity 0.15s;
+}
+
+.prereq-gate-download-link:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
 /* ─── Per-lesson notes ───────────────────────────────────────── */
 .demo-lesson-notes-btn {
   position: relative;
