@@ -51,12 +51,12 @@ jobs:
           rows = [
             {"platform": "macos-latest", "target": "aarch64-apple-darwin", "label": "macOS-ARM64", "variant": "standard"},
             {"platform": "macos-latest", "target": "aarch64-apple-darwin", "label": "macOS-ARM64-Demo", "variant": "demo"},
-            {"platform": "macos-latest", "target": "x86_64-apple-darwin", "label": "macOS-x64", "variant": "standard"},
-            {"platform": "macos-latest", "target": "x86_64-apple-darwin", "label": "macOS-x64-Demo", "variant": "demo"},
+            {"platform": "macos-13", "target": "x86_64-apple-darwin", "label": "macOS-x64", "variant": "standard"},
+            {"platform": "macos-13", "target": "x86_64-apple-darwin", "label": "macOS-x64-Demo", "variant": "demo"},
             {"platform": "ubuntu-22.04", "target": "x86_64-unknown-linux-gnu", "label": "Linux-x64", "variant": "standard"},
             {"platform": "ubuntu-22.04", "target": "x86_64-unknown-linux-gnu", "label": "Linux-x64-Demo", "variant": "demo"},
-            {"platform": "windows-latest", "target": "x86_64-pc-windows-msvc", "label": "Windows-x64", "variant": "standard"},
-            {"platform": "windows-latest", "target": "x86_64-pc-windows-msvc", "label": "Windows-x64-Demo", "variant": "demo"},
+            {"platform": "windows-2022", "target": "x86_64-pc-windows-msvc", "label": "Windows-x64", "variant": "standard"},
+            {"platform": "windows-2022", "target": "x86_64-pc-windows-msvc", "label": "Windows-x64-Demo", "variant": "demo"},
           ]
           event = os.environ["EVENT"]
           ref_name = os.environ["REF_NAME"]
@@ -75,6 +75,8 @@ jobs:
   build:
     needs: prepare
     if: needs.prepare.result == 'success' && needs.prepare.outputs.include != '[]'
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -107,7 +109,16 @@ jobs:
             librsvg2-dev \
             patchelf \
             libssl-dev \
+            libcurl4-openssl-dev \
             libgtk-3-dev
+
+      - name: Install macOS dependencies (OpenSSL)
+        if: matrix.platform == 'macos-latest'
+        run: |
+          brew install openssl@3
+          echo "OPENSSL_DIR=$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
+          echo "OPENSSL_ROOT_DIR=$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
+          echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig" >> "$GITHUB_ENV"
 
       - name: Import macOS signing certificate
         # Skipped at the shell level when APPLE_CERTIFICATE is empty.
@@ -135,6 +146,13 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Build CLI package (required by Tauri bundle resources)
+        shell: bash
+        run: npm run build:cli-package
+
+      - name: Build sidecar (required by Tauri externalBin)
+        run: node scripts/build-sidecar.mjs
+
       - name: Build Tauri app (standard)
         if: matrix.variant == 'standard'
         uses: tauri-apps/tauri-action@v1
@@ -143,7 +161,9 @@ jobs:
           # macOS signing & notarization
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # Fall back to ad-hoc signing (-) when no developer cert is available.
+          # Without this, Tauri's bundler calls `security import` and fails on CI.
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY || '-' }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -151,7 +171,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name }}
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
           releaseName: 'RedfireForge ${{ github.ref_name }}'
           releaseBody: 'Download the installer for your platform below.'
           releaseDraft: true
@@ -168,7 +188,8 @@ jobs:
           # macOS signing & notarization
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # Fall back to ad-hoc signing (-) when no developer cert is available.
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY || '-' }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -176,7 +197,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name }}
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
           releaseName: 'RedfireForge Learning Hub ${{ github.ref_name }}'
           releaseBody: 'Learning Hub build with interactive tutorials. Download the installer for your platform below.'
           releaseDraft: true
