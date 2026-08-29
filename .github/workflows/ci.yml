@@ -145,16 +145,15 @@ jobs:
           du -sh dist/
 
   # ── E2E Integration Tests ────────────────────────────────────────────────
-  # These run on PRs and develop/release merges only — not on every feature push.
+  # These run on PRs only — not on direct pushes to develop/release/master.
+  # Running after every merge would double the CI cost for no extra signal
+  # (the PR already validated the code before merge).
 
   e2e-grpc:
     name: E2E gRPC Studio
     runs-on: ubuntu-latest
     needs: [typecheck]
-    if: |
-      github.event_name == 'pull_request' ||
-      github.ref == 'refs/heads/develop' ||
-      startsWith(github.ref, 'refs/heads/release/')
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -180,9 +179,7 @@ jobs:
     needs: [typecheck, changes]
     if: |
       needs.changes.outputs.product == 'true' &&
-      (github.event_name == 'pull_request' ||
-       github.ref == 'refs/heads/develop' ||
-       startsWith(github.ref, 'refs/heads/release/'))
+      github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -210,9 +207,7 @@ jobs:
     needs: [typecheck, changes]
     if: |
       needs.changes.outputs.demo == 'true' &&
-      (github.event_name == 'pull_request' ||
-       github.ref == 'refs/heads/develop' ||
-       startsWith(github.ref, 'refs/heads/release/'))
+      github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
