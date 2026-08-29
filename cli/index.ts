@@ -10,8 +10,8 @@ import { parseTagFilter, filterScenariosByRowTags } from './tagFilter';
 import { loadWorkflowFile } from './workflowLoader';
 import { runTest, type ProgressMeta } from '../src/engine/core/executor';
 import { runGraphLoad } from '../src/features/workflow/engine/graphLoadRunner';
-import { CircuitBreaker } from '../src/engine/circuitBreaker';
-import { computeMetrics } from '../src/engine/metrics';
+import { CircuitBreaker } from '../src/engine/core/circuitBreaker';
+import { computeMetrics } from '../src/engine/core/metrics';
 import {
   buildJsonReport,
   buildJunitXml,
