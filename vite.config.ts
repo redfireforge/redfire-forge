@@ -273,10 +273,19 @@ function proxyPlugin(): Plugin {
 
           const MAX_PROXY_BODY = 2 * 1024 * 1024; // 2 MB cap to prevent pathological responses
 
-          /** Perform the fetch and format the result. */
+          /** Perform the fetch and format the result.
+           *
+           * Node 22's global `fetch` does not support the undici `dispatcher`
+           * option — passing one causes `UND_ERR_INVALID_ARG: invalid onRequestStart
+           * method`.  Use `undici.fetch` when a custom dispatcher is present;
+           * fall back to global `fetch` for plain requests (no dispatcher).
+           */
           const doFetch = async (opts: Record<string, unknown>) => {
             const t0 = performance.now();
-            const response = await fetch(payload.url, opts as RequestInit);
+            const fetchFn: typeof fetch = opts.dispatcher
+              ? (await import('undici')).fetch as unknown as typeof fetch
+              : fetch;
+            const response = await fetchFn(payload.url, opts as RequestInit);
             const tFirstByte = performance.now();
             const rawBody = await response.text();
             const responseBody = rawBody.length > MAX_PROXY_BODY ? rawBody.slice(0, MAX_PROXY_BODY) : rawBody;
