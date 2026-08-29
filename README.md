@@ -58,6 +58,21 @@
 
 ---
 
+## Prerequisites
+
+| | macOS | Windows | Linux |
+|---|---|---|---|
+| **Node.js 20+** | [nodejs.org](https://nodejs.org) | [nodejs.org](https://nodejs.org) | [nodejs.org](https://nodejs.org) |
+| **Rust** *(desktop only)* | [rustup.rs](https://rustup.rs) | [rustup.rs](https://rustup.rs) | [rustup.rs](https://rustup.rs) |
+| **Xcode Command Line Tools** *(macOS only)* | `xcode-select --install` | — | — |
+| **Visual Studio Build Tools** *(Windows only)* | — | [vs build tools](https://aka.ms/vs/17/release/vs_BuildTools.exe) (C++ workload) | — |
+
+> **Note:** Xcode CLT (macOS) and VS Build Tools (Windows) are required for compiling native Node modules (`better-sqlite3`) and for Rust. If you already have Rust installed, you likely have these already.
+>
+> **Browser / web mode only?** You only need Node.js 20+ — no Rust required.
+
+---
+
 ## Quick Start
 
 ### Download a pre-built installer
@@ -65,8 +80,6 @@
 Head to the **[Latest Release](https://github.com/redfireforge/redfire-forge/releases/latest)** for `.dmg` (macOS), `.msi`/`.exe` (Windows), and `.deb`/`.AppImage` (Linux) — no build toolchain required.
 
 ### Build from source (desktop)
-
-Requires **Node.js 20+** and **[Rust](https://rustup.rs/)** (for the native desktop shell):
 
 ```bash
 git clone https://github.com/redfireforge/redfire-forge.git
@@ -100,8 +113,6 @@ npm run dev:demo         # browser, hot-reload, Learning Hub enabled
 The Learning Hub is a guided lesson library covering every protocol (GraphQL, gRPC, Kafka, WebSocket, and more) with live studio bridges — each lesson walks you through the real UI, not a slideshow. Lessons live in the `@redfireforge/demo-hub` workspace package (`packages/demo-hub/`).
 
 ### Browser (web mode)
-
-Requires **Node.js 20+**:
 
 ```bash
 git clone https://github.com/redfireforge/redfire-forge.git
