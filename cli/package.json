@@ -14,16 +14,16 @@
     "workflow",
     "cli"
   ],
-  "homepage": "https://github.com/your-org/redfireforge#readme",
+  "homepage": "https://github.com/redfireforge/redfire-forge#readme",
   "bugs": {
-    "url": "https://github.com/your-org/redfireforge/issues"
+    "url": "https://github.com/redfireforge/redfire-forge/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/your-org/redfireforge.git"
+    "url": "git+https://github.com/redfireforge/redfire-forge.git"
   },
-  "license": "MIT",
-  "author": "RedfireForge Team",
+  "license": "AGPL-3.0-or-later",
+  "author": "RedfireForge",
   "type": "module",
   "main": "dist/redfireforge.mjs",
   "bin": {
@@ -35,7 +35,7 @@
     "README.md"
   ],
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.0.0"
   },
   "dependencies": {
     "commander": "^15.0.0",
