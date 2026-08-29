@@ -107,7 +107,7 @@ const postject = [
   '--sentinel-fuse', 'NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2',
 ];
 if (isMac) postject.push('--macho-segment-name', 'NODE_SEA');
-execFileSync('npx', ['--yes', 'postject', ...postject], { stdio: 'inherit' });
+execFileSync('npx', ['--yes', 'postject', ...postject], { stdio: 'inherit', shell: isWindows });
 
 // Ad-hoc signature keeps macOS from killing the binary; `tauri build` re-signs
 // the whole bundle with the real identity afterwards.
