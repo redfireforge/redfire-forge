@@ -50,12 +50,15 @@ export function ApiMockServerBar({
   const running = status === 'running';
   const busy = status === 'starting' || status === 'draining' || status === 'applying';
   const labelClass = running ? 'running' : status === 'error' ? 'error' : 'stopped';
+  const desktopRequired = !isTauri();
   const nativeWarnings = isTauri() ? analyzeNativeUnsupported(server) : [];
   const tlsEnabled = Boolean(server.settings.tls?.enabled);
   const emptyRules = server.routes.length === 0;
-  const startTitle = emptyRules
-    ? 'Start the listener. With no rules, every request returns 404 until you add one.'
-    : 'Start this mock server';
+  const startTitle = desktopRequired
+    ? 'Starting a mock server requires the RedfireForge desktop app'
+    : emptyRules
+      ? 'Start the listener. With no rules, every request returns 404 until you add one.'
+      : 'Start this mock server';
 
   const handleCopy = () => {
     void navigator.clipboard?.writeText(address).then(() => {
@@ -87,10 +90,10 @@ export function ApiMockServerBar({
         )}
         {dirty && <span className="am-badge warning" data-testid="api-mock-dirty-badge">Draft changed</span>}
         <span className="am-spacer" />
-        {dirty && running && (
+        {!desktopRequired && dirty && running && (
           <button className="am-btn primary" onClick={onApply} data-testid="api-mock-apply"><CheckIcon /> Apply</button>
         )}
-        {running ? (
+        {!desktopRequired && running ? (
           <>
             <button className="am-btn" onClick={onRestart} data-testid="api-mock-restart"><RestartIcon /> Restart</button>
             <button className="am-btn danger" onClick={onStop} data-testid="api-mock-stop"><StopIcon /> Stop</button>
@@ -98,8 +101,8 @@ export function ApiMockServerBar({
         ) : (
           <button
             className="am-btn primary"
-            onClick={onStart}
-            disabled={busy}
+            onClick={desktopRequired ? undefined : onStart}
+            disabled={busy || desktopRequired}
             title={startTitle}
             data-testid="api-mock-start"
           >
@@ -120,6 +123,24 @@ export function ApiMockServerBar({
       {error && (
         <div className="am-server-error" role="alert" data-testid="api-mock-server-error">
           {error}
+        </div>
+      )}
+      {desktopRequired && (
+        <div className="am-notice am-notice--desktop-required am-notice--flush" data-testid="api-mock-desktop-required" role="status">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
+            <rect x="2" y="3" width="20" height="14" rx="2" />
+            <path d="M8 21h8M12 17v4" />
+          </svg>
+          Server runtime requires the RedfireForge desktop app.{' '}
+          <a
+            href="https://github.com/redfireforge/redfire-forge/releases/latest"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="am-notice-link"
+          >
+            Download the desktop app →
+          </a>
+          {' '}You can still configure routes, import specs, and use Simulate here.
         </div>
       )}
       {nativeWarnings.length > 0 && (

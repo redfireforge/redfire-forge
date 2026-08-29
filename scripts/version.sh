@@ -25,6 +25,7 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 PKG_JSON="$ROOT_DIR/package.json"
 TAURI_CONF="$ROOT_DIR/src-tauri/tauri.conf.json"
+TAURI_CONF_DEMO="$ROOT_DIR/src-tauri/tauri.conf.demo.json"
 CARGO_TOML="$ROOT_DIR/src-tauri/Cargo.toml"
 CLI_PKG_JSON="$ROOT_DIR/cli/package.json"
 
@@ -171,6 +172,21 @@ else
   sed -i.bak "s/\"version\": \".*\"/\"version\": \"$FULL_VERSION\"/" "$TAURI_CONF" && rm -f "$TAURI_CONF.bak"
 fi
 
+# ── Update tauri.conf.demo.json ──────────────────────────────
+
+if [[ -f "$TAURI_CONF_DEMO" ]]; then
+  if command -v node &>/dev/null; then
+    node -e "
+      const fs = require('fs');
+      const conf = JSON.parse(fs.readFileSync('$TAURI_CONF_DEMO', 'utf8'));
+      conf.version = '$FULL_VERSION';
+      fs.writeFileSync('$TAURI_CONF_DEMO', JSON.stringify(conf, null, 2) + '\n');
+    "
+  else
+    sed -i.bak "s/\"version\": \".*\"/\"version\": \"$FULL_VERSION\"/" "$TAURI_CONF_DEMO" && rm -f "$TAURI_CONF_DEMO.bak"
+  fi
+fi
+
 # ── Update Cargo.toml ────────────────────────────────────────
 
 sed -i.bak "s/^version = \".*\"/version = \"$CARGO_VERSION\"/" "$CARGO_TOML" && rm -f "$CARGO_TOML.bak"
@@ -201,11 +217,12 @@ echo ""
 echo "Files changed:"
 echo "  • $PKG_JSON"
 echo "  • $TAURI_CONF"
+echo "  • $TAURI_CONF_DEMO"
 echo "  • $CARGO_TOML"
 echo "  • $CLI_PKG_JSON"
 echo ""
 echo "Next steps:"
-echo "  git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml cli/package.json"
+echo "  git add package.json src-tauri/tauri.conf.json src-tauri/tauri.conf.demo.json src-tauri/Cargo.toml cli/package.json"
 echo "  git commit -m \"chore: bump version to $FULL_VERSION\""
 if [[ -z "$PRE_TAG" ]]; then
   echo "  git tag v$FULL_VERSION"
