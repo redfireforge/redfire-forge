@@ -2,10 +2,10 @@
 
 [![CI](https://github.com/redfireforge/redfire-forge/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/redfireforge/redfire-forge/actions/workflows/ci.yml)
 [![Latest Release](https://img.shields.io/github/v/release/redfireforge/redfire-forge?label=release)](https://github.com/redfireforge/redfire-forge/releases/latest)
+[![npm](https://img.shields.io/npm/v/redfireforge-cli?label=npm)](https://www.npmjs.com/package/redfireforge-cli)
+[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://demo.redfireforge.com)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)](docs/guides/cross-platform.md)
-
-<!-- TODO (L-5): add npm badge once redfireforge-cli is published, and a Live Demo badge once demo.redfireforge.com is live -->
 
 > *Fire. Measure. Validate.*
 
