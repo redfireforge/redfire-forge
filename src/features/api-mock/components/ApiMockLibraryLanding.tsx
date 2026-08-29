@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { isTauri } from '@shared/utils/platform';
 
 interface Props {
   onCreate: () => void;
@@ -121,8 +122,30 @@ const FEATURES: Feature[] = [
  * offers the same "create server" action as the sidebar's + New button.
  */
 export function ApiMockLibraryLanding({ onCreate }: Props) {
+  const webMode = !isTauri();
+
   return (
     <div className="am-library-landing" data-testid="api-mock-library-landing">
+      {webMode && (
+        <div className="am-landing-desktop-notice" data-testid="api-mock-landing-desktop-notice" role="status">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="2" y="3" width="20" height="14" rx="2" />
+            <path d="M8 21h8M12 17v4" />
+          </svg>
+          <span>
+            <strong>Server runtime requires the desktop app.</strong>{' '}
+            You can explore routes and import specs in the browser, but starting a live server requires{' '}
+            <a
+              href="https://github.com/redfireforge/redfire-forge/releases/latest"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="am-notice-link"
+            >
+              RedfireForge for desktop
+            </a>.
+          </span>
+        </div>
+      )}
       <div className="am-landing-inner">
         <header className="am-landing-hero">
           <div className="am-landing-hero-text">
