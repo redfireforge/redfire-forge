@@ -3413,6 +3413,9 @@
 .api-mock-root .am-notice.warning { border-left-color: var(--am-amber); background: color-mix(in srgb, var(--am-amber) 8%, var(--surface)); }
 .api-mock-root .am-notice.danger { border-left-color: var(--am-red); background: color-mix(in srgb, var(--am-red) 8%, var(--surface)); }
 .api-mock-root .am-notice.success { border-left-color: var(--am-green); background: color-mix(in srgb, var(--am-green) 8%, var(--surface)); }
+.api-mock-root .am-notice--desktop-required { border-left-color: var(--primary); background: color-mix(in srgb, var(--primary) 7%, var(--surface)); align-items: center; }
+.api-mock-root .am-notice-link { color: var(--primary); text-decoration: none; font-weight: 500; }
+.api-mock-root .am-notice-link:hover { text-decoration: underline; }
 
 /* ── Expires-at picker (replaces native datetime-local) ── */
 .api-mock-root .am-expires-picker {
@@ -6734,12 +6737,30 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 32px 32px 48px;
+  padding: 0;
   background: var(--bg);
 }
+.api-mock-root .am-landing-desktop-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 32px;
+  background: color-mix(in srgb, var(--primary) 7%, var(--surface));
+  border-bottom: 1px solid color-mix(in srgb, var(--primary) 20%, var(--border));
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.api-mock-root .am-landing-desktop-notice svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--primary);
+}
+.api-mock-root .am-landing-desktop-notice strong { color: var(--text); }
 .api-mock-root .am-landing-inner {
   max-width: 1040px;
   margin: 0;
+  padding: 32px 32px 48px;
   display: flex;
   flex-direction: column;
   gap: 28px;
