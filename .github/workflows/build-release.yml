@@ -148,7 +148,7 @@ jobs:
 
       - name: Build CLI package (required by Tauri bundle resources)
         shell: bash
-        run: npm run build:cli-package
+        run: bash scripts/build-cli-package.sh
 
       - name: Build sidecar (required by Tauri externalBin)
         run: node scripts/build-sidecar.mjs
@@ -161,9 +161,10 @@ jobs:
           # macOS signing & notarization
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          # Fall back to ad-hoc signing (-) when no developer cert is available.
-          # Without this, Tauri's bundler calls `security import` and fails on CI.
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY || '-' }}
+          # Only use a signing identity when a real certificate is also present.
+          # When APPLE_CERTIFICATE is absent/empty, this resolves to "" which
+          # makes Tauri skip codesigning entirely (avoids security import error).
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_SIGNING_IDENTITY || '' }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -188,8 +189,8 @@ jobs:
           # macOS signing & notarization
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          # Fall back to ad-hoc signing (-) when no developer cert is available.
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY || '-' }}
+          # Only use a signing identity when a real certificate is also present.
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_SIGNING_IDENTITY || '' }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
