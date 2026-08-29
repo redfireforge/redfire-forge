@@ -511,6 +511,56 @@ export default defineConfig({
       use: { browserName: 'chromium' },
     },
 
+    // ── CI smoke project: curated core product specs, no Docker required ──
+    // Run: npx playwright test --project=ci
+    // Used by the `e2e-product` job in .github/workflows/ci.yml.
+    // Selection criteria: (a) no Docker / no external server, (b) covers a
+    // critical UI flow, (c) fast enough to complete within ~10 min on a 2-vCPU
+    // GitHub Actions runner.
+    {
+      name: 'ci',
+      testMatch: [
+        // Core app shell
+        '**/app-features.spec.ts',
+        '**/settings.spec.ts',
+        '**/page-persistence.spec.ts',
+        '**/idb-loading.spec.ts',
+        '**/gallery.spec.ts',
+        '**/gallery-loaded-badge.spec.ts',
+        '**/trash-box.spec.ts',
+        '**/environment-manager.spec.ts',
+        // Test scenarios: creation, execution, history
+        '**/create-test.spec.ts',
+        '**/run-test.spec.ts',
+        '**/import-run.spec.ts',
+        '**/execution-history.spec.ts',
+        '**/export-options-popover.spec.ts',
+        '**/structured-assertions.spec.ts',
+        '**/parameterized-verify.spec.ts',
+        // Results
+        '**/results-console.spec.ts',
+        '**/view-results.spec.ts',
+        '**/run-comparison.spec.ts',
+        // Workflow (no Docker required)
+        '**/workflow.spec.ts',
+        '**/workflow-features.spec.ts',
+        '**/workflow-nodes.spec.ts',
+        '**/workflow-persistence.spec.ts',
+        '**/workflow-folders.spec.ts',
+        '**/workflow-conditions.spec.ts',
+        '**/workflow-console.spec.ts',
+        // Data Mapper
+        '**/data-mapper-ui.spec.ts',
+        // Validation
+        '**/validation-rules-editor.spec.ts',
+        '**/validation-operator-roundtrip.spec.ts',
+        '**/validation-dsl-roundtrip.spec.ts',
+      ],
+      timeout: 30_000,
+      retries: 1,
+      use: { browserName: 'chromium' },
+    },
+
     // ── Docker project: active when E2E_WITH_DOCKER=1, E2E_GRAPHQL_SERVER=1, E2E_GRPC_SERVER=1, or E2E_WS_SERVER=1 ─
     // Run: E2E_WITH_DOCKER=1 npx playwright test --project=docker
     // Or:  E2E_GRAPHQL_SERVER=1 npx playwright test e2e/graphql-test-server.spec.ts
