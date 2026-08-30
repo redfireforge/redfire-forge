@@ -15,9 +15,10 @@ vi.mock('./platform', () => ({
 }));
 
 /** Track EnvHttpProxyAgent usage; keep real ProxyAgent for fallback tests in `httpClient.proxyAgent.test.ts`. */
+const undiciFetchSpy = vi.hoisted(() => vi.fn());
 vi.mock('undici', async (importOriginal) => {
   const mod = await importOriginal<typeof import('undici')>();
-  return { ...mod, EnvHttpProxyAgent: envHttpProxyAgentCtor };
+  return { ...mod, EnvHttpProxyAgent: envHttpProxyAgentCtor, fetch: undiciFetchSpy };
 });
 
 const mockTFetch = vi.fn();
@@ -244,7 +245,8 @@ describe('httpFetch', () => {
         text: () => Promise.resolve('node-response'),
       } as unknown as Response);
 
-      const result = await nodeHttpFetch('http://example.com/api', 'GET', { 'Accept': 'application/json' });
+      // Use a loopback URL — dispatcher is bypassed, so global fetch is called directly.
+      const result = await nodeHttpFetch('http://localhost/api', 'GET', { 'Accept': 'application/json' });
       expect(result.status).toBe(200);
       expect(result.body).toBe('node-response');
     });
@@ -252,7 +254,8 @@ describe('httpFetch', () => {
     it('handles node fetch errors', async () => {
       vi.mocked(globalThis.fetch).mockRejectedValueOnce(new Error('DNS lookup failed'));
 
-      const result = await nodeHttpFetch('http://example.com', 'GET', {});
+      // Loopback URL — no dispatcher → global fetch → mock throws.
+      const result = await nodeHttpFetch('http://localhost', 'GET', {});
       expect(result.status).toBe(0);
       expect(result.error).toBe('DNS lookup failed');
     });
@@ -262,7 +265,8 @@ describe('httpFetch', () => {
       (cause as NodeJS.ErrnoException).code = 'ETIMEDOUT';
       vi.mocked(globalThis.fetch).mockRejectedValueOnce(new Error('fetch failed', { cause }));
 
-      const result = await nodeHttpFetch('http://example.com', 'GET', {});
+      // Loopback URL — no dispatcher → global fetch → mock throws.
+      const result = await nodeHttpFetch('http://localhost', 'GET', {});
       expect(result.status).toBe(0);
       expect(result.error).toBe('fetch failed — connect ETIMEDOUT 10.0.0.1:443 [ETIMEDOUT]');
     });
@@ -271,18 +275,19 @@ describe('httpFetch', () => {
       process.env.HTTP_PROXY = 'http://proxy.local:8888';
       vi.resetModules();
       const mod = await import('./httpClient');
-      const fetchSpy = vi.fn().mockResolvedValue({
+      // Node 22's global fetch does not support the undici `dispatcher` option.
+      // httpClient now uses undici.fetch directly when a dispatcher is present.
+      undiciFetchSpy.mockResolvedValue({
         status: 200,
         statusText: 'OK',
         headers: { forEach: (_fn: (v: string, k: string) => void) => { /* empty */ } },
         text: () => Promise.resolve('via-env-agent'),
       });
-      globalThis.fetch = fetchSpy;
 
       const result = await mod.httpFetch('https://api.example/data', 'GET', {});
       expect(envHttpProxyAgentCtor).toHaveBeenCalled();
       expect(result.body).toBe('via-env-agent');
-      expect(fetchSpy).toHaveBeenCalledWith(
+      expect(undiciFetchSpy).toHaveBeenCalledWith(
         'https://api.example/data',
         expect.objectContaining({
           dispatcher: expect.objectContaining({ __kind: 'EnvHttpProxyAgent' }),
