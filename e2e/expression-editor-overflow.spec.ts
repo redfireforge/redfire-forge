@@ -3,7 +3,7 @@ import { seedAppData } from './helpers';
 
 const sampleResponse = {
   offers: [
-    { associatedOfferingCode: 'ONZFCNCP01MCALM', rank: 1, offerName: 'OnStar One - Trial' },
+    { associatedOfferingCode: 'ACMPLN01MTRXL', rank: 1, offerName: 'Acme Connect - Trial' },
   ],
 };
 

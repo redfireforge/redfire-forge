@@ -144,7 +144,7 @@ describe('evaluateAssertions — arrayContains', () => {
 
   it('mode:any — nested object matching in array', () => {
     const { failures } = evaluateAssertions(
-      [{ type: 'arrayContains', jsonPath: '$.offers', value: '{"offerName": "OnStar Plan", "rank": 2}', mode: 'any' }],
+      [{ type: 'arrayContains', jsonPath: '$.offers', value: '{"offerName": "Acme Connect Plan", "rank": 2}', mode: 'any' }],
       collectionCtx,
     );
     expect(failures).toEqual([]);

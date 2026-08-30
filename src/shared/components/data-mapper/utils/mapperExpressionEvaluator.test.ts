@@ -372,7 +372,7 @@ describe('bracket-path resolution in function args', () => {
     label: 'Source',
     sampleData: {
       offers: [
-        { offerName: 'OnStar Premium', rank: 1 },
+        { offerName: 'Acme Connect Premium', rank: 1 },
         { offerName: 'WiFi Plan', rank: 2 },
       ],
     },
@@ -381,7 +381,7 @@ describe('bracket-path resolution in function args', () => {
   it('$upper(offers[0].offerName) uppercases only the single field', () => {
     const result = evaluateMapperExpression('$upper(offers[0].offerName)', sources, 's1');
     expect(result.error).toBeUndefined();
-    expect(result.value).toBe('ONSTAR PREMIUM');
+    expect(result.value).toBe('ACME CONNECT PREMIUM');
   });
 
   it('$lower(offers[1].offerName) lowercases only the single field', () => {
