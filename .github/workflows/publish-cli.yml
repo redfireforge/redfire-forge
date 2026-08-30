@@ -1,11 +1,5 @@
 name: Publish CLI to npm
 
-# NOTE (future reference, added 2026-08-18): as of this date, `redfireforge-cli`
-# has never actually been published — the real npm registry returns 404 for it.
-# This workflow is ready to run (triggers on `v*` tags, or manually via
-# workflow_dispatch), it just needs a maintainer to actually push a version tag
-# (or run it manually) once the project is ready for a public CLI release.
-
 on:
   push:
     tags:
@@ -25,10 +19,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
@@ -41,11 +35,11 @@ jobs:
         run: |
           echo "Building CLI bundle..."
           node scripts/build-cli.mjs
-          
+
           # Copy to cli/dist
           mkdir -p cli/dist
           cp dist-cli/redfireforge.mjs cli/dist/redfireforge.mjs
-          
+
           # Verify build
           if [ -f cli/dist/redfireforge.mjs ]; then
             echo "✅ Bundle created successfully"
@@ -60,7 +54,7 @@ jobs:
           # Get version from main package.json
           VERSION=$(node -p "require('./package.json').version")
           echo "Version: $VERSION"
-          
+
           # Update cli/package.json
           node -e "
           const fs = require('fs');
@@ -68,26 +62,26 @@ jobs:
           pkg.version = '$VERSION';
           fs.writeFileSync('cli/package.json', JSON.stringify(pkg, null, 2) + '\n');
           "
-          
+
           echo "Updated cli/package.json to version $VERSION"
           cat cli/package.json
 
       - name: Test CLI bundle
         run: |
           echo "Testing CLI bundle..."
-          
+
           # Syntax check
           node --check cli/dist/redfireforge.mjs
           echo "✅ Syntax check passed"
-          
+
           # Version check
           node cli/dist/redfireforge.mjs --version
           echo "✅ Version check passed"
-          
+
           # Help check
           node cli/dist/redfireforge.mjs --help
           echo "✅ Help check passed"
-          
+
           # Validate example file
           node cli/dist/redfireforge.mjs validate examples/cli-basic-test.yaml
           echo "✅ Validation check passed"
@@ -99,15 +93,22 @@ jobs:
           echo "DRY RUN - Would publish:"
           npm publish --dry-run
 
+      - name: Skip npm publish (pre-release tag)
+        if: ${{ github.event.inputs.dry_run != 'true' && contains(github.ref_name, '-') }}
+        run: |
+          echo "⏭️  Pre-release tag detected (${{ github.ref_name }}) — skipping npm publish."
+          echo "     The desktop app artifacts will still be built and attached to the GitHub Release."
+          echo "     To publish to npm, push a stable tag (e.g. v0.8.2) or run workflow_dispatch."
+
       - name: Publish to npm
-        if: ${{ github.event.inputs.dry_run != 'true' }}
+        if: ${{ github.event.inputs.dry_run != 'true' && !contains(github.ref_name, '-') }}
         working-directory: ./cli
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Upload CLI bundle artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: redfireforge-cli-bundle
           path: |
