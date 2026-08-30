@@ -73,10 +73,11 @@ const STEP_TIMEOUT      = 25_000;  // one step action (some steps have long wait
 const RESTART_TIMEOUT   = 30_000;  // restart includes cleanup + setup
 const APP_NAV_ATTEMPTS  = 5;
 const APP_NAV_DELAY_MS  = 2_000;
-// Vite cold-start on a fresh CI runner can take 60-90s to pre-bundle and serve
+// Vite cold-start on a fresh CI runner can take 60-120s to pre-bundle and serve
 // the full module graph. React mounts only after JS executes, so waitUntil:
 // 'domcontentloaded' is not sufficient — we must wait for the app shell explicitly.
-const APP_SHELL_TIMEOUT = 180_000;
+// Lesson-shell tests run first (cold start) — 300s gives enough headroom.
+const APP_SHELL_TIMEOUT = 300_000;
 
 async function gotoAppWithRetry(page: Page, url: string): Promise<void> {
   let lastError: unknown;
