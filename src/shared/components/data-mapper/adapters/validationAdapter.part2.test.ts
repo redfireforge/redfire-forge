@@ -39,7 +39,7 @@ const _EXCLUDE_OUTPUT: ValidationAdapterOutput = {
 describe('validationAdapter — operator round-trip', () => {
   it('serialize preserves operator and operatorValue from mappings', () => {
     const adapter = createValidationAdapter({
-      sampleResponseBody: { price: 99, name: 'OnStar' },
+      sampleResponseBody: { price: 99, name: 'Acme' },
       selectiveMode: 'include',
     });
     const mappings = [
