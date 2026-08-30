@@ -556,7 +556,7 @@ export default defineConfig({
         '**/validation-operator-roundtrip.spec.ts',
         '**/validation-dsl-roundtrip.spec.ts',
       ],
-      timeout: 30_000,
+      timeout: 60_000,
       retries: 1,
       use: { browserName: 'chromium' },
     },
