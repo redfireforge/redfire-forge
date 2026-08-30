@@ -7,7 +7,7 @@ export const collectionCtx: AssertionContext = {
   responseBody: {
     offers: [
       { offerName: 'EV Access', rank: 1, isActive: true },
-      { offerName: 'OnStar Plan', rank: 2, isActive: true },
+      { offerName: 'Acme Connect Plan', rank: 2, isActive: true },
       { offerName: 'Basic Plan', rank: 0, isActive: false },
     ],
     numbers: [10, 20, 30, 40],

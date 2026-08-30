@@ -3,8 +3,8 @@ import { seedAppData } from './helpers';
 
 const sampleResponse = {
   offers: [
-    { associatedOfferingCode: 'OHZF', rank: 1, offerName: 'Trial A', productCode: 'OnStar One', billingCadence: 'Prepaid', planType: 'Trial' },
-    { associatedOfferingCode: 'DAFC', rank: 3, offerName: 'Trial B', productCode: 'OnStar Two', billingCadence: 'Monthly', planType: 'Standard' },
+    { associatedOfferingCode: 'ACMB', rank: 1, offerName: 'Trial A', productCode: 'Acme Pro', billingCadence: 'Prepaid', planType: 'Trial' },
+    { associatedOfferingCode: 'DATP', rank: 3, offerName: 'Trial B', productCode: 'Acme Plus', billingCadence: 'Monthly', planType: 'Standard' },
   ],
 };
 
