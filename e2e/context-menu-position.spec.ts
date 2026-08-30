@@ -3,8 +3,8 @@ import { seedAppData } from './helpers';
 
 const sampleResponse = {
   offers: [
-    { associatedOfferingCode: 'ONZFCNCP01MCALM', rank: 1, offerName: 'OnStar One - Trial' },
-    { associatedOfferingCode: 'IHUTRNCPOBYCAUL', rank: 3, offerName: 'IHU Connectivity' },
+    { associatedOfferingCode: 'ACMPLN01MTRXL', rank: 1, offerName: 'Acme Connect - Trial' },
+    { associatedOfferingCode: 'FLTPLN01YRXCA', rank: 3, offerName: 'Fleet Connect' },
   ],
 };
 
