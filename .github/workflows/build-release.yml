@@ -197,7 +197,7 @@ jobs:
           releaseName: 'RedfireForge ${{ github.ref_name }}'
           releaseBody: 'Download the installer for your platform below.'
           releaseDraft: true
-          prerelease: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
           updaterJsonFileName: latest.json
           updaterJsonPreferNsis: true
           args: --target ${{ matrix.target }}
@@ -216,7 +216,7 @@ jobs:
           releaseName: 'RedfireForge Learning Hub ${{ github.ref_name }}'
           releaseBody: 'Learning Hub build with interactive tutorials. Download the installer for your platform below.'
           releaseDraft: true
-          prerelease: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
           updaterJsonFileName: latest-demo.json
           updaterJsonPreferNsis: true
           assetNamePattern: 'RedfireForge-LearningHub-[version]-[platform]-[arch][ext]'
