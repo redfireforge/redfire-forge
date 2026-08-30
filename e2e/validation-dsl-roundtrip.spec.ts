@@ -5,8 +5,8 @@ import { seedAppData } from './helpers';
 const sampleResponse = {
   status: 'active',
   offers: [
-    { associatedOfferingCode: 'ONZF', rank: 1, offerName: 'OnStar One - Trial', productCode: 'Connected Access', isActive: true, duration: { unit: 'Years', value: 8 } },
-    { associatedOfferingCode: 'IHUT', rank: 3, offerName: 'IHU Connectivity', productCode: 'IHU', isActive: false, duration: { unit: 'Months', value: 6 } },
+    { associatedOfferingCode: 'ACME', rank: 1, offerName: 'Acme Connect - Trial', productCode: 'Connected Access', isActive: true, duration: { unit: 'Years', value: 8 } },
+    { associatedOfferingCode: 'FLTC', rank: 3, offerName: 'Fleet Connect', productCode: 'FLC', isActive: false, duration: { unit: 'Months', value: 6 } },
   ],
 };
 
