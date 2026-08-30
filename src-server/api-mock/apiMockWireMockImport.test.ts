@@ -9,7 +9,7 @@ import { DEFAULT_SETTINGS } from '../../src/shared/api-mock/defaults';
 import type { ApiMockServerDefinitionV1 } from '../../src/shared/api-mock/contracts';
 
 const ts = '2026-08-12T00:00:00.000Z';
-const URL_PATH = '/veh/numberprovision/v1/att/ActivateOnStarSubscriber';
+const URL_PATH = '/api/subscriptions/v1/ActivateSubscriber';
 
 const stub = (needle: string, status: number, body: string) => JSON.stringify({
   request: {
