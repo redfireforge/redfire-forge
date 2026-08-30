@@ -5,9 +5,9 @@ import type { MapperSource } from '../types';
 
 const sampleData = {
   offers: [
-    { associatedOfferingCode: 'CAZRCNCP08YUCMX', rank: 13, offerName: 'Connected Access – 8 Years', productCode: 'Connected Access', billingCadence: 'Prepaid', planType: 'Trial', duration: { unit: 'Years', value: 8 } },
-    { associatedOfferingCode: 'EBZRCNCP01MMXX', rank: 5, offerName: 'Essentials – Remarketing Trial – 1 Month', productCode: 'Essentials', billingCadence: 'Prepaid', planType: 'Trial', duration: { unit: 'Months', value: 1 } },
-    { associatedOfferingCode: 'EVZRCNCP08YUCMX', rank: 9, offerName: 'EV Access – 8 Years', productCode: 'EV Access', billingCadence: 'Prepaid', planType: 'Trial', duration: { unit: 'Years', value: 8 } },
+    { associatedOfferingCode: 'CONPLN08YRXM', rank: 13, offerName: 'Connected Plan – 8 Years', productCode: 'Connected Access', billingCadence: 'Prepaid', planType: 'Trial', duration: { unit: 'Years', value: 8 } },
+    { associatedOfferingCode: 'ESSPLN01MRXM', rank: 5, offerName: 'Essentials – Trial – 1 Month', productCode: 'Essentials', billingCadence: 'Prepaid', planType: 'Trial', duration: { unit: 'Months', value: 1 } },
+    { associatedOfferingCode: 'EVXPLN08YRXM', rank: 9, offerName: 'EV Plan – 8 Years', productCode: 'EV Access', billingCadence: 'Prepaid', planType: 'Trial', duration: { unit: 'Years', value: 8 } },
   ],
   name: 'Test User',
   scores: [10, 20, 5, 30, 15],
@@ -125,7 +125,7 @@ describe('Lambda functions — Live Preview evaluation', () => {
     it('chained nested property access', () => {
       const r = evalExpr('$maxBy($.offers, x => x.duration.value).offerName');
       expect(r.error).toBeUndefined();
-      expect(r.value).toBe('Connected Access – 8 Years');
+      expect(r.value).toBe('Connected Plan – 8 Years');
     });
   });
 
@@ -176,7 +176,7 @@ describe('Lambda functions — Live Preview evaluation', () => {
     it('chained property access on find result', () => {
       const r = evalExpr('$find($.offers, x => $equals(x.productCode, "Essentials")).offerName');
       expect(r.error).toBeUndefined();
-      expect(r.value).toBe('Essentials – Remarketing Trial – 1 Month');
+      expect(r.value).toBe('Essentials – Trial – 1 Month');
     });
   });
 
@@ -233,7 +233,7 @@ describe('Lambda functions — Live Preview evaluation', () => {
     it('$filter + $map chained', () => {
       const r = evalExpr('$map($filter($.offers, x => $gt(x.rank, 8)), x => x.offerName)');
       expect(r.error).toBeUndefined();
-      expect(r.value).toEqual(['Connected Access – 8 Years', 'EV Access – 8 Years']);
+      expect(r.value).toEqual(['Connected Plan – 8 Years', 'EV Plan – 8 Years']);
     });
 
     it('$reduce on $map result', () => {
@@ -328,7 +328,7 @@ describe('Lambda functions — Live Preview evaluation', () => {
       const r = debug('$map($filter($.offers, x => $gt(x.rank, 8)), x => x.offerName)');
       expect(r.error).toBeUndefined();
       expect(r.steps.length).toBeGreaterThanOrEqual(3);
-      expect(r.finalValue).toEqual(['Connected Access – 8 Years', 'EV Access – 8 Years']);
+      expect(r.finalValue).toEqual(['Connected Plan – 8 Years', 'EV Plan – 8 Years']);
     });
 
     it('$reduce debug produces correct final value', () => {

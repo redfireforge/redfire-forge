@@ -7,7 +7,7 @@ const VIN_XPATH = "//*[local-name() = 'vehicleIdentificationNumber']/text()";
 const soap = (vin: string, extra = '') => `<?xml version="1.0"?>
 <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/">
   <SOAP-ENV:Body>
-    <ns3:ActivateOnStarSubscriberRequest
+    <ns3:ActivateSubscriberRequest
         xmlns:ns2="http://csi.att.com/CDM.xsd"
         xmlns:ns3="http://csi.cingular.com/Request.xsd">
       <ns3:VehicleDetails>
@@ -15,7 +15,7 @@ const soap = (vin: string, extra = '') => `<?xml version="1.0"?>
         <ns3:make>Chevrolet</ns3:make>
       </ns3:VehicleDetails>
       ${extra}
-    </ns3:ActivateOnStarSubscriberRequest>
+    </ns3:ActivateSubscriberRequest>
   </SOAP-ENV:Body>
 </SOAP-ENV:Envelope>`;
 
