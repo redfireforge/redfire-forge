@@ -137,7 +137,7 @@ Click **Rules** in the toolbar to open the Validation Rules Modal — a Monaco c
 # Field assertions
 status                    equals          "active"
 count                     >=              10
-offers[0].offerName       contains        "OnStar"
+offers[0].offerName       contains        "Acme"
 isActive                  is_true
 offers[0].duration.value  between         1, 365
 latitude                  close_to        40.7, 0.1

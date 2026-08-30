@@ -136,7 +136,7 @@ describe('useConnectionLines', () => {
     const targetPanel = document.createElement('div');
     targetPanel.className = 'dm-panel--target';
     const targetNode = document.createElement('div');
-    targetNode.setAttribute('data-path', '"ONZFONCP01MCAL9"');
+    targetNode.setAttribute('data-path', '"ACMPLN09YRXL"');
     targetNode.textContent = 'code';
     targetPanel.appendChild(targetNode);
 
@@ -151,14 +151,14 @@ describe('useConnectionLines', () => {
         id: 'm1',
         sourcePath: 'offers[1].rank',
         sourceId: 's1',
-        targetPath: '"ONZFONCP01MCAL9"',
+        targetPath: '"ACMPLN09YRXL"',
       },
     ];
 
     const { result } = renderHook(() => useConnectionLines(mappings, ref, 0));
     expect(result.current.lines).toHaveLength(1);
     expect(result.current.lines[0].sourcePath).toBe('offers[1].rank');
-    expect(result.current.lines[0].targetPath).toBe('"ONZFONCP01MCAL9"');
+    expect(result.current.lines[0].targetPath).toBe('"ACMPLN09YRXL"');
     document.body.removeChild(div);
   });
 
