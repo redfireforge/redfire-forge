@@ -22,7 +22,7 @@
 - ⚡ **Load testing built in** — configurable concurrency, iterations, and assertions on every protocol, not just HTTP
 - 🖥️ **Desktop or browser** — the same engine runs as a native Tauri app or in any modern browser
 - 🤖 **CLI for CI/CD** — the exact same execution engine as the GUI, runnable headlessly in GitHub Actions, GitLab CI, Jenkins, or Azure DevOps
-- 📖 **Interactive Learning Hub** — an optional desktop build ships with guided, hands-on lessons for every protocol
+- 📖 **Interactive Learning Hub** — an optional desktop build ships 151 guided, hands-on lessons covering every protocol
 
 ### A closer look
 
@@ -50,10 +50,10 @@
 **gRPC Studio** — reflection-based service/method discovery with streaming support:
 ![gRPC Studio](docs/assets/screenshots/grpc-studio.png)
 
-**Gallery** — 30+ ready-to-run samples across every protocol, plus guided training paths:
+**Gallery** — 158 ready-to-run samples across every protocol, plus 28 guided training paths:
 ![Gallery](docs/assets/screenshots/gallery-samples.png)
 
-**Learning Hub** — 140+ interactive guided lessons across every feature, organized into learning paths:
+**Learning Hub** — 151 interactive guided lessons across every feature, organized into learning paths:
 ![Learning Hub](docs/assets/screenshots/learning-hub.png)
 
 ---
