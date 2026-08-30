@@ -103,12 +103,12 @@ describe('validate – unordered arrays', () => {
 describe('validate – real-world offers reorder scenario', () => {
   const apiResponse = {
     offers: [
-      { associatedOfferingCode: 'ONZFCNCP01MCALM', rank: 1, offerName: 'OnStar One - Trial - 1 Month' },
-      { associatedOfferingCode: 'IHUTRNCP08YCAUL', rank: 3, offerName: 'IHU Connectivity - 8 Years' },
-      { associatedOfferingCode: 'DAFCNCP01MCA3G', rank: 3, offerName: '3GB WiFi Connectivity - Trial - 1 Month' },
-      { associatedOfferingCode: 'BAZFCNCP08YUCX', rank: 9, offerName: 'OnStar Basics - 8 Years' },
-      { associatedOfferingCode: 'CAZFCNCP08YUCMX', rank: 13, offerName: 'Connected Access - 8 Years' },
-      { associatedOfferingCode: 'EVZFCNCP08YUCMX', rank: 13, offerName: 'EV Access - 8 Years' },
+      { associatedOfferingCode: 'ACMPLN01MTRXL', rank: 1, offerName: 'Acme Connect - Trial - 1 Month' },
+      { associatedOfferingCode: 'FLTPLN08YRXCA', rank: 3, offerName: 'Fleet Connect - 8 Years' },
+      { associatedOfferingCode: 'DATPLN01MTRXL', rank: 3, offerName: '3GB Data - Trial - 1 Month' },
+      { associatedOfferingCode: 'BASPLN08YRXM', rank: 9, offerName: 'Acme Basics - 8 Years' },
+      { associatedOfferingCode: 'CONPLN08YRXM', rank: 13, offerName: 'Connected Access - 8 Years' },
+      { associatedOfferingCode: 'EVXPLN08YRXM', rank: 13, offerName: 'EV Access - 8 Years' },
     ],
   };
 
@@ -118,12 +118,12 @@ describe('validate – real-world offers reorder scenario', () => {
         mode: 'selective',
         unorderedArrays: true,
         expectedFields: [
-          { jsonPath: '$.offers[0].associatedOfferingCode', expectedValue: 'ONZFCNCP01MCALM' },
-          { jsonPath: '$.offers[0].offerName', expectedValue: 'OnStar One - Trial - 1 Month' },
-          { jsonPath: '$.offers[1].associatedOfferingCode', expectedValue: 'DAFCNCP01MCA3G' },
-          { jsonPath: '$.offers[1].offerName', expectedValue: 'Trial Data 3GB - 1 Month CAN' },
-          { jsonPath: '$.offers[2].associatedOfferingCode', expectedValue: 'IHUTRNCP08YCAUL' },
-          { jsonPath: '$.offers[2].offerName', expectedValue: 'IHU Connectivity - 96 months CA' },
+          { jsonPath: '$.offers[0].associatedOfferingCode', expectedValue: 'ACMPLN01MTRXL' },
+          { jsonPath: '$.offers[0].offerName', expectedValue: 'Acme Connect - Trial - 1 Month' },
+          { jsonPath: '$.offers[1].associatedOfferingCode', expectedValue: 'DATPLN01MTRXL' },
+          { jsonPath: '$.offers[1].offerName', expectedValue: 'Trial Data 3GB - 1 Month' },
+          { jsonPath: '$.offers[2].associatedOfferingCode', expectedValue: 'FLTPLN08YRXCA' },
+          { jsonPath: '$.offers[2].offerName', expectedValue: 'Fleet Connect - 96 months' },
         ],
       },
       apiResponse,
@@ -134,18 +134,18 @@ describe('validate – real-world offers reorder scenario', () => {
 
     const f1 = offerNameFailures.find((f) => f.path === '$.offers[1].offerName');
     expect(f1).toBeDefined();
-    expect(f1!.expected).toBe('Trial Data 3GB - 1 Month CAN');
-    expect(String(f1!.actual)).toContain('3GB WiFi Connectivity - Trial - 1 Month');
+    expect(f1!.expected).toBe('Trial Data 3GB - 1 Month');
+    expect(String(f1!.actual)).toContain('3GB Data - Trial - 1 Month');
     expect(String(f1!.actual)).toContain('matched by');
-    expect(String(f1!.actual)).toContain('DAFCNCP01MCA3G');
+    expect(String(f1!.actual)).toContain('DATPLN01MTRXL');
     expect(String(f1!.actual)).toContain('at [2]');
 
     const f2 = offerNameFailures.find((f) => f.path === '$.offers[2].offerName');
     expect(f2).toBeDefined();
-    expect(f2!.expected).toBe('IHU Connectivity - 96 months CA');
-    expect(String(f2!.actual)).toContain('IHU Connectivity - 8 Years');
+    expect(f2!.expected).toBe('Fleet Connect - 96 months');
+    expect(String(f2!.actual)).toContain('Fleet Connect - 8 Years');
     expect(String(f2!.actual)).toContain('matched by');
-    expect(String(f2!.actual)).toContain('IHUTRNCP08YCAUL');
+    expect(String(f2!.actual)).toContain('FLTPLN08YRXCA');
     expect(String(f2!.actual)).toContain('at [1]');
   });
 
@@ -155,12 +155,12 @@ describe('validate – real-world offers reorder scenario', () => {
         mode: 'selective',
         unorderedArrays: true,
         expectedFields: [
-          { jsonPath: '$.offers[0].associatedOfferingCode', expectedValue: 'ONZFCNCP01MCALM' },
-          { jsonPath: '$.offers[0].offerName', expectedValue: 'OnStar One - Trial - 1 Month' },
-          { jsonPath: '$.offers[1].associatedOfferingCode', expectedValue: 'DAFCNCP01MCA3G' },
-          { jsonPath: '$.offers[1].offerName', expectedValue: '3GB WiFi Connectivity - Trial - 1 Month' },
-          { jsonPath: '$.offers[2].associatedOfferingCode', expectedValue: 'IHUTRNCP08YCAUL' },
-          { jsonPath: '$.offers[2].offerName', expectedValue: 'IHU Connectivity - 8 Years' },
+          { jsonPath: '$.offers[0].associatedOfferingCode', expectedValue: 'ACMPLN01MTRXL' },
+          { jsonPath: '$.offers[0].offerName', expectedValue: 'Acme Connect - Trial - 1 Month' },
+          { jsonPath: '$.offers[1].associatedOfferingCode', expectedValue: 'DATPLN01MTRXL' },
+          { jsonPath: '$.offers[1].offerName', expectedValue: '3GB Data - Trial - 1 Month' },
+          { jsonPath: '$.offers[2].associatedOfferingCode', expectedValue: 'FLTPLN08YRXCA' },
+          { jsonPath: '$.offers[2].offerName', expectedValue: 'Fleet Connect - 8 Years' },
         ],
       },
       apiResponse,
@@ -175,16 +175,16 @@ describe('validate – real-world offers reorder scenario', () => {
         mode: 'selective',
         unorderedArrays: false,
         expectedFields: [
-          { jsonPath: '$.offers[1].associatedOfferingCode', expectedValue: 'DAFCNCP01MCA3G' },
+          { jsonPath: '$.offers[1].associatedOfferingCode', expectedValue: 'DATPLN01MTRXL' },
         ],
       },
       apiResponse,
     );
 
     expect(failures).toHaveLength(1);
-    expect(failures[0].expected).toBe('DAFCNCP01MCA3G');
+    expect(failures[0].expected).toBe('DATPLN01MTRXL');
     expect(String(failures[0].actual)).not.toContain('matched by');
-    expect(String(failures[0].actual)).toContain('IHUTRNCP08YCAUL');
+    expect(String(failures[0].actual)).toContain('FLTPLN08YRXCA');
   });
 });
 
@@ -553,10 +553,10 @@ describe('validate — selective with field operators', () => {
       {
         mode: 'selective',
         expectedFields: [
-          { jsonPath: '$.name', expectedValue: '', operator: 'contains', operatorValue: 'On' },
+          { jsonPath: '$.name', expectedValue: '', operator: 'contains', operatorValue: 'Acme' },
         ],
       },
-      { name: 'OnStar Premium' },
+      { name: 'Acme Connect Premium' },
     );
     expect(failures).toEqual([]);
   });
