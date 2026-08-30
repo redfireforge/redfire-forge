@@ -16,7 +16,7 @@ const SAMPLE_JSON = JSON.stringify({
   },
   offers: [
     { offerName: 'Connected Access - 8 Years', rank: 13 },
-    { offerName: '3GB WiFi Connectivity - Trial', rank: 3 },
+    { offerName: '3GB Data - Trial', rank: 3 },
   ],
 });
 
