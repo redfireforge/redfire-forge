@@ -4,8 +4,8 @@ import { seedAppData } from './helpers';
 
 const sampleResponse = {
   offers: [
-    { associatedOfferingCode: 'ONZF', rank: 1, offerName: 'OnStar One - Trial' },
-    { associatedOfferingCode: 'IHUT', rank: 3, offerName: 'IHU Connectivity' },
+    { associatedOfferingCode: 'ACME', rank: 1, offerName: 'Acme Connect - Trial' },
+    { associatedOfferingCode: 'FLTC', rank: 3, offerName: 'Fleet Connect' },
   ],
   status: 'active',
 };

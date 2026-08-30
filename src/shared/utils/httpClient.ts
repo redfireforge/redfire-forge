@@ -385,7 +385,16 @@ async function nodeFetch(
 
     const doFetch = async (fetchOpts: Record<string, unknown>) => {
       const t0 = performance.now();
-      const response = await fetch(targetUrl, fetchOpts as RequestInit);
+      // Node 22's global fetch does not accept the undici `dispatcher` option
+      // (throws UND_ERR_INVALID_ARG / "fetch failed"). Use undici.fetch directly
+      // when a dispatcher is present so the Agent/ProxyAgent is honoured.
+      // vite-ignore prevents Vite/rolldown from bundling undici into the browser
+      // chunk; this code path only runs in Node.js (dispatcher is only set by
+      // getDispatcher() which is Node-only).
+      const fetchFn: typeof fetch = fetchOpts.dispatcher
+        ? (await import(/* @vite-ignore */ 'undici')).fetch as unknown as typeof fetch
+        : fetch;
+      const response = await fetchFn(targetUrl, fetchOpts as RequestInit);
       const tFirstByte = performance.now();
       const responseBody = await response.text();
       const tDone = performance.now();
