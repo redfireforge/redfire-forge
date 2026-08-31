@@ -258,7 +258,7 @@
     "busboy": "^1.6.0",
     "commander": "^14.0.3",
     "express": "^5.2.1",
-    "extract-files": "^13.0.0",
+    "extract-files": "^14.0.0",
     "graphql": "^17.0.1",
     "graphql-sse": "^2.6.1",
     "graphql-ws": "^6.2.1",
