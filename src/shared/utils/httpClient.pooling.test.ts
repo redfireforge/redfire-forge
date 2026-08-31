@@ -25,6 +25,10 @@ vi.mock('undici', () => ({
   Agent: agentCtor,
   EnvHttpProxyAgent: envProxyCtor,
   ProxyAgent: vi.fn(),
+  // httpClient uses undici.fetch (not globalThis.fetch) when a dispatcher is
+  // present (Node 22 rejects the dispatcher option on the global fetch).
+  // Route it back to globalThis.fetch so test assertions on vi.fn() still work.
+  get fetch() { return globalThis.fetch; },
 }));
 
 vi.mock('@tauri-apps/plugin-http', () => ({

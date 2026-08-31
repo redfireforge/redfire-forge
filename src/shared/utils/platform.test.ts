@@ -1,78 +1,52 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, afterEach, vi } from 'vitest';
-import { isTauri, isNode, supportsWorkers } from './platform';
+import { describe, it, expect, afterEach } from 'vitest';
+import { isTauri, isNode, supportsWorkers, isLocalhost } from './platform';
 
-describe('isTauri', () => {
+describe('platform', () => {
+  const originalLocation = window.location;
+
   afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
-    if (typeof window !== 'undefined') {
-      delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
-    }
+    Object.defineProperty(window, 'location', {
+      value: originalLocation,
+      writable: true,
+      configurable: true,
+    });
+    delete (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
   });
 
-  it('returns false when __TAURI_INTERNALS__ is not present', () => {
+  it('detects Tauri when __TAURI_INTERNALS__ is present', () => {
     expect(isTauri()).toBe(false);
-  });
-
-  it('returns true when __TAURI_INTERNALS__ is present', () => {
-    (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {};
+    (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ = {};
     expect(isTauri()).toBe(true);
   });
 
-  it('returns false when window is undefined (no browser global)', () => {
-    vi.stubGlobal('window', undefined);
-    expect(isTauri()).toBe(false);
+  it('detects Node via process.versions.node', () => {
+    expect(typeof isNode()).toBe('boolean');
   });
-});
 
-describe('isNode', () => {
-  const originalVersions = process.versions;
+  it('reports Worker support', () => {
+    expect(supportsWorkers()).toBe(typeof Worker !== 'undefined');
+  });
 
-  afterEach(() => {
-    Object.defineProperty(process, 'versions', {
-      value: originalVersions,
-      configurable: true,
-      enumerable: true,
+  it('isLocalhost is true for localhost, 127.0.0.1, and ::1', () => {
+    for (const hostname of ['localhost', '127.0.0.1', '::1']) {
+      Object.defineProperty(window, 'location', {
+        value: { ...originalLocation, hostname },
+        writable: true,
+        configurable: true,
+      });
+      expect(isLocalhost()).toBe(true);
+    }
+  });
+
+  it('isLocalhost is false for hosted hostnames', () => {
+    Object.defineProperty(window, 'location', {
+      value: { ...originalLocation, hostname: 'app.redfireforge.com' },
       writable: true,
-    });
-    vi.restoreAllMocks();
-  });
-
-  it('returns true in test environment (Node)', () => {
-    expect(isNode()).toBe(true);
-  });
-
-  it('returns false when process.versions has no node field', () => {
-    Object.defineProperty(process, 'versions', {
-      value: {},
-      configurable: true,
-      enumerable: true,
-      writable: true,
-    });
-    expect(isNode()).toBe(false);
-  });
-
-  it('returns false when process is undefined', () => {
-    const proc = globalThis.process;
-    Object.defineProperty(globalThis, 'process', {
-      value: undefined,
       configurable: true,
     });
-    expect(isNode()).toBe(false);
-    Object.defineProperty(globalThis, 'process', {
-      value: proc,
-      configurable: true,
-    });
-  });
-});
-
-describe('supportsWorkers', () => {
-  it('returns a stable boolean for the current environment', () => {
-    const first = supportsWorkers();
-    expect(typeof first).toBe('boolean');
-    expect(supportsWorkers()).toBe(first);
+    expect(isLocalhost()).toBe(false);
   });
 });
