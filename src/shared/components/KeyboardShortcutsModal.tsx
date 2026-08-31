@@ -1,0 +1,83 @@
+import AppModalFrame from './AppModalFrame';
+import { GLOBAL_SHORTCUTS } from '@app/hooks/useAppShortcuts';
+import { SHORTCUTS as WORKFLOW_SHORTCUTS } from '@workflow/components/canvas/WorkflowShortcutsOverlay';
+import { REQUEST_SHORTCUTS } from '../../features/requests/hooks/useRequestShortcuts';
+import type { ShortcutDef } from '@app/hooks/useAppShortcuts';
+
+interface Props {
+  onClose: () => void;
+}
+
+const ALL_SHORTCUTS: ShortcutDef[] = [
+  ...GLOBAL_SHORTCUTS,
+  ...WORKFLOW_SHORTCUTS,
+  ...REQUEST_SHORTCUTS,
+];
+
+const CATEGORY_ORDER = ['Global', 'Canvas', 'Editing', 'Workflow', 'Requests'];
+
+function getCategories(): string[] {
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  for (const cat of CATEGORY_ORDER) {
+    if (ALL_SHORTCUTS.some((s) => s.category === cat)) {
+      seen.add(cat);
+      ordered.push(cat);
+    }
+  }
+  for (const s of ALL_SHORTCUTS) {
+    if (!seen.has(s.category)) {
+      seen.add(s.category);
+      ordered.push(s.category);
+    }
+  }
+  return ordered;
+}
+
+function ShortcutRow({ shortcut }: { shortcut: ShortcutDef }) {
+  const parts = shortcut.display.split('+');
+  return (
+    <div className="ks-modal-row">
+      <span className="ks-modal-label">{shortcut.label}</span>
+      <div className="ks-modal-keys">
+        {parts.map((part, i) => (
+          <span key={i}>
+            {i > 0 && <span className="ks-modal-plus">+</span>}
+            <kbd className="ks-modal-key">{part}</kbd>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function KeyboardShortcutsModal({ onClose }: Props) {
+  const categories = getCategories();
+
+  return (
+    <AppModalFrame
+      title="Keyboard Shortcuts"
+      onClose={onClose}
+      overlayClassName="ks-modal-overlay"
+      dialogClassName="ks-modal-shell"
+      headerClassName="ks-modal-header"
+      bodyClassName="ks-modal-body"
+      closeButtonKind="icon"
+      closeButtonLabel="Close keyboard shortcuts"
+      disableDrag
+      showResizeHandles={false}
+      showExpandButton={false}
+      titleId="ks-modal-title"
+      dialogTestId="keyboard-shortcuts-modal"
+    >
+      {categories.map((cat) => (
+        <section key={cat} className="ks-modal-section">
+          <h4 className="ks-modal-section-title">{cat}</h4>
+          {ALL_SHORTCUTS.filter((s) => s.category === cat).map((s) => (
+            <ShortcutRow key={s.key} shortcut={s} />
+          ))}
+        </section>
+      ))}
+    </AppModalFrame>
+  );
+}
