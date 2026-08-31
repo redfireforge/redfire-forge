@@ -1,0 +1,128 @@
+/* ── Keyboard Shortcuts Modal ───────────────────── */
+
+.ks-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+  padding: 24px;
+}
+
+.ks-modal-shell {
+  position: relative;
+  background: var(--surface, #1e1e2e);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border, #3b3f51));
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  width: min(90vw, 580px);
+  max-height: min(85vh, 700px);
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 12%, transparent),
+    0 8px 32px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.ks-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid var(--border, #3b3f51);
+  flex-shrink: 0;
+  cursor: default;
+}
+
+.ks-modal-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text, #cdd6f4);
+  letter-spacing: 0.01em;
+}
+
+.ks-modal-body {
+  overflow-y: auto;
+  padding: 16px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── Section ─────────────────────────────────────── */
+
+.ks-modal-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ks-modal-section-title {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: color-mix(in srgb, var(--text, #cdd6f4) 55%, transparent);
+  padding-bottom: 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border, #3b3f51) 60%, transparent);
+}
+
+/* ── Row ─────────────────────────────────────────── */
+
+.ks-modal-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 4px;
+  border-radius: 5px;
+  gap: 12px;
+  transition: background 0.1s;
+}
+
+.ks-modal-row:hover {
+  background: color-mix(in srgb, var(--text, #cdd6f4) 6%, transparent);
+}
+
+.ks-modal-label {
+  font-size: 0.875rem;
+  color: var(--text, #cdd6f4);
+  opacity: 0.9;
+  flex: 1;
+  min-width: 0;
+}
+
+.ks-modal-keys {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.ks-modal-plus {
+  font-size: 0.75rem;
+  color: color-mix(in srgb, var(--text, #cdd6f4) 40%, transparent);
+  padding: 0 2px;
+}
+
+.ks-modal-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 6px;
+  background: color-mix(in srgb, var(--text, #cdd6f4) 10%, var(--bg, #1a1b26));
+  border: 1px solid color-mix(in srgb, var(--border, #3b3f51) 80%, var(--text, #cdd6f4) 20%);
+  border-radius: 4px;
+  font-family: ui-monospace, 'SFMono-Regular', 'Cascadia Code', monospace;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text, #cdd6f4);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--border, #3b3f51) 60%, transparent);
+  white-space: nowrap;
+}
