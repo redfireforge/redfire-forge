@@ -25,6 +25,8 @@ import AppShellOverlays from './components/AppShellOverlays';
 import AppProtocolStudios from './components/AppProtocolStudios';
 import { ExportToApiMockModal, type ExportToApiMockItem } from '../features/api-mock/components/ExportToApiMockModal';
 import { UpdateNotificationBanner } from './components/UpdateNotificationBanner';
+import { DesktopRequiredModal } from './components/DesktopRequiredModal';
+import { useDesktopFeatureGate } from './hooks/useDesktopFeatureGate';
 import { useRerunFailed } from './hooks/useRerunFailed';
 import { useTheme } from './hooks/useTheme';
 import { useProjects } from '../features/scenarios/hooks/useProjects';
@@ -142,29 +144,34 @@ export default function App() {
   const toast = useToast();
   const kafkaState = useKafkaState();
   const [activeTab, setActiveTab] = useState<Tab>(() => readTabFromUrl());
+  const {
+    gatedSetActiveTab,
+    desktopRequiredFeature,
+    dismissDesktopRequired,
+  } = useDesktopFeatureGate(setActiveTab);
 
-  useApiMockOpenInRequestsBridge(wb, reqTabs, (tab) => setActiveTab(tab));
+  useApiMockOpenInRequestsBridge(wb, reqTabs, (tab) => gatedSetActiveTab(tab));
 
   const { handleWorkflowExport, handleWorkflowImport, handleExportFolder } = useWorkflowImportExport({
-    wfHook, folders: wfFolders.folders, setActiveTab: (t) => setActiveTab(t as Tab), showToast: toast.show,
+    wfHook, folders: wfFolders.folders, setActiveTab: (t) => gatedSetActiveTab(t as Tab), showToast: toast.show,
   });
   const { handleImportData } = usePreferencesImport({
     setEnvironments,
     setMicroservices,
     setFeatureGroups,
     setAppGlobalAuthProfiles,
-    setActiveTab,
+    setActiveTab: gatedSetActiveTab,
   });
   const [resultsRunTypeFilter, setResultsRunTypeFilter] = useState<'all' | 'test' | 'workflow' | undefined>();
   const [lastWorkflowOutput, setLastWorkflowOutput] = useState<Record<string, string> | null>(null);
 
   const { sidebarWidth, sidebarCollapsed, setSidebarCollapsed, handleResizeStart } = useSidebarResize();
   const navigateToTab = useCallback((t: string) => {
-    setActiveTab(t as Tab);
-  }, [setActiveTab]);
+    gatedSetActiveTab(t as Tab);
+  }, [gatedSetActiveTab]);
 
   const { confirm, confirmDialogElement } = useConfirmDialog();
-  const wbActions = useWorkbenchActions({ wb, activeTab, setActiveTab: (t) => setActiveTab(t as Tab) });
+  const wbActions = useWorkbenchActions({ wb, activeTab, setActiveTab: (t) => gatedSetActiveTab(t as Tab) });
   const {
     showWbCollectionModal, setShowWbCollectionModal,
     editingWbCollection, setEditingWbCollection,
@@ -198,7 +205,7 @@ export default function App() {
     microservices,
     environments,
     toast,
-    setActiveTab,
+    setActiveTab: gatedSetActiveTab,
   });
   const {
     sendToReqEntry,
@@ -211,7 +218,7 @@ export default function App() {
     handleExportSingleEndpoint,
     handleSendToReqConfirm,
     handleInlineExportConfirm,
-  } = useCatalogExport({ wb, catalog, appEnvironments: environments, setEnvironments, setActiveTab });
+  } = useCatalogExport({ wb, catalog, appEnvironments: environments, setEnvironments, setActiveTab: gatedSetActiveTab });
   const {
     showCatalogImport,
     setShowCatalogImport,
@@ -241,7 +248,7 @@ export default function App() {
     initialTheme,
     setTheme,
     activeTab,
-    setActiveTab,
+    setActiveTab: gatedSetActiveTab,
   });
 
   const [galleryInitialDomain, setGalleryInitialDomain] = useState<import('../data/galleries/types').GalleryDomain | undefined>(undefined);
@@ -269,7 +276,7 @@ export default function App() {
 
   const gallery = useGalleryImport({
     wb, featureGroups, environments, microservices, previewWorkflow, workflows: wfHook.workflows,
-    setActiveTab, setPreviewRequest, setPreviewWorkflow,
+    setActiveTab: gatedSetActiveTab, setPreviewRequest, setPreviewWorkflow,
     setCatalogInitialSpec, setShowCatalogImport,
     setFeatureGroups, setEnvironments, setMicroservices,
     setSelectedEnvId, setSelectedSvcId,
@@ -286,7 +293,7 @@ export default function App() {
     handleBrowseGallery,
   } = useAppNavigationCallbacks({
     activeTab,
-    setActiveTab,
+    setActiveTab: gatedSetActiveTab,
     setResultsRunTypeFilter,
     setWorkflowRunnerInitialId,
     setWorkflowRunnerInitialVariables,
@@ -319,6 +326,12 @@ export default function App() {
       />
     <div className={`app ${sidebarCollapsed ? '' : 'sidebar-visible'}`}>
       <UpdateNotificationBanner />
+      {desktopRequiredFeature && (
+        <DesktopRequiredModal
+          featureName={desktopRequiredFeature}
+          onClose={dismissDesktopRequired}
+        />
+      )}
       <AppHeader
         headerRef={headerRef}
         activeTab={activeTab}
@@ -427,7 +440,7 @@ export default function App() {
             activeTab={activeTab}
             gallery={gallery}
             galleryInitialDomain={galleryInitialDomain}
-            onOpenGallery={() => { setGalleryInitialDomain(undefined); setActiveTab('gallery'); }}
+            onOpenGallery={() => { setGalleryInitialDomain(undefined); gatedSetActiveTab('gallery'); }}
           />
           {activeTab === 'workflow-runner' && (
             <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
@@ -685,7 +698,7 @@ export default function App() {
             setShowCatalogImport={setShowCatalogImport}
             setCatalogReimportId={setCatalogReimportId}
             setCatalogInitialSpec={setCatalogInitialSpec}
-            setActiveTab={setActiveTab}
+            setActiveTab={gatedSetActiveTab}
             catalogVersionHistoryId={catalogVersionHistoryId}
             setCatalogVersionHistoryId={setCatalogVersionHistoryId}
             catalogEditId={catalogEditId}

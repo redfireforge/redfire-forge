@@ -1,0 +1,64 @@
+.desktop-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  margin-right: 8px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  max-width: 220px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.desktop-download-btn:hover {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--bg));
+}
+
+.desktop-download-btn__icon {
+  color: var(--primary);
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.desktop-download-btn__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.desktop-required-modal__reason {
+  margin: 0 0 14px;
+  line-height: 1.5;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.desktop-required-modal__also {
+  margin: 0 0 8px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.desktop-required-modal__list {
+  margin: 0 0 4px;
+  padding-left: 1.2em;
+  color: var(--text);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.desktop-required-modal__list li::marker {
+  color: var(--primary);
+}
+
+a.desktop-required-modal__download {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
