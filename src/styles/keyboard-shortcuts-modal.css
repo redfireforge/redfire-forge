@@ -15,60 +15,54 @@
   position: relative;
   background: var(--surface);
   border: 1px solid color-mix(in srgb, white 28%, var(--border));
-  border-radius: 14px;
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
-  width: min(92vw, 620px);
-  max-height: min(88vh, 720px);
+  width: min(92vw, 720px);
+  max-height: min(86vh, 640px);
   overflow: hidden;
   box-shadow:
     0 0 0 1px color-mix(in srgb, white 14%, transparent),
     inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
-    0 24px 60px rgba(0, 0, 0, 0.55),
-    0 4px 12px rgba(0, 0, 0, 0.3);
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
-/* ── Header ──────────────────────────────────────────────────── */
+/* ── Header (drag handle) ─────────────────────────────────────── */
 
 .ks-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 20px 16px;
+  padding: 14px 20px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  cursor: default;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--primary) 6%, var(--surface)) 0%,
-    var(--surface) 100%
-  );
+  background: var(--bg);
+  cursor: grab;
+  user-select: none;
+}
+
+.ks-modal-header:active {
+  cursor: grabbing;
 }
 
 .ks-modal-header h3 {
   margin: 0;
-  font-size: 0.95rem;
-  font-weight: 700;
+  font-size: 0.88rem;
+  font-weight: 600;
   color: var(--text);
-  letter-spacing: 0.01em;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  letter-spacing: -0.01em;
 }
 
-.ks-modal-header h3::before {
-  content: '⌨';
-  font-size: 1.05rem;
-  opacity: 0.75;
-}
-
-/* ── Body ────────────────────────────────────────────────────── */
+/* ── Body — two-column cheat sheet ───────────────────────────── */
 
 .ks-modal-body {
   overflow-y: auto;
-  padding: 6px 0 16px;
-  display: flex;
-  flex-direction: column;
+  padding: 16px 20px 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 28px;
+  background: var(--surface);
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--text) 18%, transparent) transparent;
 }
@@ -79,36 +73,29 @@
   border-radius: 2px;
 }
 
+/* Last odd section spans full width so Requests isn't a lonely column */
+.ks-modal-section:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
 /* ── Section ─────────────────────────────────────────────────── */
 
 .ks-modal-section {
   display: flex;
   flex-direction: column;
-  padding: 14px 20px 6px;
-}
-
-.ks-modal-section + .ks-modal-section {
-  border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  min-width: 0;
+  padding: 4px 0 10px;
 }
 
 .ks-modal-section-title {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
+  padding-bottom: 6px;
   font-size: 0.68rem;
-  font-weight: 700;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--primary);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.ks-modal-section-title::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: color-mix(in srgb, var(--primary) 20%, transparent);
-  border-radius: 1px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
 }
 
 /* ── Row ─────────────────────────────────────────────────────── */
@@ -117,20 +104,21 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 7px 8px;
-  border-radius: 7px;
-  gap: 16px;
-  transition: background 0.12s;
+  min-height: 32px;
+  padding: 3px 4px;
+  border-radius: 5px;
+  gap: 12px;
 }
 
 .ks-modal-row:hover {
-  background: color-mix(in srgb, var(--primary) 6%, var(--surface-hover, #2d3a4d));
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
 }
 
 .ks-modal-label {
-  font-size: 0.875rem;
+  font-size: 0.8rem;
+  font-weight: 500;
   color: var(--text);
-  line-height: 1.4;
+  line-height: 1.35;
   flex: 1;
   min-width: 0;
 }
@@ -140,49 +128,81 @@
 .ks-modal-keys {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
   flex-shrink: 0;
 }
 
 .ks-key-wrap {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
 }
 
 .ks-modal-sep {
-  font-size: 0.65rem;
-  color: color-mix(in srgb, var(--text) 35%, transparent);
-  font-weight: 600;
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  opacity: 0.55;
+  font-weight: 500;
   line-height: 1;
   user-select: none;
+  padding: 0 1px;
 }
 
 .ks-modal-key {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 26px;
-  height: 24px;
-  padding: 0 7px;
-
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--text) 14%, var(--bg)) 0%,
-    color-mix(in srgb, var(--text) 9%, var(--bg)) 100%
-  );
-  border: 1px solid color-mix(in srgb, var(--border) 90%, var(--text) 20%);
-  border-bottom-color: color-mix(in srgb, var(--border) 60%, var(--text) 30%);
-  border-radius: 6px;
-  box-shadow:
-    0 1px 0 color-mix(in srgb, var(--border) 50%, transparent),
-    inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
-
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
   font-family: ui-monospace, 'SFMono-Regular', 'Cascadia Code', 'JetBrains Mono', monospace;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 600;
   color: var(--text);
   white-space: nowrap;
   user-select: none;
-  letter-spacing: 0.01em;
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+/* ── Footer ──────────────────────────────────────────────────── */
+
+.ks-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--surface) 60%, var(--bg));
+}
+
+.ks-modal-hint {
+  margin: 0;
+  margin-right: auto;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  opacity: 0.75;
+}
+
+.ks-modal-close-btn {
+  min-width: 72px;
+}
+
+@media (max-width: 640px) {
+  .ks-modal-body {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .ks-modal-section:last-child:nth-child(odd) {
+    grid-column: auto;
+  }
+
+  .ks-modal-hint {
+    display: none;
+  }
 }

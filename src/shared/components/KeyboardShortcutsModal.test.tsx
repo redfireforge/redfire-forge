@@ -29,9 +29,9 @@ describe('KeyboardShortcutsModal', () => {
     expect(dialog.getAttribute('aria-modal')).toBe('true');
   });
 
-  it('renders the title "Keyboard Shortcuts"', () => {
+  it('renders the title "Keyboard shortcuts"', () => {
     render(<KeyboardShortcutsModal onClose={vi.fn()} />);
-    expect(screen.getByText('Keyboard Shortcuts')).toBeTruthy();
+    expect(screen.getByText('Keyboard shortcuts')).toBeTruthy();
   });
 
   it('renders the Global shortcuts section', () => {
@@ -66,17 +66,25 @@ describe('KeyboardShortcutsModal', () => {
     expect(screen.getByText('Send request')).toBeTruthy();
   });
 
-  it('renders the close button', () => {
-    render(<KeyboardShortcutsModal onClose={vi.fn()} />);
-    const closeBtn = screen.getByLabelText('Close keyboard shortcuts');
-    expect(closeBtn).toBeTruthy();
+  it('renders a footer Close button and no header ×', () => {
+    const { container } = render(<KeyboardShortcutsModal onClose={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Close keyboard shortcuts' })).toBeTruthy();
+    expect(screen.getByText('Close')).toBeTruthy();
+    expect(container.querySelector('.ram-modal-close')).toBeNull();
   });
 
-  it('calls onClose when the close button is clicked', () => {
+  it('calls onClose when the footer Close button is clicked', () => {
     const onClose = vi.fn();
     render(<KeyboardShortcutsModal onClose={onClose} />);
-    fireEvent.click(screen.getByLabelText('Close keyboard shortcuts'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close keyboard shortcuts' }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('enables drag on the title bar', () => {
+    const { container } = render(<KeyboardShortcutsModal onClose={vi.fn()} />);
+    const header = container.querySelector('.ks-modal-header') as HTMLElement;
+    expect(header).toBeTruthy();
+    expect(header.style.cursor).toBe('move');
   });
 
   it('calls onClose when Escape is pressed', () => {

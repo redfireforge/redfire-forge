@@ -66,19 +66,33 @@ export default function KeyboardShortcutsModal({ onClose }: Props) {
 
   return (
     <AppModalFrame
-      title="Keyboard Shortcuts"
+      title="Keyboard shortcuts"
       onClose={onClose}
       overlayClassName="ks-modal-overlay"
       dialogClassName="ks-modal-shell"
       headerClassName="ks-modal-header"
       bodyClassName="ks-modal-body"
-      closeButtonKind="icon"
-      closeButtonLabel="Close keyboard shortcuts"
-      disableDrag
+      footerClassName="ks-modal-footer"
+      closeButtonKind="none"
+      constrainDragToViewport
+      dragViewportPadding={12}
       showResizeHandles={false}
       showExpandButton={false}
       titleId="ks-modal-title"
       dialogTestId="keyboard-shortcuts-modal"
+      footer={
+        <>
+          <p className="ks-modal-hint">Esc to close · drag the title bar to move</p>
+          <button
+            type="button"
+            className="btn btn-sm ks-modal-close-btn"
+            onClick={onClose}
+            aria-label="Close keyboard shortcuts"
+          >
+            Close
+          </button>
+        </>
+      }
     >
       {categories.map((cat) => (
         <section key={cat} className="ks-modal-section">
