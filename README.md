@@ -79,6 +79,20 @@
 
 Head to the **[Latest Release](https://github.com/redfireforge/redfire-forge/releases/latest)** for `.dmg` (macOS), `.msi`/`.exe` (Windows), and `.deb`/`.AppImage` (Linux) — no build toolchain required.
 
+**macOS — first-launch security prompt:**
+macOS Gatekeeper blocks unsigned apps by default. Use the right-click workaround:
+1. Right-click (or Control-click) `RedfireForge.app` → **Open**
+2. Click **Open** in the dialog
+
+Or: **System Settings → Privacy & Security → Open Anyway** after the first blocked attempt.
+
+**Windows — SmartScreen warning:**
+Windows may show "Windows protected your PC" on first run. This is expected for open-source apps without a paid certificate.
+1. Click **More info**
+2. Click **Run anyway**
+
+**Linux:** No security prompts — install the `.deb` with `sudo dpkg -i` or run the `.AppImage` directly after `chmod +x`.
+
 ### Build from source (desktop)
 
 ```bash
