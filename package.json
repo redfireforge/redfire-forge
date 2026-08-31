@@ -333,7 +333,7 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.68.0",
     "vite": "^8.0.4",
-    "vitest": "^4.1.4"
+    "vitest": "^4.1.11"
   },
   "license": "AGPL-3.0-only",
   "description": "Cross-platform API performance testing and workflow automation workbench",
