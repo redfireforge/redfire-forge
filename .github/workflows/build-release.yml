@@ -220,7 +220,7 @@ jobs:
             ${{ steps.notes.outputs.notes }}
 
             ---
-            **macOS:** Right-click the `.app` → **Open** → **Open** to bypass Gatekeeper on first launch.
+            **macOS:** Gatekeeper will block the app on first launch. Run once in Terminal after installing: `xattr -cr /Applications/RedfireForge.app`
             **Windows:** If SmartScreen appears, click **More info** → **Run anyway**.
             **Linux:** `sudo dpkg -i *.deb` or `chmod +x *.AppImage && ./*.AppImage`
 
@@ -248,7 +248,7 @@ jobs:
             ---
             Learning Hub build with interactive tutorials.
 
-            **macOS:** Right-click the `.app` → **Open** → **Open** to bypass Gatekeeper on first launch.
+            **macOS:** Gatekeeper will block the app on first launch. Run once in Terminal after installing: `xattr -cr /Applications/RedfireForge.app`
             **Windows:** If SmartScreen appears, click **More info** → **Run anyway**.
             **Linux:** `sudo dpkg -i *.deb` or `chmod +x *.AppImage && ./*.AppImage`
 
