@@ -1,7 +1,12 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+
+afterEach(() => {
+  vi.resetModules();
+  vi.restoreAllMocks();
+});
 import { REQUEST_SHORTCUTS } from './useRequestShortcuts';
 
 describe('REQUEST_SHORTCUTS', () => {
@@ -36,5 +41,16 @@ describe('REQUEST_SHORTCUTS', () => {
     const { REQUEST_SHORTCUTS: freshShortcuts } = await import('./useRequestShortcuts');
     const hasCtrl = freshShortcuts.some((s) => s.display.includes('Ctrl') || s.display.includes('⌘'));
     expect(hasCtrl).toBe(true);
+  });
+
+  it('display strings use ⌘ on macOS', async () => {
+    Object.defineProperty(window, 'navigator', {
+      value: { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' },
+      writable: true,
+      configurable: true,
+    });
+    vi.resetModules();
+    const { REQUEST_SHORTCUTS: macShortcuts } = await import('./useRequestShortcuts');
+    expect(macShortcuts.some((s) => s.display.includes('⌘'))).toBe(true);
   });
 });
