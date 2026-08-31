@@ -227,7 +227,6 @@ jobs:
             SHA256 checksums are in `SHA256SUMS.txt` above.
           releaseDraft: true
           prerelease: ${{ contains(github.ref_name, '-') }}
-          updaterJsonFileName: latest.json
           updaterJsonPreferNsis: true
           args: --target ${{ matrix.target }}
 
@@ -256,7 +255,6 @@ jobs:
             SHA256 checksums are in `SHA256SUMS.txt` above.
           releaseDraft: true
           prerelease: ${{ contains(github.ref_name, '-') }}
-          updaterJsonFileName: latest-demo.json
           updaterJsonPreferNsis: true
           assetNamePattern: 'RedfireForge-LearningHub-[version]-[platform]-[arch][ext]'
           args: --target ${{ matrix.target }} --config src-tauri/tauri.conf.demo.json
