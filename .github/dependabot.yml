@@ -3,6 +3,7 @@ updates:
   # npm — root workspace (covers packages/* via npm workspaces, e.g. demo-hub)
   - package-ecosystem: npm
     directory: /
+    target-branch: develop
     schedule:
       interval: weekly
       day: monday
@@ -15,6 +16,7 @@ updates:
   # npm — CLI package
   - package-ecosystem: npm
     directory: /cli
+    target-branch: develop
     schedule:
       interval: weekly
       day: monday
@@ -26,6 +28,7 @@ updates:
   # Cargo — Tauri / Rust deps
   - package-ecosystem: cargo
     directory: /src-tauri
+    target-branch: develop
     schedule:
       interval: weekly
       day: monday
@@ -34,6 +37,7 @@ updates:
   # GitHub Actions
   - package-ecosystem: github-actions
     directory: /
+    target-branch: develop
     schedule:
       interval: weekly
       day: monday
