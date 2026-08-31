@@ -256,7 +256,7 @@
     "ajv-formats": "^3.0.1",
     "better-sqlite3": "^13.0.3",
     "busboy": "^1.6.0",
-    "commander": "^14.0.3",
+    "commander": "^15.0.0",
     "express": "^5.2.1",
     "extract-files": "^13.0.0",
     "graphql": "^17.0.1",
