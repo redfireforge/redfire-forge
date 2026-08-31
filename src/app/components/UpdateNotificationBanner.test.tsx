@@ -15,6 +15,7 @@ vi.mock('../hooks/useAppUpdater', () => ({
 function makeState(overrides: Partial<AppUpdaterState> = {}): AppUpdaterState {
   return {
     status: 'idle',
+    mode: 'tauri',
     updateInfo: null,
     downloadProgress: 0,
     errorMessage: null,
@@ -95,5 +96,48 @@ describe('UpdateNotificationBanner', () => {
     mockUseAppUpdater.mockReturnValue(makeState({ status: 'available', updateInfo: null }));
     const { container } = render(<UpdateNotificationBanner />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  describe('localhost variant', () => {
+    it('shows an amber git-pull banner with inline code', () => {
+      const dismissUpdate = vi.fn();
+      mockUseAppUpdater.mockReturnValue(
+        makeState({
+          status: 'available',
+          mode: 'localhost',
+          updateInfo: { version: '2.0.0', body: null },
+          dismissUpdate,
+        }),
+      );
+      render(<UpdateNotificationBanner />);
+      const banner = screen.getByRole('status');
+      expect(banner.className).toContain('update-banner--localhost');
+      expect(banner).toHaveTextContent('v2.0.0 is available on GitHub');
+      expect(banner).toHaveTextContent('git pull origin master');
+      expect(banner.querySelector('code')).toBeTruthy();
+    });
+
+    it('dismisses the localhost banner', () => {
+      const dismissUpdate = vi.fn();
+      mockUseAppUpdater.mockReturnValue(
+        makeState({
+          status: 'available',
+          mode: 'localhost',
+          updateInfo: { version: '2.0.0', body: null },
+          dismissUpdate,
+        }),
+      );
+      render(<UpdateNotificationBanner />);
+      fireEvent.click(screen.getByLabelText('Dismiss'));
+      expect(dismissUpdate).toHaveBeenCalled();
+    });
+
+    it('does not show Install & Restart for localhost mode', () => {
+      mockUseAppUpdater.mockReturnValue(
+        makeState({ status: 'available', mode: 'localhost', updateInfo: { version: '2.0.0', body: null } }),
+      );
+      render(<UpdateNotificationBanner />);
+      expect(screen.queryByText('Install & Restart')).toBeNull();
+    });
   });
 });

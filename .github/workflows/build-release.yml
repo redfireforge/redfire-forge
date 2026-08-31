@@ -72,6 +72,12 @@ jobs:
               fh.write("include=" + json.dumps(selected, separators=(",", ":")) + "\n")
           PY
 
+  # ⚠️  RELEASE CHECKLIST REMINDER
+  # After this workflow completes on a tag push, go to:
+  #   https://github.com/redfireforge/redfire-forge/releases
+  # and click "Publish release" on the draft. The releases/latest API only
+  # returns published, non-prerelease releases — unpublished drafts return null
+  # and break the in-app update notifier, download CTA, and download page.
   build:
     needs: prepare
     if: needs.prepare.result == 'success' && needs.prepare.outputs.include != '[]'
@@ -87,6 +93,21 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+
+      - name: Extract release notes from CHANGELOG
+        id: notes
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+          NOTES=$(sed -n "/^## \[${VERSION}\]/,/^## \[/p" CHANGELOG.md | head -n -1 | tail -n +2)
+          if [ -z "$NOTES" ]; then
+            NOTES="See [CHANGELOG.md](https://github.com/redfireforge/redfire-forge/blob/master/CHANGELOG.md) for details."
+          fi
+          echo "notes<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$NOTES" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Install Node.js
         uses: actions/setup-node@v5
@@ -195,7 +216,15 @@ jobs:
         with:
           tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
           releaseName: 'RedfireForge ${{ github.ref_name }}'
-          releaseBody: 'Download the installer for your platform below.'
+          releaseBody: |
+            ${{ steps.notes.outputs.notes }}
+
+            ---
+            **macOS:** Right-click the `.app` → **Open** → **Open** to bypass Gatekeeper on first launch.
+            **Windows:** If SmartScreen appears, click **More info** → **Run anyway**.
+            **Linux:** `sudo dpkg -i *.deb` or `chmod +x *.AppImage && ./*.AppImage`
+
+            SHA256 checksums are in `SHA256SUMS.txt` above.
           releaseDraft: true
           prerelease: ${{ contains(github.ref_name, '-') }}
           updaterJsonFileName: latest.json
@@ -214,7 +243,17 @@ jobs:
         with:
           tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
           releaseName: 'RedfireForge Learning Hub ${{ github.ref_name }}'
-          releaseBody: 'Learning Hub build with interactive tutorials. Download the installer for your platform below.'
+          releaseBody: |
+            ${{ steps.notes.outputs.notes }}
+
+            ---
+            Learning Hub build with interactive tutorials.
+
+            **macOS:** Right-click the `.app` → **Open** → **Open** to bypass Gatekeeper on first launch.
+            **Windows:** If SmartScreen appears, click **More info** → **Run anyway**.
+            **Linux:** `sudo dpkg -i *.deb` or `chmod +x *.AppImage && ./*.AppImage`
+
+            SHA256 checksums are in `SHA256SUMS.txt` above.
           releaseDraft: true
           prerelease: ${{ contains(github.ref_name, '-') }}
           updaterJsonFileName: latest-demo.json
@@ -256,3 +295,38 @@ jobs:
         # the SBOM as an extra asset via the tag name rather than the
         # deprecated actions/upload-release-asset@v1 + upload_url pattern.
         run: gh release upload "${{ github.ref_name }}" sbom.spdx.json --clobber
+
+  checksums:
+    name: Generate SHA256 checksums
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download all release assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p release-assets
+          gh release download "${{ github.ref_name }}" --dir release-assets --skip-existing || true
+
+      - name: Compute SHA256SUMS
+        run: |
+          cd release-assets
+          # Exclude existing checksum files and JSON metadata
+          find . -maxdepth 1 -type f \
+            ! -name 'SHA256SUMS.txt' \
+            ! -name '*.json' \
+            -exec shasum -a 256 {} \; \
+            | sed 's|^\(.*\)  \./|\1  |' \
+            | sort > SHA256SUMS.txt
+          echo "── Checksums ──────────────────────────────────"
+          cat SHA256SUMS.txt
+
+      - name: Upload SHA256SUMS to the release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.ref_name }}" release-assets/SHA256SUMS.txt --clobber
