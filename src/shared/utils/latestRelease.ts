@@ -25,6 +25,15 @@ export type OSTarget =
 const CACHE_KEY = 'rff-latest-release';
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
+/** True for official stable tags only — rejects alpha/beta/rc/pre and Learning Hub builds. */
+export function isOfficialStableRelease(tagName: string, name = '', prerelease = false, draft = false): boolean {
+  if (draft || prerelease) return false;
+  if (/Learning\s*Hub/i.test(name)) return false;
+  // Defense in depth: reject prerelease suffixes even if GitHub's prerelease flag is wrong
+  if (/-/.test(tagName.replace(/^v/, ''))) return false;
+  return /^\d+\.\d+\.\d+$/.test(tagName.replace(/^v/, ''));
+}
+
 export async function fetchLatestRelease(): Promise<LatestRelease | null> {
   try {
     const cached = sessionStorage.getItem(CACHE_KEY);
@@ -56,10 +65,9 @@ export async function fetchLatestRelease(): Promise<LatestRelease | null> {
       name: string;
     }>;
 
-    // Pick the latest published, non-prerelease Standard release
-    // (exclude Learning Hub releases which contain "LearningHub" in the name)
-    const stable = releases.find(
-      r => !r.prerelease && !r.draft && !r.name.includes('LearningHub') && !r.name.includes('Learning Hub'),
+    // Official stable Standard release only — never alpha/beta/rc or Learning Hub
+    const stable = releases.find(r =>
+      isOfficialStableRelease(r.tag_name, r.name, r.prerelease, r.draft),
     );
     if (!stable) return null;
 
@@ -112,14 +120,17 @@ export function detectOSTarget(): OSTarget {
  * Use this instead of import.meta.env.VITE_APP_VERSION — that var does not exist.
  */
 export function getCurrentVersion(): string {
-  return __APP_VERSION__;
+  return typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0';
 }
 
 /** Simple semver comparison — returns true if `latest` is strictly newer than `current`. */
 export function isNewerVersion(current: string, latest: string): boolean {
+  // Never notify for prerelease tags (e.g. 0.8.2-beta.1, 1.0.0-alpha.3)
+  if (!isOfficialStableRelease(latest)) return false;
   const parse = (v: string) => v.replace(/^v/, '').split('.').map(Number);
   const [cMaj, cMin, cPat] = parse(current);
   const [lMaj, lMin, lPat] = parse(latest);
+  if ([cMaj, cMin, cPat, lMaj, lMin, lPat].some(n => Number.isNaN(n))) return false;
   if (lMaj !== cMaj) return lMaj > cMaj;
   if (lMin !== cMin) return lMin > cMin;
   return lPat > cPat;

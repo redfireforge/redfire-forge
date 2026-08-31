@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 import { isTauri, isLocalhost } from '@shared/utils/platform';
-import { fetchLatestRelease, getCurrentVersion, isNewerVersion } from '@shared/utils/latestRelease';
+import {
+  fetchLatestRelease,
+  getCurrentVersion,
+  isNewerVersion,
+  isOfficialStableRelease,
+} from '@shared/utils/latestRelease';
 
 export interface UpdateInfo {
   version: string;
@@ -52,6 +57,11 @@ export function useAppUpdater(): AppUpdaterState {
       const { check } = await import('@tauri-apps/plugin-updater');
       const update = await check();
       if (update?.available) {
+        // Only notify for official stable tags — never alpha/beta/rc
+        if (!isOfficialStableRelease(update.version)) {
+          setStatus('idle');
+          return;
+        }
         const info = { version: update.version, body: update.body ?? null };
         if (localStorage.getItem(dismissKey(info.version))) {
           setStatus('idle');

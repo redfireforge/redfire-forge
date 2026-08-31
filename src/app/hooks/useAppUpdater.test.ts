@@ -18,6 +18,7 @@ vi.mock('../../shared/utils/latestRelease', () => ({
   fetchLatestRelease: (...args: unknown[]) => mockFetchLatestRelease(...args),
   getCurrentVersion: () => '1.0.0',
   isNewerVersion: (...args: unknown[]) => mockIsNewerVersion(...args),
+  isOfficialStableRelease: (v: string) => /^\d+\.\d+\.\d+$/.test(v.replace(/^v/, '')),
 }));
 
 const mockCheck = vi.fn();
@@ -128,6 +129,16 @@ describe('useAppUpdater', () => {
     await act(async () => { vi.advanceTimersByTime(CHECK_DELAY_MS); });
     await flush();
     expect(result.current.status).toBe('idle');
+  });
+
+  it('skips Tauri updates for beta/alpha versions', async () => {
+    mockIsTauri.mockReturnValue(true);
+    mockCheck.mockResolvedValue({ available: true, version: '1.2.3-beta.1', body: null });
+    const { result } = renderHook(() => useAppUpdater());
+    await act(async () => { vi.advanceTimersByTime(CHECK_DELAY_MS); });
+    await flush();
+    expect(result.current.status).toBe('idle');
+    expect(result.current.updateInfo).toBeNull();
   });
 
   it('installUpdate is a no-op when there is no pending update', async () => {
