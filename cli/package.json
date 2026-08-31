@@ -14,13 +14,13 @@
     "workflow",
     "cli"
   ],
-  "homepage": "https://github.com/redfireforge/redfire-forge#readme",
+  "homepage": "https://github.com/redfireforge/redfireforge-public#readme",
   "bugs": {
-    "url": "https://github.com/redfireforge/redfire-forge/issues"
+    "url": "https://github.com/redfireforge/redfireforge-public/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/redfireforge/redfire-forge.git"
+    "url": "git+https://github.com/redfireforge/redfireforge-public.git"
   },
   "license": "AGPL-3.0-or-later",
   "author": "RedfireForge",

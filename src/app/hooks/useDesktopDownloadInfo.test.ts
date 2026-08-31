@@ -47,7 +47,7 @@ describe('useDesktopDownloadInfo', () => {
     mockFetch.mockResolvedValue({
       version: '1.2.3',
       assets: [],
-      htmlUrl: 'https://github.com/redfireforge/redfire-forge/releases/tag/v1.2.3',
+      htmlUrl: 'https://github.com/redfireforge/redfireforge-public/releases/tag/v1.2.3',
     });
     const { result } = renderHook(() => useDesktopDownloadInfo());
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -77,7 +77,7 @@ describe('useDesktopDownloadInfo', () => {
     });
     const { result } = renderHook(() => useDesktopDownloadInfo());
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.href).toContain('github.com/redfireforge/redfire-forge/releases');
+    expect(result.current.href).toContain('github.com/redfireforge/redfireforge-public/releases');
   });
 
   it('ignores late results after unmount', async () => {
@@ -106,6 +106,6 @@ describe('useDesktopDownloadInfo', () => {
     mockFetch.mockResolvedValue(null);
     const { result } = renderHook(() => useDesktopDownloadInfo());
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.href).toContain('github.com/redfireforge/redfire-forge/releases');
+    expect(result.current.href).toContain('github.com/redfireforge/redfireforge-public/releases');
   });
 });

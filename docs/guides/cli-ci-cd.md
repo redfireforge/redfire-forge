@@ -19,7 +19,7 @@ redfireforge run tests/api-test.yaml \
 
 ### Option 2: Using Source Repository
 
-Only relevant if your pipeline has this exact `redfire-forge` repository checked out (e.g. testing RedfireForge itself). If you're testing your **own** service, use Option 1 instead.
+Only relevant if your pipeline has this exact `redfireforge-public` repository checked out (e.g. testing RedfireForge itself). If you're testing your **own** service, use Option 1 instead.
 
 ```bash
 # Install dependencies
@@ -32,7 +32,7 @@ npx tsx cli/index.ts run tests/api-test.yaml \
   -q
 ```
 
-> **Every example below uses `npx tsx cli/index.ts run ...`** for brevity, since this guide is maintained inside the `redfire-forge` repo itself. **If you're integrating RedfireForge into your own project's pipeline** (the common case), replace `npx tsx cli/index.ts run` with `npx redfireforge-cli run` (or `redfireforge run` after `npm install -g redfireforge-cli`) everywhere below — every flag shown is identical either way, only the invocation prefix changes. You do **not** need to check out this repository.
+> **Every example below uses `npx tsx cli/index.ts run ...`** for brevity, since this guide is maintained inside the `redfireforge-public` repo itself. **If you're integrating RedfireForge into your own project's pipeline** (the common case), replace `npx tsx cli/index.ts run` with `npx redfireforge-cli run` (or `redfireforge run` after `npm install -g redfireforge-cli`) everywhere below — every flag shown is identical either way, only the invocation prefix changes. You do **not** need to check out this repository.
 
 ---
 
@@ -89,7 +89,7 @@ jobs:
 
 ### Basic Test Job (Using Source)
 
-Only if your pipeline has the full `redfire-forge` source repository checked out — for testing your own service, use the npm-package job above and swap `npx tsx cli/index.ts run` for `npx redfireforge-cli run`:
+Only if your pipeline has the full `redfireforge-public` source repository checked out — for testing your own service, use the npm-package job above and swap `npx tsx cli/index.ts run` for `npx redfireforge-cli run`:
 
 ```yaml
 name: API Performance Tests

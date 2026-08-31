@@ -1,7 +1,7 @@
 # RedfireForge
 
-[![CI](https://github.com/redfireforge/redfire-forge/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/redfireforge/redfire-forge/actions/workflows/ci.yml)
-[![Latest Release](https://img.shields.io/github/v/release/redfireforge/redfire-forge?label=release)](https://github.com/redfireforge/redfire-forge/releases/latest)
+[![CI](https://github.com/redfireforge/redfireforge-public/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/redfireforge/redfireforge-public/actions/workflows/ci.yml)
+[![Latest Release](https://img.shields.io/github/v/release/redfireforge/redfireforge-public?label=release)](https://github.com/redfireforge/redfireforge-public/releases/latest)
 [![npm](https://img.shields.io/npm/v/redfireforge-cli?label=npm)](https://www.npmjs.com/package/redfireforge-cli)
 [![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://demo.redfireforge.com)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
@@ -77,7 +77,7 @@
 
 ### Download a pre-built installer
 
-Head to the **[Latest Release](https://github.com/redfireforge/redfire-forge/releases/latest)** for `.dmg` (macOS), `.msi`/`.exe` (Windows), and `.deb`/`.AppImage` (Linux) — no build toolchain required.
+Head to the **[Latest Release](https://github.com/redfireforge/redfireforge-public/releases/latest)** for `.dmg` (macOS), `.msi`/`.exe` (Windows), and `.deb`/`.AppImage` (Linux) — no build toolchain required.
 
 **macOS — first-launch security prompt:**
 macOS Gatekeeper blocks unsigned apps by default. Use the right-click workaround:
@@ -96,8 +96,8 @@ Windows may show "Windows protected your PC" on first run. This is expected for 
 ### Build from source (desktop)
 
 ```bash
-git clone https://github.com/redfireforge/redfire-forge.git
-cd redfire-forge
+git clone https://github.com/redfireforge/redfireforge-public.git
+cd redfireforge-public
 npm install
 npm run tauri:dev     # native desktop window with hot-reload
 ```
@@ -129,8 +129,8 @@ The Learning Hub is a guided lesson library covering every protocol (GraphQL, gR
 ### Browser (web mode)
 
 ```bash
-git clone https://github.com/redfireforge/redfire-forge.git
-cd redfire-forge
+git clone https://github.com/redfireforge/redfireforge-public.git
+cd redfireforge-public
 npm install
 npm run dev            # http://localhost:5173, hot-reload
 # or, for a production build:
@@ -142,8 +142,8 @@ npm run build && npx serve dist/
 Build and run from source:
 
 ```bash
-git clone https://github.com/redfireforge/redfire-forge.git
-cd redfire-forge && npm install
+git clone https://github.com/redfireforge/redfireforge-public.git
+cd redfireforge-public && npm install
 npm run build:cli
 node dist-cli/redfireforge.mjs run examples/cli-basic-test.yaml
 ```

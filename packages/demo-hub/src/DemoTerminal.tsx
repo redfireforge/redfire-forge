@@ -49,7 +49,7 @@ export default memo(function DemoTerminal({ command, output, highlightLines }: D
         <span className="demo-terminal-dot demo-terminal-dot--red" aria-hidden="true" />
         <span className="demo-terminal-dot demo-terminal-dot--yellow" aria-hidden="true" />
         <span className="demo-terminal-dot demo-terminal-dot--green" aria-hidden="true" />
-        <span className="demo-terminal-title">~/redfire-forge</span>
+        <span className="demo-terminal-title">~/redfireforge-public</span>
       </div>
       <div className="demo-terminal-body">
         {command && (

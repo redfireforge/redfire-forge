@@ -27,7 +27,7 @@ function makeRelease(overrides: Partial<{
     published_at: '2026-08-30T00:00:00Z',
     body: 'notes',
     assets: [] as ReleaseAsset[],
-    html_url: 'https://github.com/redfireforge/redfire-forge/releases/tag/v1.2.3',
+    html_url: 'https://github.com/redfireforge/redfireforge-public/releases/tag/v1.2.3',
     name: 'RedfireForge v1.2.3',
     ...overrides,
   };
