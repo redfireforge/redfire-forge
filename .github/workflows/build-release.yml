@@ -74,7 +74,7 @@ jobs:
 
   # ⚠️  RELEASE CHECKLIST REMINDER
   # After this workflow completes on a tag push, go to:
-  #   https://github.com/redfireforge/redfire-forge/releases
+  #   https://github.com/redfireforge/redfireforge-public/releases
   # and click "Publish release" on the draft. The releases/latest API only
   # returns published, non-prerelease releases — unpublished drafts return null
   # and break the in-app update notifier, download CTA, and download page.
@@ -103,7 +103,7 @@ jobs:
           VERSION="${VERSION#v}"
           NOTES=$(sed -n "/^## \[${VERSION}\]/,/^## \[/p" CHANGELOG.md | tail -n +2 | sed '$d')
           if [ -z "$NOTES" ]; then
-            NOTES="See [CHANGELOG.md](https://github.com/redfireforge/redfire-forge/blob/master/CHANGELOG.md) for details."
+            NOTES="See [CHANGELOG.md](https://github.com/redfireforge/redfireforge-public/blob/master/CHANGELOG.md) for details."
           fi
           echo "notes<<EOF" >> "$GITHUB_OUTPUT"
           echo "$NOTES" >> "$GITHUB_OUTPUT"

@@ -30,7 +30,7 @@ export default function DesktopOnlyGate({ reason = 'desktop-only' }: DesktopOnly
           : 'Open RedfireForge as a desktop app to run this lesson. You can still read the concept and steps here, but Start Demo stays disabled on web.'}
       </p>
       <a
-        href="https://github.com/redfireforge/redfire-forge/releases/latest"
+        href="https://github.com/redfireforge/redfireforge-public/releases/latest"
         target="_blank"
         rel="noopener noreferrer"
         className="prereq-gate-download-link"

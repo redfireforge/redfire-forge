@@ -50,7 +50,7 @@ export async function fetchLatestRelease(): Promise<LatestRelease | null> {
 
   try {
     const res = await fetch(
-      'https://api.github.com/repos/redfireforge/redfire-forge/releases',
+      'https://api.github.com/repos/redfireforge/redfireforge-public/releases',
       { headers: { Accept: 'application/vnd.github+json' } },
     );
     if (!res.ok) return null;
