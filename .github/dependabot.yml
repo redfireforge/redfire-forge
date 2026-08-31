@@ -8,6 +8,11 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 10
+    ignore:
+      # monaco-graphql@latest requires monaco-editor < 0.53 — hold until
+      # monaco-graphql ships a release that supports 0.53+.
+      - dependency-name: monaco-editor
+        versions: [">= 0.53"]
     groups:
       # Batch minor/patch updates into one PR per week instead of one per package
       minor-and-patch:
