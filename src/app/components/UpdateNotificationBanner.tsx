@@ -1,7 +1,7 @@
 import { useAppUpdater } from '../hooks/useAppUpdater';
 
 export function UpdateNotificationBanner() {
-  const { status, updateInfo, downloadProgress, errorMessage, installUpdate, dismissUpdate } =
+  const { status, mode, updateInfo, downloadProgress, errorMessage, installUpdate, dismissUpdate } =
     useAppUpdater();
 
   if (status === 'idle' || status === 'checking') return null;
@@ -11,6 +11,21 @@ export function UpdateNotificationBanner() {
       <div className="update-banner update-banner--error" role="alert">
         <span className="update-banner__icon">⚠</span>
         <span className="update-banner__text">Update failed: {errorMessage}</span>
+        <button className="update-banner__dismiss" onClick={dismissUpdate} aria-label="Dismiss">
+          ✕
+        </button>
+      </div>
+    );
+  }
+
+  if (status === 'available' && updateInfo && mode === 'localhost') {
+    return (
+      <div className="update-banner update-banner--localhost" role="status">
+        <span className="update-banner__icon">ℹ</span>
+        <span className="update-banner__text">
+          <strong>v{updateInfo.version}</strong> is available on GitHub —
+          run: <code className="update-banner__code">git pull origin master</code>
+        </span>
         <button className="update-banner__dismiss" onClick={dismissUpdate} aria-label="Dismiss">
           ✕
         </button>
