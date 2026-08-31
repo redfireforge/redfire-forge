@@ -7,6 +7,7 @@ import { resolveHeaderProtocolIndicator } from '../utils/headerProtocolUtils';
 import { CustomSelect, type CustomSelectItems } from '@shared/components/CustomSelect';
 import HeaderProtocolIndicator from './HeaderProtocolIndicator';
 import KafkaConnectionIndicator from './KafkaConnectionIndicator';
+import { DesktopDownloadButton } from './DesktopDownloadButton';
 
 interface ThemeItem {
   readonly id: string;
@@ -126,6 +127,8 @@ export default function AppHeader({
           hasClusters={kafkaHasClusters}
           onNavigateToSettings={onNavigateToKafkaSettings}
         />
+
+        <DesktopDownloadButton />
 
         <div className={`theme-picker${themePickerOpen ? ' open' : ''}`} ref={themePickerRef}>
           <button className="theme-toggle" onClick={() => setThemePickerOpen((o: boolean) => !o)}
