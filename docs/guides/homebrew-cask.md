@@ -27,10 +27,13 @@ Create `Casks/r/redfireforge.rb` in a fork of
 
 ```ruby
 cask "redfireforge" do
-  version "0.8.1"
-  sha256 "<sha256_of_aarch64_dmg>"  # from SHA256SUMS.txt on the release page
+  arch arm: "aarch64", intel: "x64"
 
-  url "https://github.com/redfireforge/redfire-forge/releases/download/v#{version}/RedfireForge_#{version}_aarch64.dmg"
+  version "0.8.2"
+  sha256 arm:   "<sha256_aarch64_dmg>",  # from SHA256SUMS.txt on the release page
+         intel: "<sha256_x64_dmg>"
+
+  url "https://github.com/redfireforge/redfire-forge/releases/download/v#{version}/RedfireForge_#{version}_#{arch}.dmg"
   name "RedfireForge"
   desc "Visual performance workbench — HTTP, GraphQL, gRPC, WebSocket, Kafka"
   homepage "https://github.com/redfireforge/redfire-forge"
@@ -46,11 +49,8 @@ cask "redfireforge" do
 end
 ```
 
-> **Note on architecture:** The ARM64 (Apple Silicon) `.dmg` is listed here as
-> primary because it is the most common target. Intel users on `x86_64` should
-> use the `x86_64` `.dmg` and a separate cask (or `on_intel` / `on_arm` blocks).
-> Check the [Homebrew Cask docs](https://docs.brew.sh/Cask-Cookbook) for
-> multi-arch cask syntax.
+The `arch` stanza serves both Apple Silicon and Intel from a single cask — Homebrew
+selects the correct `.dmg` automatically based on the machine's architecture.
 
 ---
 
