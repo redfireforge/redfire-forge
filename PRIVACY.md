@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-08-27
 
-**Canonical URL:** https://github.com/redfireforge/redfire-forge/blob/master/PRIVACY.md
+**Canonical URL:** https://github.com/redfireforge/redfireforge-public/blob/master/PRIVACY.md
 
 RedfireForge is a local-first API/protocol testing tool. This policy explains what data the desktop and web apps handle today, and what will change if the optional cloud waitlist and SaaS offering (planned, not yet live) launch.
 
