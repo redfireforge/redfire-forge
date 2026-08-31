@@ -15,7 +15,7 @@
 
 If you discover a security vulnerability in RedfireForge, please report it responsibly:
 
-1. **Open a [GitHub Security Advisory](https://github.com/redfireforge/redfire-forge/security/advisories/new)** — this is the preferred path. It keeps the report private until a fix is released.
+1. **Open a [GitHub Security Advisory](https://github.com/redfireforge/redfireforge-public/security/advisories/new)** — this is the preferred path. It keeps the report private until a fix is released.
 
 2. Alternatively, email the maintainers directly. Include:
    - A description of the vulnerability

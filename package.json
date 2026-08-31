@@ -339,10 +339,10 @@
   "description": "Cross-platform API performance testing and workflow automation workbench",
   "repository": {
     "type": "git",
-    "url": "https://github.com/redfireforge/redfire-forge.git"
+    "url": "https://github.com/redfireforge/redfireforge-public.git"
   },
-  "homepage": "https://github.com/redfireforge/redfire-forge",
+  "homepage": "https://github.com/redfireforge/redfireforge-public",
   "bugs": {
-    "url": "https://github.com/redfireforge/redfire-forge/issues"
+    "url": "https://github.com/redfireforge/redfireforge-public/issues"
   }
 }

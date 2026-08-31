@@ -48,7 +48,7 @@ describe('DesktopDownloadButton', () => {
   it('sets aria-busy while loading', () => {
     mockInfo.mockReturnValue({
       label: 'Download Desktop App',
-      href: 'https://github.com/redfireforge/redfire-forge/releases',
+      href: 'https://github.com/redfireforge/redfireforge-public/releases',
       version: null,
       loading: true,
     });

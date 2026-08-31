@@ -1,7 +1,7 @@
 # RedfireForge — Redfire Performance Workbench
 
-[![CI](https://github.com/redfireforge/redfire-forge/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/redfireforge/redfire-forge/actions/workflows/ci.yml)
-[![Latest Release](https://img.shields.io/github/v/release/redfireforge/redfire-forge?label=release)](https://github.com/redfireforge/redfire-forge/releases/latest)
+[![CI](https://github.com/redfireforge/redfireforge-public/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/redfireforge/redfireforge-public/actions/workflows/ci.yml)
+[![Latest Release](https://img.shields.io/github/v/release/redfireforge/redfireforge-public?label=release)](https://github.com/redfireforge/redfireforge-public/releases/latest)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)](#)
 
