@@ -3,7 +3,7 @@
 .ks-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -22,8 +22,9 @@
   max-height: min(85vh, 700px);
   overflow: hidden;
   box-shadow:
-    0 0 0 1px color-mix(in srgb, white 12%, transparent),
-    0 8px 32px rgba(0, 0, 0, 0.45),
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 12px 40px rgba(0, 0, 0, 0.45),
     0 2px 8px rgba(0, 0, 0, 0.25);
 }
 

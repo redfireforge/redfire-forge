@@ -8,11 +8,10 @@ export interface ShortcutDef {
 }
 
 const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent);
-const MOD_LABEL = IS_MAC ? '⌘' : 'Ctrl';
+export const MOD_LABEL = IS_MAC ? '⌘' : 'Ctrl';
 
 export const GLOBAL_SHORTCUTS: ShortcutDef[] = [
   { key: '?', category: 'Global', label: 'Open keyboard shortcuts', display: '?' },
-  { key: 'mod+shift+d', category: 'Global', label: 'Toggle Demo Hub', display: `${MOD_LABEL}+⇧+D` },
 ];
 
 /**
@@ -29,6 +28,7 @@ export function useAppShortcuts(onToggle: () => void): void {
         target.tagName === 'INPUT' ||
         target.tagName === 'TEXTAREA' ||
         target.isContentEditable ||
+        target.contentEditable === 'true' ||
         !!target.closest?.('.monaco-editor');
       if (isInput) return;
       e.preventDefault();
