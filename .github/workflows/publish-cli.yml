@@ -103,7 +103,13 @@ jobs:
       - name: Publish to npm
         if: ${{ github.event.inputs.dry_run != 'true' && !contains(github.ref_name, '-') }}
         working-directory: ./cli
-        run: npm publish --access public
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if npm view "redfireforge-cli@${PKG_VERSION}" version --silent 2>/dev/null | grep -q "${PKG_VERSION}"; then
+            echo "⏭️  redfireforge-cli@${PKG_VERSION} already published — skipping."
+          else
+            npm publish --access public
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
