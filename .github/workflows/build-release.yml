@@ -19,6 +19,14 @@ on:
           - standard
           - demo
           - both
+      tag_name:
+        description: 'Override tag for release (e.g. v0.8.2-lh). Empty = artifact-only build.'
+        required: false
+        default: ''
+      checkout_ref:
+        description: 'Git ref to check out (e.g. v0.8.2). Defaults to the triggered ref.'
+        required: false
+        default: ''
 
 jobs:
   # Completes on branch pushes so GitHub reports a passing run instead of
@@ -94,14 +102,19 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Allow dispatch-based rebuilds against a specific tag (e.g. v0.8.2)
+          # without changing the workflow trigger ref.
+          ref: ${{ inputs.checkout_ref || github.ref }}
 
       - name: Extract release notes from CHANGELOG
         id: notes
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || inputs.tag_name != ''
         shell: bash
         run: |
-          VERSION="${{ github.ref_name }}"
+          VERSION="${{ inputs.tag_name || github.ref_name }}"
           VERSION="${VERSION#v}"
+          VERSION="${VERSION%-lh}"
           NOTES=$(sed -n "/^## \[${VERSION}\]/,/^## \[/p" CHANGELOG.md | tail -n +2 | sed '$d')
           if [ -z "$NOTES" ]; then
             NOTES="See [CHANGELOG.md](https://github.com/redfireforge/redfireforge-public/blob/master/CHANGELOG.md) for details."
@@ -215,8 +228,8 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
-          releaseName: 'RedfireForge ${{ github.ref_name }}'
+          tagName: ${{ inputs.tag_name || (startsWith(github.ref, 'refs/tags/') && github.ref_name || '') }}
+          releaseName: 'RedfireForge ${{ inputs.tag_name || github.ref_name }}'
           releaseBody: |
             ${{ steps.notes.outputs.notes }}
 
@@ -243,8 +256,8 @@ jobs:
         with:
           # Use a separate -lh tag so the Learning Hub release doesn't collide with the
           # Standard release (GitHub allows only one release per tag).
-          tagName: ${{ startsWith(github.ref, 'refs/tags/') && format('{0}-lh', github.ref_name) || '' }}
-          releaseName: 'RedfireForge Learning Hub ${{ github.ref_name }}'
+          tagName: ${{ inputs.tag_name || (startsWith(github.ref, 'refs/tags/') && format('{0}-lh', github.ref_name) || '') }}
+          releaseName: 'RedfireForge Learning Hub ${{ inputs.tag_name || github.ref_name }}'
           releaseBody: |
             ${{ steps.notes.outputs.notes }}
 
