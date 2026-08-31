@@ -28,6 +28,21 @@
   border-bottom-color: color-mix(in srgb, #ef4444 40%, var(--border));
 }
 
+.update-banner--localhost {
+  background: color-mix(in srgb, #f59e0b 10%, var(--surface));
+  color: var(--text);
+  border-bottom-color: color-mix(in srgb, #f59e0b 40%, var(--border));
+}
+
+.update-banner__code {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: 0.78rem;
+  background: color-mix(in srgb, #f59e0b 18%, var(--bg));
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: var(--text);
+}
+
 .update-banner__icon {
   font-size: 1rem;
   line-height: 1;
