@@ -115,7 +115,7 @@ describe('KeyboardShortcutsModal', () => {
 
   it('renders plus separators for multi-part key combos', () => {
     const { container } = render(<KeyboardShortcutsModal onClose={vi.fn()} />);
-    const plusSeparators = container.querySelectorAll('.ks-modal-plus');
+    const plusSeparators = container.querySelectorAll('.ks-modal-sep');
     expect(plusSeparators.length).toBeGreaterThan(0);
   });
 

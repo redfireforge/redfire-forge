@@ -1,4 +1,4 @@
-/* ── Keyboard Shortcuts Modal ───────────────────── */
+/* ── Keyboard Shortcuts Modal ─────────────────────────────────── */
 
 .ks-modal-overlay {
   position: fixed;
@@ -13,117 +13,176 @@
 
 .ks-modal-shell {
   position: relative;
-  background: var(--surface, #1e1e2e);
-  border: 1px solid color-mix(in srgb, white 28%, var(--border, #3b3f51));
-  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
+  border-radius: 14px;
   display: flex;
   flex-direction: column;
-  width: min(90vw, 580px);
-  max-height: min(85vh, 700px);
+  width: min(92vw, 620px);
+  max-height: min(88vh, 720px);
   overflow: hidden;
   box-shadow:
     0 0 0 1px color-mix(in srgb, white 14%, transparent),
     inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
-    0 12px 40px rgba(0, 0, 0, 0.45),
-    0 2px 8px rgba(0, 0, 0, 0.25);
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    0 4px 12px rgba(0, 0, 0, 0.3);
 }
+
+/* ── Header ──────────────────────────────────────────────────── */
 
 .ks-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 18px 12px;
-  border-bottom: 1px solid var(--border, #3b3f51);
+  padding: 18px 20px 16px;
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   cursor: default;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--primary) 6%, var(--surface)) 0%,
+    var(--surface) 100%
+  );
 }
 
 .ks-modal-header h3 {
   margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text, #cdd6f4);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
   letter-spacing: 0.01em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
+
+.ks-modal-header h3::before {
+  content: '⌨';
+  font-size: 1.05rem;
+  opacity: 0.75;
+}
+
+/* ── Body ────────────────────────────────────────────────────── */
 
 .ks-modal-body {
   overflow-y: auto;
-  padding: 16px 20px 20px;
+  padding: 6px 0 16px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text) 18%, transparent) transparent;
 }
 
-/* ── Section ─────────────────────────────────────── */
+.ks-modal-body::-webkit-scrollbar { width: 4px; }
+.ks-modal-body::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text) 18%, transparent);
+  border-radius: 2px;
+}
+
+/* ── Section ─────────────────────────────────────────────────── */
 
 .ks-modal-section {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  padding: 14px 20px 6px;
+}
+
+.ks-modal-section + .ks-modal-section {
+  border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
 }
 
 .ks-modal-section-title {
-  margin: 0 0 6px;
-  font-size: 0.72rem;
+  margin: 0 0 8px;
+  font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: color-mix(in srgb, var(--text, #cdd6f4) 55%, transparent);
-  padding-bottom: 6px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border, #3b3f51) 60%, transparent);
+  letter-spacing: 0.1em;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-/* ── Row ─────────────────────────────────────────── */
+.ks-modal-section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: color-mix(in srgb, var(--primary) 20%, transparent);
+  border-radius: 1px;
+}
+
+/* ── Row ─────────────────────────────────────────────────────── */
 
 .ks-modal-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 5px 4px;
-  border-radius: 5px;
-  gap: 12px;
-  transition: background 0.1s;
+  padding: 7px 8px;
+  border-radius: 7px;
+  gap: 16px;
+  transition: background 0.12s;
 }
 
 .ks-modal-row:hover {
-  background: color-mix(in srgb, var(--text, #cdd6f4) 6%, transparent);
+  background: color-mix(in srgb, var(--primary) 6%, var(--surface-hover, #2d3a4d));
 }
 
 .ks-modal-label {
   font-size: 0.875rem;
-  color: var(--text, #cdd6f4);
-  opacity: 0.9;
+  color: var(--text);
+  line-height: 1.4;
   flex: 1;
   min-width: 0;
 }
 
+/* ── Key combo ───────────────────────────────────────────────── */
+
 .ks-modal-keys {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
   flex-shrink: 0;
 }
 
-.ks-modal-plus {
-  font-size: 0.75rem;
-  color: color-mix(in srgb, var(--text, #cdd6f4) 40%, transparent);
-  padding: 0 2px;
+.ks-key-wrap {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.ks-modal-sep {
+  font-size: 0.65rem;
+  color: color-mix(in srgb, var(--text) 35%, transparent);
+  font-weight: 600;
+  line-height: 1;
+  user-select: none;
 }
 
 .ks-modal-key {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 24px;
-  height: 22px;
-  padding: 0 6px;
-  background: color-mix(in srgb, var(--text, #cdd6f4) 10%, var(--bg, #1a1b26));
-  border: 1px solid color-mix(in srgb, var(--border, #3b3f51) 80%, var(--text, #cdd6f4) 20%);
-  border-radius: 4px;
-  font-family: ui-monospace, 'SFMono-Regular', 'Cascadia Code', monospace;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--text, #cdd6f4);
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--border, #3b3f51) 60%, transparent);
+  min-width: 26px;
+  height: 24px;
+  padding: 0 7px;
+
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--text) 14%, var(--bg)) 0%,
+    color-mix(in srgb, var(--text) 9%, var(--bg)) 100%
+  );
+  border: 1px solid color-mix(in srgb, var(--border) 90%, var(--text) 20%);
+  border-bottom-color: color-mix(in srgb, var(--border) 60%, var(--text) 30%);
+  border-radius: 6px;
+  box-shadow:
+    0 1px 0 color-mix(in srgb, var(--border) 50%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
+
+  font-family: ui-monospace, 'SFMono-Regular', 'Cascadia Code', 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text);
   white-space: nowrap;
+  user-select: none;
+  letter-spacing: 0.01em;
 }

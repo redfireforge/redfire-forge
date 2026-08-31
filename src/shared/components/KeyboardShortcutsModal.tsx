@@ -34,15 +34,25 @@ function getCategories(): string[] {
   return ordered;
 }
 
+function parseKeyParts(display: string): string[] {
+  // Split on '+' but treat a trailing empty token as an artifact and
+  // replace any remaining empty tokens with the literal '+' key.
+  // e.g. '⌘++' → ['⌘','',''] → remove last '' → ['⌘',''] → map '' → ['⌘','+']
+  const raw = display.split('+');
+  const trimmed =
+    raw.length > 1 && raw[raw.length - 1] === '' ? raw.slice(0, -1) : raw;
+  return trimmed.map((p) => (p === '' ? '+' : p));
+}
+
 function ShortcutRow({ shortcut }: { shortcut: ShortcutDef }) {
-  const parts = shortcut.display.split('+');
+  const parts = parseKeyParts(shortcut.display);
   return (
     <div className="ks-modal-row">
       <span className="ks-modal-label">{shortcut.label}</span>
       <div className="ks-modal-keys">
         {parts.map((part, i) => (
-          <span key={i}>
-            {i > 0 && <span className="ks-modal-plus">+</span>}
+          <span key={i} className="ks-key-wrap">
+            {i > 0 && <span className="ks-modal-sep" aria-hidden>+</span>}
             <kbd className="ks-modal-key">{part}</kbd>
           </span>
         ))}
