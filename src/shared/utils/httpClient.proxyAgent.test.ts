@@ -17,7 +17,13 @@ vi.mock('./platform', () => ({
 /** Force `new ProxyAgent(proxy)` branch in getNodeDispatcher (no EnvHttpProxyAgent). */
 vi.mock('undici', async (importOriginal) => {
   const mod = await importOriginal<typeof import('undici')>();
-  return { ...mod, EnvHttpProxyAgent: undefined, ProxyAgent: proxyAgentCtor };
+  return {
+    ...mod,
+    EnvHttpProxyAgent: undefined,
+    ProxyAgent: proxyAgentCtor,
+    // Route undici.fetch → globalThis.fetch so test assertions on vi.fn() work.
+    get fetch() { return globalThis.fetch; },
+  };
 });
 
 describe('httpFetch node dispatcher (ProxyAgent fallback)', () => {
