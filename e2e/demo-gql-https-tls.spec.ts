@@ -61,6 +61,11 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe('GQL-5 — lesson shell', () => {
+  // Docker + Vite cold-start compete for CPU on the nightly runner — the shell
+  // test runs first and can hit APP_SHELL_TIMEOUT (300 s) before the activity
+  // bar mounts. One retry is enough: Vite is warm by the second attempt.
+  test.describe.configure({ retries: 1 });
+
   test(`lesson has ${TOTAL_STEPS} steps`, async ({ page }) => {
     await launchGqlLesson(page, LESSON_NAME);
     const counter = await page.locator('.demo-live-step-counter').textContent();
