@@ -64,8 +64,7 @@ jobs:
           if event == "workflow_dispatch":
               selected = rows if variant == "both" else [r for r in rows if r["variant"] == variant]
           elif event == "push":
-              want = "demo" if ref_name.endswith("-demo") else "standard"
-              selected = [r for r in rows if r["variant"] == want]
+              selected = rows  # always build both Standard and Learning Hub on every tag push
           else:
               selected = []
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
@@ -75,9 +74,11 @@ jobs:
   # ⚠️  RELEASE CHECKLIST REMINDER
   # After this workflow completes on a tag push, go to:
   #   https://github.com/redfireforge/redfireforge-public/releases
-  # and click "Publish release" on the draft. The releases/latest API only
-  # returns published, non-prerelease releases — unpublished drafts return null
-  # and break the in-app update notifier, download CTA, and download page.
+  # and click "Publish release" on BOTH drafts:
+  #   - "RedfireForge vX.Y.Z"             (Standard)
+  #   - "RedfireForge Learning Hub vX.Y.Z" (tag: vX.Y.Z-lh)
+  # The releases/latest API only returns published, non-prerelease releases —
+  # unpublished drafts return null and break the in-app update notifier, download
   build:
     needs: prepare
     if: needs.prepare.result == 'success' && needs.prepare.outputs.include != '[]'
@@ -240,7 +241,9 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          # Use a separate -lh tag so the Learning Hub release doesn't collide with the
+          # Standard release (GitHub allows only one release per tag).
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && format('{0}-lh', github.ref_name) || '' }}
           releaseName: 'RedfireForge Learning Hub ${{ github.ref_name }}'
           releaseBody: |
             ${{ steps.notes.outputs.notes }}
@@ -254,9 +257,9 @@ jobs:
 
             SHA256 checksums are in `SHA256SUMS.txt` above.
           releaseDraft: true
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: false
           updaterJsonPreferNsis: true
-          assetNamePattern: 'RedfireForge-LearningHub-[version]-[platform]-[arch][ext]'
+          releaseAssetNamePattern: 'RedfireForge-LearningHub-[version]-[platform]-[arch][ext]'
           args: --target ${{ matrix.target }} --config src-tauri/tauri.conf.demo.json
 
       - name: Cleanup macOS keychain
