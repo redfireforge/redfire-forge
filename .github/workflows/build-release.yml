@@ -101,7 +101,7 @@ jobs:
         run: |
           VERSION="${{ github.ref_name }}"
           VERSION="${VERSION#v}"
-          NOTES=$(sed -n "/^## \[${VERSION}\]/,/^## \[/p" CHANGELOG.md | head -n -1 | tail -n +2)
+          NOTES=$(sed -n "/^## \[${VERSION}\]/,/^## \[/p" CHANGELOG.md | tail -n +2 | sed '$d')
           if [ -z "$NOTES" ]; then
             NOTES="See [CHANGELOG.md](https://github.com/redfireforge/redfire-forge/blob/master/CHANGELOG.md) for details."
           fi
