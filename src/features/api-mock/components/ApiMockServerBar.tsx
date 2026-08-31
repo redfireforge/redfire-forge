@@ -133,7 +133,7 @@ export function ApiMockServerBar({
           </svg>
           Server runtime requires the RedfireForge desktop app.{' '}
           <a
-            href="https://github.com/redfireforge/redfire-forge/releases/latest"
+            href="https://github.com/redfireforge/redfireforge-public/releases/latest"
             target="_blank"
             rel="noopener noreferrer"
             className="am-notice-link"

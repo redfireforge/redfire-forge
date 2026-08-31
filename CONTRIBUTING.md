@@ -30,8 +30,8 @@ CLA template before submitting your first PR.
 ## 2. Repository Setup
 
 ```bash
-git clone https://github.com/redfireforge/redfire-forge.git
-cd redfire-forge
+git clone https://github.com/redfireforge/redfireforge-public.git
+cd redfireforge-public
 npm install
 npm run dev        # web dev server at http://localhost:5173
 npm run tauri:dev  # native desktop with hot-reload (requires Rust)

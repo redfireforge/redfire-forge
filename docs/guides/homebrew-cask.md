@@ -14,7 +14,7 @@ brew install --cask redfireforge
 1. A **stable GitHub Release** with a publicly accessible `.dmg` URL must exist.
    The URL pattern Tauri produces is:
    ```
-   https://github.com/redfireforge/redfire-forge/releases/download/vX.Y.Z/RedfireForge_X.Y.Z_aarch64.dmg
+   https://github.com/redfireforge/redfireforge-public/releases/download/vX.Y.Z/RedfireForge_X.Y.Z_aarch64.dmg
    ```
 2. The **SHA256** of that `.dmg` — found in `SHA256SUMS.txt` attached to the release.
 
@@ -33,10 +33,10 @@ cask "redfireforge" do
   sha256 arm:   "<sha256_aarch64_dmg>",  # from SHA256SUMS.txt on the release page
          intel: "<sha256_x64_dmg>"
 
-  url "https://github.com/redfireforge/redfire-forge/releases/download/v#{version}/RedfireForge_#{version}_#{arch}.dmg"
+  url "https://github.com/redfireforge/redfireforge-public/releases/download/v#{version}/RedfireForge_#{version}_#{arch}.dmg"
   name "RedfireForge"
   desc "Visual performance workbench — HTTP, GraphQL, gRPC, WebSocket, Kafka"
-  homepage "https://github.com/redfireforge/redfire-forge"
+  homepage "https://github.com/redfireforge/redfireforge-public"
 
   app "RedfireForge.app"
 
@@ -104,7 +104,7 @@ Eliminates the SmartScreen "Windows protected your PC" warning entirely.
     with:
       api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
       organization-id: ${{ secrets.SIGNPATH_ORG_ID }}
-      project-slug: redfire-forge
+      project-slug: redfireforge-public
       signing-policy-slug: release-signing
       artifact-configuration-slug: windows-installer
       github-artifact-name: windows-build

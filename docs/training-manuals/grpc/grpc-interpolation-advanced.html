@@ -152,7 +152,7 @@
   env:
     GRPC_AUTH_TOKEN: ${{ secrets.GRPC_AUTH_TOKEN }}
   run: |
-    redfire-forge run collection "Echo Tests" \
+    redfireforge run collection "Echo Tests" \
       --env staging \
       --var auth_token=$GRPC_AUTH_TOKEN</pre>
   <p>The CLI reads the <code>--var</code> overrides and injects them into the interpolation context at runtime, so the token never appears in any committed file.</p>

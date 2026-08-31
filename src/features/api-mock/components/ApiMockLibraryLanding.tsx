@@ -136,7 +136,7 @@ export function ApiMockLibraryLanding({ onCreate }: Props) {
             <strong>Server runtime requires the desktop app.</strong>{' '}
             You can explore routes and import specs in the browser, but starting a live server requires{' '}
             <a
-              href="https://github.com/redfireforge/redfire-forge/releases/latest"
+              href="https://github.com/redfireforge/redfireforge-public/releases/latest"
               target="_blank"
               rel="noopener noreferrer"
               className="am-notice-link"

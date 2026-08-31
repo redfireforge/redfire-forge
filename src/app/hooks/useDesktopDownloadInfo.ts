@@ -7,7 +7,7 @@ import {
   type OSTarget,
 } from '@shared/utils/latestRelease';
 
-const FALLBACK_RELEASES_URL = 'https://github.com/redfireforge/redfire-forge/releases';
+const FALLBACK_RELEASES_URL = 'https://github.com/redfireforge/redfireforge-public/releases';
 
 function osDisplayName(target: OSTarget): string | null {
   if (target === 'macos-arm' || target === 'macos-x64') return 'macOS';
