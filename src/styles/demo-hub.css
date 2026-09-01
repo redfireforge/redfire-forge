@@ -51,6 +51,69 @@ body[data-demo-bootstrapping="1"] .kafka-settings-content {
   overflow: hidden;
 }
 
+.demo-hub-pane:empty::before {
+  content: 'Loading Learning Hub…';
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 200px;
+  width: 100%;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.demo-hub-crash {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 10px;
+  flex: 1;
+  min-height: 200px;
+  padding: 32px 28px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.demo-hub-crash-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.demo-hub-crash-message {
+  margin: 0;
+  max-width: 42rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  word-break: break-word;
+}
+
+.demo-hub-crash-reload {
+  margin-top: 8px;
+  padding: 6px 12px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.demo-hub-crash-reload:hover {
+  border-color: var(--primary);
+}
+
+.demo-hub-crash-reload:focus-visible {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+  outline: none;
+}
+
 .demo-hub {
   display: flex;
   flex-direction: column;
