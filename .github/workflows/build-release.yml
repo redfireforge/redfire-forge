@@ -72,7 +72,12 @@ jobs:
           if event == "workflow_dispatch":
               selected = rows if variant == "both" else [r for r in rows if r["variant"] == variant]
           elif event == "push":
-              selected = rows  # always build both Standard and Learning Hub on every tag push
+              # vX.Y.Z-lh / vX.Y.Z-demo → Learning Hub only (do not rebuild Standard)
+              # vX.Y.Z → both variants; LH assets publish to vX.Y.Z-lh
+              if ref_name.endswith("-lh") or ref_name.endswith("-demo"):
+                  selected = [r for r in rows if r["variant"] == "demo"]
+              else:
+                  selected = rows
           else:
               selected = []
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
@@ -101,11 +106,29 @@ jobs:
     name: Build (${{ matrix.label }})
 
     steps:
+      - id: resolve-ref
+        shell: bash
+        env:
+          CHECKOUT_REF: ${{ inputs.checkout_ref }}
+          REF_NAME: ${{ github.ref_name }}
+          GITHUB_REF: ${{ github.ref }}
+        run: |
+          if [ -n "$CHECKOUT_REF" ]; then
+            echo "checkout=$CHECKOUT_REF" >> "$GITHUB_OUTPUT"
+          elif [[ "$REF_NAME" == *-lh || "$REF_NAME" == *-demo ]]; then
+            # v0.8.2-lh must build the v0.8.2 tree, not the tag-commit on develop.
+            base="${REF_NAME%-lh}"
+            base="${base%-demo}"
+            echo "checkout=$base" >> "$GITHUB_OUTPUT"
+          else
+            echo "checkout=$GITHUB_REF" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v5
         with:
-          # Allow dispatch-based rebuilds against a specific tag (e.g. v0.8.2)
-          # without changing the workflow trigger ref.
-          ref: ${{ inputs.checkout_ref || github.ref }}
+          # Dispatch can override (e.g. checkout_ref=v0.8.2). A vX.Y.Z-lh tag
+          # push checks out vX.Y.Z so LH is never built from a later develop tip.
+          ref: ${{ steps.resolve-ref.outputs.checkout }}
 
       - name: Extract release notes from CHANGELOG
         id: notes
@@ -256,7 +279,8 @@ jobs:
         with:
           # Use a separate -lh tag so the Learning Hub release doesn't collide with the
           # Standard release (GitHub allows only one release per tag).
-          tagName: ${{ inputs.tag_name || (startsWith(github.ref, 'refs/tags/') && format('{0}-lh', github.ref_name) || '') }}
+          # v0.8.2 → v0.8.2-lh; a push of v0.8.2-lh keeps that tag (no -lh-lh).
+          tagName: ${{ inputs.tag_name || (startsWith(github.ref, 'refs/tags/') && (endsWith(github.ref_name, '-lh') && github.ref_name || format('{0}-lh', github.ref_name)) || '') }}
           releaseName: 'RedfireForge Learning Hub ${{ inputs.tag_name || github.ref_name }}'
           releaseBody: |
             ${{ steps.notes.outputs.notes }}
@@ -264,7 +288,7 @@ jobs:
             ---
             Learning Hub build with interactive tutorials.
 
-            **macOS:** Gatekeeper will block the app on first launch. Run once in Terminal after installing: `xattr -cr /Applications/RedfireForge.app`
+            **macOS:** Gatekeeper will block the app on first launch. Run once in Terminal after installing: `xattr -cr "/Applications/RedfireForge Learning Hub.app"`
             **Windows:** If SmartScreen appears, click **More info** → **Run anyway**.
             **Linux:** `sudo dpkg -i *.deb` or `chmod +x *.AppImage && ./*.AppImage`
 
