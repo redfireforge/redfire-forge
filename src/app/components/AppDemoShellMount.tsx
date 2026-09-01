@@ -7,7 +7,17 @@ import { DemoShellErrorBoundary } from '../demo/DemoShellErrorBoundary';
 // When VITE_ENABLE_DEMO_HUB=false the chunk is generated but never loaded
 // (orphan on disk) — this is intentional and accepted by audit-prod-demo-bundle.
 const DemoShellHost = lazy(() =>
-  import('../demo/DemoShellHost').then((m) => ({ default: m.DemoShellHost })),
+  import('../demo/DemoShellHost')
+    .then((m) => ({ default: m.DemoShellHost }))
+    .catch((err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[DemoShellHost] Chunk failed to load', err);
+      return {
+        default: function DemoShellChunkError() {
+          throw new Error(message || 'Failed to load Learning Hub');
+        },
+      };
+    }),
 );
 
 interface Props extends DemoShellHostProps {

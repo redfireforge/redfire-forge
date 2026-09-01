@@ -23,9 +23,13 @@ type SelectedPanel = 'concept' | 'notes' | number;
 export default function LessonPlayer({ lesson, onStartDemo, newStepsFrom }: LessonPlayerProps) {
   const { getNote, hasNote, saveNote } = useLessonNotesContext();
   const gateKey = `prereq-gate-cleared:${lesson.id}`;
-  const [dockerGateCleared, setDockerGateCleared] = useState(
-    () => sessionStorage.getItem(gateKey) === '1',
-  );
+  const [dockerGateCleared, setDockerGateCleared] = useState(() => {
+    try {
+      return sessionStorage.getItem(gateKey) === '1';
+    } catch {
+      return false;
+    }
+  });
   const [downServiceLabels, setDownServiceLabels] = useState<string[]>([]);
   const [tabGateCleared, setTabGateCleared] = useState(false);
   const [selected, setSelected] = useState<SelectedPanel>('concept');
