@@ -91,7 +91,13 @@ jobs:
     name: Unit Tests (product)
     runs-on: ubuntu-latest
     needs: [typecheck, changes]
-    if: needs.changes.outputs.product == 'true'
+    # Same-repo PRs already ran these on the branch push, and again on the merge
+    # commit — running a third time delays the PR check past the merge. Fork PRs
+    # get no push event here, so they must still run.
+    if: >-
+      (github.event_name != 'pull_request'
+        || github.event.pull_request.head.repo.full_name != github.repository)
+      && needs.changes.outputs.product == 'true'
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -111,7 +117,10 @@ jobs:
     name: Unit Tests (demo)
     runs-on: ubuntu-latest
     needs: [typecheck, changes]
-    if: needs.changes.outputs.demo == 'true'
+    if: >-
+      (github.event_name != 'pull_request'
+        || github.event.pull_request.head.repo.full_name != github.repository)
+      && needs.changes.outputs.demo == 'true'
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
