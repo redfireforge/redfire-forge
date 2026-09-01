@@ -1,5 +1,6 @@
 import { Suspense, lazy } from 'react';
 import type { DemoShellHostProps } from '../demo/DemoShellHost';
+import { DemoShellErrorBoundary } from '../demo/DemoShellErrorBoundary';
 
 // Always register the lazy chunk so Rolldown keeps demo-hub code (including
 // demoHubApi stubs) in the DemoShellHost chunk rather than the main entry.
@@ -16,8 +17,10 @@ interface Props extends DemoShellHostProps {
 export default function AppDemoShellMount({ enabled, ...props }: Props) {
   if (!enabled) return null;
   return (
-    <Suspense fallback={null}>
-      <DemoShellHost {...props} />
-    </Suspense>
+    <DemoShellErrorBoundary>
+      <Suspense fallback={null}>
+        <DemoShellHost {...props} />
+      </Suspense>
+    </DemoShellErrorBoundary>
   );
 }
