@@ -13,6 +13,14 @@
 
 ---
 
+## ☁️ RedfireForge Cloud — Coming Soon
+
+Hosted load testing, team workspaces, and CI integration — no infra to manage.
+
+[→ Join the waitlist](https://tally.so/r/1AaNzQ?source=readme)
+
+---
+
 ## Why RedfireForge?
 
 - 🎯 **One tool, six protocols** — HTTP, GraphQL, gRPC, WebSocket, SSE, and Kafka, all in one workbench instead of five different tools
