@@ -114,4 +114,11 @@ describe('AppDemoShellMount – lazy import .catch() path', () => {
     expect(caught).toBeInstanceOf(Error);
     expect(caught!.message).toBe('plain-string-failure');
   });
+
+  it('falls back to the default message when the rejection yields an empty message', async () => {
+    const { caught } = await renderWithThenRejection(new Error(''));
+
+    expect(caught).toBeInstanceOf(Error);
+    expect(caught!.message).toBe('Failed to load Learning Hub');
+  });
 });
