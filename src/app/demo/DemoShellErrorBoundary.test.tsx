@@ -9,6 +9,7 @@ import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, act } from '@testing-library/react';
 import { DemoShellErrorBoundary } from '../demo/DemoShellErrorBoundary';
+import { DEMO_HUB_MOUNT_ID, registerDemoHubMount } from '../demo/demoHubRuntimeRef';
 
 afterEach(() => {
   cleanup();
@@ -35,7 +36,7 @@ describe('DemoShellErrorBoundary', () => {
     expect(screen.getByTestId('stable-child')).toBeTruthy();
   });
 
-  it('renders a silent placeholder (not the child) when child throws', () => {
+  it('renders a visible error card (not the child) when child throws', () => {
     // Suppress React's console.error during throw
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -46,10 +47,11 @@ describe('DemoShellErrorBoundary', () => {
     );
 
     expect(screen.queryByTestId('stable-child')).toBeNull();
-    // The error node carries a data-error attribute with the message
     const errNode = document.getElementById('demo-hub-error');
     expect(errNode).toBeTruthy();
     expect(errNode?.getAttribute('data-error')).toBe('demo crash');
+    expect(errNode?.textContent).toContain('Learning Hub failed to load');
+    expect(errNode?.textContent).toContain('demo crash');
 
     consoleSpy.mockRestore();
   });
@@ -100,6 +102,26 @@ describe('DemoShellErrorBoundary', () => {
     });
 
     expect(document.getElementById('demo-hub-error')).toBeTruthy();
+    consoleSpy.mockRestore();
+  });
+
+  it('portals the error card into the Demo Hub mount when it is registered', () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const mount = document.createElement('div');
+    mount.id = DEMO_HUB_MOUNT_ID;
+    document.body.appendChild(mount);
+    registerDemoHubMount(mount);
+
+    render(
+      <DemoShellErrorBoundary>
+        <BrokenChild />
+      </DemoShellErrorBoundary>,
+    );
+
+    expect(mount.querySelector('#demo-hub-error')).toBeTruthy();
+    expect(mount.textContent).toContain('Learning Hub failed to load');
+    registerDemoHubMount(null);
+    mount.remove();
     consoleSpy.mockRestore();
   });
 });
