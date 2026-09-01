@@ -46,6 +46,9 @@
     "resources": [
       "../cli/dist/redfireforge.mjs"
     ],
+    "externalBin": [
+      "binaries/redfireforge-companion"
+    ],
     "macOS": {
       "signingIdentity": null,
       "dmg": {
