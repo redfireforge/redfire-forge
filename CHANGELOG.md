@@ -8,6 +8,19 @@ Format follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+- **CLI `--output json` / `--output junit`** (#57) — `json` and `junit` are now *format keywords* for `-o/--output`, supported by `run`, `workflow`, and `mock simulate`. They print a flat, CI-shaped report straight to stdout and suppress every other stdout write (progress, console summary, file notices, and the SLA / baseline-comparison reports), so the stream can be piped directly into `jq`. Diagnostics still go to stderr and exit codes are unchanged, so `--fail-on-error` (1), `--fail-on-regression` (2/3) and `--fail-on-sla` (4) keep gating. Passing any other value still writes a JSON report to that file path, so `-o results.json` is unaffected; to write a file literally named `json`, qualify it as `--output ./json`.
+  - Schema: `{ passed, failed, total, durationMs, results: [{ name, status, durationMs, error }] }`.
+  - `workflow` emits one result per **iteration** — matching `--output junit` so both formats agree on `total` — with the individual steps preserved under an additive `steps` array.
+- **Copy button on the response body toolbar** (#54) — one-click copy of the raw response body, in both the Request Editor preview and the Response Detail modal. Flashes a checkmark for ~1.5 s, is hidden when there is no body, and works for any content type.
+
+### Changed
+- **CLI error detail in CI reports** — HTTP failures now lead with the status (`HTTP 404: {}` instead of a bare `{}`), and non-HTTP transports fall back to their own transport label rather than a meaningless `HTTP 0`.
+- **Exit-code documentation corrected** — `cli/README.md` and `docs/guides/cli-ci-cd.md` previously listed exit `2` as "invalid file" and omitted `3` and `4` entirely. `2` is a baseline regression, `3` is regression plus test failures, `4` is an SLA violation, and an execution error exits `1`.
+
+### Fixed
+- **Repo-wide lint gate** — `npm run lint` reported 35 errors and 2 warnings; now zero. 20 × `preserve-caught-error` (errors rethrown from `catch` now attach `{ cause }`, preserving the root cause across gRPC proto parsing, TLS certificate generation, GraphQL mock routes and the API Mock listener), 13 × `no-useless-assignment` (dead initialisers and discarded retry results removed), 1 unused import, and 2 stale `eslint-disable` directives. `.tmp` added to `globalIgnores` so gitignored scratch files are no longer linted.
+
 ---
 
 ## [0.8.2] — 2026-08-29
