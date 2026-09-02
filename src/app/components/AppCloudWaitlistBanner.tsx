@@ -5,10 +5,16 @@ const TALLY_URL = 'https://tally.so/r/1AaNzQ';
 const PRIVACY_URL = 'https://github.com/redfireforge/redfireforge-public/blob/master/PRIVACY.md';
 const STORAGE_KEY = 'cloud-waitlist-dismissed';
 
+/** Playwright sets `navigator.webdriver`. Promo chrome must not shift layout in E2E. */
+function isAutomatedBrowser(): boolean {
+  return Boolean((globalThis as { navigator?: { webdriver?: boolean } }).navigator?.webdriver);
+}
+
 export function AppCloudWaitlistBanner() {
   const [dismissed, setDismissed] = useState<boolean | null>(null);
 
   useEffect(() => {
+    if (isAutomatedBrowser()) return;
     readKey(STORAGE_KEY).then((val) => setDismissed(val === 'true'));
   }, []);
 
@@ -17,7 +23,7 @@ export function AppCloudWaitlistBanner() {
     writeKey(STORAGE_KEY, 'true');
   };
 
-  if (dismissed !== false) return null;
+  if (isAutomatedBrowser() || dismissed !== false) return null;
 
   return (
     <div className="waitlist-banner" role="status" aria-label="RedfireForge Cloud waitlist">
