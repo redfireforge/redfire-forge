@@ -19,6 +19,7 @@ Format follows Keep a Changelog and Semantic Versioning.
 - **Exit-code documentation corrected** — `cli/README.md` and `docs/guides/cli-ci-cd.md` previously listed exit `2` as "invalid file" and omitted `3` and `4` entirely. `2` is a baseline regression, `3` is regression plus test failures, `4` is an SLA violation, and an execution error exits `1`.
 
 ### Fixed
+- **Nightly E2E — waitlist banner chrome** — the Cloud waitlist banner (PR #110) sits above the header on a fresh profile and shifted two `ci` core assertions: the Service Registry footer fell ~13px below the viewport, and the Results Explorer iteration-picker outside-click hit the banner (`z-index: 9998`) instead of the backdrop. Playwright now hides the banner (`navigator.webdriver`), and E2E seeds persist `cloud-waitlist-dismissed`. The two banner mounts are also moved into `AppShellBanners` so `App.tsx` stays under the 750-line monolith gate.
 - **Repo-wide lint gate** — `npm run lint` reported 35 errors and 2 warnings; now zero. 20 × `preserve-caught-error` (errors rethrown from `catch` now attach `{ cause }`, preserving the root cause across gRPC proto parsing, TLS certificate generation, GraphQL mock routes and the API Mock listener), 13 × `no-useless-assignment` (dead initialisers and discarded retry results removed), 1 unused import, and 2 stale `eslint-disable` directives. `.tmp` added to `globalIgnores` so gitignored scratch files are no longer linted.
 
 ---
