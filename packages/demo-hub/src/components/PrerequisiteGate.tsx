@@ -12,6 +12,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { checkEndpoint } from '../utils/checkEndpoint';
 import { deriveEndpointHostPort, deriveEndpointLabel } from '../utils/endpointLabel';
+import { DOCKER_DESKTOP_INSTALL_URL, withRepoClonePreamble } from '../utils/dockerCommandDisplay';
 import {
   countUserTabsInStorage,
   MAX_TABS,
@@ -68,6 +69,8 @@ export default function PrerequisiteGate({
   const [serviceStates, setServiceStates] = useState<ProbeState[]>([]);
   const [tabCapacityState, setTabCapacityState] = useState<TabCapacityState>('idle');
   const [tabsToClose, setTabsToClose] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const copiedResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
   const notifiedRef = useRef(initiallyCleared ?? false);
@@ -75,6 +78,24 @@ export default function PrerequisiteGate({
   const budget = tabBudget ?? 1;
   const needsTabGate = budget > 0 && Boolean(onTabCapacityReady);
   const showServiceBreakdown = probeEndpoints.length > 1;
+  const displayedCommand = useMemo(
+    () => withRepoClonePreamble(dockerCommand),
+    [dockerCommand],
+  );
+
+  const copyCommand = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(displayedCommand);
+      setCopied(true);
+      if (copiedResetRef.current) clearTimeout(copiedResetRef.current);
+      copiedResetRef.current = setTimeout(() => {
+        setCopied(false);
+        copiedResetRef.current = null;
+      }, 2000);
+    } catch {
+      setCopied(false);
+    }
+  }, [displayedCommand]);
 
   const checkTabCapacity = useCallback(async () => {
     if (!needsTabGate || !mountedRef.current) return;
@@ -149,7 +170,11 @@ export default function PrerequisiteGate({
         }
       })();
       void checkTabCapacity();
-      return () => { mountedRef.current = false; if (intervalRef.current) clearInterval(intervalRef.current); };
+      return () => {
+        mountedRef.current = false;
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        if (copiedResetRef.current) clearTimeout(copiedResetRef.current);
+      };
     }
     notifiedRef.current = false;
     tabNotifiedRef.current = false;
@@ -162,6 +187,7 @@ export default function PrerequisiteGate({
     return () => {
       mountedRef.current = false;
       clearInterval(intervalRef.current!);
+      if (copiedResetRef.current) clearTimeout(copiedResetRef.current);
     };
   }, [probe, checkTabCapacity, initiallyCleared, probeEndpoints]);
 
@@ -223,9 +249,34 @@ export default function PrerequisiteGate({
 
       <div className="prereq-instruction">
         <p className="prereq-instruction-title">Run this command in a terminal:</p>
-        <pre className="prereq-command" data-testid="prereq-command">
-          <code>{dockerCommand}</code>
-        </pre>
+        <div className="prereq-command-wrapper">
+          <pre className="prereq-command" data-testid="prereq-command">
+            <code>{displayedCommand}</code>
+          </pre>
+          <button
+            type="button"
+            className="prereq-copy-btn"
+            data-testid="prereq-copy-btn"
+            onClick={() => { void copyCommand(); }}
+            aria-label="Copy command to clipboard"
+          >
+            {copied ? 'Copied' : 'Copy'}
+          </button>
+          <span className="prereq-sr-only" aria-live="polite">
+            {copied ? 'Command copied to clipboard' : ''}
+          </span>
+        </div>
+        <p className="prereq-docker-hint" data-testid="prereq-docker-hint">
+          Don't have Docker Desktop?{' '}
+          <a
+            href={DOCKER_DESKTOP_INSTALL_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Install it free →
+          </a>
+          {' '}A restart may be required after installing on Windows.
+        </p>
         <p className="prereq-instruction-note">
           This page will detect when all required services are reachable — the Start Demo button below will unlock.
         </p>
