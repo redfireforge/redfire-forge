@@ -105,7 +105,8 @@ jobs:
         working-directory: ./cli
         run: |
           PKG_VERSION=$(node -p "require('./package.json').version")
-          if npm view "redfireforge-cli@${PKG_VERSION}" version --silent 2>/dev/null | grep -q "${PKG_VERSION}"; then
+          EXISTING=$(npm view "redfireforge-cli@${PKG_VERSION}" version 2>/dev/null || echo "")
+          if [ -n "$EXISTING" ]; then
             echo "⏭️  redfireforge-cli@${PKG_VERSION} already published — skipping."
           else
             npm publish --access public
