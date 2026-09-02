@@ -23,7 +23,7 @@ import AppSubNav from './components/AppSubNav';
 import AppSidebarRegion from './components/AppSidebarRegion';
 import AppShellOverlays from './components/AppShellOverlays';
 import AppProtocolStudios from './components/AppProtocolStudios';
-import { ExportToApiMockModal, type ExportToApiMockItem } from '../features/api-mock/components/ExportToApiMockModal';
+import type { ExportToApiMockItem } from '../features/api-mock/components/ExportToApiMockModal';
 import { UpdateNotificationBanner } from './components/UpdateNotificationBanner';
 import { AppCloudWaitlistBanner } from './components/AppCloudWaitlistBanner';
 import { DesktopRequiredModal } from './components/DesktopRequiredModal';
@@ -709,6 +709,9 @@ export default function App() {
             setCatalogConvert={setCatalogConvert}
             handleSaveConvertedVersion={handleSaveConvertedVersion}
             showToast={toast.show}
+            exportToMockItems={exportToMockItems}
+            exportToMockSourceKind={exportToMockSourceKind}
+            onClearExportToMock={() => setExportToMockItems(null)}
           />
         </main>
       </div>
@@ -737,13 +740,6 @@ export default function App() {
         RustExecutorTestPanel={RustExecutorTestPanel}
       />
 
-      {exportToMockItems && (
-        <ExportToApiMockModal
-          items={exportToMockItems}
-          sourceKind={exportToMockSourceKind}
-          onClose={() => setExportToMockItems(null)}
-        />
-      )}
     </div>
     </>
   );
