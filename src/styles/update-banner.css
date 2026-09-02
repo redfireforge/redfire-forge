@@ -176,3 +176,16 @@
 .waitlist-banner__dismiss:hover {
   color: var(--text);
 }
+
+.waitlist-banner__privacy {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  opacity: 0.75;
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
+.waitlist-banner__privacy:hover {
+  opacity: 1;
+  color: var(--text);
+}
