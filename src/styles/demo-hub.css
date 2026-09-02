@@ -2573,6 +2573,61 @@ body[data-demo-bootstrapping="1"] .kafka-settings-content {
   margin: 0 0 8px;
 }
 
+.prereq-command-wrapper {
+  position: relative;
+}
+
+.prereq-command-wrapper .prereq-command {
+  padding-right: 72px;
+}
+
+.prereq-copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.prereq-copy-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.prereq-copy-btn:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.prereq-docker-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+}
+
+.prereq-docker-hint a {
+  color: var(--primary);
+}
+
+.prereq-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .prereq-instruction-note {
   font-size: 0.75rem;
   color: var(--text-muted, #7a8fa6);

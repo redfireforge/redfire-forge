@@ -3,8 +3,9 @@
  */
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, fireEvent } from '@testing-library/react';
 import PrerequisiteGate from './PrerequisiteGate';
+import { DOCKER_DESKTOP_INSTALL_URL, withRepoClonePreamble } from '../utils/dockerCommandDisplay';
 
 // Mock checkEndpoint so tests don't make real network calls
 vi.mock('../utils/checkEndpoint', () => ({
@@ -444,5 +445,56 @@ describe('PrerequisiteGate', () => {
     const rows = screen.getAllByTestId('prereq-service');
     expect(rows[0].textContent).toContain('reachable');
     expect(rows[1].textContent).toContain('not detected');
+  });
+
+  it('shows clone preamble plus the lesson compose command', async () => {
+    render(<PrerequisiteGate {...DEFAULT_PROPS} />);
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    const text = screen.getByTestId('prereq-command').textContent ?? '';
+    expect(text).toContain('git clone https://github.com/redfireforge/redfireforge-public.git');
+    expect(text).toContain(DEFAULT_PROPS.dockerCommand);
+  });
+
+  it('copies the displayed command and shows Copied then Copy', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    render(<PrerequisiteGate {...DEFAULT_PROPS} />);
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    const btn = screen.getByTestId('prereq-copy-btn');
+    expect(btn.textContent).toBe('Copy');
+    await act(async () => {
+      fireEvent.click(btn);
+      await Promise.resolve();
+    });
+    expect(writeText).toHaveBeenCalledWith(withRepoClonePreamble(DEFAULT_PROPS.dockerCommand));
+    expect(btn.textContent).toBe('Copied');
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    expect(btn.textContent).toBe('Copy');
+  });
+
+  it('stays on Copy when clipboard write fails', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'));
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    render(<PrerequisiteGate {...DEFAULT_PROPS} />);
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    const btn = screen.getByTestId('prereq-copy-btn');
+    await act(async () => {
+      fireEvent.click(btn);
+      await Promise.resolve();
+    });
+    expect(btn.textContent).toBe('Copy');
+  });
+
+  it('links to the Docker Desktop install page', async () => {
+    render(<PrerequisiteGate {...DEFAULT_PROPS} />);
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    const hint = screen.getByTestId('prereq-docker-hint');
+    expect(hint.querySelector('a')).toHaveAttribute('href', DOCKER_DESKTOP_INSTALL_URL);
   });
 });
