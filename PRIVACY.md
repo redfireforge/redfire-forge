@@ -10,7 +10,7 @@ RedfireForge is a local-first API/protocol testing tool. This policy explains wh
 
 ## 1. Who is collecting data?
 
-RedfireForge is developed and maintained by the RedfireForge project (see [README.md](./README.md) for maintainer/contact details). Questions about this policy can be sent to **privacy@redfireforge.com**.
+RedfireForge is developed and maintained by the RedfireForge project (see [README.md](./README.md) for maintainer/contact details). Questions about this policy can be sent to **support@redfireforge.com**.
 
 ## 2. What data does the app collect today?
 
@@ -44,7 +44,7 @@ We collect this **only** to notify you about RedfireForge Cloud availability and
 
 ## 6. Your rights
 
-You can request access to or deletion of any waitlist data we hold about you at any time by emailing **privacy@redfireforge.com**. We will act on deletion requests within 30 days.
+You can request access to or deletion of any waitlist data we hold about you at any time by emailing **support@redfireforge.com**. We will act on deletion requests within 30 days.
 
 Since local app data never leaves your device, you always have full control over it — deleting it locally (uninstall, clear storage) is immediate and complete on our end too, because we never had a copy.
 
@@ -62,4 +62,4 @@ We may update this policy as features (like the cloud waitlist) go live. Materia
 
 ## 10. Contact
 
-Questions, deletion requests, or concerns: **privacy@redfireforge.com**
+Questions, deletion requests, or concerns: **support@redfireforge.com**
