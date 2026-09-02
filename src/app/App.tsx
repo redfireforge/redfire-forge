@@ -24,8 +24,7 @@ import AppSidebarRegion from './components/AppSidebarRegion';
 import AppShellOverlays from './components/AppShellOverlays';
 import AppProtocolStudios from './components/AppProtocolStudios';
 import { ExportToApiMockModal, type ExportToApiMockItem } from '../features/api-mock/components/ExportToApiMockModal';
-import { UpdateNotificationBanner } from './components/UpdateNotificationBanner';
-import { AppCloudWaitlistBanner } from './components/AppCloudWaitlistBanner';
+import { AppShellBanners } from './components/AppShellBanners';
 import { DesktopRequiredModal } from './components/DesktopRequiredModal';
 import { useDesktopFeatureGate } from './hooks/useDesktopFeatureGate';
 import { useRerunFailed } from './hooks/useRerunFailed';
@@ -326,8 +325,7 @@ export default function App() {
         setSelectedSvcId={setSelectedSvcId}
       />
     <div className={`app ${sidebarCollapsed ? '' : 'sidebar-visible'}`}>
-      <UpdateNotificationBanner />
-      <AppCloudWaitlistBanner />
+      <AppShellBanners />
       {desktopRequiredFeature && (
         <DesktopRequiredModal
           featureName={desktopRequiredFeature}
