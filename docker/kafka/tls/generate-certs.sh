@@ -22,7 +22,7 @@ rm -rf "$CERTS_DIR"
 mkdir -p "$CERTS_DIR"
 
 echo "Generating CA key and certificate..."
-openssl req -new -x509 -days 365 -nodes \
+openssl req -new -x509 -days 3650 -nodes \
   -keyout "$CERTS_DIR/ca.key" \
   -out "$CERTS_DIR/ca.crt" \
   -subj "/C=US/ST=Test/L=Test/O=RedfireForge/CN=RedfireForge-CA"
@@ -44,7 +44,7 @@ IP.1  = 127.0.0.1
 EOF
 
 echo "Signing broker certificate with CA..."
-openssl x509 -req -days 365 \
+openssl x509 -req -days 3650 \
   -in "$CERTS_DIR/broker.csr" \
   -CA "$CERTS_DIR/ca.crt" \
   -CAkey "$CERTS_DIR/ca.key" \
