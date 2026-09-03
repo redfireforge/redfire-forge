@@ -64,6 +64,17 @@ jobs:
               - 'e2e/**'
               - 'playwright.config.ts'
 
+  cert-expiry:
+    name: Demo TLS cert expiry
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: bash scripts/check-cert-expiry.sh
+      - run: node scripts/sync-demo-tls-certs.js --check
+
   typecheck:
     name: TypeScript Check
     runs-on: ubuntu-latest
