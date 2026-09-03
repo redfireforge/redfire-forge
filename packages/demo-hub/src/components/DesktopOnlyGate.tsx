@@ -6,7 +6,7 @@
  *
  * Parent keeps Start Demo disabled while this shows.
  */
-import { LEARNING_HUB_DOWNLOAD_URL } from '../utils/dockerCommandDisplay';
+import { DOCKER_DESKTOP_INSTALL_URL, LEARNING_HUB_DOWNLOAD_URL } from '../utils/dockerCommandDisplay';
 
 interface DesktopOnlyGateProps {
   reason?: 'desktop-only' | 'docker-backend';
@@ -40,6 +40,19 @@ export default function DesktopOnlyGate({ reason = 'desktop-only' }: DesktopOnly
       >
         Download the Learning Hub desktop app →
       </a>
+      {isDocker && (
+        <p className="prereq-docker-hint" data-testid="desktop-only-gate-docker-hint">
+          Don't have Docker Desktop?{' '}
+          <a
+            href={DOCKER_DESKTOP_INSTALL_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Install it free →
+          </a>
+          {' '}A restart may be required after installing on Windows.
+        </p>
+      )}
     </div>
   );
 }

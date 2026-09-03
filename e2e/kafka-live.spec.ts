@@ -22,6 +22,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { seedAppData } from './helpers';
 import { isSchemaRegistryReachable, selectCustomOption } from './kafka-docker-helpers';
+import { seedSchemaRegistryOrdersValue } from './schema-registry-seed';
 
 // ── Skip entire suite when backend / Docker infra is not running ──────────────
 
@@ -213,6 +214,7 @@ test.describe('Kafka Message Studio — Live Docker', () => {
 
   test('Schema Registry — connects to localhost:8085 and browses subjects', async ({ page }) => {
     test.skip(!(await isSchemaRegistryReachable()), 'Skipped: Schema Registry (port 8085) not running');
+    await seedSchemaRegistryOrdersValue();
     await page.locator('button:has-text("Schema Registry")').first().click();
     await page.waitForTimeout(400);
 
