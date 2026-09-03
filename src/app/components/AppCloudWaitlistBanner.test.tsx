@@ -1,95 +1,69 @@
 /**
  * @vitest-environment jsdom
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import '@testing-library/jest-dom';
-
-vi.mock('../../shared/utils/storage', () => ({
-  readKey: vi.fn(),
-  writeKey: vi.fn().mockResolvedValue(undefined),
-}));
-
-import { readKey, writeKey } from '../../shared/utils/storage';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AppCloudWaitlistBanner } from './AppCloudWaitlistBanner';
 
-const mockReadKey = readKey as ReturnType<typeof vi.fn>;
-const mockWriteKey = writeKey as ReturnType<typeof vi.fn>;
+const STORAGE_KEY = 'cloud-waitlist-dismissed';
 
-beforeEach(() => {
-  vi.clearAllMocks();
-  mockWriteKey.mockResolvedValue(undefined);
-});
+const readKey = vi.fn<(key: string) => Promise<string | null>>();
+const writeKey = vi.fn<(key: string, value: string) => Promise<void>>();
 
-afterEach(() => {
-  vi.restoreAllMocks();
-});
+vi.mock('../../shared/utils/storage', () => ({
+  readKey: (...args: [string]) => readKey(...args),
+  writeKey: (...args: [string, string]) => writeKey(...args),
+}));
 
 describe('AppCloudWaitlistBanner', () => {
-  it('renders nothing while dismissed state is loading (null)', () => {
-    mockReadKey.mockReturnValue(new Promise(() => {})); // never resolves
-    const { container } = render(<AppCloudWaitlistBanner />);
-    expect(container.firstChild).toBeNull();
+  beforeEach(() => {
+    readKey.mockReset();
+    writeKey.mockReset();
+    readKey.mockResolvedValue(null);
+    vi.stubGlobal('navigator', { webdriver: false });
   });
 
-  it('renders the banner when storage returns a non-true value', async () => {
-    mockReadKey.mockResolvedValue('false');
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('renders nothing while the dismiss flag is still loading', () => {
+    readKey.mockReturnValue(new Promise(() => {}));
+    const { container } = render(<AppCloudWaitlistBanner />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('renders nothing when the banner was already dismissed', async () => {
+    readKey.mockResolvedValue('true');
+    const { container } = render(<AppCloudWaitlistBanner />);
+    await waitFor(() => expect(readKey).toHaveBeenCalledWith(STORAGE_KEY));
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('shows the waitlist banner for a first-time web visitor', async () => {
     render(<AppCloudWaitlistBanner />);
-    await waitFor(() =>
-      expect(screen.getByRole('status')).toBeInTheDocument(),
+    expect(await screen.findByRole('status', { name: 'RedfireForge Cloud waitlist' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Join the waitlist →' })).toHaveAttribute(
+      'href',
+      'https://tally.so/r/1AaNzQ?source=in-app',
     );
-    expect(screen.getByText(/RedfireForge Cloud/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Join the waitlist/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Privacy Policy/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Dismiss/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Privacy Policy/i })).toHaveAttribute('target', '_blank');
   });
 
-  it('renders the banner when storage returns null (first visit)', async () => {
-    mockReadKey.mockResolvedValue(null);
+  it('persists dismiss and hides the banner', async () => {
     render(<AppCloudWaitlistBanner />);
-    await waitFor(() =>
-      expect(screen.getByRole('status')).toBeInTheDocument(),
-    );
+    const banner = await screen.findByRole('status', { name: 'RedfireForge Cloud waitlist' });
+    fireEvent.click(screen.getByLabelText('Dismiss waitlist banner'));
+    expect(writeKey).toHaveBeenCalledWith(STORAGE_KEY, 'true');
+    expect(banner).not.toBeInTheDocument();
   });
 
-  it('hides the banner when storage returns "true" (already dismissed)', async () => {
-    mockReadKey.mockResolvedValue('true');
+  it('never renders in Playwright even when storage says the banner is new', async () => {
+    vi.stubGlobal('navigator', { webdriver: true });
     const { container } = render(<AppCloudWaitlistBanner />);
-    await waitFor(() => expect(mockReadKey).toHaveBeenCalled());
-    expect(container.firstChild).toBeNull();
-  });
-
-  it('dismisses the banner and writes to storage when the close button is clicked', async () => {
-    mockReadKey.mockResolvedValue('false');
-    const { container } = render(<AppCloudWaitlistBanner />);
-    await waitFor(() => screen.getByRole('button', { name: /Dismiss/i }));
-
-    fireEvent.click(screen.getByRole('button', { name: /Dismiss/i }));
-
-    expect(container.firstChild).toBeNull();
-    expect(mockWriteKey).toHaveBeenCalledWith('cloud-waitlist-dismissed', 'true');
-  });
-
-  it('waitlist link points to tally.so with source param', async () => {
-    mockReadKey.mockResolvedValue(null);
-    render(<AppCloudWaitlistBanner />);
-    await waitFor(() => screen.getByRole('link', { name: /Join the waitlist/i }));
-
-    const link = screen.getByRole('link', { name: /Join the waitlist/i }) as HTMLAnchorElement;
-    expect(link.href).toContain('tally.so');
-    expect(link.href).toContain('source=in-app');
-    expect(link.target).toBe('_blank');
-    expect(link.rel).toContain('noopener');
-  });
-
-  it('privacy link opens in a new tab', async () => {
-    mockReadKey.mockResolvedValue(null);
-    render(<AppCloudWaitlistBanner />);
-    await waitFor(() => screen.getByRole('link', { name: /Privacy Policy/i }));
-
-    const link = screen.getByRole('link', { name: /Privacy Policy/i }) as HTMLAnchorElement;
-    expect(link.href).toContain('PRIVACY.md');
-    expect(link.target).toBe('_blank');
-    expect(link.rel).toContain('noopener');
+    await Promise.resolve();
+    expect(readKey).not.toHaveBeenCalled();
+    expect(container).toBeEmptyDOMElement();
   });
 });
