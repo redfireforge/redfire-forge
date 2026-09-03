@@ -10,6 +10,7 @@ import { resetDockerPrefetchStore } from '../stores/dockerPrefetchStore';
 import { resetPrefetchListenerForTests } from '../hooks/useDockerImagePrefetch';
 
 const getStackStatus = vi.fn();
+const checkDockerState = vi.fn();
 const stopDockerStack = vi.fn();
 const stopAllStacks = vi.fn();
 const getStopOnClose = vi.fn();
@@ -32,6 +33,7 @@ vi.mock('../utils/dockerStackApi', async (importOriginal) => {
   return {
     ...actual,
     getStackStatus: (...a: unknown[]) => getStackStatus(...a),
+    checkDockerState: (...a: unknown[]) => checkDockerState(...a),
     stopDockerStack: (...a: unknown[]) => stopDockerStack(...a),
     stopAllStacks: (...a: unknown[]) => stopAllStacks(...a),
     getStopOnClose: (...a: unknown[]) => getStopOnClose(...a),
@@ -62,8 +64,9 @@ describe('DockerStacksSettings', () => {
     cancelPrefetch.mockResolvedValue(undefined);
     isPrefetchRunning.mockResolvedValue(false);
     getStackStatus.mockResolvedValue(false);
+    checkDockerState.mockResolvedValue('running');
     stopDockerStack.mockResolvedValue(undefined);
-    stopAllStacks.mockResolvedValue(undefined);
+    stopAllStacks.mockResolvedValue(true);
     getStopOnClose.mockResolvedValue(true);
     setStopOnClose.mockResolvedValue(undefined);
     getDockerImageSizes.mockResolvedValue([
@@ -86,6 +89,17 @@ describe('DockerStacksSettings', () => {
     expect(screen.getByTestId('docker-settings-row-kafka-plaintext').textContent).toContain('Not running');
   });
 
+  it('does not probe compose status when Docker Desktop is down', async () => {
+    checkDockerState.mockResolvedValue('notRunning');
+    getStackStatus.mockImplementation(async (key: string) => key === 'graphql');
+    render(<DockerStacksSettings confirm={confirm} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('docker-settings-row-graphql').textContent).toContain('Not running');
+    });
+    expect(screen.queryByTestId('docker-settings-stop-graphql')).toBeNull();
+    expect(screen.queryByTestId('docker-settings-stop-all')).toBeNull();
+  });
+
   it('stops one stack and stop-all', async () => {
     getStackStatus.mockResolvedValue(true);
     render(<DockerStacksSettings confirm={confirm} />);
@@ -94,6 +108,37 @@ describe('DockerStacksSettings', () => {
     await waitFor(() => expect(stopDockerStack).toHaveBeenCalledWith('graphql'));
     fireEvent.click(screen.getByTestId('docker-settings-stop-all'));
     await waitFor(() => expect(stopAllStacks).toHaveBeenCalled());
+  });
+
+  it('does not mark stacks stopped when stop-all did not run', async () => {
+    getStackStatus.mockResolvedValue(true);
+    stopAllStacks.mockResolvedValue(false);
+    render(<DockerStacksSettings confirm={confirm} />);
+    await waitFor(() => expect(screen.getByTestId('docker-settings-stop-all')).toBeTruthy());
+    fireEvent.click(screen.getByTestId('docker-settings-stop-all'));
+    await waitFor(() => expect(screen.getByTestId('docker-settings-action-error').textContent).toMatch(/helper unavailable/i));
+    expect(screen.getByTestId('docker-settings-stop-graphql')).toBeTruthy();
+  });
+
+  it('does not mark stacks stopped when stop-all ran but status is unknown', async () => {
+    getStackStatus.mockResolvedValue(true);
+    stopAllStacks.mockResolvedValue(true);
+    render(<DockerStacksSettings confirm={confirm} />);
+    await waitFor(() => expect(screen.getByTestId('docker-settings-stop-all')).toBeTruthy());
+    getStackStatus.mockResolvedValue(null);
+    fireEvent.click(screen.getByTestId('docker-settings-stop-all'));
+    await waitFor(() => expect(stopAllStacks).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByTestId('docker-settings-stop-graphql')).toBeTruthy());
+  });
+
+  it('hides Stop all after stop-all when status reports every stack down', async () => {
+    getStackStatus.mockResolvedValue(true);
+    stopAllStacks.mockResolvedValue(true);
+    render(<DockerStacksSettings confirm={confirm} />);
+    await waitFor(() => expect(screen.getByTestId('docker-settings-stop-all')).toBeTruthy());
+    getStackStatus.mockResolvedValue(false);
+    fireEvent.click(screen.getByTestId('docker-settings-stop-all'));
+    await waitFor(() => expect(screen.queryByTestId('docker-settings-stop-all')).toBeNull());
   });
 
   it('clears grpc siblings when Stop downs the shared project', async () => {
@@ -117,6 +162,17 @@ describe('DockerStacksSettings', () => {
     fireEvent.click(screen.getByTestId('docker-settings-stop-graphql'));
     await waitFor(() => expect(screen.getByTestId('docker-settings-action-error').textContent).toContain('down failed'));
     expect(screen.getByTestId('docker-settings-stop-graphql')).toBeTruthy();
+  });
+
+  it('clears a Stop row after a failed down if compose is already gone', async () => {
+    getStackStatus.mockImplementation(async (key: string) => key === 'graphql');
+    stopDockerStack.mockRejectedValue(new Error('docker compose down failed'));
+    render(<DockerStacksSettings confirm={confirm} />);
+    await waitFor(() => expect(screen.getByTestId('docker-settings-stop-graphql')).toBeTruthy());
+    getStackStatus.mockResolvedValue(false);
+    fireEvent.click(screen.getByTestId('docker-settings-stop-graphql'));
+    await waitFor(() => expect(screen.getByTestId('docker-settings-action-error').textContent).toContain('down failed'));
+    await waitFor(() => expect(screen.queryByTestId('docker-settings-stop-graphql')).toBeNull());
   });
 
   it('persists the stop-on-close toggle', async () => {
