@@ -204,6 +204,12 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Check TLS cert expiry
+        if: matrix.variant == 'demo' && !startsWith(matrix.platform, 'windows')
+        run: |
+          bash scripts/check-cert-expiry.sh
+          node scripts/sync-demo-tls-certs.js --check
+
       - name: Set macOS signing identity (only when a real cert is configured)
         # Tauri v2 calls `security import` whenever APPLE_CERTIFICATE is present
         # in the environment — even as an empty string — because it checks
