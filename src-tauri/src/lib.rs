@@ -181,12 +181,7 @@ pub fn run() {
       lifecycle::start_orphan_supervisor(grpc_state.inner().clone());
       companion::start(app.handle());
 
-      {
-        let app_handle = app.handle().clone();
-        tauri::async_runtime::spawn(async move {
-          docker_stack::extract_docker_resources_if_needed(&app_handle);
-        });
-      }
+      docker_stack::extract_docker_resources_if_needed(app.handle());
 
       if cfg!(debug_assertions) {
         app.handle().plugin(
@@ -209,23 +204,19 @@ pub fn run() {
     .build(tauri::generate_context!())
     .expect("error while running tauri application")
     .run(|app_handle, event| {
-      if let tauri::RunEvent::Exit = event {
-        let state = app_handle.state::<GrpcState>();
-        lifecycle::shutdown_all(&state);
-        let _ = grpc::mock_server::shutdown_all_mock_listeners();
-        api_mock::shutdown_all_listeners(&app_handle.state::<api_mock::ApiMockNativeState>());
-        companion::stop(app_handle);
-        docker_stack::kill_prefetch_on_exit();
-        if docker_stack::read_stop_on_close(app_handle) {
-          let stop_app = app_handle.clone();
-          tauri::async_runtime::block_on(async move {
-            let _ = tokio::time::timeout(
-              std::time::Duration::from_secs(30),
-              docker_stack::stop_all_stacks(stop_app),
-            )
-            .await;
-          });
+      match event {
+        tauri::RunEvent::ExitRequested { .. } => {
+          docker_stack::on_app_exit(app_handle);
         }
+        tauri::RunEvent::Exit => {
+          let state = app_handle.state::<GrpcState>();
+          lifecycle::shutdown_all(&state);
+          let _ = grpc::mock_server::shutdown_all_mock_listeners();
+          api_mock::shutdown_all_listeners(&app_handle.state::<api_mock::ApiMockNativeState>());
+          companion::stop(app_handle);
+          docker_stack::on_app_exit(app_handle);
+        }
+        _ => {}
       }
     });
 }
