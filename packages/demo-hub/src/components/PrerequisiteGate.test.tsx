@@ -27,6 +27,10 @@ vi.mock('./DockerStackControls', () => ({
   default: () => <div data-testid="docker-stack-controls" />,
 }));
 
+vi.mock('../hooks/useLocalDockerHelper', () => ({
+  useLocalDockerHelper: vi.fn(() => ({ enabled: false, helperOk: false })),
+}));
+
 vi.mock('../utils/dockerStack', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../utils/dockerStack')>();
   return {
@@ -39,6 +43,7 @@ import { checkEndpoint } from '../utils/checkEndpoint';
 import { countUserTabsInStorage } from '../adapters';
 import { resolveExtractedDockerStackPath } from '../utils/dockerStack';
 import { isTauri } from '@shared/utils/platform';
+import { useLocalDockerHelper } from '../hooks/useLocalDockerHelper';
 const mockCheck = checkEndpoint as ReturnType<typeof vi.fn>;
 const mockCountUserTabs = vi.mocked(countUserTabsInStorage);
 
@@ -55,6 +60,7 @@ describe('PrerequisiteGate', () => {
     mockCountUserTabs.mockResolvedValue(0);
     vi.mocked(resolveExtractedDockerStackPath).mockResolvedValue(null);
     vi.mocked(isTauri).mockReturnValue(false);
+    vi.mocked(useLocalDockerHelper).mockReturnValue({ enabled: false, helperOk: false });
     DEFAULT_PROPS.onServerReady = vi.fn();
   });
 
@@ -548,6 +554,45 @@ describe('PrerequisiteGate', () => {
       await Promise.resolve();
     });
     expect(btn.textContent).toBe('Copy');
+  });
+
+  it('does not mount Start Stack on a hosted hostname', async () => {
+    vi.mocked(useLocalDockerHelper).mockReturnValue({ enabled: false, helperOk: false });
+    render(
+      <PrerequisiteGate
+        {...DEFAULT_PROPS}
+        stackKey="graphql"
+      />,
+    );
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    expect(screen.queryByTestId('docker-stack-controls')).toBeNull();
+  });
+
+  it('does not mount Start Stack on web when the helper is down', async () => {
+    render(
+      <PrerequisiteGate
+        {...DEFAULT_PROPS}
+        stackKey="graphql"
+      />,
+    );
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    expect(screen.queryByTestId('docker-stack-controls')).toBeNull();
+    expect(screen.getByText('Run this command in a terminal:')).toBeTruthy();
+  });
+
+  it('mounts Start Stack and keeps the clone preamble when the helper is up', async () => {
+    vi.mocked(useLocalDockerHelper).mockReturnValue({ enabled: true, helperOk: true });
+    render(
+      <PrerequisiteGate
+        {...DEFAULT_PROPS}
+        stackKey="graphql"
+      />,
+    );
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    expect(screen.getByTestId('docker-stack-controls')).toBeTruthy();
+    expect(screen.getByText('Or run this command in a terminal:')).toBeTruthy();
+    const text = screen.getByTestId('prereq-command').textContent ?? '';
+    expect(text).toContain('git clone https://github.com/redfireforge/redfireforge-public.git');
   });
 
   it('shows clone preamble on first paint on web even when stackKey is set', () => {
