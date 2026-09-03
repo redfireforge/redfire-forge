@@ -112,6 +112,8 @@ describe('isDockerLessonBlockedOnWeb', () => {
   it('returns true on a hosted domain when lesson has dockerEndpoint', () => {
     vi.stubGlobal('window', { location: { hostname: 'demo.redfireforge.com' } });
     expect(isDockerLessonBlockedOnWeb(dockerLesson)).toBe(true);
+    vi.stubGlobal('window', { location: { hostname: 'app.redfireforge.com' } });
+    expect(isDockerLessonBlockedOnWeb(dockerLesson)).toBe(true);
   });
 
   it('returns true when lesson uses dockerEndpoints array on a hosted domain', () => {
@@ -142,6 +144,11 @@ describe('isDockerLessonBlockedOnWeb', () => {
     expect(isLocalDemoWebHost('127.999.0.1')).toBe(false);
     expect(isLocalDemoWebHost('demo.redfireforge.com')).toBe(false);
     expect(isLocalDemoWebHost('192.168.1.10')).toBe(false);
+  });
+
+  it('treats app.localhost as local so helper enablement is not the narrow isLocalhost() list', () => {
+    expect(isLocalDemoWebHost('app.localhost')).toBe(true);
+    expect(isLocalDemoWebHost('demo.redfireforge.com')).toBe(false);
   });
 
   it('returns false on IPv4-mapped IPv6 loopback (local dev)', () => {
