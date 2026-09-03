@@ -7,6 +7,7 @@ mod grpc;
 mod kafka;
 mod websocket;
 mod api_mock;
+mod docker_stack;
 pub mod date_helpers;
 pub mod histogram;
 pub mod deep_compare;
@@ -143,6 +144,29 @@ pub fn run() {
       api_mock::commands::api_mock_listener_recorded_drafts_clear,
       api_mock::commands::api_mock_ports_next,
       api_mock::commands::api_mock_ports_probe,
+      docker_stack::extract::get_docker_stack_path,
+      docker_stack::state::check_docker_state,
+      docker_stack::state::open_docker_desktop,
+      docker_stack::lifecycle::get_stack_status,
+      docker_stack::lifecycle::get_stack_manifest,
+      docker_stack::lifecycle::start_docker_stack,
+      docker_stack::lifecycle::stop_docker_stack,
+      docker_stack::lifecycle::stop_all_stacks,
+      docker_stack::lifecycle::check_stale_stacks,
+      docker_stack::state::check_cert_expiry,
+      docker_stack::state::get_docker_available_memory_mb,
+      docker_stack::state::trigger_app_update_check,
+      docker_stack::lifecycle::uninstall_cleanup,
+      docker_stack::lifecycle::read_last_run_log,
+      docker_stack::prefs::get_stop_on_close,
+      docker_stack::prefs::set_stop_on_close,
+      docker_stack::images::get_docker_image_sizes,
+      docker_stack::images::remove_docker_images,
+      docker_stack::prefs::get_prefetch_choice,
+      docker_stack::prefs::set_prefetch_choice,
+      docker_stack::prefetch::prefetch_docker_images,
+      docker_stack::prefetch::cancel_prefetch,
+      docker_stack::prefetch::is_prefetch_running,
     ]);
 
   #[cfg(debug_assertions)]
@@ -156,6 +180,13 @@ pub fn run() {
       let grpc_state = app.state::<GrpcState>();
       lifecycle::start_orphan_supervisor(grpc_state.inner().clone());
       companion::start(app.handle());
+
+      {
+        let app_handle = app.handle().clone();
+        tauri::async_runtime::spawn(async move {
+          docker_stack::extract_docker_resources_if_needed(&app_handle);
+        });
+      }
 
       if cfg!(debug_assertions) {
         app.handle().plugin(
@@ -184,6 +215,17 @@ pub fn run() {
         let _ = grpc::mock_server::shutdown_all_mock_listeners();
         api_mock::shutdown_all_listeners(&app_handle.state::<api_mock::ApiMockNativeState>());
         companion::stop(app_handle);
+        docker_stack::kill_prefetch_on_exit();
+        if docker_stack::read_stop_on_close(app_handle) {
+          let stop_app = app_handle.clone();
+          tauri::async_runtime::block_on(async move {
+            let _ = tokio::time::timeout(
+              std::time::Duration::from_secs(30),
+              docker_stack::stop_all_stacks(stop_app),
+            )
+            .await;
+          });
+        }
       }
     });
 }
