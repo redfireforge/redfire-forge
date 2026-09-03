@@ -28,6 +28,7 @@ import {
   rewriteDockerCommandPath,
 } from '../utils/dockerStack';
 import type { DockerStackKey } from '../types';
+import { useLocalDockerHelper } from '../hooks/useLocalDockerHelper';
 import DockerStackControls from './DockerStackControls';
 import {
   countUserTabsInStorage,
@@ -87,6 +88,8 @@ export default function PrerequisiteGate({
     () => probeEndpoints.map((url, i) => endpointLabels?.[i] ?? deriveEndpointLabel(url)),
     [probeEndpoints, endpointLabels],
   );
+  const { helperOk } = useLocalDockerHelper();
+  const showDockerControls = Boolean(stackKey && (isTauri() || helperOk));
   const [probeState, setProbeState] = useState<ProbeState>(initiallyCleared ? 'up' : 'idle');
   const [serviceStates, setServiceStates] = useState<ProbeState[]>([]);
   const [tabCapacityState, setTabCapacityState] = useState<TabCapacityState>('idle');
@@ -326,7 +329,7 @@ export default function PrerequisiteGate({
         </ul>
       )}
 
-      {isTauri() && stackKey && (
+      {showDockerControls && stackKey && (
         <DockerStackControls
           stackKey={stackKey}
           buildOnStart={lessonWantsComposeBuild(dockerCommand)}
@@ -335,7 +338,7 @@ export default function PrerequisiteGate({
 
       <div className="prereq-instruction">
         <p className="prereq-instruction-title">
-          {isTauri() && stackKey
+          {showDockerControls
             ? 'Or run this command in a terminal:'
             : 'Run this command in a terminal:'}
         </p>
