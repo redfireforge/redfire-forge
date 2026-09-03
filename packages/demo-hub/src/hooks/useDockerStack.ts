@@ -3,9 +3,11 @@ import { isTauri } from '@shared/utils/platform';
 import type { DockerStackKey } from '../types';
 import { getStackLogs, useDockerStacks } from '../stores/dockerStackStore';
 import { dockerStackSiblings, markDockerStackStopped } from '../utils/dockerStack';
+import { useLocalDockerHelper } from './useLocalDockerHelper';
+import { certExpiryFromIsoDate } from '../utils/localDockerApi';
 import {
-  checkCertExpiry,
   checkDockerState,
+  daemonStateFromStartFailed,
   getDockerAvailableMemoryMb,
   getStackManifest,
   getStackStatus,
@@ -77,6 +79,8 @@ export function useDockerStack(
   const [certExpiry, setCertExpiry] = useState<CertExpiryStatus | null>(null);
   const [certReady, setCertReady] = useState(!isTauri());
   const [lowMemory, setLowMemory] = useState<LowMemoryWarning | null>(null);
+  const [memorySpec, setMemorySpec] = useState<{ stackKey: DockerStackKey; min: number } | null>(null);
+  const memGenRef = useRef(0);
   const [logsOpen, setLogsOpen] = useState(false);
   const [logsHydrated, setLogsHydrated] = useState(!isTauri());
   const [conflictPorts, setConflictPorts] = useState('');
@@ -93,10 +97,16 @@ export function useDockerStack(
   const storeKeyRef = useRef<DockerStackKey | undefined>(undefined);
   const wasStoreRunningRef = useRef(false);
   const f3SeenRunningRef = useRef<Set<DockerStackKey>>(new Set());
-  const ready = Boolean(isTauri() && stackKey);
+  const { helperOk } = useLocalDockerHelper();
+  const ready = Boolean(stackKey && (isTauri() || helperOk));
 
   const waitingForDaemon = (state: DockerControlState) =>
-    state === 'checking' || state === 'not-installed' || state === 'not-running';
+    state === 'checking'
+    || state === 'not-installed'
+    || state === 'not-running'
+    || state === 'outdated-compose'
+    || state === 'stack-stopped'
+    || state === 'stack-running';
 
   const isStartOutcome = (state: DockerControlState) =>
     state === 'stack-starting'
@@ -104,6 +114,30 @@ export function useDockerStack(
     || state === 'port-conflict'
     || state === 'stack-limit-reached'
     || state === 'oom-killed';
+
+  const isBlockedDaemonState = (state: DockerControlState) =>
+    state === 'not-installed'
+    || state === 'not-running'
+    || state === 'outdated-compose';
+
+  const applyBlockedDaemon = (state: DockerDaemonState): boolean => {
+    if (state === 'notInstalled') {
+      setDaemon(state);
+      setControlState('not-installed');
+      return true;
+    }
+    if (state === 'notRunning') {
+      setDaemon(state);
+      setControlState('not-running');
+      return true;
+    }
+    if (state === 'outdatedCompose') {
+      setDaemon(state);
+      setControlState('outdated-compose');
+      return true;
+    }
+    return false;
+  };
 
   useEffect(() => {
     if (!ready || !stackKey) {
@@ -136,69 +170,89 @@ export function useDockerStack(
   useEffect(() => {
     if (!ready || !stackKey) return;
     let cancelled = false;
+    let inFlight = false;
 
     const applyDaemon = async () => {
-      const stopGen = externalStopGenRef.current;
-      const abandonIfExternallyStopped = () => {
-        if (externalStopGenRef.current === stopGen) return false;
-        setRunning(stackKey, false);
-        if (!isStartOutcome(controlStateRef.current)) {
+      // GET /state?running=0 waits on docker info only. Overlapping 3s polls
+      // pile up and a late failure can overwrite a newer reading.
+      if (inFlight) return false;
+      inFlight = true;
+      try {
+        const stopGen = externalStopGenRef.current;
+        const abandonIfExternallyStopped = () => {
+          if (externalStopGenRef.current === stopGen) return false;
+          setRunning(stackKey, false);
+          if (
+            !isStartOutcome(controlStateRef.current)
+            && !isBlockedDaemonState(controlStateRef.current)
+          ) {
+            setControlState('stack-stopped');
+          }
+          return true;
+        };
+        const state = await checkDockerState();
+        if (cancelled) return false;
+        if (abandonIfExternallyStopped()) return true;
+        // A late daemon probe must not wipe F3 / F2 / OOM / start-failed / starting.
+        if (isStartOutcome(controlStateRef.current)) {
+          if (state) setDaemon(state);
+          return true;
+        }
+        if (!state) {
+          // null = probe failed (helper/network/invoke) — not Docker Desktop down.
+          setDaemon(null);
+          // Stay on a known gate. Dropping to `checking` disables Start
+          // (State C) / Open Docker Desktop (State B), and a later flaky
+          // `compose ps` can mark a live stack stopped.
+          if (
+            isStartOutcome(controlStateRef.current)
+            || isBlockedDaemonState(controlStateRef.current)
+            || controlStateRef.current === 'stack-running'
+            || controlStateRef.current === 'stack-stopped'
+          ) {
+            return false;
+          }
+          setControlState('checking');
+          return false;
+        }
+        if (applyBlockedDaemon(state)) {
+          // Docker quit during State E — do not leave Stop enabled.
+          setRunning(stackKey, false);
+          return false;
+        }
+        setDaemon(state);
+        // State E: docker-info only. A flaky compose ps would look like a crash.
+        if (controlStateRef.current === 'stack-running') {
+          return true;
+        }
+        const status = await getStackStatus(stackKey);
+        if (cancelled) return false;
+        if (isStartOutcome(controlStateRef.current)) {
+          return true;
+        }
+        if (abandonIfExternallyStopped()) return true;
+        // `null` is a failed probe — do not pretend the stack is stopped
+        // (that offered Start on a live stack / a third slot). Stay on
+        // checking so the 3s interval retries. An explicit `false` wins
+        // over a stale in-memory running flag (crashed / stopped elsewhere).
+        if (status === true) {
+          setRunning(stackKey, true);
+          setControlState('stack-running');
+        } else if (status === false) {
+          setRunning(stackKey, false);
           setControlState('stack-stopped');
+        } else if (isRunning(stackKey)) {
+          setControlState('stack-running');
         }
         return true;
-      };
-      const state = await checkDockerState();
-      if (cancelled) return false;
-      if (abandonIfExternallyStopped()) return true;
-      // A late daemon probe must not wipe F3 / F2 / OOM / start-failed / starting.
-      if (isStartOutcome(controlStateRef.current)) {
-        if (state) setDaemon(state);
-        return true;
+      } finally {
+        inFlight = false;
       }
-      if (!state) {
-        setDaemon(null);
-        setControlState('not-running');
-        return false;
-      }
-      setDaemon(state);
-      if (state === 'notInstalled') {
-        setControlState('not-installed');
-        return false;
-      }
-      if (state === 'notRunning') {
-        setControlState('not-running');
-        return false;
-      }
-      if (state === 'outdatedCompose') {
-        setControlState('outdated-compose');
-        return false;
-      }
-      const status = await getStackStatus(stackKey);
-      if (cancelled) return false;
-      if (isStartOutcome(controlStateRef.current)) {
-        return true;
-      }
-      if (abandonIfExternallyStopped()) return true;
-      // `null` is a failed probe — do not pretend the stack is stopped
-      // (that offered Start on a live stack / a third slot). Stay on
-      // checking so the 3s interval retries. An explicit `false` wins
-      // over a stale in-memory running flag (crashed / stopped elsewhere).
-      if (status === true) {
-        setRunning(stackKey, true);
-        setControlState('stack-running');
-      } else if (status === false) {
-        setRunning(stackKey, false);
-        setControlState('stack-stopped');
-      } else if (isRunning(stackKey)) {
-        setControlState('stack-running');
-      }
-      return true;
     };
 
     void applyDaemon();
 
-    // State B: Docker Desktop can take a while after "Open" — keep probing
-    // only while the gate is still waiting on the daemon.
+    // State B / C / E: keep probing the daemon (State E is docker-info only).
     const interval = window.setInterval(() => {
       if (cancelled || !waitingForDaemon(controlStateRef.current)) return;
       void applyDaemon();
@@ -228,50 +282,67 @@ export function useDockerStack(
     const up = running.has(stackKey);
     if (wasStoreRunningRef.current && !up) {
       externalStopGenRef.current += 1;
-      if (!isStartOutcome(controlStateRef.current)) {
+      // Stop-after-quit already mapped to State A / B / B2 — do not overwrite.
+      if (!isStartOutcome(controlStateRef.current) && !isBlockedDaemonState(controlStateRef.current)) {
         setControlState('stack-stopped');
       }
+      // Settings Stop writes last-run but does not call this hook's stopStack.
+      const key = stackKey;
+      const gen = ++hydrateGenRef.current;
+      void readLastRunLog(key).then((content) => {
+        if (hydrateGenRef.current !== gen) return;
+        const lines = parseLastRunLogText(content);
+        const current = getStackLogs(key);
+        if (lines.length > current.length) replaceLogs(key, lines);
+      });
     } else if (up && controlStateRef.current === 'stack-stopped') {
       setControlState('stack-running');
     }
     wasStoreRunningRef.current = up;
-  }, [ready, stackKey, running]);
+  }, [ready, stackKey, running, replaceLogs]);
 
   useEffect(() => {
     if (!ready || !stackKey) {
       setCertReady(true);
+      setMemorySpec(null);
       return;
     }
     setCertReady(false);
+    setCertExpiry(null);
+    setLowMemory(null);
+    setMemorySpec(null);
     let cancelled = false;
     let interval: number | undefined;
 
     const run = async (): Promise<boolean> => {
       let probeKnown = false;
       try {
-        const [cert, manifest, avail] = await Promise.all([
-          checkCertExpiry(stackKey),
-          getStackManifest(stackKey),
-          getDockerAvailableMemoryMb(),
-        ]);
+        // One manifest read. checkCertExpiry on web is a second GET /manifest
+        // (and on desktop a second invoke) — derive UTC days here instead.
+        // Do not wait on GET /memory (`docker info`, up to 10s).
+        const manifest = await getStackManifest(stackKey);
         if (cancelled) return true;
+        const cert = manifest ? certExpiryFromIsoDate(manifest.certExpiresAt) : null;
         if (cert) {
           setCertExpiry(cert);
           probeKnown = true;
         } else if (manifest?.certExpiresAt) {
-          // Probe failed on a TLS stack — keep Start disabled.
+          // Unreadable date on a TLS stack — keep Start disabled.
           // Do not fake daysRemaining 0 (that showed State H for a valid cert).
           probeKnown = false;
         } else if (manifest) {
           probeKnown = true;
         } else {
-          // Cert and manifest both unknown — do not treat that as non-TLS.
+          // Manifest unknown — do not treat that as non-TLS.
           probeKnown = false;
         }
         const min = manifest?.minMemoryMb ?? null;
-        if (avail != null && min != null && avail < min) {
-          setLowMemory({ availableMb: avail, recommendedMb: min });
-        }
+        setMemorySpec((prev) => {
+          if (min == null) return null;
+          if (prev && prev.stackKey === stackKey && prev.min === min) return prev;
+          return { stackKey, min };
+        });
+        if (min == null) setLowMemory(null);
       } finally {
         if (!cancelled) setCertReady(probeKnown);
       }
@@ -295,14 +366,46 @@ export function useDockerStack(
     };
   }, [ready, stackKey]);
 
+  // Banner is advisory before Start. Skip docker info while Desktop is down
+  // (State B) and re-probe once the daemon is running.
+  useEffect(() => {
+    if (
+      !ready
+      || !stackKey
+      || memorySpec == null
+      || memorySpec.stackKey !== stackKey
+      || daemon !== 'running'
+    ) {
+      if (memorySpec == null || memorySpec.stackKey !== stackKey || daemon !== 'running') {
+        setLowMemory(null);
+      }
+      return;
+    }
+    const min = memorySpec.min;
+    let cancelled = false;
+    const thisMem = ++memGenRef.current;
+    void getDockerAvailableMemoryMb()
+      .then((avail) => {
+        if (cancelled || thisMem !== memGenRef.current) return;
+        if (avail != null) {
+          setLowMemory(avail < min ? { availableMb: avail, recommendedMb: min } : null);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, stackKey, memorySpec, daemon]);
+
   useEffect(() => {
     if (!ready || !stackKey) return;
     let cancelled = false;
     let unlisten: (() => void) | undefined;
+    const ac = new AbortController();
     const attachLogs = () =>
       listenDockerLogs((event) => {
         if (event.stackKey === stackKey) appendLog(stackKey, event.line);
-      }).then((fn) => {
+      }, ac.signal).then((fn) => {
         if (cancelled) {
           fn();
           return;
@@ -310,11 +413,12 @@ export function useDockerStack(
         unlisten = fn;
       });
     void attachLogs().catch(() => {
-      if (cancelled) return;
+      if (cancelled || ac.signal.aborted) return;
       void attachLogs().catch(() => {});
     });
     return () => {
       cancelled = true;
+      ac.abort();
       unlisten?.();
     };
   }, [ready, stackKey, appendLog]);
@@ -381,12 +485,15 @@ export function useDockerStack(
     actionLockRef.current = true;
     hadLimitKeysRef.current = false;
     const startGen = ++hydrateGenRef.current;
-    const applyLastRunIfEmpty = async () => {
-      if (hydrateGenRef.current !== startGen || getStackLogs(stackKey).length > 0) return;
+    const applyLastRunIfLonger = async () => {
+      if (hydrateGenRef.current !== startGen) return;
       const content = await readLastRunLog(stackKey);
-      if (hydrateGenRef.current !== startGen || getStackLogs(stackKey).length > 0) return;
+      if (hydrateGenRef.current !== startGen) return;
       const lines = parseLastRunLogText(content);
-      if (lines.length > 0) replaceLogs(stackKey, lines);
+      const current = getStackLogs(stackKey);
+      // Spawn ENOENT restores the previous file after SSE already sent
+      // `=== Starting`. Empty-only restore left Show logs on that one line.
+      if (lines.length > current.length) replaceLogs(stackKey, lines);
     };
     setLogsHydrated(true);
     setControlState('stack-starting');
@@ -438,6 +545,11 @@ export function useDockerStack(
         } else if (parsed.kind === 'start-cancelled') {
           markDockerStackStopped(stackKey, setRunning);
           setControlState('stack-stopped');
+        } else if (parsed.kind === 'start-failed') {
+          const daemonFromStart = daemonStateFromStartFailed(parsed.detail);
+          if (!daemonFromStart || !applyBlockedDaemon(daemonFromStart)) {
+            setControlState('start-failed');
+          }
         } else {
           setControlState('start-failed');
         }
@@ -450,16 +562,17 @@ export function useDockerStack(
     // PORT_CONFLICT / STACK_LIMIT return before truncate — restore the previous
     // file so Start's clearLogs does not blank Show logs in this session.
     if (restorePreviousRun) {
-      await applyLastRunIfEmpty();
+      await applyLastRunIfLonger();
     }
     // start-failed / success persist this attempt. If docker-log was not
     // subscribed yet the store can still be empty — fill from the file.
-    void applyLastRunIfEmpty();
+    void applyLastRunIfLonger();
   }, [stackKey, opts?.buildOnStart, setRunning, clearLogs, replaceLogs]);
 
   const stopStack = useCallback(async () => {
     if (!stackKey || actionLockRef.current) return;
     actionLockRef.current = true;
+    const stopGen = ++hydrateGenRef.current;
     setStopBusy(true);
     setLogsOpen(true);
     try {
@@ -467,12 +580,24 @@ export function useDockerStack(
       markDockerStackStopped(stackKey, setRunning);
       setControlState('stack-stopped');
     } catch {
-      setControlState('stack-running');
+      // Docker quit during State E — compose down fails; show A / B / B2 not Stop.
+      const state = await checkDockerState();
+      if (state && applyBlockedDaemon(state)) {
+        markDockerStackStopped(stackKey, setRunning);
+      } else {
+        setControlState('stack-running');
+      }
     } finally {
       actionLockRef.current = false;
       setStopBusy(false);
     }
-  }, [stackKey, setRunning]);
+    // Settings / a dropped EventSource can miss === Stack stopped ===.
+    const content = await readLastRunLog(stackKey);
+    if (hydrateGenRef.current !== stopGen) return;
+    const lines = parseLastRunLogText(content);
+    const current = getStackLogs(stackKey);
+    if (lines.length > current.length) replaceLogs(stackKey, lines);
+  }, [stackKey, setRunning, replaceLogs]);
 
   const stopLimitStack = useCallback(async (key: DockerStackKey) => {
     if (actionLockRef.current) return;
@@ -485,7 +610,11 @@ export function useDockerStack(
       const siblings = dockerStackSiblings(key);
       setLimitKeys((prev) => prev.filter((k) => !siblings.includes(k)));
     } catch {
-      /* keep F3 so the user can Retry or stop another */
+      const state = await checkDockerState();
+      if (state && applyBlockedDaemon(state)) {
+        markDockerStackStopped(key, setRunning);
+        setLimitKeys([]);
+      }
     } finally {
       actionLockRef.current = false;
       setStopBusy(false);
