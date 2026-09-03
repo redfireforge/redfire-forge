@@ -19,8 +19,10 @@ use super::ports::{check_port_conflicts, check_ports_free};
 use super::state::docker_available_memory_mb;
 use crate::companion::COMPANION_PORT;
 use std::collections::{HashMap, HashSet};
+use std::net::{SocketAddr, TcpStream};
 use std::path::Path;
 use std::process::Stdio;
+use std::time::Duration;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{LazyLock, Mutex as StdMutex};
 use tauri::{AppHandle, Emitter};
@@ -387,21 +389,11 @@ pub async fn get_stack_manifest(
     load_manifest(&dir, &stack_key)
 }
 
-async fn probe_http(url: &str, timeout_secs: u64) -> bool {
-    let client = match reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(timeout_secs))
-        .danger_accept_invalid_certs(true)
-        .build()
-    {
-        Ok(c) => c,
-        Err(_) => return false,
-    };
-    client
-        .get(url)
-        .send()
-        .await
-        .map(|r| r.status().is_success())
-        .unwrap_or(false)
+/// Loopback TCP connect — do not HTTP-GET through reqwest (corporate
+/// `ALL_PROXY` / `HTTP_PROXY` hijacks `127.0.0.1` and the companion looks down).
+fn probe_loopback_port(port: u16, timeout: Duration) -> bool {
+    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    TcpStream::connect_timeout(&addr, timeout).is_ok()
 }
 
 pub(crate) fn oom_in_compose_ps_json(text: &str) -> bool {
@@ -647,13 +639,12 @@ pub async fn start_docker_stack(
     emit_log(&app, &stack_key, "✓ compose project started");
 
     if manifest.requires_companion_probe {
-        let url = format!("http://127.0.0.1:{COMPANION_PORT}/health");
         emit_log(
             &app,
             &stack_key,
             format!("Checking gRPC companion server on port {COMPANION_PORT}..."),
         );
-        if probe_http(&url, 3).await {
+        if probe_loopback_port(COMPANION_PORT, Duration::from_secs(2)) {
             emit_log(&app, &stack_key, "✓ gRPC companion server ready");
         } else {
             emit_log(
@@ -953,5 +944,14 @@ mod tests {
         assert!(err.contains("Cannot verify running stacks"));
         assert!(err.contains("kafka-plaintext"));
         assert!(!err.contains("graphql:"));
+    }
+
+    #[test]
+    fn probe_loopback_port_sees_an_open_listener() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let port = listener.local_addr().expect("addr").port();
+        assert!(probe_loopback_port(port, Duration::from_secs(1)));
+        drop(listener);
+        assert!(!probe_loopback_port(port, Duration::from_millis(200)));
     }
 }
