@@ -22,6 +22,24 @@ fn is_not_found(err: &std::io::Error) -> bool {
     err.kind() == std::io::ErrorKind::NotFound
 }
 
+/// Result of `docker compose version` (Compose V1 is a failed/non-zero plugin).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ComposeVersionProbe {
+    Success,
+    BinaryNotFound,
+    Timeout,
+    Failed,
+}
+
+pub(crate) fn classify_compose_version_probe(probe: ComposeVersionProbe) -> DockerState {
+    match probe {
+        ComposeVersionProbe::Success => DockerState::Running,
+        ComposeVersionProbe::BinaryNotFound => DockerState::NotInstalled,
+        ComposeVersionProbe::Timeout => DockerState::NotRunning,
+        ComposeVersionProbe::Failed => DockerState::OutdatedCompose,
+    }
+}
+
 #[tauri::command]
 pub async fn check_docker_state() -> DockerState {
     let info = tokio::time::timeout(
@@ -43,12 +61,12 @@ pub async fn check_docker_state() -> DockerState {
     )
     .await;
 
-    match compose_check {
-        Ok(Ok(out)) if out.status.success() => DockerState::Running,
-        Ok(Err(e)) if is_not_found(&e) => DockerState::NotInstalled,
-        Err(_) => DockerState::NotRunning,
-        _ => DockerState::OutdatedCompose,
-    }
+    classify_compose_version_probe(match compose_check {
+        Ok(Ok(out)) if out.status.success() => ComposeVersionProbe::Success,
+        Ok(Err(e)) if is_not_found(&e) => ComposeVersionProbe::BinaryNotFound,
+        Err(_) => ComposeVersionProbe::Timeout,
+        _ => ComposeVersionProbe::Failed,
+    })
 }
 
 #[tauri::command]
@@ -196,6 +214,26 @@ mod tests {
     #[test]
     fn cert_days_remaining_rejects_bad_date() {
         assert!(cert_days_remaining("not-a-date").is_err());
+    }
+
+    #[test]
+    fn compose_v1_or_missing_plugin_is_outdated() {
+        assert_eq!(
+            classify_compose_version_probe(ComposeVersionProbe::Failed),
+            DockerState::OutdatedCompose
+        );
+        assert_eq!(
+            classify_compose_version_probe(ComposeVersionProbe::Success),
+            DockerState::Running
+        );
+        assert_eq!(
+            classify_compose_version_probe(ComposeVersionProbe::BinaryNotFound),
+            DockerState::NotInstalled
+        );
+        assert_eq!(
+            classify_compose_version_probe(ComposeVersionProbe::Timeout),
+            DockerState::NotRunning
+        );
     }
 
     #[test]
