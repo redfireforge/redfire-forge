@@ -755,10 +755,46 @@ pub async fn stop_all_stacks(app: AppHandle) -> Result<(), String> {
             errors.push((*key).to_string());
         }
     }
+    down_orphaned_rff_projects().await;
     if errors.is_empty() {
         Ok(())
     } else {
         Err(format!("Failed to stop: {}", errors.join(", ")))
+    }
+}
+
+/// Quit path: do not extract (that mutex can block behind a mid-pull prefetch).
+pub async fn stop_rff_projects_for_quit() {
+    cancel_all_in_flight_starts();
+    down_orphaned_rff_projects().await;
+}
+
+/// `docker compose ls -q` names that belong to Learning Hub (`rff-*` only).
+pub(crate) fn rff_compose_project_names(ls_output: &str) -> Vec<String> {
+    ls_output
+        .lines()
+        .map(str::trim)
+        .filter(|name| name.starts_with("rff-") && !name.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+async fn down_orphaned_rff_projects() {
+    let mut out = docker_cmd()
+        .args(["compose", "ls", "-q", "--all"])
+        .output()
+        .await;
+    if out.as_ref().map(|o| o.status.success()).unwrap_or(false) == false {
+        out = docker_cmd().args(["compose", "ls", "-q"]).output().await;
+    }
+    let Ok(out) = out else {
+        return;
+    };
+    for name in rff_compose_project_names(&String::from_utf8_lossy(&out.stdout)) {
+        let _ = docker_cmd()
+            .args(["compose", "-p", &name, "down"])
+            .status()
+            .await;
     }
 }
 
@@ -859,6 +895,23 @@ mod tests {
         assert!(oom_in_compose_ps_json(json));
         assert!(!oom_in_compose_ps_json(r#"{"Name":"ok","ExitCode":0}"#));
         assert!(!oom_in_compose_ps_json(""));
+        assert!(oom_in_compose_ps_json(
+            "{\"Name\":\"a\",\"ExitCode\":0}\n{\"Name\":\"b\",\"ExitCode\":137}"
+        ));
+    }
+
+    #[test]
+    fn rff_compose_project_names_ignore_unrelated() {
+        let ls = "rff-graphql\nsales-product-autoassign-postgres\nrff-ws-tls\n\nrff-graphql\n";
+        assert_eq!(
+            rff_compose_project_names(ls),
+            vec![
+                "rff-graphql".to_string(),
+                "rff-ws-tls".to_string(),
+                "rff-graphql".to_string()
+            ]
+        );
+        assert!(rff_compose_project_names("graphql\ntls\n").is_empty());
     }
 
     #[test]

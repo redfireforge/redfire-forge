@@ -16,9 +16,31 @@ pub mod prefs;
 pub mod state;
 
 pub use extract::extract_docker_resources_if_needed;
-pub use lifecycle::stop_all_stacks;
-pub use prefetch::kill_prefetch_on_exit;
-pub use prefs::read_stop_on_close;
+use prefetch::kill_prefetch_on_exit;
+use prefs::read_stop_on_close;
+
+use std::sync::atomic::{AtomicBool, Ordering};
+
+static EXIT_CLEANUP_DONE: AtomicBool = AtomicBool::new(false);
+
+/// Stop lesson stacks (if the quit toggle is on) and kill a mid-pull prefetch.
+/// Safe to call from both `ExitRequested` and `Exit`.
+pub fn on_app_exit(app: &tauri::AppHandle) {
+    if EXIT_CLEANUP_DONE.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    kill_prefetch_on_exit();
+    if !read_stop_on_close(app) {
+        return;
+    }
+    tauri::async_runtime::block_on(async {
+        let _ = tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            lifecycle::stop_rff_projects_for_quit(),
+        )
+        .await;
+    });
+}
 
 #[cfg(test)]
 mod extract_tests {
