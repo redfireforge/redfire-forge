@@ -106,11 +106,28 @@ pub async fn open_docker_desktop() {
 
     #[cfg(target_os = "linux")]
     {
-        let systemd = Command::new("systemctl")
+        // WSL / Linux typically run Docker Engine, not Docker Desktop.
+        let engine = Command::new("systemctl")
+            .args(["start", "docker"])
+            .status()
+            .await;
+        if engine.map(|s| !s.success()).unwrap_or(true) {
+            let sudo_sys = Command::new("sudo")
+                .args(["-n", "systemctl", "start", "docker"])
+                .status()
+                .await;
+            if sudo_sys.map(|s| !s.success()).unwrap_or(true) {
+                let _ = Command::new("sudo")
+                    .args(["-n", "service", "docker", "start"])
+                    .status()
+                    .await;
+            }
+        }
+        let desktop = Command::new("systemctl")
             .args(["--user", "start", "docker-desktop"])
             .status()
             .await;
-        if systemd.map(|s| !s.success()).unwrap_or(true) {
+        if desktop.map(|s| !s.success()).unwrap_or(true) {
             let _ = Command::new("docker").arg("desktop").spawn();
         }
     }
