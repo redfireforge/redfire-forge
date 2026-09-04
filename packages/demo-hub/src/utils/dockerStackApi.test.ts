@@ -6,13 +6,20 @@ vi.mock('@shared/utils/platform', () => ({
 
 import {
   formatPortConflictCopy,
+  getStackStatus,
   parseLastRunLogText,
   parsePortConflictDetail,
   parsePrefetchError,
   parseStackLimitKeys,
+  daemonStateFromStartFailed,
   parseStartError,
+  prefetchDockerImages,
   prefetchErrorCopy,
   readLastRunLog,
+  removeDockerImages,
+  startDockerStack,
+  stopAllStacks,
+  uninstallCleanup,
 } from './dockerStackApi';
 import { MAX_DOCKER_STACK_LOG_LINES } from '../stores/dockerStackStore';
 
@@ -72,6 +79,13 @@ describe('parseStartError', () => {
     });
   });
 
+  it('maps helper daemon START_FAILED copy to A / B / B2', () => {
+    expect(daemonStateFromStartFailed('Docker is not installed.')).toBe('notInstalled');
+    expect(daemonStateFromStartFailed('Docker Desktop is not running.')).toBe('notRunning');
+    expect(daemonStateFromStartFailed('Docker Compose V2 is required.')).toBe('outdatedCompose');
+    expect(daemonStateFromStartFailed('compose exploded')).toBeNull();
+  });
+
   it('treats other messages as start-failed', () => {
     expect(parseStartError('START_FAILED:compose exploded')).toEqual({
       kind: 'start-failed',
@@ -113,6 +127,26 @@ describe('last-run log helpers', () => {
 
   it('readLastRunLog is a no-op when not Tauri', async () => {
     await expect(readLastRunLog('graphql')).resolves.toBeNull();
+  });
+});
+
+describe('bare-web dockerStackApi', () => {
+  it('getStackStatus is null when the helper is absent', async () => {
+    await expect(getStackStatus('graphql')).resolves.toBeNull();
+  });
+
+  it('startDockerStack throws START_FAILED and never invokes Tauri', async () => {
+    await expect(startDockerStack('graphql')).rejects.toThrow('START_FAILED:Docker helper unavailable');
+  });
+
+  it('stopAllStacks is a no-op when the helper is absent', async () => {
+    await expect(stopAllStacks()).resolves.toBe(false);
+  });
+
+  it('prefetch / remove / uninstall never invoke Tauri on web', async () => {
+    await expect(prefetchDockerImages('graphql')).resolves.toBeUndefined();
+    await expect(removeDockerImages('graphql')).resolves.toEqual([]);
+    await expect(uninstallCleanup()).resolves.toEqual({ stopped: [], errors: [] });
   });
 });
 

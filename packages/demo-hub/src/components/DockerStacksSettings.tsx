@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { isTauri } from '@shared/utils/platform';
 import type { DockerStackKey } from '../types';
 import { useDockerImagePrefetch } from '../hooks/useDockerImagePrefetch';
+import { useLocalDockerHelper } from '../hooks/useLocalDockerHelper';
 import { useDockerStacks } from '../stores/dockerStackStore';
 import {
   DOCKER_STACK_KEYS,
@@ -12,6 +13,7 @@ import {
   markDockerStackStopped,
 } from '../utils/dockerStack';
 import {
+  checkDockerState,
   getDockerImageSizes,
   getStackStatus,
   getStopOnClose,
@@ -58,16 +60,37 @@ export function DockerStacksSettings({ confirm }: DockerStacksSettingsProps) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [statusKnown, setStatusKnown] = useState<Set<string>>(() => new Set());
   const desktop = isTauri();
+  const { helperOk } = useLocalDockerHelper();
+  const canControl = desktop || (!desktop && helperOk);
   const prefetch = useDockerImagePrefetch();
   const actionLockRef = useRef(false);
+  const refreshGenRef = useRef(0);
 
   const refreshRunning = useCallback(async () => {
+    const gen = ++refreshGenRef.current;
+    const docker = await checkDockerState();
+    if (gen !== refreshGenRef.current) return;
+    if (docker !== 'running') {
+      // Docker-down `compose ps` fails 13 times and leaves stale Stop rows.
+      if (
+        docker === 'notInstalled'
+        || docker === 'notRunning'
+        || docker === 'outdatedCompose'
+      ) {
+        for (const key of DOCKER_STACK_KEYS) {
+          setRunning(key, false);
+        }
+        setStatusKnown(new Set(DOCKER_STACK_KEYS));
+      }
+      return;
+    }
     const results = await Promise.all(
       DOCKER_STACK_KEYS.map(async (key) => {
         const up = await getStackStatus(key);
         return [key, up] as const;
       }),
     );
+    if (gen !== refreshGenRef.current) return;
     const known: DockerStackKey[] = [];
     for (const [key, up] of results) {
       // A failed probe is not “stopped” — keep the last known row so Stop
@@ -107,9 +130,18 @@ export function DockerStacksSettings({ confirm }: DockerStacksSettingsProps) {
 
   useEffect(() => {
     void getStopOnClose().then(setStopOnCloseState);
-    void refreshRunning();
     void refreshUsage();
-  }, [refreshRunning, refreshUsage]);
+  }, [refreshUsage]);
+
+  useEffect(() => {
+    // Loopback web without a helper still has isLocalWebDockerEnabled — do not
+    // fire 13× GET /status 404s on first paint / hosted-looking localhost.
+    if (!desktop && !helperOk) return;
+    void refreshRunning();
+    return () => {
+      refreshGenRef.current += 1;
+    };
+  }, [desktop, helperOk, refreshRunning]);
 
   const toggleStopOnClose = async (enabled: boolean) => {
     setStopOnCloseState(enabled);
@@ -144,6 +176,9 @@ export function DockerStacksSettings({ confirm }: DockerStacksSettingsProps) {
       });
     } catch (err) {
       setActionError(err instanceof Error ? err.message : String(err));
+      // Compose may already be down (or Docker quit) — refresh so the row
+      // does not stay on Stop until the next Settings visit.
+      await refreshRunning();
     } finally {
       actionLockRef.current = false;
       setBusyKey(null);
@@ -156,9 +191,14 @@ export function DockerStacksSettings({ confirm }: DockerStacksSettingsProps) {
     setBusyKey('all');
     setActionError(null);
     try {
-      await stopAllStacks();
-      DOCKER_STACK_KEYS.forEach((k) => setRunning(k, false));
-      setStatusKnown(new Set(DOCKER_STACK_KEYS));
+      const ran = await stopAllStacks();
+      if (!ran) {
+        setActionError('Docker helper unavailable');
+        await refreshRunning();
+        return;
+      }
+      // Do not optimistic-clear: compose ls can return [] / a down can fail
+      // while getStackStatus then returns null and the gate would lie.
       await refreshRunning();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : String(err));
@@ -266,7 +306,10 @@ export function DockerStacksSettings({ confirm }: DockerStacksSettingsProps) {
         </p>
         {!desktop && (
           <p className="docker-settings__web-note" data-testid="docker-settings-web-note">
-            Docker stack management is available in the Learning Hub desktop app.
+            Start, stop, and logs work if you cloned this repo and run <code>npm run dev</code> on
+            this machine. They are not available on the hosted demo or in a downloaded Learning Hub
+            app (that app has its own Start Stack). Image download, remove, and uninstall stay in
+            the desktop app.
           </p>
         )}
         {actionError && (
@@ -291,7 +334,7 @@ export function DockerStacksSettings({ confirm }: DockerStacksSettingsProps) {
                     type="button"
                     className="btn btn-sm"
                     data-testid={`docker-settings-stop-${key}`}
-                    disabled={!desktop || uninstalling || busyKey != null || dockerStackStopBusy(key, busyKey)}
+                    disabled={!canControl || uninstalling || busyKey != null || dockerStackStopBusy(key, busyKey)}
                     onClick={() => { void handleStopStack(key); }}
                   >
                     Stop
@@ -310,7 +353,7 @@ export function DockerStacksSettings({ confirm }: DockerStacksSettingsProps) {
             type="button"
             className="btn btn-sm docker-settings__stop-all"
             data-testid="docker-settings-stop-all"
-            disabled={!desktop || uninstalling || busyKey != null}
+            disabled={!canControl || uninstalling || busyKey != null}
             onClick={() => { void handleStopAll(); }}
           >
             Stop all running stacks

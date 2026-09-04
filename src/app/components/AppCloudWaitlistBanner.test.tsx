@@ -68,6 +68,17 @@ describe('AppCloudWaitlistBanner', () => {
     expect(openExternalUrl).toHaveBeenCalledWith('https://tally.so/r/1AaNzQ?source=in-app');
   });
 
+  it('opens Privacy Policy and waitlist URLs via openExternalUrl', async () => {
+    render(<AppCloudWaitlistBanner />);
+    await screen.findByRole('status', { name: 'RedfireForge Cloud waitlist' });
+    fireEvent.click(screen.getByRole('link', { name: 'Privacy Policy' }));
+    expect(openExternalUrl).toHaveBeenCalledWith(
+      'https://github.com/redfireforge/redfireforge-public/blob/master/PRIVACY.md',
+    );
+    fireEvent.click(screen.getByRole('link', { name: 'Join the waitlist →' }));
+    expect(openExternalUrl).toHaveBeenCalledWith('https://tally.so/r/1AaNzQ?source=in-app');
+  });
+
   it('persists dismiss and hides the banner', async () => {
     render(<AppCloudWaitlistBanner />);
     const banner = await screen.findByRole('status', { name: 'RedfireForge Cloud waitlist' });

@@ -259,15 +259,15 @@ describe('DockerStackControls', () => {
   });
 
   it('keeps Start disabled until cert expiry is known', async () => {
-    let resolveCert: (value: { expiresAt: string; daysRemaining: number }) => void = () => {};
-    checkCertExpiry.mockReturnValue(new Promise((resolve) => {
-      resolveCert = resolve;
+    let resolveManifest: (value: { certExpiresAt: string }) => void = () => {};
+    getStackManifest.mockReturnValue(new Promise((resolve) => {
+      resolveManifest = resolve;
     }));
     render(<DockerStackControls stackKey="graphql-tls" />);
     await act(() => Promise.resolve());
     expect(screen.getByTestId('prereq-start-stack')).toBeDisabled();
     await act(async () => {
-      resolveCert({ expiresAt: '2020-01-01', daysRemaining: -10 });
+      resolveManifest({ certExpiresAt: '2000-01-01' });
       await Promise.resolve();
     });
     expect(screen.getByTestId('prereq-cert-expired')).toBeTruthy();
@@ -275,12 +275,19 @@ describe('DockerStackControls', () => {
   });
 
   it('warns when a cert is expiring and blocks when expired', async () => {
-    checkCertExpiry.mockResolvedValue({ expiresAt: '2026-09-10', daysRemaining: 8 });
+    const now = new Date();
+    const soon = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 8));
+    const soonAt = [
+      soon.getUTCFullYear(),
+      String(soon.getUTCMonth() + 1).padStart(2, '0'),
+      String(soon.getUTCDate()).padStart(2, '0'),
+    ].join('-');
+    getStackManifest.mockResolvedValue({ certExpiresAt: soonAt, minMemoryMb: 512 });
     const { unmount } = render(<DockerStackControls stackKey="graphql-tls" />);
     await act(() => Promise.resolve());
     expect(screen.getByTestId('prereq-cert-expiring').textContent).toContain('8 days');
     unmount();
-    checkCertExpiry.mockResolvedValue({ expiresAt: '2020-01-01', daysRemaining: -10 });
+    getStackManifest.mockResolvedValue({ certExpiresAt: '2000-01-01', minMemoryMb: 512 });
     render(<DockerStackControls stackKey="graphql-tls" />);
     await act(() => Promise.resolve());
     expect(screen.getByTestId('prereq-cert-expired')).toBeTruthy();
