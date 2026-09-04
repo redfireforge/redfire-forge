@@ -1,2 +1,7 @@
 [http]
 proxy = ""
+
+# MSVC LNK4099 (missing PDB for static libs) is noisy and can fail the link
+# on some VS setups. Ignore it so Learning Hub `tauri:dev:demo` can build.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "link-arg=/IGNORE:4099"]
