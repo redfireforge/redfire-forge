@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, type MouseEvent } from 'react';
 import { readKey, writeKey } from '../../shared/utils/storage';
+import { openExternalUrl } from '../../shared/utils/openExternalUrl';
 
 const TALLY_URL = 'https://tally.so/r/1AaNzQ';
 const PRIVACY_URL = 'https://github.com/redfireforge/redfireforge-public/blob/master/PRIVACY.md';
@@ -23,6 +24,11 @@ export function AppCloudWaitlistBanner() {
     writeKey(STORAGE_KEY, 'true');
   };
 
+  const openLink = useCallback((url: string) => (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    void openExternalUrl(url);
+  }, []);
+
   if (isAutomatedBrowser() || dismissed !== false) return null;
 
   return (
@@ -30,7 +36,13 @@ export function AppCloudWaitlistBanner() {
       <span className="waitlist-banner__icon" aria-hidden>☁️</span>
       <span className="waitlist-banner__text">
         <strong>RedfireForge Cloud</strong> is coming — hosted testing, team workspaces &amp; CI integration.{' '}
-        <a className="waitlist-banner__privacy" href={PRIVACY_URL} target="_blank" rel="noopener noreferrer">
+        <a
+          className="waitlist-banner__privacy"
+          href={PRIVACY_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={openLink(PRIVACY_URL)}
+        >
           Privacy Policy
         </a>
       </span>
@@ -39,6 +51,7 @@ export function AppCloudWaitlistBanner() {
         href={`${TALLY_URL}?source=in-app`}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={openLink(`${TALLY_URL}?source=in-app`)}
       >
         Join the waitlist →
       </a>

@@ -133,6 +133,26 @@ export function inferDockerStackKey(dockerCommand?: string): DockerStackKey | un
   return undefined;
 }
 
+/**
+ * Hide the login name in copy/paste commands. Absolute extract paths still
+ * resolve correctly via `$HOME` / `%USERPROFILE%` when the user runs them.
+ */
+export function abbreviateUserHomePath(path: string, windows = isWindowsHost()): string {
+  const unquoted = path.length >= 2 && path.startsWith('"') && path.endsWith('"')
+    ? path.slice(1, -1)
+    : path;
+  if (windows) {
+    const native = unquoted.replace(/\//g, '\\');
+    const m = /^[A-Za-z]:\\Users\\[^\\]+(\\.*)$/i.exec(native);
+    if (m) return `%USERPROFILE%${m[1]}`;
+    return native;
+  }
+  // /home/<user>/… (Linux) or /Users/<user>/… (macOS)
+  const m = /^\/(?:home|Users)\/[^/]+(\/.*)$/.exec(unquoted);
+  if (m) return `$HOME${m[1]}`;
+  return unquoted;
+}
+
 export function quoteShellPath(path: string, windows = isWindowsHost()): string {
   const unquoted = path.length >= 2 && path.startsWith('"') && path.endsWith('"')
     ? path.slice(1, -1)
@@ -185,7 +205,7 @@ export function rewriteDockerCommandPath(
   extractedDir: string,
   windows = isWindowsHost(),
 ): string {
-  const quoted = quoteShellPath(extractedDir, windows);
+  const quoted = quoteShellPath(abbreviateUserHomePath(extractedDir, windows), windows);
   const finish = (cmd: string) => {
     const formatted = formatDockerCommandForHost(cmd, windows);
     return windows ? dropWindowsHashComments(formatted) : formatted;
