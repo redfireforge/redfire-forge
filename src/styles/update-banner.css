@@ -154,6 +154,7 @@
   font-weight: 600;
   text-decoration: none;
   flex-shrink: 0;
+  cursor: pointer;
   transition: opacity 0.15s;
 }
 
@@ -183,6 +184,7 @@
   opacity: 0.75;
   text-decoration: underline;
   white-space: nowrap;
+  cursor: pointer;
 }
 
 .waitlist-banner__privacy:hover {
