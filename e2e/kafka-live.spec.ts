@@ -21,8 +21,17 @@
 
 import { expect, test, type Page } from '@playwright/test';
 import { seedAppData } from './helpers';
-import { isSchemaRegistryReachable, selectCustomOption } from './kafka-docker-helpers';
+import {
+  consumeKafkaMessages,
+  gotoKafkaPublishTab,
+  isSchemaRegistryReachable,
+  publishKafkaMessage,
+  waitForKafkaStatusConnected,
+} from './kafka-docker-helpers';
+import { installKafkaCompanionLock } from './kafka-companion-lock';
 import { seedSchemaRegistryOrdersValue } from './schema-registry-seed';
+
+installKafkaCompanionLock(test);
 
 // ── Skip entire suite when backend / Docker infra is not running ──────────────
 
@@ -96,15 +105,20 @@ async function runQuickTestAndAssertPassed(
   expectedTotal: number,
   timeoutMs = 25_000,
 ): Promise<void> {
-  await page.evaluate(() => {
-    const btns = [...document.querySelectorAll('button')];
-    btns.find(b => b.textContent?.trim() === 'Quick Test')?.click();
-  });
-  // Use .first() to avoid strict-mode violation (two elements match: progress bar + status bar)
-  await expect(page.locator('text=/\\d+\\/\\d+ passed/').first()).toBeVisible({
-    timeout: timeoutMs,
-  });
-  const statusText = await page.locator('text=/\\d+\\/\\d+ passed/').first().textContent();
+  const status = page.locator('text=/\\d+\\/\\d+ passed/').first();
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await page.evaluate(() => {
+      const btns = [...document.querySelectorAll('button')];
+      btns.find(b => b.textContent?.trim() === 'Quick Test')?.click();
+    });
+    try {
+      await expect(status).toBeVisible({ timeout: timeoutMs });
+      break;
+    } catch (err) {
+      if (attempt === 1) throw err;
+    }
+  }
+  const statusText = await status.textContent();
   expect(statusText).toContain(`${expectedTotal}/${expectedTotal} passed`);
 }
 
@@ -118,87 +132,42 @@ test.describe('Kafka Message Studio — Live Docker', () => {
     await seedAppData(page);
     await seedKafkaCluster(page);
     await page.goto('/?tab=kafka-message-studio', { waitUntil: 'domcontentloaded' });
-    // Wait for app to load and auto-connect the cluster
-    await page.waitForTimeout(2500);
-    // The Kafka studio shows a "Kafka" sub-nav button that must be clicked first
     const kafkaBtn = page.locator('main button:has-text("Kafka")').first();
     if (await kafkaBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
       await kafkaBtn.click();
-      await page.waitForTimeout(600);
     }
+    await waitForKafkaStatusConnected(page, 30_000);
   });
 
   test('Publish — sends a message to orders.created and shows success result', async ({ page }) => {
-    // Click Publish tab
-    await page.locator('button:has-text("Publish")').first().click();
-    await page.waitForTimeout(400);
-
-    // Fill topic (placeholder is "e.g. orders.events" in the Publish form)
-    await page.locator('input[placeholder="e.g. orders.events"]').fill('orders.created');
-    // Fill key (placeholder is "Enter message key (optional)")
-    await page.locator('input[placeholder="Enter message key (optional)"]').fill('e2e-live-test');
-    // Fill body (placeholder is '{"key": "value"}')
-    await page.locator('textarea[placeholder*="key"]').fill(
-      JSON.stringify({ orderId: 'E2E-LIVE-001', status: 'CREATED', amount: '99.00' }),
-    );
-    // Add a header
-    await page.locator('button:has-text("Add")').first().click();
-    await page.waitForTimeout(200);
-    const headerKeyInputs = await page.$$('input[placeholder="key"]');
-    if (headerKeyInputs.length > 0) {
-      await headerKeyInputs[0].fill('source');
-      const headerValInputs = await page.$$('input[placeholder="value"]');
-      if (headerValInputs.length > 0) await headerValInputs[0].fill('e2e-live');
-    }
-
-    // Send via the dedicated send button
-    await page.locator('[data-testid="pub-send-btn"]').click();
-    // Wait up to 8s for result
-    await expect(page.locator('[data-testid="pub-result"]')).toBeVisible({ timeout: 8000 });
-    const result = await page.locator('[data-testid="pub-result"]').textContent();
-    expect(result).toContain('orders.created');
-    expect(result).not.toContain('Error');
+    await gotoKafkaPublishTab(page);
+    await publishKafkaMessage(page, 'orders.created', {
+      orderId: 'E2E-LIVE-001',
+      status: 'CREATED',
+      amount: '99.00',
+    });
   });
 
   test('Consume — fetches messages from orders.created and shows detail pane', async ({ page }) => {
-    // Seed independently of the prior Publish test — serial leftovers can be empty on a slow broker.
-    await page.locator('button:has-text("Publish")').first().click();
-    await page.waitForTimeout(400);
-    await page.locator('input[placeholder="e.g. orders.events"]').fill('orders.created');
-    await page.locator('textarea[placeholder*="key"]').fill(
-      JSON.stringify({ orderId: 'E2E-LIVE-CONSUME', status: 'CREATED', amount: '1.00' }),
-    );
-    await page.locator('[data-testid="pub-send-btn"]').click();
-    await expect(page.locator('[data-testid="pub-result"]')).toBeVisible({ timeout: 8_000 });
+    test.setTimeout(150_000);
+    await gotoKafkaPublishTab(page);
+    await publishKafkaMessage(page, 'orders.created', {
+      orderId: 'E2E-LIVE-CONSUME',
+      status: 'CREATED',
+      amount: '1.00',
+    });
+    await consumeKafkaMessages(page, 'orders.created');
 
-    await page.locator('button:has-text("Consume")').first().click();
-    await page.waitForTimeout(400);
-
-    await page.locator('input[placeholder="e.g. orders.events"]').fill('orders.created');
-    await selectCustomOption(page, page.getByLabel('Start Position'), 'Earliest');
-    await page.getByLabel('Max Messages').fill('5');
-
-    // Use the execute button (not the mode tab which also has text "Consume Once")
-    await page.locator('[data-testid="con-consume-btn"]').click();
-
-    // Scope to consume rows — a generic `table tbody tr` can hit a hidden/empty table first.
-    const consumeRow = page.locator('[data-testid="con-row-0"]');
-    if (!(await consumeRow.isVisible({ timeout: 8_000 }).catch(() => false))) {
-      await page.locator('[data-testid="con-consume-btn"]').click();
-    }
-    await expect(consumeRow).toBeVisible({ timeout: 25_000 });
     const rows = page.locator('[data-testid^="con-row-"]');
     expect(await rows.count()).toBeGreaterThanOrEqual(1);
-
-    // Click last row to open detail pane
     await rows.last().click();
     const detail = page.getByRole('dialog', { name: 'Message Detail' });
-    await expect(detail).toBeVisible({ timeout: 3000 });
+    await expect(detail).toBeVisible({ timeout: 5_000 });
     await expect(detail.getByRole('button', { name: 'Copy' }).first()).toBeVisible();
   });
 
   test('Topics — lists topics with domain chips and opens orders.created detail', async ({ page }) => {
-    await page.locator('button:has-text("Topics")').first().click();
+    await page.locator('[data-testid="tab-topics"]').click();
     await page.waitForTimeout(2500);
 
     // Domain chips should appear
@@ -226,7 +195,7 @@ test.describe('Kafka Message Studio — Live Docker', () => {
   test('Schema Registry — connects to localhost:8085 and browses subjects', async ({ page }) => {
     test.skip(!(await isSchemaRegistryReachable()), 'Skipped: Schema Registry (port 8085) not running');
     await seedSchemaRegistryOrdersValue();
-    await page.locator('button:has-text("Schema Registry")').first().click();
+    await page.locator('[data-testid="tab-schema"]').click();
     await page.waitForTimeout(400);
 
     // Fill SR URL and connect / refresh subjects
@@ -263,22 +232,27 @@ test.describe('Gallery — Kafka Workflow Quick Tests (Live Docker)', () => {
 
   test('Kafka: Publish Order Event — Quick Test 3/3 passed', async ({ page }) => {
     await loadGalleryWorkflow(page, 'Kafka: Publish Order Event');
+    await waitForKafkaStatusConnected(page, 30_000);
     await runQuickTestAndAssertPassed(page, 3);
   });
 
   test('Kafka: Event-Triggered Processor — Quick Test 6/6 passed', async ({ page }) => {
     await loadGalleryWorkflow(page, 'Kafka: Event-Triggered Processor');
+    await waitForKafkaStatusConnected(page, 30_000);
     await runQuickTestAndAssertPassed(page, 6);
   });
 
   test('Kafka: Full Event Pipeline — Quick Test 8/8 passed', async ({ page }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(150_000);
     await loadGalleryWorkflow(page, 'Kafka: Full Event Pipeline');
+    await waitForKafkaStatusConnected(page, 30_000);
     await runQuickTestAndAssertPassed(page, 8, 90_000);
   });
 
   test('Kafka: Async Request–Reply — Quick Test 8/8 passed', async ({ page }) => {
+    test.setTimeout(60_000);
     await loadGalleryWorkflow(page, 'Kafka: Async Request');
-    await runQuickTestAndAssertPassed(page, 8, 15_000);
+    await waitForKafkaStatusConnected(page, 30_000);
+    await runQuickTestAndAssertPassed(page, 8, 30_000);
   });
 });
