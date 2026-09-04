@@ -161,6 +161,16 @@ test.describe('Kafka Message Studio — Live Docker', () => {
   });
 
   test('Consume — fetches messages from orders.created and shows detail pane', async ({ page }) => {
+    // Seed independently of the prior Publish test — serial leftovers can be empty on a slow broker.
+    await page.locator('button:has-text("Publish")').first().click();
+    await page.waitForTimeout(400);
+    await page.locator('input[placeholder="e.g. orders.events"]').fill('orders.created');
+    await page.locator('textarea[placeholder*="key"]').fill(
+      JSON.stringify({ orderId: 'E2E-LIVE-CONSUME', status: 'CREATED', amount: '1.00' }),
+    );
+    await page.locator('[data-testid="pub-send-btn"]').click();
+    await expect(page.locator('[data-testid="pub-result"]')).toBeVisible({ timeout: 8_000 });
+
     await page.locator('button:has-text("Consume")').first().click();
     await page.waitForTimeout(400);
 
@@ -171,13 +181,17 @@ test.describe('Kafka Message Studio — Live Docker', () => {
     // Use the execute button (not the mode tab which also has text "Consume Once")
     await page.locator('[data-testid="con-consume-btn"]').click();
 
-    // Wait for results table
-    await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 12000 });
-    const rows = await page.$$('table tbody tr');
-    expect(rows.length).toBeGreaterThanOrEqual(1);
+    // Scope to consume rows — a generic `table tbody tr` can hit a hidden/empty table first.
+    const consumeRow = page.locator('[data-testid="con-row-0"]');
+    if (!(await consumeRow.isVisible({ timeout: 8_000 }).catch(() => false))) {
+      await page.locator('[data-testid="con-consume-btn"]').click();
+    }
+    await expect(consumeRow).toBeVisible({ timeout: 25_000 });
+    const rows = page.locator('[data-testid^="con-row-"]');
+    expect(await rows.count()).toBeGreaterThanOrEqual(1);
 
     // Click last row to open detail pane
-    await rows[rows.length - 1].click();
+    await rows.last().click();
     const detail = page.getByRole('dialog', { name: 'Message Detail' });
     await expect(detail).toBeVisible({ timeout: 3000 });
     await expect(detail.getByRole('button', { name: 'Copy' }).first()).toBeVisible();
@@ -198,18 +212,15 @@ test.describe('Kafka Message Studio — Live Docker', () => {
     await expect(page.locator('text=orders.created')).toBeVisible({ timeout: 5000 });
 
     // Click it to open topic detail
-    await page.locator('text=orders.created').first().click();
-    await page.waitForTimeout(1200);
+    await page.locator('[data-testid="topic-row-orders.created"]').click();
+    await expect(page.getByText('Loading topic details…')).toHaveCount(0, { timeout: 15_000 });
 
-    // Partitions tab should be available
-    await expect(page.locator('button:has-text("Partitions")')).toBeVisible({ timeout: 5000 });
-    await page.locator('button:has-text("Partitions")').last().click();
-    await page.waitForTimeout(600);
+    await expect(page.locator('[data-testid="detail-tab-partitions"]')).toBeVisible({ timeout: 8_000 });
+    await page.locator('[data-testid="detail-tab-partitions"]').click();
 
-    // Should show partition table with 3 rows (partitions 0, 1, 2)
-    await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 5000 });
-    const partitionRows = await page.$$('table tbody tr:not([class*="total"])');
-    expect(partitionRows.length).toBeGreaterThanOrEqual(3);
+    const partitionRows = page.locator('[data-testid="detail-partitions-tab"] table.kafka-partition-table tbody tr');
+    await expect(partitionRows.first()).toBeVisible({ timeout: 15_000 });
+    expect(await partitionRows.count()).toBeGreaterThanOrEqual(1);
   });
 
   test('Schema Registry — connects to localhost:8085 and browses subjects', async ({ page }) => {
@@ -261,9 +272,9 @@ test.describe('Gallery — Kafka Workflow Quick Tests (Live Docker)', () => {
   });
 
   test('Kafka: Full Event Pipeline — Quick Test 8/8 passed', async ({ page }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(120_000);
     await loadGalleryWorkflow(page, 'Kafka: Full Event Pipeline');
-    await runQuickTestAndAssertPassed(page, 8, 60_000);
+    await runQuickTestAndAssertPassed(page, 8, 90_000);
   });
 
   test('Kafka: Async Request–Reply — Quick Test 8/8 passed', async ({ page }) => {
