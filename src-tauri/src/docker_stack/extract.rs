@@ -15,6 +15,10 @@ const SKIP_DIR_NAMES: &[&str] = &["node_modules", ".git", ".DS_Store", "target",
 /// One extract at a time — setup spawn and `get_docker_stack_path` can overlap.
 static EXTRACT_GATE: OnceLock<Mutex<()>> = OnceLock::new();
 
+/// The lesson gate polls `get_stack_status` every 3s; each call hits extract.
+/// Log the skip once per process so relaunch still shows it without flooding.
+static SKIP_EXTRACT_LOGGED: OnceLock<()> = OnceLock::new();
+
 fn extract_gate() -> std::sync::MutexGuard<'static, ()> {
     EXTRACT_GATE
         .get_or_init(|| Mutex::new(()))
@@ -244,7 +248,12 @@ fn extract_docker_resources_if_needed_locked(app: &AppHandle) {
     let extracted_version = fs::read_to_string(&version_file).unwrap_or_default();
     let version_ok = extracted_version.trim() == current_version;
     if version_ok && extraction_looks_complete(&docker_dir) {
-        log::info!("[docker] Resources up to date (v{current_version}) — skipping extraction");
+        // Hot path: PrerequisiteGate / Settings poll status every few seconds.
+        if SKIP_EXTRACT_LOGGED.set(()).is_ok() {
+            log::info!(
+                "[docker] Resources up to date (v{current_version}) — skipping extraction"
+            );
+        }
         return;
     }
 
