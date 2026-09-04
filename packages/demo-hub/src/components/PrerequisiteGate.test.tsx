@@ -699,7 +699,7 @@ describe('PrerequisiteGate', () => {
     await act(() => vi.advanceTimersByTimeAsync(100));
     const text = screen.getByTestId('prereq-command').textContent ?? '';
     expect(text).toContain(
-      'cd "/Users/me/Library/Application Support/com.redfireforge.desktop.demo/docker/graphql" && docker compose -p rff-graphql up -d',
+      'cd "$HOME/Library/Application Support/com.redfireforge.desktop.demo/docker/graphql" && docker compose -p rff-graphql up -d',
     );
     expect(text).not.toContain('git clone');
     expect(text).not.toContain('cd docker/graphql');
@@ -726,12 +726,12 @@ describe('PrerequisiteGate', () => {
       );
       await act(() => vi.advanceTimersByTimeAsync(100));
       const text = screen.getByTestId('prereq-command').textContent ?? '';
-      expect(text).toContain('C:');
       expect(text).toContain(
-        'cd "C:\\Users\\me\\AppData\\Roaming\\com.redfireforge.desktop.demo\\docker\\graphql"',
+        'cd "%USERPROFILE%\\AppData\\Roaming\\com.redfireforge.desktop.demo\\docker\\graphql"',
       );
       expect(text).toContain('docker compose -p rff-graphql up -d');
       expect(text).not.toContain('&&');
+      expect(text).not.toContain('C:\\Users\\me');
       expect(text).not.toContain('git clone');
       expect(screen.queryByTestId('prereq-windows-paste-hint')).toBeNull();
     } finally {
