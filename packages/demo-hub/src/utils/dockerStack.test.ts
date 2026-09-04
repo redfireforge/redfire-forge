@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { stripCertGenerationFromCommand } from './dockerCommandDisplay';
 import {
+  abbreviateUserHomePath,
   inferDockerStackKey,
   lessonWantsComposeBuild,
   quoteShellPath,
@@ -124,6 +125,27 @@ describe('formatOtherRunningStacks', () => {
   });
 });
 
+describe('abbreviateUserHomePath', () => {
+  it('rewrites Linux /home/<user> to $HOME', () => {
+    expect(abbreviateUserHomePath('/home/wwlee/.local/share/com.redfireforge.desktop.demo/docker/grpc', false))
+      .toBe('$HOME/.local/share/com.redfireforge.desktop.demo/docker/grpc');
+  });
+
+  it('rewrites macOS /Users/<user> to $HOME', () => {
+    expect(abbreviateUserHomePath('/Users/me/Library/Application Support/com.redfireforge.desktop.demo/docker/graphql', false))
+      .toBe('$HOME/Library/Application Support/com.redfireforge.desktop.demo/docker/graphql');
+  });
+
+  it('rewrites Windows user profile to %USERPROFILE%', () => {
+    expect(abbreviateUserHomePath('C:\\Users\\me\\AppData\\Roaming\\com.redfireforge.desktop.demo\\docker\\graphql', true))
+      .toBe('%USERPROFILE%\\AppData\\Roaming\\com.redfireforge.desktop.demo\\docker\\graphql');
+  });
+
+  it('leaves non-home paths unchanged', () => {
+    expect(abbreviateUserHomePath('/tmp/grpc', false)).toBe('/tmp/grpc');
+  });
+});
+
 describe('rewriteDockerCommandPath', () => {
   it('replaces cd docker/<dir> and keeps the rest of a multi-line command', () => {
     const cmd = [
@@ -133,8 +155,20 @@ describe('rewriteDockerCommandPath', () => {
       'npm run server',
     ].join('\n');
     expect(rewriteDockerCommandPath(cmd, '/Users/me/Library/Application Support/com.redfireforge.desktop.demo/docker/grpc', false))
-      .toContain('cd "/Users/me/Library/Application Support/com.redfireforge.desktop.demo/docker/grpc" && docker compose --profile spring up -d');
+      .toContain('cd "$HOME/Library/Application Support/com.redfireforge.desktop.demo/docker/grpc" && docker compose --profile spring up -d');
     expect(rewriteDockerCommandPath(cmd, '/tmp/grpc', false)).toContain('npm run server');
+  });
+
+  it('hides the Linux username behind $HOME in displayed commands', () => {
+    expect(
+      rewriteDockerCommandPath(
+        'cd docker/grpc && docker compose -p rff-grpc-family up -d',
+        '/home/wwlee/.local/share/com.redfireforge.desktop.demo/docker/grpc',
+        false,
+      ),
+    ).toBe(
+      'cd "$HOME/.local/share/com.redfireforge.desktop.demo/docker/grpc" && docker compose -p rff-grpc-family up -d',
+    );
   });
 
   it('rewrites -f docker/... compose files to cd extracted && docker compose …', () => {
@@ -207,7 +241,7 @@ describe('rewriteDockerCommandPath', () => {
       true,
     );
     expect(win).toBe(
-      'C:\ncd "C:\\Users\\me\\AppData\\Roaming\\com.redfireforge.desktop.demo\\docker\\graphql"\ndocker compose up -d',
+      'cd "%USERPROFILE%\\AppData\\Roaming\\com.redfireforge.desktop.demo\\docker\\graphql"\ndocker compose up -d',
     );
     expect(win).not.toContain('&&');
   });
@@ -222,7 +256,7 @@ describe('rewriteDockerCommandPath', () => {
       true,
     );
     expect(win).toBe(
-      'C:\ncd "C:\\Users\\me\\AppData\\Roaming\\com.redfireforge.desktop.demo\\docker\\graphql\\tls"\ndocker compose up -d\ndocker compose -f docker-compose.mtls.yml up -d',
+      'cd "%USERPROFILE%\\AppData\\Roaming\\com.redfireforge.desktop.demo\\docker\\graphql\\tls"\ndocker compose up -d\ndocker compose -f docker-compose.mtls.yml up -d',
     );
     expect(win).not.toContain('&&');
   });
@@ -239,9 +273,9 @@ describe('rewriteDockerCommandPath', () => {
       'C:\\Users\\me\\AppData\\Roaming\\com.redfireforge.desktop.demo\\docker\\grpc',
       true,
     );
-    expect(win.startsWith('C:\ncd "')).toBe(true);
+    expect(win.startsWith('cd "')).toBe(true);
     expect(win).toContain(
-      'cd "C:\\Users\\me\\AppData\\Roaming\\com.redfireforge.desktop.demo\\docker\\grpc"',
+      'cd "%USERPROFILE%\\AppData\\Roaming\\com.redfireforge.desktop.demo\\docker\\grpc"',
     );
     expect(win).toContain('docker compose --profile spring up -d');
     expect(win).toContain('npm run server');
@@ -257,7 +291,7 @@ describe('rewriteDockerCommandPath', () => {
         true,
       ),
     ).toBe(
-      'C:\ncd "C:\\Users\\me\\AppData\\Roaming\\com.redfireforge.desktop.demo\\docker\\websocket\\socketio"\ndocker compose -f docker-compose.yml up -d',
+      'cd "%USERPROFILE%\\AppData\\Roaming\\com.redfireforge.desktop.demo\\docker\\websocket\\socketio"\ndocker compose -f docker-compose.yml up -d',
     );
   });
 });
