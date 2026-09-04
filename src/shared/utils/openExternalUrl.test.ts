@@ -46,4 +46,16 @@ describe('openExternalUrl', () => {
     await openExternalUrl('');
     expect(open).not.toHaveBeenCalled();
   });
+
+  it('no-ops on non-string urls', async () => {
+    await openExternalUrl(undefined as unknown as string);
+    await openExternalUrl(null as unknown as string);
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('no-ops when window is undefined', async () => {
+    vi.stubGlobal('window', undefined);
+    await openExternalUrl('https://example.com');
+    expect(open).not.toHaveBeenCalled();
+  });
 });
